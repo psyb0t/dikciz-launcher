@@ -16,6 +16,7 @@ This history includes the releases made while Dikciz and Android Lab shared one 
 
 ### Fixed
 
+- Tooling creates the local state directory as the host user before Docker mounts it, so fresh checkouts can write Gradle state.
 - Normal emulator launch grants Dikciz the file access needed to load its configuration, matching reset behavior without clearing saved data.
 
 ## [0.12.0] - 2026-10-06

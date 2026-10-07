@@ -284,6 +284,7 @@ emulator-ready: ensure-dev-image ## Verify the required local emulator image
 
 ensure-dev-image: ## Verify the required local lab image without pulling or rebuilding
 	@docker image inspect "$(DEV_IMAGE)" >/dev/null 2>&1 || { printf '%s\n' "Missing local image: $(DEV_IMAGE)" "Build it: https://github.com/psyb0t/android-lab#build-the-images-locally" >&2; exit 1; }
+	@mkdir --parents "$(STATE_DIRECTORY)"
 
 shell: ensure-dev-image ## Open an isolated controller shell with no Docker socket
 	@$(subst --rm,--rm -it,$(DEV_RUN)) bash
