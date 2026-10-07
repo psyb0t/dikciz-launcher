@@ -4,6 +4,10 @@ This history includes the releases made while Dikciz and Android Lab shared one 
 
 ## Unreleased
 
+### Added
+
+- Codeberg and GitLab mirrors, scheduled mirror issue sync, and public archive jobs.
+
 ### Changed
 
 - Dikciz is a standalone source checkout. Its Makefile consumes versioned Android Lab images built locally, without pulling or silently rebuilding them.
