@@ -1,3 +1,5 @@
+<img src="graphics/dikciz-logo.svg" alt="Dikciz Launcher logo" width="128" height="128">
+
 # Dikciz Launcher
 
 [![CI](https://github.com/psyb0t/dikciz-launcher/actions/workflows/pipeline.yml/badge.svg?branch=main)](https://github.com/psyb0t/dikciz-launcher/actions/workflows/pipeline.yml)
@@ -23,6 +25,7 @@ the normal launcher installed by the lab.
 - [Logs and failure reporting](#logs-and-failure-reporting)
 - [Fossify source updates](#fossify-source-updates)
 - [Verification](#verification)
+- [Agent use](#agent-use)
 - [Upstream](#upstream)
 
 ## Run it
@@ -248,6 +251,12 @@ Dikciz build, seeds its HTML-only test fixture, and leaves screenshots, UI
 dumps, layouts, and the complete pytest log in `.android-lab/shared/artifacts/`. After pytest returns, fails, or is interrupted, it resets only
 Dikciz and `/sdcard/Dikciz` to the bundled starter home. The fixture is never
 left visible for manual inspection.
+
+## Agent use
+
+The [Dikciz Launcher skill](.agents/skills/dikciz-launcher/SKILL.md) teaches agents to install an APK with ADB and operate the launcher. Its [setup reference](.agents/skills/dikciz-launcher/references/setup.md) covers device selection, Android access and WebSocket/MCP connections. Its [capability reference](.agents/skills/dikciz-launcher/references/capabilities.md) lists the launcher, widget, scripting and device-control features. It does not require building the app or setting up Android Lab to install an APK.
+
+The separate [Dikciz Android Lab skill](.agents/skills/dikciz-android-lab/SKILL.md) routes source builds and emulator work to Android Lab's canonical skills, including direct GitHub links when those skills are not installed. Tag publishing selects only `dikciz-launcher` for ClawHub; it excludes the lab integration skill and publishes no plugin bundle.
 
 ## Upstream
 

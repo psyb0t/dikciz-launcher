@@ -6,9 +6,15 @@ This history includes the releases made while Dikciz and Android Lab shared one 
 
 ### Added
 
+- The README displays the Dikciz logo and links to the APK installation and launcher operation skill.
+- A separate lab integration skill links to Android Lab's canonical instructions when its skills are not installed.
+- ClawHub tag publishing selects only the launcher usage skill and excludes lab integration skills and plugins.
+
 - Codeberg and GitLab mirrors, scheduled mirror issue sync, and public archive jobs.
 
 ### Changed
+
+- Generic Android Lab and delegation skills no longer ship as copies in the launcher repository. Android Lab owns its reusable skills.
 
 - Dikciz is a standalone source checkout. Its Makefile consumes versioned Android Lab images built locally, without pulling or silently rebuilding them.
 - Product controls, tests and Fossify refresh scripts belong to this repository. Android Lab supplies the generic toolchain and emulator.
