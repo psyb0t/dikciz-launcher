@@ -34,6 +34,8 @@ make build
 make dikciz-run
 ```
 
+Tool containers use the Docker host's CPU count, capped at 10, with matching Gradle workers. Use `make build ANDROID_LAB_TOOL_CPU_LIMIT=2 ANDROID_LAB_GRADLE_MAX_WORKERS=2` for a smaller build budget. These overrides do not change the emulator's virtual CPU configuration.
+
 Use `make help` for the operation index. `make check-images` checks the two required tags, `make status` shows the stack, and `make stop` stops it without deleting the saved phone. Builds use your host UID/GID. `.android-lab/` holds the Gradle cache, stable signing identity, emulator disk and artifacts; keep it ignored. An existing shared data-directory symlink is supported through explicit bind mounts.
 
 Open the shared emulator at:
