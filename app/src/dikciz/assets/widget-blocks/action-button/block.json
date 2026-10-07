@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "id": "action-button",
+  "title": "Action button",
+  "description": "A button wired to the local Dikciz action bridge.",
+  "previewLabel": "Button that calls an action"
+}

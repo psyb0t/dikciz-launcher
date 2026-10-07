@@ -1,0 +1,29 @@
+"""Constants for the focused script-diagnostics scenario."""
+
+from .constants import DIKCIZ_DEBUG_PACKAGE
+
+
+SCRIPT_DIAGNOSTICS_FAILURE_EVENT = "script_execution_failed"
+SCRIPT_DIAGNOSTICS_INITIAL_SOURCE = 'return { status = "Script diagnostics ready" }'
+SCRIPT_DIAGNOSTICS_LOGGING_NOTIFICATION_ENABLED_KEY = "notifyOnScriptError"
+SCRIPT_DIAGNOSTICS_LOGGING_NOTIFICATION_INTERVAL_KEY = (
+    "scriptErrorNotificationMinimumIntervalMilliseconds"
+)
+SCRIPT_DIAGNOSTICS_NOTIFICATION_CHANNEL_TITLE = "Dikciz script failed"
+SCRIPT_DIAGNOSTICS_NOTIFICATION_DUMP_COMMAND = "dumpsys notification --noredact"
+SCRIPT_DIAGNOSTICS_NOTIFICATION_POSTED_EVENT = "script_error_notification_posted"
+SCRIPT_DIAGNOSTICS_NOTIFICATION_RATE_LIMIT_REASON = "rate_limited"
+SCRIPT_DIAGNOSTICS_NOTIFICATION_SKIPPED_EVENT = "script_error_notification_skipped"
+SCRIPT_DIAGNOSTICS_NOTIFICATION_MINIMUM_INTERVAL_MILLISECONDS = 10_000
+SCRIPT_DIAGNOSTICS_SCRIPT_ID = "script-diagnostics"
+SCRIPT_DIAGNOSTICS_SCRIPT_TITLE = "Script diagnostics"
+SCRIPT_DIAGNOSTICS_SECOND_FAILURE_SOURCE = "local is_running = true\nwhile is_running do end"
+SCRIPT_DIAGNOSTICS_VIEWER_ARTIFACT_NAME = "script-log-viewer.png"
+SCRIPT_DIAGNOSTICS_VIEWER_SEMANTIC_ID = "settings:script-logs"
+SCRIPT_DIAGNOSTICS_VIEWER_TITLE = "Script logs"
+SCRIPT_DIAGNOSTICS_GRANT_NOTIFICATION_COMMAND = (
+    f"pm grant {DIKCIZ_DEBUG_PACKAGE} android.permission.POST_NOTIFICATIONS"
+)
+SCRIPT_DIAGNOSTICS_REVOKE_NOTIFICATION_COMMAND = (
+    f"pm revoke {DIKCIZ_DEBUG_PACKAGE} android.permission.POST_NOTIFICATIONS"
+)

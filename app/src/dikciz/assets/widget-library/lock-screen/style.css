@@ -1,0 +1,24 @@
+:root { color-scheme: dark; }
+
+* { box-sizing: border-box; }
+
+html,
+body { min-height: 100%; margin: 0; }
+
+body { color: #ffe9ef; font: 15px/1.4 system-ui, sans-serif; }
+
+.card {
+  min-height: 100%;
+  padding: 14px;
+  border: 1px solid #9e5f73;
+  border-radius: 18px;
+  background: #311d29;
+}
+
+.eyebrow { margin: 0 0 6px; color: #e895ae; font-size: 10px; font-weight: 800; letter-spacing: .1em; }
+.card h2 { margin: 0 0 8px; font-size: 19px; }
+.card p { margin: 0; color: #f0bbc9; }
+.actions { display: flex; gap: 8px; margin-top: 12px; }
+.card button { border: 0; border-radius: 10px; padding: 9px 11px; background: #ffb1c7; color: #350015; font-weight: 700; }
+.card button.secondary { background: #71364d; color: #ffe9ef; }
+.log { margin-top: 10px !important; color: #df9aac !important; font-size: 11px; }

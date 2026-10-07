@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:label="@string/application_label"
+        android:theme="@style/FixtureTheme">
+        <receiver
+            android:label="@string/fixture_widget_label"
+            android:name=".ConfigurableFixtureWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/configurable_fixture_widget_info" />
+        </receiver>
+
+        <activity
+            android:name=".FixtureWidgetConfigurationActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".FixtureMediaSessionActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".FixtureNotificationActionActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".FixtureAccessibilityActivity"
+            android:exported="true" />
+
+        <receiver
+            android:name=".FixtureNotificationActionReceiver"
+            android:exported="false" />
+    </application>
+</manifest>

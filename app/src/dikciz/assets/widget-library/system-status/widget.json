@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "system-status",
+  "title": "Dikciz diagnostics",
+  "description": "Reads the local diagnostics document and latest bounded log record.",
+  "span": {
+    "columnSpan": 4,
+    "rowSpan": 2
+  }
+}

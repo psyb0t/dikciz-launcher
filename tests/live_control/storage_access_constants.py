@@ -1,0 +1,15 @@
+"""Isolated-emulator controls for first-run shared-storage provisioning."""
+
+STORAGE_ACCESS_ALLOW_MODE = "allow"
+STORAGE_ACCESS_APP_OP = "MANAGE_EXTERNAL_STORAGE"
+STORAGE_ACCESS_APP_OP_COMMAND = "appops set --uid {package_name} {app_op} {mode}"
+STORAGE_ACCESS_ARTIFACT_NAME = "storage-access-control.png"
+STORAGE_ACCESS_CONFIGURATION_UNAVAILABLE_MESSAGE = "launcher configuration is unavailable"
+STORAGE_ACCESS_DENY_MODE = "deny"
+STORAGE_ACCESS_GRANT_SEMANTIC_ID = "storage:grant"
+STORAGE_ACCESS_MCP_CONFIG_GET_REQUEST_ID = 110
+STORAGE_ACCESS_MCP_SNAPSHOT_REQUEST_ID = 111
+STORAGE_ACCESS_MCP_TAP_REQUEST_ID = 112
+STORAGE_ACCESS_SCREEN = "storage_access"
+STORAGE_ACCESS_SETTINGS_PACKAGE = "com.android.settings"
+STORAGE_ACCESS_WIDGET_REFERENCES_KEY = "widgetReferences"

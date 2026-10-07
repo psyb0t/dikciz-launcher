@@ -1,0 +1,30 @@
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -86,12 +86,16 @@
+     flavorDimensions.add("variants")
+     productFlavors {
+         register("core")
++        register("dikciz") {
++            applicationId = "eu.psyb0t.dikciz.launcher"
++        }
+         register("foss")
+         register("gplay")
+     }
+
+     sourceSets {
+         getByName("main").java.directories.add("src/main/kotlin")
++        getByName("dikciz").java.directories.add("src/dikciz/kotlin")
+     }
+
+     compileOptions {
+@@ -141,6 +145,10 @@
+
+ dependencies {
+     implementation(libs.fossify.commons)
++    add("dikcizImplementation", "org.luaj:luaj-jse:3.0.1")
++    add("dikcizImplementation", "androidx.health.connect:connect-client:1.1.0")
++    add("dikcizImplementation", "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
++    add("dikcizImplementation", "at.favre.lib:bcrypt:0.10.2")
+
+     implementation(libs.bundles.room)
+     ksp(libs.androidx.room.compiler)

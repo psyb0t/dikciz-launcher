@@ -1,0 +1,137 @@
+{
+  "version": 4,
+  "limits": {
+    "maxConfigBytes": 1048576,
+    "maxComponentCharacters": 512,
+    "maxHtmlWidgetDocumentBytes": 196608,
+    "maxHtmlWidgetsPerPage": 8,
+    "maxIdentifierCharacters": 80,
+    "maxPages": 24,
+    "maxTextCharacters": 8192,
+    "maxTitleCharacters": 120,
+    "maxWidgetsPerPage": 128
+  },
+  "logging": {
+    "level": "debug",
+    "retentionDays": 7,
+    "maxTotalBytes": 16777216
+  },
+  "launcher": {
+    "home": {
+      "homePageId": "home",
+      "selectedPageId": "home",
+      "selectedThemeId": "dikciz-dark",
+      "nativeGrid": {
+        "columns": 4,
+        "rows": 6,
+        "gapDp": 8,
+        "outerPaddingDp": 12
+      },
+      "styleDefaults": {
+        "widget": {}
+      },
+      "pages": [
+        {
+          "id": "home",
+          "title": "Home",
+          "position": { "column": 0, "row": 0 },
+          "widgets": [
+            {
+              "id": "welcome",
+              "type": "html",
+              "title": "Dikciz",
+              "html": "<article class=\"fixture-card\"><h2>Dikciz</h2><p>Fixture first card</p></article>",
+              "css": ".fixture-card{box-sizing:border-box;min-height:100%;padding:16px;border:1px solid #53667e;border-radius:18px;background:#172232;color:#edf3fb;font:15px/1.45 system-ui,sans-serif}.fixture-card h2,.fixture-card p{margin:0}.fixture-card h2{margin-bottom:10px;font-size:18px}.fixture-card p{color:#c7d3e2}",
+              "enabled": true,
+              "cell": {
+                "column": 0,
+                "row": 0,
+                "columnSpan": 2,
+                "rowSpan": 1
+              }
+            },
+            {
+              "id": "focus",
+              "type": "html",
+              "title": "Focus mode",
+              "html": "<label class=\"fixture-card\"><span>Focus mode</span><input id=\"focus-mode\" type=\"checkbox\"></label>",
+              "css": ".fixture-card{box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;min-height:100%;padding:16px;border:1px solid #53667e;border-radius:18px;background:#172232;color:#edf3fb;font:600 16px system-ui,sans-serif}.fixture-card input{width:22px;height:22px;accent-color:#8cc7ff}",
+              "javascript": "(() => { const input = document.getElementById('focus-mode'); const render = state => { input.checked = Boolean(state.checked); }; input.addEventListener('change', () => selfWidget.patch({state: {...selfWidget.state, checked: input.checked}})); render(selfWidget.state); window.addEventListener('dikciz-state', event => render(event.detail || {})); })();",
+              "state": { "checked": false },
+              "enabled": true,
+              "cell": {
+                "column": 2,
+                "row": 0,
+                "columnSpan": 2,
+                "rowSpan": 1
+              }
+            },
+            {
+              "id": "fixture-detail",
+              "type": "html",
+              "title": "Fixture detail",
+              "html": "<article class=\"fixture-card\"><h2>Fixture detail</h2><p id=\"fixture-detail-body\">Fixture third card</p></article>",
+              "css": ".fixture-card{box-sizing:border-box;min-height:100%;padding:16px;border:1px solid #53667e;border-radius:18px;background:#172232;color:#edf3fb;font:15px/1.45 system-ui,sans-serif}.fixture-card h2,.fixture-card p{margin:0}.fixture-card h2{margin-bottom:10px;font-size:18px}.fixture-card p{color:#c7d3e2}",
+              "javascript": "(() => { const body = document.getElementById('fixture-detail-body'); const render = state => { body.textContent = state.body || 'Fixture third card'; }; render(selfWidget.state); window.addEventListener('dikciz-state', event => render(event.detail || {})); })();",
+              "enabled": true,
+              "cell": {
+                "column": 0,
+                "row": 1,
+                "columnSpan": 4,
+                "rowSpan": 1
+              }
+            }
+          ]
+        },
+        {
+          "id": "notes",
+          "title": "Notes",
+          "position": { "column": 1, "row": 0 },
+          "widgets": [
+            {
+              "id": "notes-intro",
+              "type": "html",
+              "title": "Notes",
+              "html": "<article class=\"fixture-card\"><h2>Notes</h2><p>Fixture notes card</p></article>",
+              "css": ".fixture-card{box-sizing:border-box;min-height:100%;padding:16px;border:1px solid #53667e;border-radius:18px;background:#172232;color:#edf3fb;font:15px/1.45 system-ui,sans-serif}.fixture-card h2,.fixture-card p{margin:0}.fixture-card h2{margin-bottom:10px;font-size:18px}.fixture-card p{color:#c7d3e2}",
+              "enabled": true,
+              "cell": {
+                "column": 0,
+                "row": 0,
+                "columnSpan": 4,
+                "rowSpan": 1
+              }
+            }
+          ]
+        },
+        {
+          "id": "activity",
+          "title": "Activity",
+          "position": { "column": 0, "row": 1 },
+          "widgets": [
+            {
+              "id": "activity-intro",
+              "type": "html",
+              "title": "Activity",
+              "html": "<article class=\"fixture-card\"><h2>Activity</h2><p>Fixture vertical page</p></article>",
+              "css": ".fixture-card{box-sizing:border-box;min-height:100%;padding:16px;border:1px solid #53667e;border-radius:18px;background:#172232;color:#edf3fb;font:15px/1.45 system-ui,sans-serif}.fixture-card h2,.fixture-card p{margin:0}.fixture-card h2{margin-bottom:10px;font-size:18px}.fixture-card p{color:#c7d3e2}",
+              "enabled": true,
+              "cell": {
+                "column": 0,
+                "row": 0,
+                "columnSpan": 4,
+                "rowSpan": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "automation": {
+    "apiVersion": 1,
+    "policies": [],
+    "scripts": []
+  },
+  "scripts": []
+}

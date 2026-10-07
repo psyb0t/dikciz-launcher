@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="application_label">Configurable widget fixture</string>
+    <string name="fixture_widget_label">Configurable fixture</string>
+    <string name="fixture_widget_status_ready">Fixture controls ready</string>
+    <string name="fixture_widget_status_primary">Fixture primary action completed</string>
+    <string name="fixture_widget_status_secondary">Fixture secondary action completed</string>
+    <string name="fixture_widget_media_paused">Fixture media paused, track %1$d</string>
+    <string name="fixture_widget_media_playing">Fixture media playing, track %1$d</string>
+    <string name="fixture_weather_unavailable">Fixture weather is unavailable</string>
+    <string name="fixture_weather_recovered">Fixture weather recovered, 18 C</string>
+    <string name="fixture_accessibility_title">External accessibility fixture</string>
+    <string name="fixture_accessibility_action_count">External action count: %1$d</string>
+    <string name="fixture_accessibility_action">Complete external action</string>
+</resources>

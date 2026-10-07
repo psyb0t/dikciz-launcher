@@ -1,0 +1,4 @@
+# Preserve whitespace in imported Fossify release notes.
+fastlane/metadata/android/en-US/changelogs/*.txt whitespace=-blank-at-eol,-blank-at-eof
+# The upstream Windows wrapper uses CRLF line endings.
+gradlew.bat whitespace=cr-at-eol

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+        The launcher runs on a Material3 activity theme, but the Dikciz sheets are
+        platform android.app.AlertDialog windows. Those resolve their look from the
+        platform alert dialog theme, which is why they arrive as generic light-gray
+        panels. Naming this theme explicitly is what keeps them on the dark surface.
+    -->
+    <style name="DikcizPanelDialog" parent="@android:style/Theme.Material.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/dikciz_panel_background</item>
+        <item name="android:colorBackground">@color/dikciz_brand_background</item>
+        <item name="android:colorAccent">@color/dikciz_brand_cheese</item>
+        <item name="android:textColorPrimary">@color/dikciz_foreground</item>
+        <item name="android:textColorSecondary">@color/dikciz_muted_foreground</item>
+        <item name="android:windowTitleStyle">@style/DikcizPanelDialogTitle</item>
+        <item name="android:windowMinWidthMajor">80%</item>
+        <item name="android:windowMinWidthMinor">92%</item>
+    </style>
+
+    <style name="DikcizPanelDialogTitle" parent="@android:style/TextAppearance.Material.DialogWindowTitle">
+        <item name="android:textColor">@color/dikciz_foreground</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+</resources>

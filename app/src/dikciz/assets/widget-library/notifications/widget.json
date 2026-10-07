@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "notifications",
+  "title": "Post a notification",
+  "description": "Posts a direct native notification through the local bridge.",
+  "span": {
+    "columnSpan": 4,
+    "rowSpan": 2
+  }
+}

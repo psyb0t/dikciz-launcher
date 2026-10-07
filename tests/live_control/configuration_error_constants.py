@@ -1,0 +1,11 @@
+"""Isolated-emulator controls for fatal public-configuration recovery."""
+
+CONFIGURATION_ERROR_ARTIFACT_NAME = "configuration-error-control.png"
+CONFIGURATION_ERROR_CONFIGURATION_UNAVAILABLE_MESSAGE = "launcher configuration is unavailable"
+CONFIGURATION_ERROR_INVALID_CONFIG_ARTIFACT_NAME = "configuration-error-invalid.json"
+CONFIGURATION_ERROR_MCP_CONFIG_GET_REQUEST_ID = 120
+CONFIGURATION_ERROR_MCP_SNAPSHOT_REQUEST_ID = 121
+CONFIGURATION_ERROR_NODES_KEY = "nodes"
+CONFIGURATION_ERROR_ORIGINAL_CONFIG_ARTIFACT_NAME = "configuration-error-original.json"
+CONFIGURATION_ERROR_SCREEN = "configuration_error"
+CONFIGURATION_ERROR_WIDGET_REFERENCES_KEY = "widgetReferences"

@@ -1,0 +1,334 @@
+{
+  "version": 4,
+  "limits": {
+    "maxConfigBytes": 1048576,
+    "maxComponentCharacters": 512,
+    "maxHtmlWidgetDocumentBytes": 196608,
+    "maxHtmlWidgetsPerPage": 8,
+    "maxIdentifierCharacters": 80,
+    "maxPages": 24,
+    "maxTextCharacters": 65536,
+    "maxTitleCharacters": 120,
+    "maxWidgetsPerPage": 128
+  },
+  "logging": {
+    "level": "info",
+    "retentionDays": 7,
+    "maxTotalBytes": 16777216
+  },
+  "launcher": {
+    "home": {
+      "homePageId": "home",
+      "selectedPageId": "home",
+      "selectedThemeId": "dikciz-dark",
+      "nativeGrid": {
+        "columns": 4,
+        "rows": 6,
+        "gapDp": 8,
+        "outerPaddingDp": 12
+      },
+      "styleDefaults": {
+        "widget": {}
+      },
+      "pages": [
+        {
+          "id": "home",
+          "title": "Home",
+          "position": {
+            "column": 0,
+            "row": 0
+          },
+          "widgets": [
+            {
+              "id": "command-deck",
+              "type": "html",
+              "title": "Dikciz control deck",
+              "html": "<main class=\"deck\"><header class=\"hero\"><div><p class=\"eyebrow\">DIK\ud83e\uddc0 LOCAL CONTROL</p><h1 id=\"clock\">--:--</h1><p id=\"date\">Loading clock</p></div><span class=\"live\">LIVE</span></header><section class=\"command-grid\"><article class=\"card blue\"><p class=\"label\">SYSTEM</p><h2>Device snapshot</h2><p id=\"diagnostics\">Waiting for Dikciz.</p><button data-action=\"diagnostics\" type=\"button\">Refresh status</button></article><article class=\"card pink\"><p class=\"label\">ACTION</p><h2>Lock screen</h2><p>Calls the native device-lock action. It needs Dikciz Device administration.</p><button data-action=\"lock\" type=\"button\">Lock now</button><div class=\"recover\" data-recover=\"lock\" hidden><button data-setup=\"lock\" type=\"button\">Set up access</button><button data-retry=\"lock\" type=\"button\">Retry</button></div></article><article class=\"card gold\"><p class=\"label\">NOTIFICATIONS</p><h2>Send a test</h2><p>Calls the native notification action directly from this HTML widget.</p><button data-action=\"notify\" type=\"button\">Send notification</button><div class=\"recover\" data-recover=\"notify\" hidden><button data-setup=\"notify\" type=\"button\">Set up access</button><button data-retry=\"notify\" type=\"button\">Retry</button></div></article><article class=\"card mint\"><p class=\"label\">AUTOMATION</p><h2>Refresh digest</h2><p>Runs the background Lua digest and writes its live state back into this HTML widget.</p><button data-action=\"digest\" type=\"button\">Refresh unread list</button></article></section><section class=\"card feed\"><div class=\"feed-title\"><div><p class=\"label\">LIVE STATE</p><h2>Unread notifications</h2></div><span class=\"chip\" id=\"notification-status\">Watching events</span></div><pre id=\"notifications\">No active notifications.</pre></section><footer><span>Long press this widget for edit, resize, and Fit content.</span><span>Files live in /sdcard/Dikciz/</span></footer></main>",
+              "css": "*{box-sizing:border-box}html,body{min-height:100%;margin:0}body{background:radial-gradient(circle at top right,#273a58 0,#101114 42%);color:#f4f7fb;font:15px/1.45 system-ui,sans-serif}.deck{display:grid;gap:14px;padding:12px}.hero{display:flex;align-items:flex-start;justify-content:space-between;padding:20px;border:2px solid #47648f;border-radius:24px;background:linear-gradient(135deg,#22314b,#151b27 70%);box-shadow:inset 0 1px 0 #ffffff1c}.eyebrow,.label{margin:0;color:#8bc3ff;font-size:11px;font-weight:800;letter-spacing:.12em}.hero h1{margin:4px 0 0;font-size:48px;letter-spacing:-.06em;line-height:1}.hero p:not(.eyebrow){margin:8px 0 0;color:#b6c4d6}.live,.chip{border:1px solid #69e5b4;border-radius:999px;padding:5px 9px;color:#87f2c7;font-size:10px;font-weight:800;letter-spacing:.08em}.command-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.card{min-width:0;padding:16px;border:2px solid #364558;border-radius:19px;background:#19212d;box-shadow:inset 0 1px 0 #ffffff18}.card h2{margin:5px 0 8px;font-size:18px;line-height:1.1}.card p:not(.label){min-height:64px;margin:0 0 14px;color:#c1cedd;font-size:13px}.blue{border-color:#426b9c;background:#17273a}.pink{border-color:#91526f;background:#351d2c}.gold{border-color:#8b7032;background:#302813}.mint{border-color:#3d7c68;background:#173029}.gold .label{color:#f0cf73}.pink .label{color:#ffadc8}.mint .label{color:#72e2bb}button{width:100%;border:0;border-radius:12px;padding:11px 9px;background:#e6f1ff;color:#132237;font:700 13px system-ui,sans-serif}button:active{transform:scale(.97)}.pink button{background:#ffc0d3}.gold button{background:#f7d97e}.mint button{background:#86ecc5}.feed{padding:18px}.feed-title{display:flex;align-items:center;justify-content:space-between;gap:12px}.feed h2{margin:5px 0 0}.chip{border-color:#58708f;color:#a8bed8;white-space:nowrap}pre{min-height:44px;margin:14px 0 0;white-space:pre-wrap;color:#dce8f7;font:12px/1.5 ui-monospace,monospace}footer{display:flex;justify-content:space-between;gap:12px;padding:2px 4px;color:#8d9db1;font-size:11px}@media(max-width:300px){.command-grid{grid-template-columns:1fr}footer{display:grid}}.recover{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.recover[hidden]{display:none}.recover button{background:#ffe08a;color:#241c04}",
+              "javascript": "(() => { const initialState = (window.dikcizWidgetState || {})['command-deck'] || {}; const diagnostics = document.getElementById('diagnostics'); const notifications = document.getElementById('notifications'); const notificationStatus = document.getElementById('notification-status'); const DENIED_OUTCOMES = { device_admin_inactive: 'Screen lock needs Dikciz Device administration.', android_permission_denied: 'Android has not granted this permission yet.', capability_denied: 'No enabled policy allows this action.' }; const renderState = state => { notifications.textContent = state.body || 'No active notifications.'; const count = Number(state.notificationCount); notificationStatus.textContent = Number.isFinite(count) ? count + ' unread' : 'Watching events'; }; const renderClock = () => { const now = new Date(); document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); document.getElementById('date').textContent = now.toLocaleDateString([], {weekday:'long',month:'short',day:'numeric'}); }; const runScript = async (scriptId, target, pending, complete) => { target.textContent = pending; try { await window.dikciz.command('automationTrigger', {scriptId}); target.textContent = complete; } catch (error) { target.textContent = 'Failed: ' + error.message; } }; const recoveryPanel = key => document.querySelector('.recover[data-recover=\"' + key + '\"]'); const firstOutcome = result => result && result.actions && result.actions[0] && result.actions[0].outcome; const runActions = async (key, actions, target, pending, complete) => { const panel = recoveryPanel(key); if (panel) panel.hidden = true; target.textContent = pending; try { const result = await window.dikciz.dispatch({actions}); const outcome = firstOutcome(result); if (outcome === 'executed') { target.textContent = complete; return; } target.textContent = DENIED_OUTCOMES[outcome] || ('Action failed: ' + (outcome || 'unknown')); if (panel) panel.hidden = false; } catch (error) { target.textContent = 'Failed: ' + error.message; if (panel) panel.hidden = false; } }; const CARDS = { lock: {actions: [{type:'lockDevice'}], pending: 'Lock requested...', complete: 'Screen locked.'}, notify: {actions: [{type:'postNotification',title:'Dikciz HTML test',text:'Sent directly from the command deck.'}], pending: 'Sending...', complete: 'Notification sent.'} }; const runCard = key => { const card = CARDS[key]; if (!card) return; const button = document.querySelector('[data-action=\"' + key + '\"]'); if (!button) return; runActions(key, card.actions, button, card.pending, card.complete); }; const refresh = async () => { diagnostics.textContent = 'Reading device snapshot...'; try { const result = await window.dikciz.command('diagnostics'); diagnostics.textContent = 'Connected. ' + Object.keys(result).length + ' diagnostic fields available.'; } catch (error) { diagnostics.textContent = 'Diagnostics failed: ' + error.message; } }; document.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => { const action = button.dataset.action; if (action === 'diagnostics') { refresh(); return; } if (action === 'digest') { runScript('notification-digest', button, 'Refreshing...', 'Digest refresh requested.'); return; } runCard(action); })); document.querySelectorAll('[data-setup]').forEach(button => button.addEventListener('click', async () => { const original = button.textContent; button.textContent = 'Opening setup...'; try { await window.dikciz.command('openAutomationSetup'); button.textContent = original; } catch (error) { button.textContent = 'Setup unavailable'; } })); document.querySelectorAll('[data-retry]').forEach(button => button.addEventListener('click', () => runCard(button.dataset.retry))); renderState(initialState); renderClock(); setInterval(renderClock, 1000); window.addEventListener('dikciz-state', event => renderState(event.detail || {})); window.addEventListener('dikciz-ready', () => { refresh(); window.dikciz.onEvent(event => { if (event.type === 'location') diagnostics.textContent = 'GPS ' + event.payload.latitude.toFixed(5) + ', ' + event.payload.longitude.toFixed(5); if (event.type === 'notificationPosted' || event.type === 'notificationRemoved') notificationStatus.textContent = 'Syncing\u2026'; if (event.type === 'notification.digest.updated') notificationStatus.textContent = event.payload.count + ' unread'; }); }); })();",
+              "state": {
+                "body": "No active notifications.",
+                "notificationCount": 0
+              },
+              "heightMode": "content",
+              "eventSubscriptions": [
+                {
+                  "event": "location",
+                  "minimumIntervalMilliseconds": 1000,
+                  "locationPrecision": "precise"
+                },
+                {
+                  "event": "time",
+                  "minimumIntervalMilliseconds": 1000
+                },
+                {
+                  "event": "notificationPosted",
+                  "minimumIntervalMilliseconds": 0
+                },
+                {
+                  "event": "notificationRemoved",
+                  "minimumIntervalMilliseconds": 0
+                },
+                {
+                  "event": "notification.digest.updated",
+                  "minimumIntervalMilliseconds": 0
+                }
+              ],
+              "enabled": true,
+              "cell": {
+                "column": 0,
+                "row": 0,
+                "columnSpan": 4,
+                "rowSpan": 6
+              }
+            }
+          ]
+        },
+        {
+          "id": "notes",
+          "title": "Notes",
+          "position": {
+            "column": 1,
+            "row": 0
+          },
+          "widgets": [
+            {
+              "id": "android-settings",
+              "type": "app",
+              "title": "Android Settings",
+              "component": "com.android.settings/com.android.settings.Settings",
+              "displayStyle": "iconLabel",
+              "enabled": true,
+              "cell": {
+                "column": 0,
+                "row": 0,
+                "columnSpan": 1,
+                "rowSpan": 1
+              }
+            },
+            {
+              "id": "notes-intro",
+              "type": "html",
+              "title": "Notes",
+              "html": "<article class=\"card\"><h2>Scripts</h2><p>Scripts live under <code>/sdcard/Dikciz/scripts/</code>. The dashboard below owns enable, disable, edit, status, and logs.</p></article>",
+              "css": ".card{box-sizing:border-box;min-height:100%;padding:16px;border:1px solid #5d6a7c;border-radius:18px;background:#1b2636;color:#e7edf6;font:15px sans-serif}.card h2{margin:0 0 10px;font-size:20px}.card p{margin:0;color:#bdc9d9}.card code{color:#9ccaff}",
+              "enabled": true,
+              "cell": {
+                "column": 1,
+                "row": 0,
+                "columnSpan": 3,
+                "rowSpan": 1
+              }
+            },
+            {
+              "id": "script-dashboard",
+              "type": "scriptDashboard",
+              "title": "Lua scripts",
+              "enabled": true,
+              "cell": {
+                "column": 0,
+                "row": 1,
+                "columnSpan": 4,
+                "rowSpan": 5
+              }
+            }
+          ]
+        },
+        {
+          "id": "activity",
+          "title": "Workbench",
+          "position": {
+            "column": 0,
+            "row": 1
+          },
+          "widgets": [
+            {
+              "id": "activity-intro",
+              "type": "html",
+              "title": "Dikciz Workbench",
+              "html": "<main class=\"workbench\"><header><p class=\"eyebrow\">DIK\ud83e\uddc0 LUA RUNTIME</p><h2>Script quick reference</h2><p>Scripts implement <code>function on_event(event)</code>, receive a copied event, and return a status plus typed actions.</p></header><section><h3>Core globals</h3><code>assert error ipairs next pairs pcall select tonumber tostring type xpcall</code></section><section><h3>Libraries</h3><code>math \u00b7 string \u00b7 table \u00b7 bit32</code><p>Removed: <code>string.format</code>, <code>string.gsub</code>, <code>string.rep</code>, <code>table.concat</code>, <code>table.move</code>, and <code>table.unpack</code>.</p></section><section><h3>Context</h3><code>context.scriptId \u00b7 context.state \u00b7 context.widgets \u00b7 context.androidAccess</code><p><code>context.accessibility</code> exists only for an accessibility-window event snapshot.</p></section><section><h3>Not available</h3><code>debug io os package require load dofile loadfile print</code><p>Lua has no Android object handles or arbitrary shell access.</p></section><section><h3>Return actions</h3><code>accessibilityAction \u00b7 accessibilityGesture \u00b7 accessibilityGlobalAction \u00b7 selectPage \u00b7 patchWidget \u00b7 patchState \u00b7 patchDom \u00b7 launchApp \u00b7 appAction \u00b7 postNotification \u00b7 sendSms \u00b7 explicitIntent \u00b7 emitEvent \u00b7 mediaControl \u00b7 mediaVolume \u00b7 notificationControl \u00b7 lockDevice</code></section><footer>Use the Script dashboard for source, status, enablement, and logs. Full event and action contracts: Automation control docs.</footer></main>",
+              "css": "*{box-sizing:border-box}html,body{min-height:100%;margin:0}.workbench{display:grid;gap:12px;min-height:100%;padding:16px;border:2px solid #526d91;border-radius:22px;background:linear-gradient(145deg,#1a2a40,#101821 70%);color:#e7edf6;font:14px/1.45 system-ui,sans-serif;box-shadow:inset 0 1px 0 #ffffff1f}.workbench header{padding-bottom:12px;border-bottom:1px solid #3e5675}.eyebrow{margin:0;color:#83c3ff;font-size:10px;font-weight:800;letter-spacing:.13em}.workbench h2{margin:4px 0 7px;font-size:25px;letter-spacing:-.04em;line-height:1.05}.workbench h3{margin:0 0 5px;color:#a9d2ff;font-size:12px;letter-spacing:.05em;text-transform:uppercase}.workbench p{margin:0;color:#c5d3e3}.workbench section{padding:11px 12px;border:1px solid #3b506a;border-radius:14px;background:#111d2a}.workbench code{color:#e3f2ff;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}.workbench footer{padding:3px 4px;color:#99aec5;font-size:12px}",
+              "enabled": true,
+              "heightMode": "content",
+              "cell": {
+                "column": 0,
+                "row": 0,
+                "columnSpan": 4,
+                "rowSpan": 6
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "automation": {
+    "apiVersion": 1,
+    "policies": [
+      {
+        "id": "screen-lock",
+        "title": "Screen lock example",
+        "enabled": true,
+        "capabilities": [
+          "deviceAdministration",
+          "manualTrigger"
+        ],
+        "actions": [
+          "lockDevice"
+        ]
+      },
+      {
+        "id": "hourly-clock",
+        "title": "Hourly clock example",
+        "enabled": true,
+        "capabilities": [
+          "alarm",
+          "manualTrigger"
+        ],
+        "actions": [
+          "postNotification"
+        ]
+      },
+      {
+        "id": "notification-digest",
+        "title": "Unread notification digest",
+        "enabled": true,
+        "capabilities": [
+          "notificationsMetadata",
+          "notificationsContent",
+          "manualTrigger"
+        ],
+        "actions": [
+          "emitEvent",
+          "patchState",
+          "patchWidget"
+        ]
+      },
+      {
+        "id": "settings-walkthrough",
+        "title": "Cross-app Settings walkthrough",
+        "enabled": true,
+        "capabilities": [
+          "accessibility",
+          "manualTrigger"
+        ],
+        "actions": [
+          "accessibilityAction",
+          "launchApp"
+        ]
+      }
+    ],
+    "scripts": [
+      {
+        "scriptId": "screen-lock",
+        "policyId": "screen-lock",
+        "enabled": true,
+        "subscriptions": [
+          {
+            "event": "deviceAdminState",
+            "minimumIntervalMilliseconds": 0,
+            "coalescingKey": "screen-lock-device-administration"
+          },
+          {
+            "event": "manual",
+            "minimumIntervalMilliseconds": 0,
+            "coalescingKey": "screen-lock-manual"
+          }
+        ]
+      },
+      {
+        "scriptId": "hourly-clock",
+        "policyId": "hourly-clock",
+        "enabled": true,
+        "subscriptions": [
+          {
+            "event": "alarm",
+            "minimumIntervalMilliseconds": 60000,
+            "alarmIntervalMilliseconds": 60000,
+            "coalescingKey": "hourly-clock"
+          },
+          {
+            "event": "manual",
+            "minimumIntervalMilliseconds": 0,
+            "coalescingKey": "hourly-clock-manual"
+          }
+        ]
+      },
+      {
+        "scriptId": "notification-digest",
+        "policyId": "notification-digest",
+        "enabled": true,
+        "subscriptions": [
+          {
+            "event": "notificationPosted",
+            "minimumIntervalMilliseconds": 0,
+            "coalescingKey": "notification-digest"
+          },
+          {
+            "event": "notificationRemoved",
+            "minimumIntervalMilliseconds": 0,
+            "coalescingKey": "notification-digest"
+          },
+          {
+            "event": "manual",
+            "minimumIntervalMilliseconds": 0,
+            "coalescingKey": "notification-digest-manual"
+          }
+        ]
+      },
+      {
+        "scriptId": "settings-walkthrough",
+        "policyId": "settings-walkthrough",
+        "enabled": true,
+        "subscriptions": [
+          {
+            "event": "accessibilityWindow",
+            "minimumIntervalMilliseconds": 0,
+            "coalescingKey": "settings-walkthrough-window"
+          },
+          {
+            "event": "manual",
+            "minimumIntervalMilliseconds": 0,
+            "coalescingKey": "settings-walkthrough-manual"
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": [
+    {
+      "id": "screen-lock",
+      "title": "Lock screen",
+      "enabled": true,
+      "apiVersion": 1,
+      "source": "local function request_lock()\n  return {\n    status = \"Lock requested\",\n    actions = { { type = \"lockDevice\" } }\n  }\nend\n\nfunction on_event(event)\n  if event.type == \"manual\" then\n    return request_lock()\n  end\n  if event.type == \"deviceAdminState\" and event.payload.active then\n    return request_lock()\n  end\n  return { status = \"Waiting for Device Administration\" }\nend",
+      "state": {}
+    },
+    {
+      "id": "hourly-clock",
+      "title": "Current hour notification",
+      "enabled": true,
+      "apiVersion": 1,
+      "source": "local function two_digits(value)\n  if value < 10 then return \"0\" .. tostring(value) end\n  return tostring(value)\nend\n\nfunction on_event(event)\n  local clock = two_digits(event.time.hour24) .. \":\" .. two_digits(event.time.minute)\n  return {\n    status = \"Notification requested for \" .. clock,\n    actions = {\n      { type = \"postNotification\", title = \"Dikciz clock\", text = \"Current time: \" .. clock }\n    }\n  }\nend",
+      "state": {}
+    },
+    {
+      "id": "notification-digest",
+      "title": "Active notification digest",
+      "enabled": true,
+      "apiVersion": 1,
+      "source": "function on_event(event)\n  local unread = {}\n  local notificationKey = event.payload.notificationKey\n  for _, item in pairs(context.state.unread or {}) do\n    if item.key ~= notificationKey then\n      unread[#unread + 1] = item\n    end\n  end\n  if event.type == \"notificationPosted\" then\n    unread[#unread + 1] = {\n      key = notificationKey,\n      title = event.payload.title or \"Notification\",\n      text = event.payload.text or \"\"\n    }\n  end\n  local body = \"\"\n  for _, item in pairs(unread) do\n    local line = item.title\n    if item.text ~= \"\" then\n      line = line .. \": \" .. item.text\n    end\n    if body == \"\" then\n      body = line\n    else\n      body = body .. \"\\n\" .. line\n    end\n  end\n  if body == \"\" then\n    body = \"No active notifications.\"\n  end\n  return {\n    status = tostring(#unread) .. \" active notification(s)\",\n    actions = {\n      { type = \"patchState\", values = { unread = unread } },\n      { type = \"patchWidget\", widgetAddress = \"1H1V-command-deck\", values = { state = { body = body, notificationCount = #unread } } },\n      { type = \"emitEvent\", event = \"notification.digest.updated\", payload = { count = #unread } }\n    }\n  }\nend",
+      "state": {
+        "unread": []
+      }
+    },
+    {
+      "id": "settings-walkthrough",
+      "title": "Cross-app Settings walkthrough",
+      "enabled": true,
+      "apiVersion": 1,
+      "source": "local function unavailable_status()\n  return { status = \"Enable cross-app automation in Android Settings\" }\nend\n\nfunction on_event(event)\n  if event.type == \"manual\" then\n    if not context.androidAccess.accessibility then\n      return unavailable_status()\n    end\n    return {\n      status = \"Opening Android Settings\",\n      actions = { { type = \"launchApp\", component = \"com.android.settings/.Settings\" } }\n    }\n  end\n\n  if event.type ~= \"accessibilityWindow\" or event.payload.packageName ~= \"com.android.settings\" then\n    return { status = \"Waiting for Android Settings\" }\n  end\n\n  local accessibility = context.accessibility\n  if accessibility == nil then\n    return { status = \"Settings snapshot unavailable\" }\n  end\n\n  for _, node in ipairs(accessibility.nodes) do\n    if node.text == \"Network & internet\" and node.visibleToUser then\n      local parent = string.match(node.nodeId, \"^(.*)%.%d+$\")\n      if parent ~= nil then\n        return {\n          status = \"Opening Network & internet\",\n          actions = { {\n            type = \"accessibilityAction\",\n            snapshotId = accessibility.snapshotId,\n            nodeId = parent,\n            action = \"click\"\n          } }\n        }\n      end\n    end\n  end\n\n  return { status = \"Network & internet is not visible\" }\nend",
+      "state": {}
+    }
+  ]
+}

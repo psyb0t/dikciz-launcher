@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1F2937"
+    android:gravity="center_vertical"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:weightSum="2">
+
+    <TextView
+        android:id="@+id/fixture_widget_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/fixture_primary_action"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:contentDescription="Fixture primary action"
+            android:text="Primary" />
+
+        <Button
+            android:id="@+id/fixture_secondary_action"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:contentDescription="Fixture secondary action"
+            android:text="Secondary" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/fixture_media_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/fixture_media_previous_action"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:contentDescription="Fixture media previous action"
+            android:text="Previous" />
+
+        <Button
+            android:id="@+id/fixture_media_play_pause_action"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:contentDescription="Fixture media play or pause action"
+            android:text="Play or pause" />
+
+        <Button
+            android:id="@+id/fixture_media_next_action"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:contentDescription="Fixture media next action"
+            android:text="Next" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/fixture_weather_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp" />
+
+    <Button
+        android:id="@+id/fixture_weather_refresh_action"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:contentDescription="Fixture weather refresh action"
+        android:text="Refresh weather" />
+</LinearLayout>

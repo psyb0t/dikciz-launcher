@@ -1,0 +1,24 @@
+:root { color-scheme: dark; }
+
+* { box-sizing: border-box; }
+
+html,
+body { min-height: 100%; margin: 0; }
+
+body { color: #fff1c7; font: 15px/1.4 system-ui, sans-serif; }
+
+.card {
+  min-height: 100%;
+  padding: 14px;
+  border: 1px solid #8d7541;
+  border-radius: 18px;
+  background: #302914;
+}
+
+.eyebrow { margin: 0 0 6px; color: #ddc06a; font-size: 10px; font-weight: 800; letter-spacing: .1em; }
+.card h2 { margin: 0 0 8px; font-size: 19px; }
+.card p { margin: 0; color: #e8d594; }
+.actions { display: flex; gap: 8px; margin-top: 12px; }
+.card button { border: 0; border-radius: 10px; padding: 9px 11px; background: #f4d689; color: #372900; font-weight: 700; }
+.card button.secondary { background: #6f5c2b; color: #fff1c7; }
+.log { margin-top: 10px !important; color: #d5bf7d !important; font-size: 11px; }

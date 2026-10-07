@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "id": "status-row",
+  "title": "Status row",
+  "description": "A label and value pair for reporting one piece of live state.",
+  "previewLabel": "Label and value"
+}

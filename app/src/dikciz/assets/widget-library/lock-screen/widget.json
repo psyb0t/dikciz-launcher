@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "lock-screen",
+  "title": "Lock screen",
+  "description": "Calls Dikciz's direct native device-lock action.",
+  "span": {
+    "columnSpan": 4,
+    "rowSpan": 2
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "title": "Dikciz Dark",
+  "background": {
+    "color": "#101318"
+  },
+  "widgetStyle": {
+    "background": { "color": "#1C2532", "opacity": 1 },
+    "border": { "color": "#6E8BAD", "radius": 16, "widths": { "all": 2 } },
+    "margin": { "all": 4 },
+    "padding": { "all": 8 },
+    "text": {
+      "color": "#F5F7FA",
+      "font": { "source": "bundled", "id": "comic-neue" },
+      "sizeSp": 16
+    }
+  }
+}

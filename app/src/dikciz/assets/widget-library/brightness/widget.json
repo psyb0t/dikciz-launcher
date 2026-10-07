@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "brightness",
+  "title": "Android display settings",
+  "description": "Opens Android display settings through the local bridge.",
+  "span": {
+    "columnSpan": 4,
+    "rowSpan": 2
+  }
+}

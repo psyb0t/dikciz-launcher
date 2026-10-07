@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <group
+        android:scaleX="0.82"
+        android:scaleY="0.82"
+        android:translateX="9"
+        android:translateY="10">
+        <path
+            android:fillColor="@color/dikciz_brand_wordmark"
+            android:pathData="M14,32H22.5C32.5,32 38.5,39.8 38.5,52C38.5,64.2 32.5,72 22.5,72H14V32ZM21.2,39V65H22.5C27.7,65 30.8,60.3 30.8,52C30.8,43.7 27.7,39 22.5,39H21.2Z" />
+        <path
+            android:fillColor="@color/dikciz_brand_wordmark"
+            android:pathData="M36.5,42H43V72H36.5V42ZM39.75,31A3.75,3.75 0,1 1,39.75,38.5A3.75,3.75 0,0 1,39.75,31Z" />
+        <path
+            android:fillColor="@color/dikciz_brand_wordmark"
+            android:pathData="M48,32H54.5V53.3L63.7,42H72.1L61.7,55.6L73,72H64.6L55.7,58.8L54.5,60.1V72H48V32Z" />
+        <path
+            android:fillColor="@color/dikciz_brand_cheese"
+            android:pathData="M68,44L96,51L75,80Z" />
+        <path
+            android:fillColor="@color/dikciz_brand_cheese_hole"
+            android:pathData="M83,54.5A3.5,3.5 0,1 1,83,61.5A3.5,3.5 0,0 1,83,54.5Z" />
+        <path
+            android:fillColor="@color/dikciz_brand_cheese_hole"
+            android:pathData="M77.5,65A2.75,2.75 0,1 1,77.5,70.5A2.75,2.75 0,0 1,77.5,65Z" />
+        <path
+            android:fillColor="@color/dikciz_brand_cheese_hole"
+            android:pathData="M88.5,65.5A2.25,2.25 0,1 1,88.5,70A2.25,2.25 0,0 1,88.5,65.5Z" />
+    </group>
+</vector>

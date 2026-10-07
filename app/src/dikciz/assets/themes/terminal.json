@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "title": "Terminal Green",
+  "background": {
+    "color": "#07110A"
+  },
+  "widgetStyle": {
+    "background": { "color": "#0E2112", "opacity": 1 },
+    "border": { "color": "#4CC96A", "radius": 8, "widths": { "all": 1 } },
+    "margin": { "all": 4 },
+    "padding": { "all": 8 },
+    "text": {
+      "color": "#B6F5C0",
+      "font": { "source": "bundled", "id": "jetbrains-mono" },
+      "sizeSp": 16
+    }
+  }
+}

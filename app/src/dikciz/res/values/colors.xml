@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="dikciz_background">#101114</color>
+    <color name="dikciz_brand_background">#17191F</color>
+    <color name="dikciz_brand_cheese">#FFC43D</color>
+    <color name="dikciz_brand_cheese_hole">#D89416</color>
+    <color name="dikciz_brand_wordmark">#F7F3E8</color>
+    <color name="dikciz_control_border">#3a4150</color>
+    <color name="dikciz_destructive_foreground">#FF8A80</color>
+    <color name="dikciz_drawer_background">#0b0c0f</color>
+    <color name="dikciz_drawer_surface">#15171d</color>
+    <color name="dikciz_foreground">#f2f2f2</color>
+    <color name="dikciz_muted_foreground">#afb3bc</color>
+    <color name="dikciz_pressed_overlay">#26FFC43D</color>
+    <color name="dikciz_resize_outline">#5ea8ff</color>
+    <color name="dikciz_grid_guide">#595ea8ff</color>
+    <color name="dikciz_resize_rejected">#ff6b6b</color>
+    <color name="dikciz_resize_point">#5ea8ff</color>
+    <color name="dikciz_widget_background">#20232a</color>
+    <color name="dikciz_widget_border">#06070a</color>
+    <color name="dikciz_widget_disabled_background">#34363b</color>
+    <color name="dikciz_widget_handle_background">#2c3039</color>
+</resources>

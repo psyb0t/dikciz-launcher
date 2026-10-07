@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "app-launcher",
+  "title": "Android app settings",
+  "description": "Opens Android's installed-app settings through the local bridge.",
+  "span": {
+    "columnSpan": 4,
+    "rowSpan": 2
+  }
+}
