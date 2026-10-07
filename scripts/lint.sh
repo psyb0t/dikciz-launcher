@@ -21,6 +21,6 @@ LOG_FILE="${LOG_FILE:-/tmp/android-lab-lint.log}"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 shellcheck scripts/*.sh
-shfmt -d scripts/*.sh
+shfmt -i 4 -d scripts/*.sh
 python3 -m compileall -q scripts
 log INFO "Android lab lint passed"

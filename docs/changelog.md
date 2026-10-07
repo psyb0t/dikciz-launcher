@@ -4,6 +4,8 @@ This history includes the releases made while Dikciz and Android Lab shared one 
 
 ## Unreleased
 
+## [0.13.0] - 2026-10-07
+
 ### Added
 
 - The README displays the Dikciz logo and links to the APK installation and launcher operation skill.
@@ -22,8 +24,13 @@ This history includes the releases made while Dikciz and Android Lab shared one 
 
 ### Fixed
 
+- Shell lint and formatting explicitly use four-space indentation, so CI and local checkouts agree without an EditorConfig file.
 - Tooling creates the local state directory as the host user before Docker mounts it, so fresh checkouts can write Gradle state.
 - Normal emulator launch grants Dikciz the file access needed to load its configuration, matching reset behavior without clearing saved data.
+
+### Migration
+
+- Build the required Android Lab images from its separate repository before running launcher Make targets. Existing combined-repository workflows must use the launcher and lab checkouts separately.
 
 ## [0.12.0] - 2026-10-06
 
