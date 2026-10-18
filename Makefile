@@ -1,9 +1,17 @@
 SHELL := /bin/bash
 
-ANDROID_LAB_VERSION ?= 0.13.0
+ANDROID_LAB_VERSION ?= 0.14.0
 .DEFAULT_GOAL := help
-DEV_IMAGE ?= android-lab:$(ANDROID_LAB_VERSION)
-EMULATOR_IMAGE ?= android-lab:$(ANDROID_LAB_VERSION)-emulator-api36
+DEFAULT_DEV_IMAGE := android-lab:$(ANDROID_LAB_VERSION)
+DEFAULT_EMULATOR_IMAGE := android-lab:$(ANDROID_LAB_VERSION)-emulator-api36
+DEV_IMAGE ?= $(DEFAULT_DEV_IMAGE)
+EMULATOR_IMAGE ?= $(DEFAULT_EMULATOR_IMAGE)
+# Gradle names APKs launcher-<Fossify VERSION_CODE>-<flavor>-<buildType>.apk.
+FOSSIFY_VERSION_CODE := $(shell sed -n 's/^VERSION_CODE=//p' gradle.properties)
+DIKCIZ_DEBUG_APK := app/build/outputs/apk/dikciz/debug/launcher-$(FOSSIFY_VERSION_CODE)-dikciz-debug.apk
+DIKCIZ_RELEASE_APK := app/build/outputs/apk/dikciz/release/launcher-$(FOSSIFY_VERSION_CODE)-dikciz-release.apk
+DIKCIZ_RELEASE_KEYSTORE ?= .android-lab/release/dikciz-release.jks
+DIKCIZ_RELEASE_CERT_SHA256 := 5F:A2:02:5D:F9:B8:31:C3:56:3E:8D:44:00:88:7A:77:61:86:F1:F6:F4:69:4E:4E:41:04:EF:CF:0E:20:75:15
 ANDROID_API ?= 36
 ANDROID_PROJECT ?= .
 GRADLE_TASK ?= :app:assembleCoreDebug
@@ -264,27 +272,38 @@ DEV_RUN_DIND := docker run --rm --init \
 help: ## List every Android lab command
 	@grep -E '^[a-zA-Z_-]+:.*## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "%-22s %s\n", $$1, $$2}' | sort
 
-.PHONY: build check-images control test-tooling ci-build version
-ci-build: ## CI-only bootstrap of the pinned lab tooling, then compile Dikciz
-	@ANDROID_LAB_VERSION=$(ANDROID_LAB_VERSION) bash scripts/ci-build.sh
+.PHONY: build check-images control test-tooling version release-apk
 version: ## Print the launcher repository version
 	@cat VERSION
+# The keystore path is workspace-relative so the tool container can read it under /work.
+# Signing passwords come from the environment by name and never appear in a command line.
+release-apk: ensure-dev-image ## Build the signed Dikciz release APK into dist/ (needs SIGNING_KEY_ALIAS, SIGNING_KEY_PASSWORD, SIGNING_STORE_PASSWORD)
+	@[[ "$(DIKCIZ_RELEASE_KEYSTORE)" != /* && "$(DIKCIZ_RELEASE_KEYSTORE)" != *..* ]] || { printf '%s\n' "DIKCIZ_RELEASE_KEYSTORE must be a workspace-relative path" >&2; exit 1; }
+	@$(subst -w /work,-e SIGNING_KEY_ALIAS -e SIGNING_KEY_PASSWORD -e SIGNING_STORE_PASSWORD -e SIGNING_STORE_FILE=/work/$(DIKCIZ_RELEASE_KEYSTORE) -e DIKCIZ_RELEASE_CERT_SHA256=$(DIKCIZ_RELEASE_CERT_SHA256) -w /work,$(DEV_RUN)) bash scripts/dikciz-release-apk.sh "$(DIKCIZ_RELEASE_APK)"
 test-tooling: audit-compose ## Check embedded lab contracts and reversible upstream refresh
 	@$(DEV_RUN) bash scripts/test-upstream-refresh.sh
-check-images: emulator-ready ## Check both local lab images and print setup instructions if missing
+check-images: emulator-ready ## Check both local lab images, installing the pinned release once the SDK license is accepted
 build: GRADLE_TASK := :app:assembleDikcizDebug
 build: gradle ## Build the Dikciz debug APK using the local lab image
 control: ensure-dev-image ## Run the Dikciz control client, passing arguments through CONTROL_ARGS
 	@$(subst --init,--init --network host -e DIKCIZ_REMOTE_BEARER_TOKEN,$(DEV_RUN)) python3 scripts/dikciz-control.py $(CONTROL_ARGS)
 
-dev-image: ensure-dev-image ## Verify the required local lab image
+dev-image: ensure-dev-image ## Install or verify the pinned local lab image
 
-emulator-ready: ensure-dev-image ## Verify the required local emulator image
-	@docker image inspect "$(EMULATOR_IMAGE)" >/dev/null 2>&1 || { printf '%s\n' "Missing local image: $(EMULATOR_IMAGE)" "Build it: https://github.com/psyb0t/android-lab#build-the-images-locally" >&2; exit 1; }
+# A missing pinned image is built by the Android Lab installer from the pinned tag,
+# only after explicit SDK license acceptance. An overridden image name is never built.
+emulator-ready: ensure-dev-image ## Install or verify the pinned local emulator image
+	@docker image inspect "$(EMULATOR_IMAGE)" >/dev/null 2>&1 || { \
+		[[ "$(EMULATOR_IMAGE)" == "$(DEFAULT_EMULATOR_IMAGE)" ]] || { printf '%s\n' "Missing local image: $(EMULATOR_IMAGE)" >&2; exit 1; }; \
+		ANDROID_LAB_ACCEPT_ANDROID_LICENSES="$(ANDROID_LAB_ACCEPT_ANDROID_LICENSES)" bash scripts/install-android-lab.sh "$(ANDROID_LAB_VERSION)" --emulator; \
+	}
 
-ensure-dev-image: ## Verify the required local lab image without pulling or rebuilding
-	@docker image inspect "$(DEV_IMAGE)" >/dev/null 2>&1 || { printf '%s\n' "Missing local image: $(DEV_IMAGE)" "Build it: https://github.com/psyb0t/android-lab#build-the-images-locally" >&2; exit 1; }
+ensure-dev-image: ## Install or verify the pinned local lab image without pulling from a registry
 	@mkdir --parents "$(STATE_DIRECTORY)"
+	@docker image inspect "$(DEV_IMAGE)" >/dev/null 2>&1 || { \
+		[[ "$(DEV_IMAGE)" == "$(DEFAULT_DEV_IMAGE)" ]] || { printf '%s\n' "Missing local image: $(DEV_IMAGE)" >&2; exit 1; }; \
+		ANDROID_LAB_ACCEPT_ANDROID_LICENSES="$(ANDROID_LAB_ACCEPT_ANDROID_LICENSES)" bash scripts/install-android-lab.sh "$(ANDROID_LAB_VERSION)"; \
+	}
 
 shell: ensure-dev-image ## Open an isolated controller shell with no Docker socket
 	@$(subst --rm,--rm -it,$(DEV_RUN)) bash
@@ -485,7 +504,7 @@ dikciz-run: ANDROID_LAB_INSTANCE := shared
 dikciz-run: ANDROID_LAB_FORWARD_HOST_PORT := 19101
 dikciz-run: ANDROID_LAB_MCP_HOST_PORT := 19102
 dikciz-run: ANDROID_LAB_VNC_HOST_PORT := 61326
-dikciz-run: APK := app/build/outputs/apk/dikciz/debug/launcher-16-dikciz-debug.apk
+dikciz-run: APK := $(DIKCIZ_DEBUG_APK)
 dikciz-run: PACKAGE_NAME := eu.psyb0t.dikciz.launcher.debug
 dikciz-run: run ## Build, replace-install, launch Dikciz as Android Home, and expose its local controls
 	@$(MAKE) --no-print-directory gradle ANDROID_PROJECT=. GRADLE_TASK=:app:assembleDikcizDebug
@@ -505,7 +524,7 @@ dikciz-reset: ANDROID_LAB_INSTANCE := shared
 dikciz-reset: ANDROID_LAB_FORWARD_HOST_PORT := 19101
 dikciz-reset: ANDROID_LAB_MCP_HOST_PORT := 19102
 dikciz-reset: ANDROID_LAB_VNC_HOST_PORT := 61326
-dikciz-reset: APK := app/build/outputs/apk/dikciz/debug/launcher-16-dikciz-debug.apk
+dikciz-reset: APK := $(DIKCIZ_DEBUG_APK)
 dikciz-reset: PACKAGE_NAME := eu.psyb0t.dikciz.launcher.debug
 dikciz-reset: emulator-ready ## Uninstall Dikciz, clear /sdcard/Dikciz, install the current debug APK, and start Home
 	@$(MAKE) --no-print-directory gradle ANDROID_PROJECT=. GRADLE_TASK=:app:assembleDikcizDebug
@@ -515,7 +534,7 @@ dikciz-test: ANDROID_LAB_INSTANCE := shared
 dikciz-test: ANDROID_LAB_FORWARD_HOST_PORT := 19101
 dikciz-test: ANDROID_LAB_MCP_HOST_PORT := 19102
 dikciz-test: ANDROID_LAB_VNC_HOST_PORT := 61326
-dikciz-test: APK := app/build/outputs/apk/dikciz/debug/launcher-16-dikciz-debug.apk
+dikciz-test: APK := $(DIKCIZ_DEBUG_APK)
 dikciz-test: PACKAGE_NAME := eu.psyb0t.dikciz.launcher.debug
 dikciz-test: emulator-ready ## Build the current Dikciz debug APK, reset the shared phone, then run Dikciz pytest
 	@$(MAKE) --no-print-directory gradle ANDROID_PROJECT=. GRADLE_TASK=:app:assembleDikcizDebug
@@ -529,7 +548,7 @@ dikciz-test-existing-apk: ANDROID_LAB_INSTANCE := shared
 dikciz-test-existing-apk: ANDROID_LAB_FORWARD_HOST_PORT := 19101
 dikciz-test-existing-apk: ANDROID_LAB_MCP_HOST_PORT := 19102
 dikciz-test-existing-apk: ANDROID_LAB_VNC_HOST_PORT := 61326
-dikciz-test-existing-apk: APK := app/build/outputs/apk/dikciz/debug/launcher-16-dikciz-debug.apk
+dikciz-test-existing-apk: APK := $(DIKCIZ_DEBUG_APK)
 dikciz-test-existing-apk: PACKAGE_NAME := eu.psyb0t.dikciz.launcher.debug
 dikciz-test-existing-apk: emulator-ready ## Reset the shared phone and test the already-built Dikciz APK
 	@[[ -s "$(APK)" ]] || { printf '%s\n' "build the Dikciz APK before using dikciz-test-existing-apk" >&2; exit 1; }
@@ -546,7 +565,7 @@ dikciz-test-interrupt: ANDROID_LAB_INSTANCE := shared
 dikciz-test-interrupt: ANDROID_LAB_FORWARD_HOST_PORT := 19101
 dikciz-test-interrupt: ANDROID_LAB_MCP_HOST_PORT := 19102
 dikciz-test-interrupt: ANDROID_LAB_VNC_HOST_PORT := 61326
-dikciz-test-interrupt: APK := app/build/outputs/apk/dikciz/debug/launcher-16-dikciz-debug.apk
+dikciz-test-interrupt: APK := $(DIKCIZ_DEBUG_APK)
 dikciz-test-interrupt: PACKAGE_NAME := eu.psyb0t.dikciz.launcher.debug
 dikciz-test-interrupt: override DIKCIZ_TEST_SELECTOR :=
 dikciz-test-interrupt: override DIKCIZ_TEST_INTERRUPT_AFTER_PREPARE := true
@@ -870,7 +889,7 @@ dikciz-test-accessibility-third-party: ensure-dev-image ## Build the fixed fixtu
 		DIKCIZ_TEST_CONFIGURABLE_PROVIDER_PACKAGE="$(DIKCIZ_CONFIGURABLE_PROVIDER_PACKAGE)" \
 		$(MAKE) --no-print-directory dikciz-test-existing-apk
 
-dikciz-test-real: APK := app/build/outputs/apk/dikciz/debug/launcher-16-dikciz-debug.apk
+dikciz-test-real: APK := $(DIKCIZ_DEBUG_APK)
 dikciz-test-real: PACKAGE_NAME := eu.psyb0t.dikciz.launcher.debug
 dikciz-test-real: ensure-dev-image ## Build the current Dikciz debug APK, then run one selected test on the configured physical phone
 	@$(MAKE) --no-print-directory gradle ANDROID_PROJECT=. GRADLE_TASK=:app:assembleDikcizDebug
@@ -878,7 +897,7 @@ dikciz-test-real: ensure-dev-image ## Build the current Dikciz debug APK, then r
 		APK="$(APK)" \
 		PACKAGE_NAME="$(PACKAGE_NAME)"
 
-dikciz-test-real-reset: APK := app/build/outputs/apk/dikciz/debug/launcher-16-dikciz-debug.apk
+dikciz-test-real-reset: APK := $(DIKCIZ_DEBUG_APK)
 dikciz-test-real-reset: PACKAGE_NAME := eu.psyb0t.dikciz.launcher.debug
 dikciz-test-real-reset: ensure-dev-image ## Uninstall, clear, and install the current Dikciz build on the configured physical phone
 	@$(MAKE) --no-print-directory gradle ANDROID_PROJECT=. GRADLE_TASK=:app:assembleDikcizDebug
@@ -955,7 +974,7 @@ dikciz-test-real-provider-inventory: ensure-dev-image ## Read the configured phy
 		APK="$(APK)" \
 		PACKAGE_NAME="$(PACKAGE_NAME)"
 
-dikciz-test-real-configurable-provider: APK := app/build/outputs/apk/dikciz/debug/launcher-16-dikciz-debug.apk
+dikciz-test-real-configurable-provider: APK := $(DIKCIZ_DEBUG_APK)
 dikciz-test-real-configurable-provider: PACKAGE_NAME := eu.psyb0t.dikciz.launcher.debug
 dikciz-test-real-configurable-provider: ensure-dev-image ## Prove the physical configurable AppWidget lifecycle with the isolated local fixture APK
 	@$(MAKE) --no-print-directory gradle ANDROID_PROJECT=. GRADLE_TASK=:app:assembleDikcizDebug
@@ -966,7 +985,7 @@ dikciz-test-real-configurable-provider: ensure-dev-image ## Prove the physical c
 		DIKCIZ_CONFIGURABLE_PROVIDER_APK="$(DIKCIZ_CONFIGURABLE_PROVIDER_APK)" \
 		DIKCIZ_CONFIGURABLE_PROVIDER_PACKAGE="$(DIKCIZ_CONFIGURABLE_PROVIDER_PACKAGE)"
 
-dikciz-test-real-existing-apk: APK := app/build/outputs/apk/dikciz/debug/launcher-16-dikciz-debug.apk
+dikciz-test-real-existing-apk: APK := $(DIKCIZ_DEBUG_APK)
 dikciz-test-real-existing-apk: PACKAGE_NAME := eu.psyb0t.dikciz.launcher.debug
 dikciz-test-real-existing-apk: ensure-dev-image ## Run one selected Dikciz test on only the physical phone configured in .env
 	@[[ "$(DIKCIZ_TEST_PROVIDER_INVENTORY_ONLY)" == true || "$(DIKCIZ_TEST_DEVICE_ADMIN_SETTINGS_ONLY)" == true || "$(DIKCIZ_TEST_INSPECT_ONLY)" == true || -s "$(APK)" ]] || { printf '%s\n' "build the Dikciz APK before using dikciz-test-real-existing-apk" >&2; exit 1; }

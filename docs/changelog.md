@@ -2,7 +2,27 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
-## Unreleased
+## [0.14.0] - 2026-10-18
+
+### Added
+
+- Tag pushes build a signed `dikcizRelease` APK and attach `dikciz-launcher-vX.Y.Z.apk` and its `.sha256` to the GitHub Release, so Obtainium can install and update Dikciz. The README publishes the signing certificate fingerprint.
+- `make release-apk` builds the signed release APK into `dist/` and fails unless it is signed with the published certificate and reports the version in `VERSION`.
+
+### Changed
+
+- The `dikciz` flavour reports `VERSION` as its `versionName` and derives `versionCode` as `major * 10000 + minor * 100 + patch`, instead of Fossify's `1.10.0` and `16`. Builds fail when `VERSION` is not `X.Y.Z` with minor and patch below 100.
+- The Makefile pins Android Lab 0.14.0. A missing pinned image is built with that release's installer once `ANDROID_LAB_ACCEPT_ANDROID_LICENSES=yes` is set. CI runs the same `make build`, and the CI-only `make ci-build` bootstrap is gone.
+- The Makefile derives the Dikciz APK paths from Fossify's `VERSION_CODE` instead of hardcoding them.
+
+### Fixed
+
+- A Fossify source refresh keeps `VERSION`, `.gitattributes`, `.gitleaks.toml`, `.dockerignore` and the `app/src/testDikciz` unit tests, and the build overlay patch now carries the `testDikciz` source set and test dependency. The refresh test fails when the live build file has Dikciz lines the overlay does not carry.
+
+### Migration
+
+- Existing `dikcizDebug` installs report version code 16. Debug builds now report 1400 for 0.14.0, so they install over them as an update.
+- Release APKs use the package `eu.psyb0t.dikciz.launcher` and install next to the debug build.
 
 ## [0.13.0] - 2026-10-07
 

@@ -10,13 +10,11 @@ Dikciz is a programmable Android launcher for people who want to inspect,
 modify, and automate their own phones. It keeps Fossify Launcher as an upstream
 base and adds Dikciz in an isolated product flavour.
 
-The shipped development-friendly build is `dikcizDebug`. It keeps the local
-control planes, public configuration, logs, HTML widget bridge, and automation
-surface available. Fossify Core remains a source-compatibility check. It is not
-the normal launcher installed by the lab.
+Releases ship the signed `dikcizRelease` APK, package `eu.psyb0t.dikciz.launcher`. It keeps the local control planes, public configuration, logs, HTML widget bridge, and automation surface available. The lab runs `dikcizDebug`, package `eu.psyb0t.dikciz.launcher.debug`, which installs next to a release. Fossify Core remains a source-compatibility check. It is not the normal launcher installed by the lab.
 
 ## Contents
 
+- [Install it](#install-it)
 - [Run it](#run-it)
 - [What the home supports](#what-the-home-supports)
 - [Navigate and manage the home](#navigate-and-manage-the-home)
@@ -28,12 +26,26 @@ the normal launcher installed by the lab.
 - [Agent use](#agent-use)
 - [Upstream](#upstream)
 
+## Install it
+
+Each release attaches a signed APK to [GitHub Releases](https://github.com/psyb0t/dikciz-launcher/releases). Install and update it with [Obtainium](https://github.com/ImranR98/Obtainium): add the app with the URL `https://github.com/psyb0t/dikciz-launcher`, or open `obtainium://add/https://github.com/psyb0t/dikciz-launcher` on the phone. Obtainium offers every new release as an update.
+
+Without Obtainium, download `dikciz-launcher-vX.Y.Z.apk` from the release and install it, or run `adb install -r dikciz-launcher-vX.Y.Z.apk`. Each APK has a `.sha256` file next to it.
+
+Every release is signed with the same key. Its certificate SHA-256 fingerprint is:
+
+```text
+5F:A2:02:5D:F9:B8:31:C3:56:3E:8D:44:00:88:7A:77:61:86:F1:F6:F4:69:4E:4E:41:04:EF:CF:0E:20:75:15
+```
+
+Check it with `apksigner verify --print-certs dikciz-launcher-vX.Y.Z.apk` or AppVerifier before installing. Android's developer verification is enforced on certified devices in some countries. Where Android refuses an unregistered app, install with ADB or through Android's advanced install flow.
+
 ## Run it
 
-Clone `https://github.com/psyb0t/dikciz-launcher.git` and run these commands from its checkout. The Makefile requires locally built `android-lab:0.13.0` and `android-lab:0.13.0-emulator-api36` images. Build them once using [Android Lab's local-build instructions](https://github.com/psyb0t/android-lab#build-the-images-locally). If an image is missing, Make stops with that link instead of pulling or rebuilding it.
+Clone `https://github.com/psyb0t/dikciz-launcher.git` and run these commands from its checkout. The Makefile pins Android Lab with `ANDROID_LAB_VERSION`. The first command that needs a missing `android-lab:<version>` or emulator image builds it locally with that release's installer, after you read the [Android SDK license](https://developer.android.com/studio/terms) and set `ANDROID_LAB_ACCEPT_ANDROID_LICENSES=yes`. Without that, Make stops and says so. Nothing is pulled from a registry. The host needs Docker, Make and Git. To move to a newer Android Lab release, change `ANDROID_LAB_VERSION`.
 
 ```bash
-make build
+ANDROID_LAB_ACCEPT_ANDROID_LICENSES=yes make build
 make dikciz-run
 ```
 
@@ -251,6 +263,8 @@ Dikciz build, seeds its HTML-only test fixture, and leaves screenshots, UI
 dumps, layouts, and the complete pytest log in `.android-lab/shared/artifacts/`. After pytest returns, fails, or is interrupted, it resets only
 Dikciz and `/sdcard/Dikciz` to the bundled starter home. The fixture is never
 left visible for manual inspection.
+
+A `v*` tag push builds the signed release in CI with `make release-apk` and attaches `dist/dikciz-launcher-vX.Y.Z.apk` and its `.sha256` to the GitHub Release. `make release-apk` needs the release keystore at `.android-lab/release/dikciz-release.jks` and `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD` and `SIGNING_STORE_PASSWORD` in the environment. It fails unless the APK is signed with the published certificate and reports the version in `VERSION`.
 
 ## Agent use
 

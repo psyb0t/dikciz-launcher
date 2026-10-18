@@ -9,7 +9,7 @@ Keep Dikciz product code under `app/src/dikciz/` and combined source sets such
 as `app/src/dikcizDebug/`. Fossify-owned source sets stay replaceable. Do not
 patch upstream launcher code during normal feature work.
 
-Run builds, tests, and device work through this repository's `Makefile`. Build the required local images using [Android Lab's setup instructions](https://github.com/psyb0t/android-lab#build-the-images-locally). `make ci-build` is an explicitly CI-only bootstrap, not the normal local build command.
+Run builds, tests, and device work through this repository's `Makefile`. The first `make` command that needs the pinned Android Lab images builds them with the Android Lab installer once you set `ANDROID_LAB_ACCEPT_ANDROID_LICENSES=yes` after reading the [Android SDK license](https://developer.android.com/studio/terms). CI uses the same `make build`.
 Use the narrowest target that proves the changed behavior. `make dikciz-test`
 is the broad shared-emulator suite, not a default after every small edit.
 

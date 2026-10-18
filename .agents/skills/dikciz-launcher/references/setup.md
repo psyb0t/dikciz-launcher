@@ -2,7 +2,7 @@
 
 ## Install an APK
 
-Use the Dikciz APK supplied by the user. This is an APK installation, not an Android Lab setup or a source build. The host needs ADB and an Android device with USB debugging enabled. The phone owner must accept the host's debugging authorization prompt.
+Use the Dikciz APK supplied by the user. When the user asks for an official release instead, download `dikciz-launcher-vX.Y.Z.apk` and its `.sha256` from https://github.com/psyb0t/dikciz-launcher/releases, check the checksum, and check that `apksigner verify --print-certs` reports the certificate SHA-256 fingerprint published in the project README. Users who want automatic updates can add the repository URL in Obtainium instead. This is an APK installation, not an Android Lab setup or a source build. The host needs ADB and an Android device with USB debugging enabled. The phone owner must accept the host's debugging authorization prompt.
 
 ```bash
 adb devices -l
@@ -18,7 +18,7 @@ adb -s "$SERIAL" install -r "$APK"
 
 `-r` replaces an existing compatible installation while retaining app data. If Android rejects a signing mismatch, stop and explain it; do not uninstall the old app or clear its data. If the supplied APK is marked test-only, `install -r -t` permits that APK. Use it only after identifying `INSTALL_FAILED_TEST_ONLY` as the error.
 
-The current `dikcizDebug` package is `eu.psyb0t.dikciz.launcher.debug`. Do not assume another APK uses the same package. Verify the supplied artifact's package and version before acting on an existing installation.
+Release APKs use the package `eu.psyb0t.dikciz.launcher`. The `dikcizDebug` package is `eu.psyb0t.dikciz.launcher.debug`, and the two install side by side. Do not assume another APK uses either package. Verify the supplied artifact's package and version before acting on an existing installation.
 
 Open Dikciz on the phone. Choose it as the default Home app when Android asks, or select it in Android's default Home app settings. Follow **Grant file access** to allow it to create and watch `/sdcard/Dikciz/`. Existing pages, widgets, themes, scripts and logs live there. Grant only the additional Android access needed for the user's requested features through Dikciz's **Settings**, **Automation**, **Set up full device access** screen.
 

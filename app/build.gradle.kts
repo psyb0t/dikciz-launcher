@@ -27,6 +27,13 @@ base {
     archivesName = "launcher-$versionCode"
 }
 
+// Dikciz releases from the repository VERSION, independent of the Fossify base version.
+val dikcizVersionName: String = rootProject.file("VERSION").readText().trim()
+val dikcizVersionCode: Int = Regex("""(\d+)\.(\d{1,2})\.(\d{1,2})""").matchEntire(dikcizVersionName)
+    ?.destructured
+    ?.let { (major, minor, patch) -> major.toInt() * 10000 + minor.toInt() * 100 + patch.toInt() }
+    ?: throw GradleException("VERSION must be MAJOR.MINOR.PATCH with MINOR and PATCH below 100, got '$dikcizVersionName'")
+
 android {
     compileSdk = project.libs.versions.app.build.compileSDKVersion.get().toInt()
 
@@ -88,6 +95,8 @@ android {
         register("core")
         register("dikciz") {
             applicationId = "eu.psyb0t.dikciz.launcher"
+            versionName = dikcizVersionName
+            versionCode = dikcizVersionCode
         }
         register("foss")
         register("gplay")

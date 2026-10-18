@@ -22,7 +22,11 @@ readonly -a GENERATED_COMPARISON_PATHS=(
 
 readonly -a PRESERVED_FILE_PATHS=(
     Makefile
+    VERSION
     .gitignore
+    .gitattributes
+    .gitleaks.toml
+    .dockerignore
     AGENTS.md
     CONTRIBUTING.md
     PLAN.md
@@ -55,6 +59,7 @@ readonly -a PRESERVED_DIRECTORY_PATHS=(
     tests
     app/src/dikciz
     app/src/dikcizDebug
+    app/src/testDikciz
 )
 
 log() {

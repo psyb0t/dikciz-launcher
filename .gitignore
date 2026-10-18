@@ -48,8 +48,10 @@ keystore.properties
 
 .testing/
 .android-lab
+dist/
 CLAUDE.md
 git-update.sh
+git-update.sh.debot
 .agents/upstreams/
 .telemetry/
 .pytest_cache/

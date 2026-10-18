@@ -18,7 +18,7 @@ jobs:
       security-events: write
     uses: psyb0t/reusable-github-workflows/.github/workflows/code-workflow.yml@master
     with:
-      build_command: "make ci-build"
+      build_command: "make build ANDROID_LAB_ACCEPT_ANDROID_LICENSES=yes"
       lint_command: "make lint"
       test_command: "make test-tooling"
   badges:
@@ -27,6 +27,54 @@ jobs:
     permissions:
       contents: write
     uses: psyb0t/reusable-github-workflows/.github/workflows/create-badges.yml@master
+  # Builds the signed dikcizRelease APK on tag pushes and publishes it as the
+  # GitHub Release asset that Obtainium installs. Notes come from the annotated tag.
+  release:
+    needs: [code]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Fetch the annotated tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: git fetch --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
+      - name: Write the release keystore
+        env:
+          DIKCIZ_RELEASE_KEYSTORE_BASE64: ${{ secrets.DIKCIZ_RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          install -d -m 0700 .android-lab/release
+          printf '%s' "$DIKCIZ_RELEASE_KEYSTORE_BASE64" | base64 --decode >.android-lab/release/dikciz-release.jks
+          chmod 0600 .android-lab/release/dikciz-release.jks
+      - name: Build the signed release APK
+        env:
+          ANDROID_LAB_ACCEPT_ANDROID_LICENSES: "yes"
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+        run: make release-apk
+      - name: Remove the release keystore
+        if: always()
+        run: rm -f .android-lab/release/dikciz-release.jks
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          assets=("dist/dikciz-launcher-v${version}.apk" "dist/dikciz-launcher-v${version}.apk.sha256")
+          prerelease=()
+          if [[ "$TAG" =~ -(alpha|beta|rc) ]]; then
+            prerelease=(--prerelease)
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+          else
+            gh release create "$TAG" "${assets[@]}" --verify-tag --title "$TAG" --notes-from-tag "${prerelease[@]}"
+          fi
   clawhub:
     needs: [code]
     if: startsWith(github.ref, 'refs/tags/')

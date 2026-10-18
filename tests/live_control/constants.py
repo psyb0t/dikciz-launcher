@@ -493,7 +493,8 @@ VERTICAL_PAGE_SWIPE_DISTANCE_DP = 64
 DEVICE_AUTOMATION_PORT = 19001
 DEVICE_MCP_PORT = 19002
 DIKCIZ_DEBUG_ACTIVITY = "org.fossify.home.dikciz.DikcizHomeActivity"
-DIKCIZ_DEBUG_APK_PATH = "app/build/outputs/apk/dikciz/debug/launcher-16-dikciz-debug.apk"
+# The Makefile derives the Gradle output name and passes it to the test container as APK.
+DIKCIZ_DEBUG_APK_PATH = os.environ.get("APK", "")
 DIKCIZ_DEBUG_PACKAGE = "eu.psyb0t.dikciz.launcher.debug"
 SETTINGS_ACTIVITY_COMPONENT = "com.android.settings/.Settings"
 AUTOMATION_NOTIFICATION_COMPONENT = (
