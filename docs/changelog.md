@@ -2,6 +2,12 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.14.1] - 2026-10-18
+
+### Fixed
+
+- The app is named Dikciz in every language. Before, phones set to a language with a Fossify translation, such as English (UK) or German, showed it as "Launcher". The automation service notification uses the same name.
+
 ## [0.14.0] - 2026-10-18
 
 ### Added

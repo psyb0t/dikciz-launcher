@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_launcher_name">Dikciz</string>
+    <!-- Fossify translates app_launcher_name to "Launcher" in many locales; this name never changes. -->
+    <string name="dikciz_app_name" translatable="false">Dikciz</string>
     <string name="dikciz_startup_content_description">Dikciz is starting.</string>
     <string name="dikciz_page_menu_widgets">Widgets</string>
     <string name="dikciz_page_menu_html_widgets">HTML widgets</string>

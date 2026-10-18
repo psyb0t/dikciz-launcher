@@ -373,7 +373,7 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
             ),
         )
         val notification = android.app.Notification.Builder(this, FOREGROUND_CHANNEL_ID)
-            .setContentTitle(getString(R.string.app_launcher_name))
+            .setContentTitle(getString(R.string.dikciz_app_name))
             .setContentText(FOREGROUND_NOTIFICATION_TEXT)
             .setOngoing(true)
             .setSmallIcon(android.R.drawable.ic_popup_sync)

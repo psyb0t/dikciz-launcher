@@ -80,9 +80,9 @@
 
     <application
         android:icon="@mipmap/dikciz_launcher_icon"
-        android:label="@string/app_launcher_name"
+        android:label="@string/dikciz_app_name"
         android:roundIcon="@mipmap/dikciz_launcher_icon"
-        tools:replace="android:icon,android:roundIcon">
+        tools:replace="android:icon,android:label,android:roundIcon">
         <activity-alias
             android:name=".activities.SplashActivity.Green"
             android:icon="@mipmap/dikciz_launcher_icon"
