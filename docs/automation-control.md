@@ -182,6 +182,8 @@ The bottom chrome carries two icon-only buttons. `launcher:controls` opens the l
 
 A snapshot contains a stable `semanticId`, role, enabled and checked state, clickability, visibility, bounds, text, content description, and an Android resource ID where one exists. Use semantic IDs for automation. Do not derive coordinate taps from text. Provider child IDs include an opaque render token and expire after provider updates, page changes, and removals.
 
+While the cold-start brand covers the screen, the snapshot includes `startup:dismiss`, which a `tap` skips, and `startup:message`, whose text is the current line. Both disappear when the brand does. Until then a physical touch only dismisses the brand.
+
 A snapshot also reports the page grid. `grid` carries `columns`, `rows`, `gapDp`, and `outerPaddingDp`. Every entry in `widgetReferences` carries its logical `cell` with `column`, `row`, `columnSpan`, and `rowSpan`, plus the rendered screen `bounds` when that widget is on the selected page, or null when it is not. Only the cell is persistent; the bounds are render-time values.
 
 `homeGet` returns pages keyed by page ID, one-based page address such as `1H2V`, and the `home` alias. Each page contains widgets by simple ID and full address. That is also the map exposed to HTML widgets.

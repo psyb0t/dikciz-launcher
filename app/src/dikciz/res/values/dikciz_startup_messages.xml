@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Startup splash lines. Each launch shows five different ones, one per second. -->
+    <string-array name="dikciz_startup_messages" translatable="false">
+        <item>Running: sudo rm -rfv / --no-preserve-root</item>
+        <item>Launching: :(){ :|:&amp; };:</item>
+        <item>Hacking the planet</item>
+        <item>Acid Burn was here</item>
+        <item>Crash Override online</item>
+        <item>Mess with the best, die like the rest</item>
+        <item>The pool on the roof must have a leak</item>
+        <item>Follow the white rabbit</item>
+        <item>Wake up, Neo</item>
+        <item>There is no spoon</item>
+        <item>Shall we play a game?</item>
+        <item>Greetings, Professor Falken</item>
+        <item>All your base are belong to us</item>
+        <item>It compiles. Ship it.</item>
+        <item>Works on my machine</item>
+        <item>Have you tried turning it off and on again?</item>
+        <item>Reticulating splines</item>
+        <item>Compiling the kernel. Again.</item>
+        <item>git push --force origin main</item>
+        <item>git commit -m \"fix stuff\"</item>
+        <item>Deploying to production on a Friday at 17:59</item>
+        <item>DROP TABLE users;</item>
+        <item>Robert\'); DROP TABLE Students;--</item>
+        <item>SELECT * FROM secrets WHERE 1=1</item>
+        <item>chmod -R 777 /</item>
+        <item>dd if=/dev/zero of=/dev/sda</item>
+        <item>cat /dev/urandom &gt; /dev/mem</item>
+        <item>echo c &gt; /proc/sysrq-trigger</item>
+        <item>kill -9 1</item>
+        <item>Segmentation fault (core dumped)</item>
+        <item>Kernel panic - not syncing</item>
+        <item>Guru Meditation #00000004.0000AAC0</item>
+        <item>HCF: halt and catch fire</item>
+        <item>undefined is not a function</item>
+        <item>NullPointerException at line 1337</item>
+        <item>Stack overflow while searching Stack Overflow</item>
+        <item>Off by one error on line 41</item>
+        <item>There are 10 kinds of people</item>
+        <item>sudo make me a sandwich</item>
+        <item>It is always DNS</item>
+        <item>Spinning up 4096 microservices</item>
+        <item>Rewriting it in Rust</item>
+        <item>Rewriting it in Go. Again.</item>
+        <item>Exiting vim…</item>
+        <item>Still trying to exit vim</item>
+        <item>:wq!</item>
+        <item>Emacs is a fine operating system</item>
+        <item>Mounting /dev/brain read-only</item>
+        <item>Overclocking the toaster</item>
+        <item>Bypassing the mainframe firewall</item>
+        <item>Enhance. Enhance. Enhance.</item>
+        <item>Downloading more RAM</item>
+        <item>Defragmenting the cloud</item>
+        <item>Calibrating the flux capacitor</item>
+        <item>Reversing the polarity of the neutron flow</item>
+        <item>Injecting shellcode into the coffee machine</item>
+        <item>Phreaking the payphone with a cereal whistle</item>
+        <item>2600 Hz tone detected</item>
+        <item>Dialing into the BBS at 2400 baud</item>
+        <item>ATDT 555-0199</item>
+        <item>+++ATH0</item>
+        <item>Spawning a reverse shell on localhost</item>
+        <item>nc -lvnp 1337</item>
+        <item>nmap -sS 127.0.0.1</item>
+        <item>Brute forcing password: hunter2</item>
+        <item>Changing password123 to password124</item>
+        <item>Loading l33t h4x0r m0d3</item>
+        <item>0wn3d by Dikciz</item>
+        <item>Hacking the Gibson</item>
+        <item>It is a Unix system. I know this.</item>
+        <item>I\'m in.</item>
+        <item>Access denied. Retrying with sudo</item>
+        <item>sudo !!</item>
+        <item>Have you read the man page?</item>
+        <item>RTFM</item>
+        <item>Not a bug, an undocumented feature</item>
+        <item>TODO: remove this before release</item>
+        <item>// here be dragons</item>
+        <item>// magic, do not touch</item>
+        <item>while (true) { coffee++; }</item>
+        <item>printf(\"Hello, world!\\n\");</item>
+        <item>Forking the universe</item>
+        <item>Resolving merge conflicts by force of will</item>
+        <item>Running git blame on git blame</item>
+        <item>Rebasing the timeline</item>
+        <item>Garbage collecting your feelings</item>
+        <item>640K ought to be enough for anybody</item>
+        <item>Y2K38 countdown started</item>
+        <item>Converting coffee into code</item>
+        <item>0xDEADBEEF</item>
+        <item>0xCAFEBABE</item>
+        <item>Rubber duck debugging in progress</item>
+        <item>Spawning zombie processes</item>
+        <item>Orphaning child processes</item>
+        <item>The cake is a lie</item>
+        <item>Unzipping the internet</item>
+        <item>Solving P = NP. Back in five seconds.</item>
+        <item>Pinging 127.0.0.1. Nobody home.</item>
+        <item>Mounting the root of all evil</item>
+        <item>Booting Dikciz. Resistance is futile.</item>
+    </string-array>
+</resources>

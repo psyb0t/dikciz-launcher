@@ -863,7 +863,6 @@ LOG_FULL_SUITE_REQUIRED_EVENTS = frozenset(
         "provider_widget_size_reported",
         "widget_deleted",
         "widget_edit_actions_shown",
-        "widget_insertion_revealed",
         "widget_moved",
         "widget_move_started",
         "widget_picker_opened",

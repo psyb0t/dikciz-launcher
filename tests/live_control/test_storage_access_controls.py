@@ -111,11 +111,26 @@ def test_storage_access_handoff_is_semantic_and_configuration_is_still_gated() -
             ARTIFACT_DIRECTORY / "screenshot.png",
             ARTIFACT_DIRECTORY / STORAGE_ACCESS_ARTIFACT_NAME,
         )
-        storage_access_mcp_call(
-            MCP.TOOL_TAP,
-            STORAGE_ACCESS_MCP_TAP_REQUEST_ID,
-            {MCP.KEY_SEMANTIC_ID: STORAGE_ACCESS_GRANT_SEMANTIC_ID},
-        )
+        # A semantic tap reaches a clipped button, so the proof is a real tap on the
+        # button's visible bounds after the cold-start brand is gone.
+        if any(
+            node.get("semanticId") == STARTUP_DISMISS_SEMANTIC_ID
+            for node in AUTOMATION.request(storage_control, AUTOMATION.TYPE_SNAPSHOT)["nodes"]
+        ):
+            AUTOMATION.request(
+                storage_control,
+                AUTOMATION.TYPE_TAP,
+                semanticId=STARTUP_DISMISS_SEMANTIC_ID,
+            )
+        wait_for_snapshot_node(storage_control, STARTUP_DISMISS_SEMANTIC_ID, should_exist=False)
+        grant_bounds = wait_for_physical_button_bounds(STORAGE_ACCESS_GRANT_LABEL)
+        window_bounds = node_bounds(physical_nodes()[0])
+        assert window_bounds is not None
+        assert bounds_contain(window_bounds, grant_bounds)
+        minimum_touch_pixels = round(STORAGE_ACCESS_MINIMUM_TOUCH_DP * device_density_scale())
+        assert grant_bounds["bottom"] - grant_bounds["top"] >= minimum_touch_pixels
+        assert grant_bounds["right"] - grant_bounds["left"] >= minimum_touch_pixels
+        direct_tap(grant_bounds)
         wait_for_foreground_application(STORAGE_ACCESS_SETTINGS_PACKAGE)
     finally:
         if storage_control is not None:

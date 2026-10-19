@@ -2,11 +2,20 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
-## [Unreleased]
+## [0.15.1] - 2026-10-19
 
 ### Changed
 
+- The startup screen lasts five seconds instead of ten. Each second it shows a different line picked at random from a hundred hacker and programmer jokes, and no line repeats within one launch. The current line is the `startup:message` semantic node.
 - The lab pins Android Lab 0.14.1, whose emulator container has a 12g memory cap instead of 8g. At 8g, long test runs could get the emulator killed. `ANDROID_LAB_EMULATOR_MEMORY_LIMIT` passes through Make to override the cap. Run `make restart` once to recreate the emulator with the new cap.
+
+### Fixed
+
+- The app icon opens the Dikciz home. Before, it opened Fossify's own launcher, which could show Fossify's "fake version" warning and send you to the Play Store. The Dikciz build no longer contains any Fossify screen. Fossify's launcher icons, home, settings and hidden-icons activities and the Fossify library's about, customization, FAQ, license, contributors, donation, app-lock and blocked-numbers activities are removed from the manifest, along with the library's exported receiver for Fossify's shared theme.
+- Without shared storage access, the prompt fills the page and its **Grant file access** button can be tapped. Before, the prompt was squeezed into the top-left grid cell, its text was cut off and the button was out of reach. The configuration error screen had the same fault and fills the page too.
+- The debug log no longer records app component names from the app drawer. Drawer taps log `drawer:app` or `drawer:app-actions` instead of the full semantic ID.
+- The cold-start brand stays dismissable through the control planes while the storage prompt is showing.
+- The live tests tap the storage prompt's button at its on-screen position and cover the app icon, the removed Fossify screens and the startup lines. The log audit no longer expects an event the launcher stopped writing, and the Lua access test waits for the widget patch that follows the state patch.
 
 ## [0.15.0] - 2026-10-19
 

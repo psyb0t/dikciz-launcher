@@ -144,6 +144,18 @@
                 android:contentDescription="@null"
                 android:importantForAccessibility="no"
                 android:src="@drawable/dikciz_brand_mark" />
+
+            <TextView
+                android:id="@+id/dikciz_startup_message"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:maxWidth="320dp"
+                android:minLines="2"
+                android:fontFamily="monospace"
+                android:gravity="center"
+                android:textColor="@color/dikciz_foreground"
+                android:textSize="14sp" />
         </LinearLayout>
     </FrameLayout>
 </FrameLayout>

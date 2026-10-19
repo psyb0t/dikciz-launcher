@@ -101,6 +101,7 @@ class DikcizHomeActivity : Activity() {
     private lateinit var safeModeExitButton: Button
     private lateinit var safeModeResetButton: Button
     private lateinit var startupBrandMark: ImageView
+    private lateinit var startupMessage: TextView
     private lateinit var startupOverlay: FrameLayout
     private lateinit var widgetContainer: DikcizPageGridLayout
     private lateinit var verticalPageIndicator: DikcizPageIndicatorView
@@ -153,6 +154,9 @@ class DikcizHomeActivity : Activity() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val startupBrandInterpolator = DecelerateInterpolator()
     private val hideStartupBrandRunnable = Runnable(::hideStartupBrand)
+    private val showNextStartupMessageRunnable = Runnable(::showNextStartupMessage)
+    private var startupMessages: List<String> = emptyList()
+    private var startupMessageIndex = 0
     private val reloadConfigurationRunnable = Runnable { reloadConfiguration(false) }
     private val pollConfigurationTreeRunnable = Runnable(::pollConfigurationTree)
     private var configurationTreeFingerprints: Map<String, String>? = null
@@ -419,6 +423,7 @@ class DikcizHomeActivity : Activity() {
         safeModeExitButton = findViewById(R.id.dikciz_safe_mode_exit)
         safeModeResetButton = findViewById(R.id.dikciz_safe_mode_reset)
         startupBrandMark = findViewById(R.id.dikciz_startup_brand_mark)
+        startupMessage = findViewById(R.id.dikciz_startup_message)
         startupOverlay = findViewById(R.id.dikciz_startup_overlay)
         widgetContainer = findViewById(R.id.dikciz_widget_container)
         verticalPageIndicator = findViewById(R.id.dikciz_vertical_page_indicator)
@@ -448,10 +453,17 @@ class DikcizHomeActivity : Activity() {
         startupOverlay.alpha = ENABLED_WIDGET_ALPHA
         startupOverlay.visibility = View.VISIBLE
         startupOverlay.setOnClickListener { dismissStartupBrand() }
-        registerAutomationView(SEMANTIC_STARTUP_DISMISS, startupOverlay)
+        registerStartupDismissIfVisible()
         startupBrandMark.alpha = TRANSPARENT_OPACITY
         startupBrandMark.scaleX = STARTUP_BRAND_INITIAL_SCALE
         startupBrandMark.scaleY = STARTUP_BRAND_INITIAL_SCALE
+        // Five different lines per launch, picked up front so none repeats.
+        startupMessages = resources.getStringArray(R.array.dikciz_startup_messages)
+            .toList()
+            .shuffled()
+            .take(STARTUP_MESSAGE_COUNT)
+        startupMessageIndex = 0
+        showNextStartupMessage()
         startupOverlay.post {
             if (!isStartupBrandVisible) {
                 return@post
@@ -470,12 +482,31 @@ class DikcizHomeActivity : Activity() {
         }
     }
 
+    // The startup brand covers the first screen, so it stays reachable for a control client.
+    private fun registerStartupDismissIfVisible() {
+        if (isStartupBrandVisible) {
+            registerAutomationView(SEMANTIC_STARTUP_DISMISS, startupOverlay)
+            registerAutomationView(SEMANTIC_STARTUP_MESSAGE, startupMessage)
+        }
+    }
+
+    private fun showNextStartupMessage() {
+        if (!isStartupBrandVisible || startupMessageIndex >= startupMessages.size) {
+            return
+        }
+        startupMessage.text = startupMessages[startupMessageIndex]
+        startupMessageIndex++
+        mainHandler.postDelayed(showNextStartupMessageRunnable, STARTUP_MESSAGE_INTERVAL_MILLISECONDS)
+    }
+
     private fun hideStartupBrand() {
         if (!isStartupBrandVisible) {
             return
         }
         isStartupBrandVisible = false
+        mainHandler.removeCallbacks(showNextStartupMessageRunnable)
         automationViews.remove(SEMANTIC_STARTUP_DISMISS)
+        automationViews.remove(SEMANTIC_STARTUP_MESSAGE)
         startupOverlay.animate()
             .alpha(TRANSPARENT_OPACITY)
             .setDuration(STARTUP_BRAND_EXIT_DURATION_MILLISECONDS)
@@ -489,8 +520,10 @@ class DikcizHomeActivity : Activity() {
 
     private fun dismissStartupBrand() {
         mainHandler.removeCallbacks(hideStartupBrandRunnable)
+        mainHandler.removeCallbacks(showNextStartupMessageRunnable)
         isStartupBrandVisible = false
         automationViews.remove(SEMANTIC_STARTUP_DISMISS)
+        automationViews.remove(SEMANTIC_STARTUP_MESSAGE)
         startupOverlay.animate().cancel()
         startupBrandMark.animate().cancel()
         startupOverlay.alpha = ENABLED_WIDGET_ALPHA
@@ -943,10 +976,7 @@ class DikcizHomeActivity : Activity() {
         registerAutomationView(SEMANTIC_ID_HORIZONTAL_PAGE_INDICATOR, horizontalPageIndicator)
         registerAutomationView(SEMANTIC_ID_VERTICAL_PAGE_INDICATOR, verticalPageIndicator)
         registerAutomationView(SEMANTIC_ID_PAGE_SCROLL, pageScrollView)
-        // The startup brand covers the first render, so it stays reachable for a control client.
-        if (isStartupBrandVisible) {
-            registerAutomationView(SEMANTIC_STARTUP_DISMISS, startupOverlay)
-        }
+        registerStartupDismissIfVisible()
         showCachedPage(configuration, selectedPage)
         scheduleNeighborPageCache(configuration, selectedPage)
     }
@@ -4078,7 +4108,7 @@ class DikcizHomeActivity : Activity() {
                 EVENT_SAFE_MODE_MUTATION_REJECTED,
                 mapOf(
                     FIELD_COMMAND_TYPE to command.type,
-                    FIELD_SEMANTIC_ID to semanticID,
+                    FIELD_SEMANTIC_ID to loggableSemanticID(semanticID),
                 ),
             )
             throw automationFailure(MESSAGE_SAFE_MODE_READ_ONLY)
@@ -4575,6 +4605,13 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun loggableSemanticID(semanticID: String): String {
+        // Drawer IDs carry the app's component name, which the log must not record.
+        if (semanticID.startsWith(SEMANTIC_DRAWER_APP_ACTIONS_PREFIX)) {
+            return SEMANTIC_DRAWER_APP_ACTIONS_PREFIX.removeSuffix(SEMANTIC_WIDGET_ACTION_SEPARATOR)
+        }
+        if (semanticID.startsWith(SEMANTIC_DRAWER_APP_PREFIX)) {
+            return SEMANTIC_DRAWER_APP_PREFIX.removeSuffix(SEMANTIC_WIDGET_ACTION_SEPARATOR)
+        }
         val appEntryPrefix = "$SEMANTIC_COMMAND_ENTRY_PREFIX$SEMANTIC_COMMAND_APP:"
         if (!semanticID.startsWith(appEntryPrefix)) {
             return semanticID
@@ -10621,6 +10658,7 @@ class DikcizHomeActivity : Activity() {
         isConfigurationErrorVisible = false
         automationViews.clear()
         providerAutomationViews.clear()
+        registerStartupDismissIfVisible()
         val bundledTheme = try {
             dikcizThemeStore.loadDefaultBundledTheme()
         } catch (exception: HomeConfigException) {
@@ -10634,6 +10672,7 @@ class DikcizHomeActivity : Activity() {
         applyLauncherBackground(bundledTheme?.launcherBackground ?: DikcizLauncherBackground())
         widgetContainer.removeAllViews()
         widgetContainer.addView(createThemedMessagePanel(messageStyle).apply {
+            layoutParams = wholeGridLayoutParams()
             addView(createWidgetTitle(getString(R.string.dikciz_storage_access_title), messageStyle))
             addView(TextView(this@DikcizHomeActivity).apply {
                 text = getString(R.string.dikciz_storage_access_body)
@@ -10685,6 +10724,7 @@ class DikcizHomeActivity : Activity() {
         startConfigurationErrorObserver()
         widgetContainer.removeAllViews()
         widgetContainer.addView(createMessagePanel().apply {
+            layoutParams = wholeGridLayoutParams()
             addView(createWidgetTitle(getString(R.string.dikciz_error_title)))
             addView(TextView(this@DikcizHomeActivity).apply {
                 text = getString(
@@ -10694,6 +10734,20 @@ class DikcizHomeActivity : Activity() {
                 setTextColor(getColor(R.color.dikciz_foreground))
             })
         })
+    }
+
+    // A view added to the grid without a cell gets one corner cell, which clipped
+    // full-screen messages and their buttons. Messages span the whole grid instead.
+    private fun wholeGridLayoutParams(): DikcizPageGridLayout.LayoutParams {
+        val grid = widgetContainer.grid
+        return DikcizPageGridLayout.LayoutParams(
+            DikcizGridRectangle(
+                column = FIRST_CELL_INDEX,
+                row = FIRST_CELL_INDEX,
+                columnSpan = grid.columns,
+                rowSpan = grid.rows,
+            ),
+        )
     }
 
     private fun createMessagePanel(): LinearLayout {
@@ -11342,6 +11396,7 @@ class DikcizHomeActivity : Activity() {
         const val SEMANTIC_PAGE_SEARCH_EMPTY = "launcher:page-search:empty"
         const val SEMANTIC_PAGE_SEARCH_PAGE_PREFIX = "launcher:page-search:page:"
         const val SEMANTIC_STARTUP_DISMISS = "startup:dismiss"
+        const val SEMANTIC_STARTUP_MESSAGE = "startup:message"
         const val APP_SHORTCUT_BUTTON_ICON_GAP_DP = 8
         const val APP_SHORTCUT_ICON_LABEL_GAP_DP = 4
         const val APP_GROUP_ICON_SIZE_DP = 24
@@ -11356,7 +11411,9 @@ class DikcizHomeActivity : Activity() {
         const val PAGE_ID_PREFIX = "page"
         const val STARTUP_BRAND_ENTER_DURATION_MILLISECONDS = 360L
         const val STARTUP_BRAND_EXIT_DURATION_MILLISECONDS = 280L
-        const val STARTUP_BRAND_VISIBLE_DURATION_MILLISECONDS = 10_000L
+        const val STARTUP_MESSAGE_COUNT = 5
+        const val STARTUP_MESSAGE_INTERVAL_MILLISECONDS = 1_000L
+        const val STARTUP_BRAND_VISIBLE_DURATION_MILLISECONDS = STARTUP_MESSAGE_COUNT * STARTUP_MESSAGE_INTERVAL_MILLISECONDS
         const val STARTUP_BRAND_INITIAL_SCALE = 0.82F
         const val TRANSPARENT_OPACITY = 0F
         const val REASON_ACTIVITY_UNAVAILABLE = "activity_unavailable"

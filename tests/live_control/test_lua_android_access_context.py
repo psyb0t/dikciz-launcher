@@ -33,6 +33,25 @@ def wait_for_failed_run_status() -> dict[str, Any]:
     raise AssertionError("Lua read-only context mutation did not record a failed run")
 
 
+def wait_for_target_widget_checked(connection: socket.socket) -> None:
+    deadline = time.monotonic() + LUA_ANDROID_ACCESS_TIMEOUT_SECONDS
+    state: Any = None
+    while time.monotonic() < deadline:
+        configuration = AUTOMATION.require_configuration(
+            AUTOMATION.request(connection, AUTOMATION.TYPE_CONFIG_GET),
+        )
+        target = next(
+            widget
+            for widget in configuration["launcher"]["home"]["pages"][0]["widgets"]
+            if widget["id"] == LUA_ANDROID_ACCESS_TARGET_WIDGET_ID
+        )
+        state = target.get("state")
+        if isinstance(state, dict) and state.get("checked") is True:
+            return
+        time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
+    raise AssertionError(f"patchWidget did not check the target widget: {state!r}")
+
+
 def test_lua_android_access_context_matches_status_and_rejects_mutation(
     websocket_control: socket.socket,
 ) -> None:
@@ -63,18 +82,14 @@ def test_lua_android_access_context_matches_status_and_rejects_mutation(
             AUTOMATION.TYPE_AUTOMATION_TRIGGER,
             scriptId=AUTOMATION_LIVE_SCRIPT_ID,
         )
-        updated = wait_for_automation_script_state(
+        wait_for_automation_script_state(
             websocket_control,
             AUTOMATION_LIVE_SCRIPT_ID,
             LUA_ANDROID_ACCESS_STATE_KEY,
             expected_accessibility,
         )
-        focus_widget = next(
-            widget
-            for widget in updated["launcher"]["home"]["pages"][0]["widgets"]
-            if widget["id"] == LUA_ANDROID_ACCESS_TARGET_WIDGET_ID
-        )
-        assert focus_widget["state"]["checked"] is True
+        # The script's actions apply in order, so the widget patch lands after the state.
+        wait_for_target_widget_checked(websocket_control)
 
         AUTOMATION.request(
             websocket_control,

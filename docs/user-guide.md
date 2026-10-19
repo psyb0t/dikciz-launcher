@@ -9,7 +9,8 @@ For events, HTML widgets, Lua scripts, and typed actions, start with the [script
 1. Open the Dikciz APK from your browser, file manager, or Downloads app.
 2. If Android asks, allow that app to install unknown apps, then accept Android's installation screen.
 3. Open Dikciz. If Android asks which Home app to use, choose **Dikciz** and make it the default. If it does not ask, press the Home button and choose Dikciz there.
-4. The first Dikciz screen asks for shared-storage access. Tap **Grant file access**, enable access for Dikciz in the Android panel, then return to Dikciz.
+4. Each time Dikciz starts, it shows its mark and five joke lines for five seconds. Tap anywhere to skip them.
+5. The first Dikciz screen asks for shared-storage access. Tap **Grant file access**, enable access for Dikciz in the Android panel, then return to Dikciz.
 
 That access lets Dikciz create and watch `/sdcard/Dikciz/`. It contains your pages, widgets, themes, scripts, packages, and logs. Dikciz cannot load or save your home until Android grants it.
 
