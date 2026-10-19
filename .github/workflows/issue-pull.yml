@@ -2,7 +2,7 @@ name: issue-pull
 
 on:
   schedule:
-    - cron: "37 */6 * * *"
+    - cron: "23 5,11,17,23 * * *"
   workflow_dispatch:
 
 permissions: {}
