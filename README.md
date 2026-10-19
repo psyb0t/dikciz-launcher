@@ -6,7 +6,7 @@
 [![version](https://raw.githubusercontent.com/psyb0t/dikciz-launcher/badges/version.svg)](https://github.com/psyb0t/dikciz-launcher/releases)
 [![license](https://raw.githubusercontent.com/psyb0t/dikciz-launcher/badges/license.svg)](LICENSE)
 
-Dikciz is a programmable Android home screen. Build pages from HTML widgets, native app shortcuts and Android widgets, write Lua automations, and control your phone through WebSocket or MCP over USB, Wi-Fi or Tailscale.
+Dikciz is a programmable Android home screen. Build pages from HTML widgets, native app shortcuts and Android widgets, write Lua automations, and control your phone through WebSocket, MCP or HTTP over USB, Wi-Fi or Tailscale.
 
 Your home lives in editable files under `/sdcard/Dikciz/`. The signed release includes scripting, inspection and remote control. Ordinary launcher control needs neither a debug build nor root. Android permissions govern access to the rest of the phone.
 
@@ -34,7 +34,7 @@ Release packages use `eu.psyb0t.dikciz.launcher`; debug packages use `eu.psyb0t.
 - Native app shortcuts, app groups and third-party Android AppWidget providers.
 - Lua scripts with event subscriptions, typed actions, explicit capability policies and a native script dashboard.
 - Themes, fonts, wallpaper, widget appearance, editing locks and a chosen Android Home destination.
-- Semantic UI inspection, screenshots, logs, configuration editing and device actions through both remote protocols.
+- Semantic UI inspection, screenshots, logs, configuration editing and device actions through the remote APIs.
 
 The starter home includes a control deck, notes, an Android Settings shortcut, a Lua script dashboard and a workbench. Lua runs as automation scripts, not as a widget type.
 
@@ -52,7 +52,7 @@ Use the [configuration guide](docs/dikciz-configuration.md) for file formats and
 
 ## Inspect and control it remotely
 
-WebSocket carries commands and persistent events. Streamable HTTP MCP exposes the same command target as tools. Both default to `127.0.0.1` on the phone, reachable by phone apps and ADB forwarding. For direct access without USB:
+WebSocket carries commands and persistent events. Streamable HTTP MCP exposes the same command target as tools. Plain HTTP accepts JSON commands at `/v1/automation` on the MCP port. Both default to `127.0.0.1` on the phone, reachable by phone apps and ADB forwarding. For direct access without USB:
 
 1. Connect the phone and controlling computer to the same reachable private network or Tailscale network. Its access policy must allow **computer to phone** traffic on TCP `19001` and `19002`. Being online or answering a Tailscale tunnel ping does not prove application access.
 2. On the phone, open **Settings**, **Automation**, **Configure remote bearer authentication**. Set and enable a password. The client reads it from `DIKCIZ_REMOTE_BEARER_TOKEN`; keep it in your secret environment, outside command arguments.
@@ -67,18 +67,20 @@ python3 scripts/dikciz-control.py mcp-tools --host phone.example --port 19002 --
 python3 scripts/dikciz-control.py mcp dikciz_snapshot --host phone.example --port 19002 --pretty
 ```
 
-| Connection | WebSocket | Streamable HTTP MCP |
-| --- | --- | --- |
-| Direct private network | `ws://phone.example:19001/v1/automation` | `http://phone.example:19002/mcp` |
-| Lab ADB forwards after `make dikciz-run` | `ws://127.0.0.1:19101/v1/automation` | `http://127.0.0.1:19102/mcp` |
+| Connection | WebSocket | Streamable HTTP MCP | HTTP commands |
+| --- | --- | --- | --- |
+| Direct private network | `ws://phone.example:19001/v1/automation` | `http://phone.example:19002/mcp` | `http://phone.example:19002/v1/automation` |
+| Lab ADB forwards after `make dikciz-run` | `ws://127.0.0.1:19101/v1/automation` | `http://127.0.0.1:19102/mcp` | `http://127.0.0.1:19102/v1/automation` |
 
 Configure your MCP client's Streamable HTTP URL and bearer header, then initialize and list tools. Direct access needs no USB, ADB or emulator. The endpoints do not provide TLS themselves; use a trusted private network or an encrypted VPN. `0.0.0.0` listens on all IPv4 interfaces, including Wi-Fi, subject to network routing and filtering.
 
 The [connection walkthrough](docs/automation-control.md#connect-without-usb) covers setup, troubleshooting and ADB alternatives. Both protocols reject browser origins outside HTTP or HTTPS loopback pages. Native clients can omit `Origin`. Network access, bearer authentication and Android permissions are separate checks. Shell commands request root by default; pass `root: false` for Dikciz's app sandbox.
 
+Browse and transfer any files Android lets Dikciz access, upload standalone APKs and request installation, or run Android shell commands and read their output and exit status. Shell commands default to a 30-second timeout and accept per-request timeout and output-size options. Android controls installation permission and confirmation. The [files, APKs and shell guide](docs/files-and-apks.md) covers commands, binary transfers and final installation status.
+
 ## Logs and failure reporting
 
-Dikciz writes bounded JSON Lines files under `/sdcard/Dikciz/logs/`. Read script results and failures in the dashboard, Settings log viewer, WebSocket `scriptLogs` or MCP `dikciz_script_logs`. A queued event does not prove an action succeeded. The [logging reference](docs/dikciz-configuration.md#logs) covers redaction, limits and failure notifications.
+Dikciz writes daily UTC JSON Lines files under `/sdcard/Dikciz/logs/`. **Settings**, **Configure logging** selects DEBUG, INFO, WARN or ERROR and retention from 1 to 90 days. Defaults are INFO and seven days; changes apply immediately. Successful app launches stay in the logs without a popup. Read script results and failures in the dashboard, Settings log viewer, WebSocket `scriptLogs` or MCP `dikciz_script_logs`. A queued event does not prove an action succeeded. The [logging reference](docs/dikciz-configuration.md#logs) covers redaction, limits and failure notifications.
 
 ## Run it
 
@@ -110,7 +112,8 @@ A version tag builds the signed APK and checksum in CI through `make release-apk
 | [User guide](docs/user-guide.md) | Installation, Android access, navigation and native editing, with screenshots. |
 | [Configuration](docs/dikciz-configuration.md) | Public files, validation, reload behavior, themes and logs. |
 | [Scripting](docs/scripting-tutorial.md) | Lua, HTML, events, policies and typed actions. |
-| [Automation control](docs/automation-control.md) | Direct connections, ADB forwarding, authentication, WebSocket and MCP. |
+| [Automation control](docs/automation-control.md) | Direct connections, ADB forwarding, authentication, WebSocket, MCP and HTTP. |
+| [Files, APKs and shell](docs/files-and-apks.md) | Browse, upload, download, install APKs and read CLI results. |
 | [Dikciz source](app/src/dikciz/README.md) | Product architecture and implementation boundaries. |
 | [Scripts](scripts/README.md), [tests](tests/README.md), [contributing](CONTRIBUTING.md) | Build tooling, verification and change boundaries. |
 

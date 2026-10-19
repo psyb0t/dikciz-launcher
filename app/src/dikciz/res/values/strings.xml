@@ -96,7 +96,12 @@
     <string name="dikciz_settings_themes_button">Theme: %1$s</string>
     <string name="dikciz_settings_scripts">Lua scripts</string>
     <string name="dikciz_settings_scripts_button">Manage Lua scripts</string>
-    <string name="dikciz_settings_script_logs_button">View script logs</string>
+    <string name="dikciz_settings_script_logs_button">View logs</string>
+    <string name="dikciz_settings_logging">Logging</string>
+    <string name="dikciz_settings_logging_button">Configure logging</string>
+    <string name="dikciz_logging_retention_days">Retention in days (1 to 90)</string>
+    <string name="dikciz_logging_retention_invalid">Enter a whole number of days from 1 to 90.</string>
+    <string name="dikciz_logging_description">Choose the minimum log level and retention period. DEBUG includes every level; INFO includes INFO, WARN and ERROR. Defaults are INFO and seven days. Files use UTC dates under /sdcard/Dikciz/logs/.</string>
     <string name="dikciz_theme_picker_title">Themes</string>
     <string name="dikciz_theme_current_title">Current theme</string>
     <string name="dikciz_theme_available_title">Available themes</string>

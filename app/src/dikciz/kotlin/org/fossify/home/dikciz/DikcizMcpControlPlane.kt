@@ -27,6 +27,7 @@ internal class DikcizMcpControlPlane(
     private val target: DikcizAutomationTarget,
     private val logger: DikcizLogger,
     private val remoteAccessAuth: DikcizRemoteAccessAuth,
+    private val executeHttpCommand: (JSONObject, String?) -> String,
 ) {
     /** The port of the running listener, or the port the next start would bind. */
     @Volatile
@@ -143,6 +144,23 @@ internal class DikcizMcpControlPlane(
     }
 
     private fun handleRequest(request: HttpRequest, output: BufferedOutputStream) {
+        if (request.path == HTTP_COMMAND_PATH) {
+            if (request.method != HTTP_METHOD_POST) {
+                writeResponse(output, HTTP_STATUS_METHOD_NOT_ALLOWED, null, mapOf(HEADER_ALLOW to HTTP_METHOD_POST))
+                return
+            }
+            if (request.headers[HEADER_CONTENT_TYPE]?.substringBefore(';')?.trim() != MIME_TYPE_JSON) {
+                throw McpHttpException(HTTP_STATUS_BAD_REQUEST, REASON_INVALID_JSON, MESSAGE_INVALID_JSON)
+            }
+            val command = try {
+                JSONObject(String(request.body, StandardCharsets.UTF_8))
+            } catch (exception: JSONException) {
+                throw McpHttpException(HTTP_STATUS_BAD_REQUEST, REASON_INVALID_JSON, MESSAGE_INVALID_JSON)
+            }
+            val response = executeHttpCommand(command, request.headers[HEADER_AUTHORIZATION])
+            writeJson(output, JSONObject(response))
+            return
+        }
         if (request.path != MCP_PATH) {
             throw McpHttpException(HTTP_STATUS_NOT_FOUND, REASON_UNKNOWN_PATH, MESSAGE_UNKNOWN_PATH)
         }
@@ -380,6 +398,10 @@ internal class DikcizMcpControlPlane(
     }
 
     private fun validateCommandArguments(commandType: String, arguments: JSONObject) {
+        if (commandType in DikcizFileCommands.FIELDS) {
+            DikcizFileCommands.validate(commandType, arguments)
+            return
+        }
         val expectedKeys = COMMAND_ARGUMENT_KEYS[commandType]
             ?: throw DikcizAutomationRequestException(
                 DikcizAutomationControlPlane.ERROR_UNKNOWN_COMMAND,
@@ -391,6 +413,8 @@ internal class DikcizMcpControlPlane(
                 expectedKeys,
                 ACCESSIBILITY_ACTION_REQUIRED_ARGUMENT_KEYS,
             )
+        } else if (commandType == DikcizAutomationControlPlane.TYPE_SHELL) {
+            requireAllowedKeys(arguments, expectedKeys, setOf(DikcizAutomationControlPlane.KEY_COMMAND))
         } else if (commandType == DikcizAutomationControlPlane.TYPE_APP_CATALOGUE) {
             requireAllowedKeys(arguments, expectedKeys, emptySet())
         } else {
@@ -492,6 +516,7 @@ internal class DikcizMcpControlPlane(
             }
 
             DikcizAutomationControlPlane.TYPE_SHELL -> {
+                DikcizPrivilegedShell.validateOptions(arguments)
                 arguments.requireBoundedString(
                     DikcizAutomationControlPlane.KEY_COMMAND,
                     DikcizAutomationControlPlane.MAXIMUM_SHELL_COMMAND_CHARACTERS,
@@ -939,11 +964,13 @@ internal class DikcizMcpControlPlane(
         val isRequired: Boolean,
         val minimum: Int? = null,
         val maximum: Int? = null,
+        val defaultValue: Int? = null,
     ) {
         fun toJson(): JSONObject {
             val value = JSONObject().put(KEY_TYPE, type).put(KEY_DESCRIPTION, description)
             minimum?.let { value.put(KEY_MINIMUM, it) }
             maximum?.let { value.put(KEY_MAXIMUM, it) }
+            defaultValue?.let { value.put(KEY_SCHEMA_DEFAULT, it) }
             return value
         }
     }
@@ -956,6 +983,8 @@ internal class DikcizMcpControlPlane(
     ) : IllegalArgumentException(message)
 
     companion object {
+        private const val KEY_SCHEMA_DEFAULT = "default"
+        const val HTTP_COMMAND_PATH = "/v1/automation"
         const val ALLOWED_METHODS = "POST, DELETE"
         const val CACHE_CONTROL_NO_STORE = "no-store"
         const val CARRIAGE_RETURN = 13
@@ -1216,6 +1245,8 @@ internal class DikcizMcpControlPlane(
             DikcizAutomationControlPlane.TYPE_SHELL to setOf(
                 DikcizAutomationControlPlane.KEY_COMMAND,
                 DikcizAutomationControlPlane.KEY_ROOT,
+                DikcizAutomationControlPlane.KEY_TIMEOUT_MILLISECONDS,
+                DikcizPrivilegedShell.KEY_MAX_OUTPUT_BYTES,
             ),
             DikcizAutomationControlPlane.TYPE_INTENT to setOf(
                 DikcizAutomationControlPlane.KEY_INTENT_TYPE,
@@ -1247,7 +1278,7 @@ internal class DikcizMcpControlPlane(
             DikcizAutomationControlPlane.TYPE_HTML_WIDGET_RENDERER_CRASH to setOf(
                 DikcizAutomationControlPlane.KEY_WIDGET_ADDRESS,
             ),
-        )
+        ) + DikcizFileCommands.FIELDS
         val TOOL_COMMANDS = mapOf(
             "dikciz_accessibility_snapshot" to DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_SNAPSHOT,
             "dikciz_accessibility_action" to DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_ACTION,
@@ -1289,7 +1320,26 @@ internal class DikcizMcpControlPlane(
             TOOL_WIDGET_MOVE to DikcizAutomationControlPlane.TYPE_WIDGET_MOVE,
             TOOL_WIDGET_RESIZE to DikcizAutomationControlPlane.TYPE_WIDGET_RESIZE,
             TOOL_HTML_WIDGET_RENDERER_CRASH to DikcizAutomationControlPlane.TYPE_HTML_WIDGET_RENDERER_CRASH,
+        ) + DikcizFileCommands.TOOLS
+        private val FILE_FIELD_DESCRIPTIONS = mapOf(
+            DikcizFileCommands.KEY_PATH to "Absolute filesystem path, using Android permissions granted to Dikciz.",
+            DikcizFileCommands.KEY_OFFSET to "Nonnegative byte offset, or directory entry offset. Defaults to zero.",
+            DikcizFileCommands.KEY_LIMIT to "Maximum directory entries (1 to 500) or file bytes (1 to 262144).",
+            DikcizFileCommands.KEY_DATA_BASE64 to "Strict base64 file bytes, at most 262144 decoded bytes per chunk.",
+            DikcizFileCommands.KEY_OVERWRITE to "Allow replacing an existing file at offset zero. Defaults to false.",
+            DikcizFileCommands.KEY_PARENTS to "Create missing parent directories. Defaults to false.",
+            DikcizFileCommands.KEY_SHA256 to "Optional expected SHA-256 of the complete APK, exactly 64 hex digits.",
+            DikcizFileCommands.KEY_SESSION_ID to "Install session ID returned by dikciz_apk_install.",
         )
+        private val FILE_TOOL_DESCRIPTIONS = mapOf(
+            DikcizFileCommands.TYPE_FILE_LIST to "List one directory page in filesystem enumeration order. Follow hasMore with offset plus the returned item count; directory changes can alter enumeration order.",
+            DikcizFileCommands.TYPE_FILE_READ to "Read a bounded binary file chunk as base64. Follow nextOffset until eof is true.",
+            DikcizFileCommands.TYPE_FILE_WRITE to "Create or explicitly overwrite a file at offset zero, or append a chunk only when offset equals its current size. Never executes uploaded content.",
+            DikcizFileCommands.TYPE_FILE_MKDIR to "Create a directory wherever Dikciz can write. Optionally create missing parents.",
+            DikcizFileCommands.TYPE_APK_INSTALL to "Submit one readable standalone APK, up to 512 MiB, to Android PackageInstaller. Android may require unknown-source access and confirmation. Poll dikciz_apk_install_status for the actual outcome.",
+            DikcizFileCommands.TYPE_APK_INSTALL_STATUS to "Read the actual Android outcome for one installation submitted by Dikciz. Submission or pending confirmation is not successful installation.",
+        )
+
         private val TOOL_DEFINITIONS = listOf(
             ToolDefinition("dikciz_accessibility_snapshot", "Read current Android app", "Read a bounded snapshot of the active Android accessibility tree. The owner must first enable Dikciz cross-app automation in Android Accessibility settings.", emptyList(), true),
             ToolDefinition("dikciz_accessibility_action", "Act on current Android app", "Run one supported action on a node from an unexpired accessibility snapshot.", listOf(accessibilitySnapshotIDArgument(), accessibilityNodeIDArgument(), accessibilityActionArgument(), optionalAccessibilityTextArgument()), false),
@@ -1320,7 +1370,7 @@ internal class DikcizMcpControlPlane(
             ToolDefinition(TOOL_OPEN_AUTOMATION_SETUP, "Open Dikciz automation setup", "Open the native Dikciz Automation access sheet so the phone owner can grant the Android access a denied action needs.", emptyList(), false),
             ToolDefinition(TOOL_APP_CATALOGUE, "List launchable Android apps", "List the launcher app catalogue with stable semantic IDs, human labels, package names, and components, plus the supported app actions. An optional query filters on label and package name.", listOf(optionalAppQueryArgument()), true),
             ToolDefinition(TOOL_APP_ACTION, "Run a Dikciz app action", "Run one app action on a launchable component: launch, addShortcut, appInfo, uninstall, or forceStop. Force stop needs root and reports root_unavailable otherwise. Uninstall hands off to Android, which asks for its own confirmation.", listOf(appActionArgument(), appComponentArgument()), false, isDestructive = true),
-            ToolDefinition("dikciz_shell", "Run Dikciz shell command", "Run a command through su by default, or as the launcher app user when root is false.", listOf(shellCommandArgument(), rootArgument()), false),
+            ToolDefinition("dikciz_shell", "Run Dikciz shell command", "Run a command through su by default, or as the launcher app user when root is false.", listOf(shellCommandArgument(), rootArgument(), shellTimeoutArgument(), shellOutputArgument()), false),
             ToolDefinition("dikciz_intent", "Dispatch Dikciz device intent", "Dispatch an Android activity or broadcast intent using the launcher app's permissions.", listOf(intentTypeArgument(), actionArgument()), false),
             ToolDefinition("dikciz_screenshot", "Capture Dikciz screenshot", "Capture a bounded PNG of the launcher.", emptyList(), true),
             ToolDefinition("dikciz_ui_dump", "Dump Dikciz UI", "Read the current semantic launcher UI tree.", emptyList(), true),
@@ -1331,7 +1381,34 @@ internal class DikcizMcpControlPlane(
             ToolDefinition(TOOL_WIDGET_MOVE, "Move Dikciz widget", "Move one widget to an explicit grid rectangle. Rejects with grid_collision or grid_bounds and writes nothing.", listOf(widgetAddressArgument(), cellArgument()), false),
             ToolDefinition(TOOL_WIDGET_RESIZE, "Resize Dikciz widget", "Resize one widget to an explicit grid rectangle. Rejects with grid_collision or grid_bounds and writes nothing.", listOf(widgetAddressArgument(), cellArgument()), false),
             ToolDefinition(TOOL_HTML_WIDGET_RENDERER_CRASH, "Test HTML renderer recovery", "Crash one rendered HTML widget through Android's documented WebView test URL, then report the normal renderer-loss recovery through local logs.", listOf(widgetAddressArgument()), false),
-        )
+        ) + fileToolDefinitions()
+
+        private fun fileToolDefinitions(): List<ToolDefinition> {
+            return DikcizFileCommands.TOOLS.map { (tool, command) ->
+                val arguments = DikcizFileCommands.FIELDS.getValue(command).sorted().map { field ->
+                    val fieldType = when (field) {
+                        DikcizFileCommands.KEY_OFFSET, DikcizFileCommands.KEY_LIMIT,
+                        DikcizFileCommands.KEY_SESSION_ID -> SCHEMA_TYPE_INTEGER
+                        DikcizFileCommands.KEY_OVERWRITE, DikcizFileCommands.KEY_PARENTS -> SCHEMA_TYPE_BOOLEAN
+                        else -> SCHEMA_TYPE_STRING
+                    }
+                    ToolArgument(
+                        field,
+                        FILE_FIELD_DESCRIPTIONS.getValue(field),
+                        fieldType,
+                        field in DikcizFileCommands.REQUIRED_FIELDS.getValue(command),
+                    )
+                }
+                ToolDefinition(
+                    tool,
+                    command,
+                    FILE_TOOL_DESCRIPTIONS.getValue(command),
+                    arguments,
+                    command in DikcizFileCommands.READ_ONLY_TYPES,
+                    command == DikcizFileCommands.TYPE_FILE_WRITE || command == DikcizFileCommands.TYPE_APK_INSTALL,
+                )
+            }
+        }
 
         const val TOOL_ADD_WIDGET = "dikciz_add_widget"
         const val TOOL_GRID_SET = "dikciz_grid_set"
@@ -1548,6 +1625,26 @@ internal class DikcizMcpControlPlane(
             SCHEMA_TYPE_STRING,
             true,
             maximum = DikcizAutomationControlPlane.MAXIMUM_SHELL_COMMAND_CHARACTERS,
+        )
+
+        private fun shellTimeoutArgument(): ToolArgument = ToolArgument(
+            DikcizAutomationControlPlane.KEY_TIMEOUT_MILLISECONDS,
+            "Command timeout in milliseconds. Defaults to 30000.",
+            SCHEMA_TYPE_INTEGER,
+            false,
+            1,
+            DikcizPrivilegedShell.MAXIMUM_SHELL_TIMEOUT_MILLISECONDS,
+            defaultValue = DikcizPrivilegedShell.DEFAULT_SHELL_TIMEOUT_MILLISECONDS.toInt(),
+        )
+
+        private fun shellOutputArgument(): ToolArgument = ToolArgument(
+            DikcizPrivilegedShell.KEY_MAX_OUTPUT_BYTES,
+            "Maximum combined stdout and stderr bytes. Defaults to 65536; maximum 1048576.",
+            SCHEMA_TYPE_INTEGER,
+            false,
+            1,
+            DikcizPrivilegedShell.MAXIMUM_SHELL_OUTPUT_BYTES,
+            defaultValue = DikcizPrivilegedShell.DEFAULT_SHELL_OUTPUT_BYTES,
         )
 
         private fun rootArgument(): ToolArgument = ToolArgument(

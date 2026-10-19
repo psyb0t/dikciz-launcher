@@ -1,6 +1,6 @@
 ---
 name: "dikciz-launcher"
-description: "Install a Dikciz Launcher APK with ADB and use its home screen, configuration, HTML widgets, Lua automation, WebSocket controls, and MCP tools on the user's selected Android device."
+description: "Install a Dikciz Launcher APK with ADB and use its home screen, configuration, HTML widgets, Lua automation, WebSocket and HTTP controls, file transfers, APK installation, and MCP tools on the user's selected Android device."
 ---
 
 # Dikciz launcher
@@ -29,6 +29,8 @@ Read [references/capabilities.md](references/capabilities.md) to choose among th
 - For saved configuration, pages and widget files beneath `/sdcard/Dikciz/`, read the [configuration guide](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/dikciz-configuration.md) before editing them.
 - For HTML bridge calls, Lua scripts, events, and automation policies, read the [scripting tutorial](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/scripting-tutorial.md).
 - For WebSocket envelopes, MCP tools, semantic UI actions, screenshots, and device commands, read the [automation-control guide](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/automation-control.md). Discover the running build's names, fields and limits through `controlStatus` and `tools/list` rather than inventing them.
+
+For arbitrary file browsing, binary upload/download, APK installation and shell output, read the [files, APKs and shell guide](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/files-and-apks.md). HTTP JSON commands share the MCP listener at `/v1/automation`; they require no MCP session. File APIs use Android permissions granted to Dikciz. An accepted installer session is not proof of successful installation; poll its final status.
 
 Start with `snapshot`, `homeGet`, `configGet`, or the matching discovered MCP read tool. Use returned semantic IDs and page/widget addresses for actions. Read a fresh snapshot after an action to verify the change. Android accessibility actions require the phone owner to enable Dikciz's Accessibility service; ordinary launcher controls do not require it.
 

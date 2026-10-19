@@ -2,6 +2,27 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.15.4] - 2026-10-19
+
+### Added
+
+- WebSocket, MCP and HTTP commands browse arbitrary app-accessible paths, read and write bounded binary chunks and create directories. The Python client adds HTTP commands and chunked `upload` and `download` helpers.
+- Standalone APK installation stages uploads asynchronously, optionally verifies SHA-256 and exposes Android permission, confirmation, success, cancellation and failure states by session ID.
+- Plain HTTP POST `/v1/automation` shares the MCP listener, authentication, browser-Origin checks and validated command target, including shell output and exit status.
+- **Settings**, **Configure logging** selects DEBUG, INFO, WARN or ERROR and retention from 1 to 90 days. Saving applies immediately; Cancel leaves the saved configuration unchanged. Defaults remain INFO and seven days.
+- The native log viewer, WebSocket `scriptLogs` and MCP `dikciz_script_logs` include the target app as nullable `componentPackage`. App actions expose their `actionType`, and direct shortcut launches record their target package too.
+
+### Changed
+
+- Shell commands now default to a 30-second timeout, increased from five seconds, and accept per-request `timeoutMilliseconds` and `maxOutputBytes` through WebSocket, MCP and HTTP. The output default remains 64 KiB. Discovery reports defaults and supported ranges, and the supplied client waits for the requested command budget.
+- Successful app launches no longer show a popup. App-action logs retain the action, target and outcome; failures still show feedback.
+- The guides document daily UTC log files at `/sdcard/Dikciz/logs/YYYY-MM-DD.log`, level filtering and retention controls.
+
+### Migration
+
+- Exact discovery schemas must accept `transports.http`, the six file/APK commands and their matching MCP tools, and the shell timeout/output fields in commands, tool schemas and limits. HTTP uses the configured MCP port; existing endpoint settings need no change.
+- Clients that validate exact log-record keys must accept `componentPackage`, which is null for records without an app target.
+
 ## [0.15.3] - 2026-10-19
 
 ### Added

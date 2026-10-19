@@ -1,6 +1,6 @@
 # Live control tests
 
-These pytest scenarios exercise real Android UI and forwarded WebSocket and MCP endpoints. They cover configuration, persistence, widget layout, providers, scripts, Android access, protocol validation, and recovery. Read the [test overview](../README.md) for entry points and the [automation-control guide](../../docs/automation-control.md) for protocol contracts.
+These pytest scenarios exercise real Android UI and forwarded WebSocket, MCP and HTTP endpoints. They cover configuration, persistence, widget layout, providers, scripts, Android access, protocol validation, and recovery. Read the [test overview](../README.md) for entry points and the [automation-control guide](../../docs/automation-control.md) for protocol contracts.
 
 ## Harness map
 
@@ -14,6 +14,8 @@ These pytest scenarios exercise real Android UI and forwarded WebSocket and MCP 
 | `fixtures.py` | Per-test isolation, connection restoration, and provider installation lifecycle. |
 | `__init__.py` | Shared harness exports consumed by tests. |
 | Domain support modules | Accessibility, media sessions, notifications, alarms, and script-status helpers. |
+| `test_device_files.py` | Filesystem pagination, binary transfers, HTTP security, CLI results and actual Android APK install/cancel outcomes. |
+| `test_logging_settings.py` | Native log settings, quiet launches and target metadata. |
 | `test_*.py` | Scenarios grouped by product area. `test_audit.py` runs last through the root collection hook. |
 
 The harness imports helpers in layers: constants, device, UI, configuration, interactions, then fixtures. Many tests import the package exports. Keep domain helpers with related scenarios and avoid import cycles between these layers.

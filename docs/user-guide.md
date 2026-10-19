@@ -75,7 +75,7 @@ Search by app label or package name. For example, `Settings` and `com.android.se
 
 ![Drawer search](images/user-guide/08-app-drawer-search.png)
 
-Tap an app to open it. Use its overflow button, or long press its row, for **Add shortcut**, Android **App info**, **Uninstall**, or **Force stop**. Android owns the app-info screen and uninstall confirmation. Force stop needs root. Without root, Dikciz reports `root_unavailable` and does not pretend it worked.
+Tap an app to open it. Successful launches do not show a popup; their action, target package and outcome remain in the logs. Launch failures still show feedback. Use its overflow button, or long press its row, for **Add shortcut**, Android **App info**, **Uninstall**, or **Force stop**. Android owns the app-info screen and uninstall confirmation. Force stop needs root. Without root, Dikciz reports `root_unavailable` and does not pretend it worked.
 
 ![App actions](images/user-guide/09-app-actions.png)
 
@@ -210,6 +210,16 @@ The interfaces default to the phone's loopback address. Choose a network listen 
 Connect the phone and controlling computer to your private network or Tailscale network. In **Settings**, **Automation**, set and enable a remote bearer password, then open **Configure control ports**, enter `0.0.0.0` as the listen address and save. Connect the computer's client to the phone's private hostname or IP on device ports `19001` for WebSocket and `19002` for MCP. The network policy must allow traffic from that computer to the phone. `0.0.0.0` means listen on all IPv4 interfaces; it is not the hostname to enter in the computer's client.
 
 Saving a changed endpoint closes existing connections, so reconnect with the new settings. Keep `127.0.0.1` if you prefer ADB forwarding. The [USB-free walkthrough](automation-control.md#connect-without-usb) covers client commands, password handling, network exposure and troubleshooting.
+
+### Transfer files, install APKs and run commands
+
+A connected client can browse and transfer files anywhere Android lets Dikciz access. MCP tools and WebSocket or HTTP commands can upload a standalone APK, request Android installation and read the final result. Grant installation from Dikciz and approve the installer prompt on the phone when Android asks. Shell commands return output and exit status; set `root: false` for ordinary app access. The [files, APKs and shell guide](files-and-apks.md) provides examples. Plain HTTP shares the MCP port.
+
+### Choose log detail and retention
+
+Open **Settings**, **Configure logging**. Choose **DEBUG**, **INFO**, **WARN** or **ERROR**, set retention from 1 to 90 days, then save. Changes apply immediately. Defaults are INFO and seven days. DEBUG includes all four levels; each other setting includes its own level and more severe levels. Cancel leaves the saved settings unchanged.
+
+Dikciz appends structured records to `/sdcard/Dikciz/logs/YYYY-MM-DD.log`, using UTC dates and full timestamps within each file. **View logs** shows recent records, including app-action targets and outcomes. WebSocket `scriptLogs` and MCP `dikciz_script_logs` return the same bounded records. Credentials remain redacted at every level.
 
 ## Edit the public files directly
 

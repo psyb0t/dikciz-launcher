@@ -379,7 +379,9 @@ When enabled, WebSocket and MCP requests on every interface need `Authorization:
 
 ## Control ports
 
-`control/ports.json` sets the listen address and ports of both control planes:
+`control/ports.json` sets the listen address and ports of both listeners. Plain HTTP JSON commands share `mcpPort` at `/v1/automation`; MCP uses `/mcp` on that port. Both use the same bearer and Origin checks. The [files, APKs and shell guide](files-and-apks.md) documents HTTP requests.
+
+Example:
 
 ```json
 { "version": 1, "listenAddress": "0.0.0.0", "websocketPort": 19001, "mcpPort": 19002 }
@@ -403,13 +405,13 @@ Fonts can be bundled, Android system choices, or a plain `.ttf`, `.otf`, or `.tt
 
 ## Logs
 
-Dikciz writes JSON Lines diagnostics under `logs/YYYY-MM-DD.log`. The default keeps seven days and 16 MiB. The logging object can enable failed-script Android notifications and set the minimum interval for each script's failure alert. HTML widget console warnings and errors are included as HTML-kind records with the stable widget ID. Assignment-shaped credentials and bearer values in console text are redacted before persistence. If an Android WebView renderer is lost, Dikciz destroys and recreates only that widget in its existing native frame. The Settings viewer and control planes return a bounded safe record list, including launcher-component records that use their component name in the record's script-ID field for compatibility. They do not return raw script source, state, widget text, or configuration.
+Dikciz writes JSON Lines diagnostics under `/sdcard/Dikciz/logs/YYYY-MM-DD.log`, with UTC dates in filenames and complete UTC timestamps in each record. Open **Settings**, **Configure logging** to choose the minimum level (`debug`, `info`, `warn` or `error`) and retention from 1 to 90 days. Saving applies immediately; Cancel does not change configuration. DEBUG includes all levels; INFO includes INFO, WARN and ERROR. Native edits preserve the other logging values. Existing file-based logging edits also reload automatically. Defaults are INFO, seven days and a 16 MiB cleanup budget. Cleanup removes older daily files; the active UTC day's file stays even if it exceeds the budget. The logging object can enable failed-script Android notifications and set the minimum interval for each script's failure alert. HTML widget console warnings and errors are included as HTML-kind records with the stable widget ID. Assignment-shaped credentials and bearer values in console text are redacted before persistence. If an Android WebView renderer is lost, Dikciz destroys and recreates only that widget in its existing native frame. The Settings viewer and control planes return a bounded safe record list, including launcher-component records that use their component name in the record's script-ID field for compatibility. App-action records retain the action and target as `actionType` and nullable `componentPackage` in the viewer and both control planes. The raw files use `action` and `component_package`. Successful app launches remain logged without a success popup. They do not return raw script source, state, widget text, or configuration.
 
 ## Recovery
 
 **Reset Dikciz home** restores the bundled home, its scripts, policies, and subscriptions. It keeps other root namespaces and unrelated Android launcher data. It removes obsolete Dikciz AppWidget allocations.
 
-**Safe mode** starts the bundled first page without writing the current public configuration. It keeps read-only diagnostics, snapshots, logs, screenshot, UI dump, reset, and normal-restart recovery paths available while it blocks normal home edits and device mutation commands.
+**Safe mode** starts the bundled first page without writing the current public configuration. It keeps read-only file browsing and downloads, install-status queries, diagnostics, snapshots, logs, screenshot, UI dump, reset, and normal-restart recovery paths available while it blocks normal home edits and device mutation commands.
 
 ## Source map
 

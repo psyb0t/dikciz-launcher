@@ -25,6 +25,24 @@ The control-listener scenarios cover Settings validation, legacy records, automa
 make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_control_ports_
 ```
 
+The logging scenarios cover native level selection, retention validation and boundaries, Cancel behavior, quiet app launches and target metadata through both protocols:
+
+```bash
+make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_logging_
+```
+
+The file scenarios cover all three APIs, binary and private-path transfers, pagination, malformed arguments, write conflicts, bearer/Origin checks, CLI output and Android APK installation with checksum rejection, confirmation and cancellation. Build the [provider fixture](configurable-widget-provider/README.md) before running the APK case.
+
+```bash
+make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_device_files_
+```
+
+Shell limit scenarios verify the 30-second default, longer per-command timeouts, client waits across all three APIs, output truncation, larger output budgets and invalid parameters:
+
+```bash
+make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_shell_request_
+```
+
 The automation public-file reload scenario also edits scripts while another Android app is in front. Direct private-network reachability still needs a connection check from the intended controlling computer; an emulator forward cannot prove a tailnet policy permits that computer to reach a physical phone.
 
 `make dikciz-test-minified-lua` runs the existing Lua context and failure diagnostics scenarios against `dikcizMinified`, which inherits release optimization and uses the debug signing key and package. Override `DIKCIZ_TEST_SELECTOR` to run another focused scenario against that build. Debug-only platform event fixtures are not included.

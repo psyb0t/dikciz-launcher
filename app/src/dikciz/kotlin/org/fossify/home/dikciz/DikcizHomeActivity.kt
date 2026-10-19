@@ -113,6 +113,7 @@ class DikcizHomeActivity : Activity() {
     private lateinit var dikcizThemeStore: DikcizThemeStore
     private lateinit var automationControlPlane: DikcizAutomationControlPlane
     private lateinit var mcpControlPlane: DikcizMcpControlPlane
+    private val deviceFiles by lazy { DikcizDeviceFiles(this, dikcizLogger) }
     private lateinit var dikcizLogger: DikcizLogger
     private lateinit var remoteAccessAuth: DikcizRemoteAccessAuth
     private lateinit var controlPorts: DikcizControlPorts
@@ -266,6 +267,7 @@ class DikcizHomeActivity : Activity() {
             automationTarget,
             dikcizLogger,
             remoteAccessAuth,
+            automationControlPlane::executeLocalCommand,
         )
         DikcizAutomationEventBus.setHtmlDomPatchListener(applicationContext, ::patchRenderedHtmlDom)
         dikcizLogger.info(EVENT_ACTIVITY_CREATED)
@@ -3716,6 +3718,7 @@ class DikcizHomeActivity : Activity() {
         ) {
             throw automationFailure(MESSAGE_CONFIGURATION_UNAVAILABLE)
         }
+        if (command.type in DikcizFileCommands.FIELDS) return deviceFiles.execute(command)
         return when (command.type) {
             DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_SNAPSHOT -> accessibilitySnapshot()
             DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_ACTION -> accessibilityAction(command)
@@ -4149,6 +4152,7 @@ class DikcizHomeActivity : Activity() {
                         .put(KEY_SCRIPT_LOG_POLICY_ID, record.policyID ?: JSONObject.NULL)
                         .put(KEY_SCRIPT_LOG_EVENT_TYPE, record.eventType ?: JSONObject.NULL)
                         .put(KEY_SCRIPT_LOG_ACTION_TYPE, record.actionType ?: JSONObject.NULL)
+                        .put(KEY_SCRIPT_LOG_COMPONENT_PACKAGE, record.componentPackage ?: JSONObject.NULL)
                         .put(KEY_SCRIPT_LOG_OUTCOME, record.outcome ?: JSONObject.NULL)
                         .put(KEY_SCRIPT_LOG_REASON, record.reason ?: JSONObject.NULL)
                         .put(KEY_SCRIPT_LOG_DIAGNOSTIC, record.diagnostic ?: JSONObject.NULL),
@@ -4413,7 +4417,19 @@ class DikcizHomeActivity : Activity() {
             } else {
                 DikcizPrivilegedShell.VALUE_APP_SANDBOX
             }
-            result = privilegedShell.run(shellCommand, useRoot)
+            DikcizPrivilegedShell.validateOptions(command.request)
+            result = privilegedShell.run(
+                shellCommand,
+                useRoot,
+                command.request.optLong(
+                    DikcizAutomationControlPlane.KEY_TIMEOUT_MILLISECONDS,
+                    DikcizPrivilegedShell.DEFAULT_SHELL_TIMEOUT_MILLISECONDS,
+                ),
+                command.request.optInt(
+                    DikcizPrivilegedShell.KEY_MAX_OUTPUT_BYTES,
+                    DikcizPrivilegedShell.DEFAULT_SHELL_OUTPUT_BYTES,
+                ),
+            )
         } catch (exception: DikcizAutomationRequestException) {
             dikcizLogger.warn(
                 EVENT_AUTOMATION_SHELL_REJECTED,
@@ -6131,7 +6147,9 @@ class DikcizHomeActivity : Activity() {
         action: DikcizAppActionType,
     ) {
         val result = appActionRunner.run(action, application)
-        Toast.makeText(this, appActionOutcomeMessage(result, application), Toast.LENGTH_LONG).show()
+        if (action != DikcizAppActionType.Launch || !result.isSuccessful) {
+            Toast.makeText(this, appActionOutcomeMessage(result, application), Toast.LENGTH_LONG).show()
+        }
         if (action == DikcizAppActionType.Launch && result.isSuccessful) {
             closeAppDrawer()
         }
@@ -6363,6 +6381,15 @@ class DikcizHomeActivity : Activity() {
                     contentDescription = text
                     setOnClickListener { showLuaScriptManager() }
                     registerAutomationView(SEMANTIC_SETTINGS_SCRIPTS, this)
+                },
+            )
+            addView(createWidgetTitle(getString(R.string.dikciz_settings_logging)))
+            addView(
+                Button(this@DikcizHomeActivity).apply {
+                    text = getString(R.string.dikciz_settings_logging_button)
+                    contentDescription = text
+                    setOnClickListener { showLoggingSettings() }
+                    registerAutomationView(SEMANTIC_SETTINGS_LOGGING, this)
                 },
             )
             addView(
@@ -7277,6 +7304,84 @@ class DikcizHomeActivity : Activity() {
         }
     }
 
+    private fun showLoggingSettings() {
+        val configuration = homeConfiguration ?: return
+        var selectedLevel = configuration.logging.level
+        val levelButtons = linkedMapOf<DikcizLogLevel, RadioButton>()
+        val levels = RadioGroup(this).apply {
+            orientation = RadioGroup.VERTICAL
+            DikcizLogLevel.entries.forEach { level ->
+                val button = RadioButton(this@DikcizHomeActivity).apply {
+                    id = View.generateViewId()
+                    text = level.persistedValue.uppercase(Locale.ROOT)
+                    contentDescription = text
+                    isChecked = level == selectedLevel
+                    setOnCheckedChangeListener { _, checked ->
+                        if (checked) {
+                            selectedLevel = level
+                            publishAutomationUIRendered()
+                        }
+                    }
+                }
+                levelButtons[level] = button
+                addView(button)
+            }
+        }
+        val retention = EditText(this).apply {
+            hint = getString(R.string.dikciz_logging_retention_days)
+            contentDescription = hint
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(configuration.logging.retentionDays.toString())
+            setSelectAllOnFocus(true)
+        }
+        val form = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(standardPadding(), NO_PADDING, standardPadding(), NO_PADDING)
+            addView(TextView(this@DikcizHomeActivity).apply {
+                text = getString(R.string.dikciz_logging_description)
+            })
+            addView(levels)
+            addView(retention)
+        }
+        val dialog = panelDialogBuilder()
+            .setTitle(R.string.dikciz_settings_logging)
+            .setView(ScrollView(this).apply { addView(form) })
+            .setNegativeButton(R.string.dikciz_dialog_cancel, null)
+            .setPositiveButton(R.string.dikciz_dialog_save, null)
+            .create()
+        showActiveDialog(
+            dialog,
+            onShown = {
+                levelButtons.forEach { (level, button) ->
+                    registerAutomationView(SEMANTIC_LOGGING_LEVEL_PREFIX + level.persistedValue, button)
+                }
+                registerAutomationView(SEMANTIC_LOGGING_RETENTION_DAYS, retention)
+                registerAutomationView(SEMANTIC_LOGGING_CANCEL, dialog.getButton(AlertDialog.BUTTON_NEGATIVE))
+                val save = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                registerAutomationView(SEMANTIC_LOGGING_SAVE, save)
+                save.setOnClickListener {
+                    val days = retention.text.toString().toIntOrNull()
+                    if (days == null) {
+                        retention.error = getString(R.string.dikciz_logging_retention_invalid)
+                        return@setOnClickListener
+                    }
+                    if (!updateConfiguration(shouldRender = false) { current ->
+                            current.copy(logging = current.logging.copy(level = selectedLevel, retentionDays = days))
+                        }
+                    ) return@setOnClickListener
+                    homeConfiguration?.logging?.let(dikcizLogger::configure)
+                    dialog.dismiss()
+                    showSettingsDialog()
+                }
+                publishAutomationUIRendered()
+            },
+            onDismiss = {
+                automationViews.keys.removeAll { it.startsWith(SEMANTIC_LOGGING_PREFIX) }
+                publishAutomationUIRendered()
+            },
+        )
+    }
+
     private fun showScriptLogViewer(scriptID: String? = null) {
         val allScriptsSnapshot = dikcizLogger.recentScriptLogSnapshot(DIKCIZ_MAXIMUM_SCRIPT_LOG_RECORDS)
         val snapshot = if (scriptID == null) {
@@ -7351,6 +7456,7 @@ class DikcizHomeActivity : Activity() {
             record.policyID?.let { policyID -> add("$SCRIPT_LOG_FIELD_POLICY_ID=$policyID") }
             record.eventType?.let { eventType -> add("$SCRIPT_LOG_FIELD_EVENT_TYPE=$eventType") }
             record.actionType?.let { actionType -> add("$SCRIPT_LOG_FIELD_ACTION_TYPE=$actionType") }
+            record.componentPackage?.let { packageName -> add("$KEY_SCRIPT_LOG_COMPONENT_PACKAGE=$packageName") }
             record.outcome?.let { outcome -> add("$SCRIPT_LOG_FIELD_OUTCOME=$outcome") }
             record.reason?.let { reason -> add("$SCRIPT_LOG_FIELD_REASON=$reason") }
             record.diagnostic?.let { diagnostic -> add("$SCRIPT_LOG_FIELD_DIAGNOSTIC=$diagnostic") }
@@ -10711,20 +10817,30 @@ class DikcizHomeActivity : Activity() {
         if (!resolvesActivity(component)) {
             dikcizLogger.warn(
                 EVENT_EXPLICIT_APP_LAUNCH_REJECTED,
-                mapOf(FIELD_REASON to REASON_ACTIVITY_UNAVAILABLE),
+                mapOf(
+                    FIELD_REASON to REASON_ACTIVITY_UNAVAILABLE,
+                    FIELD_COMPONENT_PACKAGE to component.packageName,
+                ),
             )
             Toast.makeText(this, R.string.dikciz_unavailable_app, Toast.LENGTH_SHORT).show()
             return false
         }
         try {
             startActivity(Intent().setComponent(component))
-            dikcizLogger.info(EVENT_EXPLICIT_APP_LAUNCH_STARTED)
+            dikcizLogger.info(
+                EVENT_EXPLICIT_APP_LAUNCH_STARTED,
+                mapOf(
+                    FIELD_ACTION to DikcizAppActionType.Launch.persistedValue,
+                    FIELD_COMPONENT_PACKAGE to component.packageName,
+                ),
+            )
             return true
         } catch (exception: ActivityNotFoundException) {
             dikcizLogger.warn(
                 EVENT_EXPLICIT_APP_LAUNCH_FAILED,
                 mapOf(
                     FIELD_ERROR_CLASS to exception::class.java.simpleName,
+                    FIELD_COMPONENT_PACKAGE to component.packageName,
                     FIELD_ERROR_SUMMARY to exception.message.orEmpty(),
                 ),
             )
@@ -11620,6 +11736,7 @@ class DikcizHomeActivity : Activity() {
         const val KEY_SCROLL = "scroll"
         const val KEY_SCRIPT_LOG_DIAGNOSTIC = "diagnostic"
         const val KEY_SCRIPT_LOG_ACTION_TYPE = "actionType"
+        const val KEY_SCRIPT_LOG_COMPONENT_PACKAGE = "componentPackage"
         const val KEY_SCRIPT_LOG_EVENT = "event"
         const val KEY_SCRIPT_LOG_EVENT_TYPE = "eventType"
         const val KEY_SCRIPT_LOG_LEVEL = "level"
@@ -11839,6 +11956,12 @@ class DikcizHomeActivity : Activity() {
             "${SEMANTIC_SETTINGS_DEVICE_ACCESS_PREFIX}close"
         const val SEMANTIC_SETTINGS_DEVICE_ACCESS_NEXT =
             "${SEMANTIC_SETTINGS_DEVICE_ACCESS_PREFIX}next"
+        const val SEMANTIC_SETTINGS_LOGGING = "settings:logging"
+        const val SEMANTIC_LOGGING_PREFIX = "logging:"
+        const val SEMANTIC_LOGGING_LEVEL_PREFIX = "${SEMANTIC_LOGGING_PREFIX}level:"
+        const val SEMANTIC_LOGGING_RETENTION_DAYS = "${SEMANTIC_LOGGING_PREFIX}retention-days"
+        const val SEMANTIC_LOGGING_SAVE = "${SEMANTIC_LOGGING_PREFIX}save"
+        const val SEMANTIC_LOGGING_CANCEL = "${SEMANTIC_LOGGING_PREFIX}cancel"
         const val SEMANTIC_SETTINGS_SCRIPT_LOGS = "settings:script-logs"
         const val SEMANTIC_SETTINGS_SCRIPT_LOGS_CLOSE = "settings:script-logs:close"
         const val SEMANTIC_SCRIPT_ACTION_EDIT = "edit"
@@ -11898,7 +12021,7 @@ class DikcizHomeActivity : Activity() {
             DikcizAutomationControlPlane.TYPE_AUTOMATION_DISPATCH,
             DikcizAutomationControlPlane.TYPE_SHELL,
             DikcizAutomationControlPlane.TYPE_SCRIPT_LOGS,
-        )
+        ) + DikcizFileCommands.FIELDS.keys
         val STORAGE_ACCESS_COMMAND_TYPES = setOf(
             DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_ACTION,
             DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_SNAPSHOT,
@@ -11908,7 +12031,7 @@ class DikcizHomeActivity : Activity() {
             DikcizAutomationControlPlane.TYPE_SNAPSHOT,
             DikcizAutomationControlPlane.TYPE_TAP,
             DikcizAutomationControlPlane.TYPE_UI_DUMP,
-        )
+        ) + DikcizFileCommands.FIELDS.keys
         val SAFE_MODE_READ_ONLY_COMMAND_TYPES = setOf(
             DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_SNAPSHOT,
             DikcizAutomationControlPlane.TYPE_APP_CATALOGUE,
@@ -11923,6 +12046,6 @@ class DikcizHomeActivity : Activity() {
             DikcizAutomationControlPlane.TYPE_UI_DUMP,
             DikcizAutomationControlPlane.TYPE_WIDGET_GET,
             DikcizAutomationControlPlane.TYPE_RESET,
-        )
+        ) + DikcizFileCommands.READ_ONLY_TYPES
     }
 }

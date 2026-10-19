@@ -29,6 +29,7 @@ internal data class DikcizScriptLogRecord(
     val outcome: String?,
     val reason: String?,
     val diagnostic: String?,
+    val componentPackage: String?,
 )
 
 internal const val DIKCIZ_MAXIMUM_SCRIPT_LOG_RECORDS = 100
@@ -197,10 +198,12 @@ internal class DikcizLogger(
             scriptKind = value.safeString(FIELD_SCRIPT_KIND, MAXIMUM_FIELD_VALUE_CHARACTERS),
             policyID = value.safeString(FIELD_POLICY_ID, MAXIMUM_FIELD_VALUE_CHARACTERS),
             eventType = value.safeString(FIELD_EVENT_TYPE, MAXIMUM_FIELD_VALUE_CHARACTERS),
-            actionType = value.safeString(FIELD_ACTION_TYPE, MAXIMUM_FIELD_VALUE_CHARACTERS),
+            actionType = value.safeString(FIELD_ACTION_TYPE, MAXIMUM_FIELD_VALUE_CHARACTERS)
+                ?: value.safeString(FIELD_ACTION, MAXIMUM_FIELD_VALUE_CHARACTERS),
             outcome = value.safeString(FIELD_OUTCOME, MAXIMUM_FIELD_VALUE_CHARACTERS),
             reason = value.safeString(FIELD_REASON, MAXIMUM_FIELD_VALUE_CHARACTERS),
             diagnostic = value.safeString(FIELD_DIAGNOSTIC, MAXIMUM_FIELD_VALUE_CHARACTERS),
+            componentPackage = value.safeString(FIELD_COMPONENT_PACKAGE, MAXIMUM_FIELD_VALUE_CHARACTERS),
         )
     }
 
@@ -369,7 +372,9 @@ internal class DikcizLogger(
         const val EMPTY_FILE_LENGTH = 0L
         const val EMPTY_STRING = ""
         const val EVENT_LOGGING_CONFIGURED = "logging_configured"
+        const val FIELD_ACTION = "action"
         const val FIELD_ACTION_TYPE = "action_type"
+        const val FIELD_COMPONENT_PACKAGE = "component_package"
         const val EMPTY_FIELD_KEY = ""
         const val FIELD_COMPONENT = "component"
         const val FIELD_DIAGNOSTIC = "diagnostic"

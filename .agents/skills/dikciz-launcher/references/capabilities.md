@@ -84,7 +84,7 @@ Read [typed actions](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/sc
 
 ## Remote controls and UI automation
 
-WebSocket and Streamable HTTP MCP expose the same launcher command target:
+WebSocket, Streamable HTTP MCP and plain HTTP expose the same launcher command target:
 
 - Discover protocol, command fields, matching tools, limits, automation access, policy vocabulary, sensors and event schemas.
 - Inspect semantic UI snapshots, find or wait for nodes, obtain home/widget/config records, logs, diagnostics, screenshots and UI dumps.
@@ -93,7 +93,9 @@ WebSocket and Streamable HTTP MCP expose the same launcher command target:
 - Replace or seed complete configuration, or reset the home after approval.
 - Trigger enabled scripts, dispatch typed actions, synchronize automation services and open Android access setup.
 - Inspect another app through Accessibility and invoke supported node actions. Obtain a fresh snapshot; its ID expires after five seconds and changed windows invalidate it.
-- Run device shell commands and explicit Android intents. `shell` requests root by default; use `root: false` for app-sandbox commands.
+- Browse, read, upload and create files or directories anywhere Android grants Dikciz access. Transfer binary files in bounded chunks.
+- Request installation of an uploaded standalone APK and poll its Android session until success, cancellation or failure. Android controls unknown-source permission and confirmation. Read [files, APKs and shell](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/files-and-apks.md).
+- Run device shell commands and explicit Android intents. `shell` requests root by default; use `root: false` for app-sandbox commands. Shell defaults are 30000 milliseconds and 65536 output bytes; set `timeoutMilliseconds` and `maxOutputBytes` per call and inspect the live schemas for supported ranges.
 - Inspect remote bearer-auth state and enable or disable it after approval. Password creation, replacement and clearing are phone-side operations.
 - Subscribe to the persistent WebSocket event schema advertised by `controlStatus`, including command completion, UI rendering, HTML-widget events and automation events.
 - Deliberately crash one HTML renderer to test recovery through `htmlWidgetRendererCrash`. This is a diagnostic, not a normal widget operation.
@@ -104,6 +106,6 @@ For exact commands and MCP tools, read [automation control](https://github.com/p
 
 Android owns runtime permissions, special access, roles and root approval. Notification listening, Do Not Disturb control, Accessibility, Health Connect, exact alarms, battery exemptions, file access and Device Administration have separate setup requirements. Use `automationStatus` and the phone's Automation access screen to distinguish unsupported, unavailable and not-yet-granted access. A broad manifest declaration is not permission to grant everything.
 
-JSON Lines logs cover Lua failures, HTML console warnings/errors and launcher components. The script dashboard, Settings viewer and remote tools expose bounded safe records. Logging can notify on failed scripts and rate-limit alerts. The default retention is seven days and 16 MiB, configurable in the logging object.
+Daily UTC JSON Lines files at `/sdcard/Dikciz/logs/YYYY-MM-DD.log` cover Lua failures, HTML console warnings/errors and launcher components. **Settings**, **Configure logging** selects the minimum level and retention; defaults are INFO and seven days. The logging object also configures the 16 MiB cleanup budget and failed-script alerts. The viewer and remote log tools expose bounded safe records, including app targets as nullable `componentPackage` and their `actionType`. Successful app launches stay logged without a popup. Read the [logging reference](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/dikciz-configuration.md#logs) for filtering, retention and redaction.
 
 Verify requested work through the fresh UI or read-back configuration, each action's outcome, and script status/logs. State patches persist; DOM patches do not. A queued event, successful transport response or missing error is not proof the intended Android effect occurred.

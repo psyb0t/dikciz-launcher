@@ -1,11 +1,12 @@
 # Dikciz automation control
 
-Dikciz exposes two versioned local control planes. They call the same launcher command target.
+Dikciz exposes WebSocket, Streamable HTTP MCP and plain HTTP commands through two listeners. They call the same launcher command target.
 
 | Interface | Device listener | Lab host listener after `make dikciz-run` |
 | --- | --- | --- |
 | WebSocket | `ws://127.0.0.1:19001/v1/automation` | `ws://127.0.0.1:19101/v1/automation` |
 | Streamable HTTP MCP | `http://127.0.0.1:19002/mcp` | `http://127.0.0.1:19102/mcp` |
+| HTTP JSON commands | `http://127.0.0.1:19002/v1/automation` | `http://127.0.0.1:19102/v1/automation` |
 
 Both listeners default to device loopback. Set their listen address and ports through `control/ports.json` or Settings as described in [Control ports](dikciz-configuration.md#control-ports). Use ADB forwarding with loopback binding, or configure a network address for direct private-network access without USB. `make forward` creates generic host-loopback forwards on `19001` and `19002`. `make dikciz-run` owns its separate `19101` and `19102` forwards.
 
@@ -70,6 +71,12 @@ From the controlling computer, `nc -vz phone.example 19001` and `nc -vz phone.ex
 
 If direct access is unwanted, keep `127.0.0.1` and use [ADB forwarding](../.agents/skills/dikciz-launcher/references/setup.md#forward-the-control-ports). Deleting `control/ports.json` or choosing **Reset to defaults** restores loopback and the default device ports.
 
+## Files, APKs and CLI results
+
+All three APIs support `fileList`, `fileRead`, `fileWrite`, `fileMkdir`, `apkInstall`, `apkInstallStatus` and `shell`. MCP exposes their corresponding `dikciz_file_*`, `dikciz_apk_*` and `dikciz_shell` tools. File commands accept absolute paths anywhere Android permits Dikciz access. Use bounded binary chunks for transfers and poll the Android installer session for its final outcome.
+
+Plain HTTP accepts POST JSON command envelopes at `/v1/automation` on the MCP listener, with the same bearer and Origin checks. It requires no MCP session and returns the WebSocket result/error envelope. The client supports `http`, `upload` and `download` commands. Read the [file, APK and shell reference](files-and-apks.md) for schemas, limits, examples and installation states.
+
 ## Who can connect
 
 The default device-loopback binding accepts local software. An explicitly configured network address also accepts clients that can reach that interface and port. For example, `0.0.0.0` listens on every IPv4 interface. Tailscale access depends on the controlling computer being allowed to reach the phone and the chosen TCP ports in the tailnet access policy. Rules can allow phone-to-computer traffic while denying computer-to-phone traffic.
@@ -88,7 +95,7 @@ python3 scripts/dikciz-control.py websocket automationStatus --port 19101 --pret
 python3 scripts/dikciz-control.py mcp-tools --port 19102 --pretty
 ```
 
-`controlStatus.transports` reports each listener's current `listenAddress` and `port`. File edits restart the affected listeners automatically. `controlStatus` lists the protocol version, commands, fields, matching MCP tools, input limits, safe-mode state, and persistent event schema. `automationStatus` lists current Android access, policy vocabulary, event subscription fields, and available sensors. Treat these responses as the source of truth for a running build.
+`controlStatus.transports` reports `websocket`, `mcp` and `http` endpoints with their current `listenAddress`, `port` and `path`. HTTP shares the MCP listener. File edits restart the affected listeners automatically. `controlStatus` lists the protocol version, commands, fields, matching MCP tools, input limits, safe-mode state, and persistent event schema. `automationStatus` lists current Android access, policy vocabulary, event subscription fields, and available sensors. Treat these responses as the source of truth for a running build.
 
 The supplied client is dependency-free:
 
@@ -99,6 +106,12 @@ python3 scripts/dikciz-control.py events --port 19101 --count 10
 ```
 
 `--arguments` accepts JSON or `@path/to/file.json`. The `events` command emits one WebSocket event per JSON line.
+
+## Log levels and app-action records
+
+The public `logging` object controls the minimum level and retention. Native **Settings**, **Configure logging** edits the same values and applies them immediately. Defaults are `info` and seven days. Valid levels are `debug`, `info`, `warn` and `error`; retention is 1 through 90 days. DEBUG includes every emitted severity. Logs rotate by UTC day beneath `/sdcard/Dikciz/logs/`.
+
+`scriptLogs` and `dikciz_script_logs` expose recent bounded records. Each record includes nullable `componentPackage` for an app target and `actionType` for its action. An `app_action_completed` record with `actionType: "launch"` and `outcome: "launched"` identifies a successful app launch. The native viewer shows this metadata too. Older records without a package remain readable with `componentPackage: null`. Successful launches do not generate UI popups; failures still provide visible feedback. Secret redaction applies even at DEBUG.
 
 ## Bearer password
 
@@ -153,7 +166,7 @@ The native app drawer uses this same catalogue and action runtime. It opens from
 
 `openAutomationSetup` opens the native Automation access sheet so the phone owner can grant an Android access that a denied action needs.
 
-`shell` uses `/system/bin/sh -c` when `root: false`. When `root` is absent or true, Dikciz first checks `su -c id -u`. Only exactly `0` allows the requested command to run and report `executionScope: "root"`. A missing, denied, malformed, or timed-out probe returns WebSocket error `root_unavailable` or an MCP tool error. Dikciz never relabels or falls back to the app shell. Successful results include `executionScope`, `exitCode`, `output`, and `outputTruncated`. `intent` supports `activity` and `broadcast`. Android decides whether the requested component can run.
+`shell` uses `/system/bin/sh -c` when `root: false`. When `root` is absent or true, Dikciz first checks `su -c id -u`. Only exactly `0` allows the requested command to run and report `executionScope: "root"`. A missing, denied, malformed, or timed-out probe returns WebSocket error `root_unavailable` or an MCP tool error. Dikciz never relabels or falls back to the app shell. Optional `timeoutMilliseconds` and `maxOutputBytes` set the command timeout and captured output budget. Defaults are 30000 milliseconds and 65536 bytes. MCP schemas and `controlStatus.limits` advertise their ranges and defaults. The [shell reference](files-and-apks.md#execute-android-cli-commands) includes examples and client wait behavior. Successful results include `executionScope`, `exitCode`, `output`, and `outputTruncated`. `intent` supports `activity` and `broadcast`. Android decides whether the requested component can run.
 
 `automationTrigger` queues one `manual` event for an enabled script with an enabled manual subscription. Acceptance means the event was queued. Read script status and logs to see whether its actions completed.
 

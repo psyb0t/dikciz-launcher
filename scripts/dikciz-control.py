@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Call any documented Dikciz local WebSocket or MCP control-plane command."""
+"""Call Dikciz through WebSocket, MCP or HTTP, and transfer phone files."""
 
 from __future__ import annotations
 
@@ -68,6 +68,27 @@ MAXIMUM_HTTP_RESPONSE_BYTES = 16 * 1024 * 1024
 # the wait is bounded by time rather than by how many unrelated events
 # happen to arrive first.
 RESPONSE_TIMEOUT_SECONDS = 30
+DEFAULT_SHELL_TIMEOUT_MILLISECONDS = 30_000
+MAXIMUM_SHELL_TIMEOUT_MILLISECONDS = 2_147_483_647
+SHELL_RESPONSE_MARGIN_SECONDS = 10
+MILLISECONDS_PER_SECOND = 1000
+TYPE_SHELL = "shell"
+TOOL_SHELL = "dikciz_shell"
+KEY_TIMEOUT_MILLISECONDS = "timeoutMilliseconds"
+HTTP_COMMAND_PATH = "/v1/automation"
+FILE_CHUNK_BYTES = 65_536
+TYPE_FILE_READ = "fileRead"
+TYPE_FILE_WRITE = "fileWrite"
+KEY_PATH = "path"
+KEY_OFFSET = "offset"
+KEY_LIMIT = "limit"
+KEY_DATA_BASE64 = "dataBase64"
+KEY_OVERWRITE = "overwrite"
+KEY_EOF = "eof"
+KEY_NEXT_OFFSET = "nextOffset"
+KEY_BYTES_WRITTEN = "bytesWritten"
+KEY_BYTES_READ = "bytesRead"
+KEY_SHA256 = "sha256"
 MCP_PATH = "/mcp"
 MCP_PROTOCOL_VERSION = "2026-07-28"
 METHOD_INITIALIZE = "initialize"
@@ -342,9 +363,28 @@ def send_websocket_json(connection: socket.socket, message: dict[str, Any]) -> N
     send_websocket_frame(connection, FRAME_OPCODE_TEXT, encoded)
 
 
-def receive_websocket_response(connection: socket.socket, request_id: str) -> dict[str, Any]:
-    deadline = time.monotonic() + RESPONSE_TIMEOUT_SECONDS
+def command_response_timeout(
+    arguments: argparse.Namespace,
+    command_type: str,
+    fields: dict[str, Any],
+) -> float:
+    timeout = arguments.timeout_seconds
+    if command_type != TYPE_SHELL:
+        return timeout
+    milliseconds = fields.get(KEY_TIMEOUT_MILLISECONDS, DEFAULT_SHELL_TIMEOUT_MILLISECONDS)
+    if type(milliseconds) is not int or not 1 <= milliseconds <= MAXIMUM_SHELL_TIMEOUT_MILLISECONDS:
+        return timeout
+    return max(timeout, milliseconds / MILLISECONDS_PER_SECOND + SHELL_RESPONSE_MARGIN_SECONDS)
+
+
+def receive_websocket_response(
+    connection: socket.socket,
+    request_id: str,
+    timeout_seconds: float = RESPONSE_TIMEOUT_SECONDS,
+) -> dict[str, Any]:
+    deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
+        connection.settimeout(max(deadline - time.monotonic(), 0.001))
         response = receive_websocket_json(connection)
         if response.get(KEY_TYPE) == TYPE_EVENT:
             continue
@@ -396,12 +436,123 @@ def call_websocket(arguments: argparse.Namespace) -> dict[str, Any]:
         message = {KEY_REQUEST_ID: request_id, KEY_TYPE: arguments.command_type}
         message.update(command_arguments)
         send_websocket_json(connection, message)
-        response = receive_websocket_response(connection, request_id)
+        response = receive_websocket_response(
+            connection, request_id,
+            command_response_timeout(arguments, arguments.command_type, command_arguments),
+        )
     if response.get(KEY_TYPE) == TYPE_ERROR:
         raise RemoteControlError(response)
     if response.get(KEY_TYPE) != TYPE_RESULT:
         raise DikcizControlError("Dikciz returned an invalid WebSocket command response")
     return response
+
+
+def http_command(
+    arguments: argparse.Namespace,
+    command_type: str,
+    fields: dict[str, Any],
+) -> dict[str, Any]:
+    reject_websocket_envelope_arguments(fields)
+    request_id = str(uuid.uuid4())
+    message = {KEY_REQUEST_ID: request_id, KEY_TYPE: command_type, **fields}
+    headers = {HEADER_CONTENT_TYPE: MIME_TYPE_JSON}
+    authorization = remote_authorization(arguments)
+    if authorization is not None:
+        headers[HEADER_AUTHORIZATION] = authorization
+    connection = http.client.HTTPConnection(
+        arguments.host,
+        arguments.port,
+        timeout=command_response_timeout(arguments, command_type, fields),
+    )
+    try:
+        connection.request(HTTP_METHOD_POST, HTTP_COMMAND_PATH, body=encode_json(message), headers=headers)
+        response = connection.getresponse()
+        raw_body = response.read(MAXIMUM_HTTP_RESPONSE_BYTES + 1)
+    except (OSError, http.client.HTTPException) as exception:
+        raise DikcizControlError("could not complete the Dikciz HTTP command") from exception
+    finally:
+        connection.close()
+    if len(raw_body) > MAXIMUM_HTTP_RESPONSE_BYTES:
+        raise DikcizControlError("Dikciz HTTP response exceeds the supported size")
+    try:
+        body = json.loads(raw_body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exception:
+        raise DikcizControlError("Dikciz HTTP response is not JSON") from exception
+    if not isinstance(body, dict):
+        raise DikcizControlError("Dikciz HTTP response is not an object")
+    if response.status != HTTP_STATUS_OK or body.get(KEY_TYPE) == TYPE_ERROR:
+        raise RemoteControlError(body)
+    if (
+        body.get(KEY_REQUEST_ID) != request_id
+        or body.get(KEY_TYPE) != TYPE_RESULT
+        or not isinstance(body.get(KEY_RESULT), dict)
+    ):
+        raise DikcizControlError("Dikciz returned an invalid HTTP command response")
+    return body
+
+
+def call_http(arguments: argparse.Namespace) -> dict[str, Any]:
+    return http_command(arguments, arguments.command_type, parse_json_object(arguments.arguments))
+
+
+def upload_file(arguments: argparse.Namespace) -> dict[str, Any]:
+    offset = 0
+    checksum = hashlib.sha256()
+    with arguments.local_path.open("rb") as source:
+        while True:
+            data = source.read(FILE_CHUNK_BYTES)
+            if not data and offset:
+                break
+            response = http_command(
+                arguments,
+                TYPE_FILE_WRITE,
+                {
+                    KEY_PATH: arguments.remote_path,
+                    KEY_DATA_BASE64: base64.b64encode(data).decode("ascii"),
+                    KEY_OFFSET: offset,
+                    KEY_OVERWRITE: arguments.overwrite if offset == 0 else False,
+                },
+            )[KEY_RESULT]
+            if response.get(KEY_BYTES_WRITTEN) != len(data) or response.get(KEY_NEXT_OFFSET) != offset + len(data):
+                raise DikcizControlError("Dikciz did not acknowledge the complete upload chunk")
+            checksum.update(data)
+            offset += len(data)
+            if not data:
+                break
+    LOGGER.info("Dikciz file upload completed", extra={"operation": arguments.operation})
+    return {KEY_PATH: arguments.remote_path, "bytes": offset, KEY_SHA256: checksum.hexdigest()}
+
+
+def download_file(arguments: argparse.Namespace) -> dict[str, Any]:
+    offset = 0
+    checksum = hashlib.sha256()
+    mode = "wb" if arguments.overwrite else "xb"
+    with arguments.local_path.open(mode) as destination:
+        while True:
+            response = http_command(
+                arguments,
+                TYPE_FILE_READ,
+                {KEY_PATH: arguments.remote_path, KEY_OFFSET: offset, KEY_LIMIT: FILE_CHUNK_BYTES},
+            )[KEY_RESULT]
+            try:
+                data = base64.b64decode(response[KEY_DATA_BASE64], validate=True)
+            except (KeyError, TypeError, ValueError, binascii.Error) as exception:
+                raise DikcizControlError("Dikciz returned an invalid download chunk") from exception
+            if (
+                len(data) > FILE_CHUNK_BYTES
+                or response.get(KEY_BYTES_READ) != len(data)
+                or response.get(KEY_NEXT_OFFSET) != offset + len(data)
+            ):
+                raise DikcizControlError("Dikciz returned inconsistent download metadata")
+            destination.write(data)
+            checksum.update(data)
+            offset += len(data)
+            if response.get(KEY_EOF) is True:
+                break
+            if not data or response.get(KEY_EOF) is not False:
+                raise DikcizControlError("Dikciz returned an invalid download continuation")
+    LOGGER.info("Dikciz file download completed", extra={"operation": arguments.operation})
+    return {KEY_PATH: str(arguments.local_path), "bytes": offset, KEY_SHA256: checksum.hexdigest()}
 
 
 def watch_websocket_events(arguments: argparse.Namespace) -> int:
@@ -447,10 +598,13 @@ def mcp_request(
     headers: dict[str, str],
     expected_status: int,
 ) -> tuple[dict[str, str], dict[str, Any] | None]:
+    parameters = message.get(KEY_PARAMS, {})
+    command_type = TYPE_SHELL if parameters.get(KEY_NAME) == TOOL_SHELL else ""
+    fields = parameters.get(KEY_ARGUMENTS, {})
     connection = http.client.HTTPConnection(
         arguments.host,
         arguments.port,
-        timeout=arguments.timeout_seconds,
+        timeout=command_response_timeout(arguments, command_type, fields),
     )
     try:
         connection.request(
@@ -665,6 +819,24 @@ def parse_arguments() -> argparse.Namespace:
     add_png_arguments(websocket)
     add_connection_arguments(websocket, DEFAULT_WEBSOCKET_PORT)
 
+    http = subparsers.add_parser("http", help="send one HTTP command without an MCP session")
+    http.add_argument("command_type")
+    http.add_argument("--arguments", default="{}")
+    http.add_argument("--pretty", action="store_true")
+    add_connection_arguments(http, DEFAULT_MCP_PORT)
+
+    for operation in ("upload", "download"):
+        transfer = subparsers.add_parser(operation, help=operation + " a binary file through HTTP")
+        if operation == "upload":
+            transfer.add_argument("local_path", type=Path)
+            transfer.add_argument("remote_path")
+        else:
+            transfer.add_argument("remote_path")
+            transfer.add_argument("local_path", type=Path)
+        transfer.add_argument("--overwrite", action="store_true")
+        transfer.add_argument("--pretty", action="store_true")
+        add_connection_arguments(transfer, DEFAULT_MCP_PORT)
+
     events = subparsers.add_parser("events", help="stream persistent WebSocket events as JSON Lines")
     events.add_argument("--count", default=0, type=parse_nonnegative_count)
     add_connection_arguments(events, DEFAULT_WEBSOCKET_PORT)
@@ -700,6 +872,15 @@ def main() -> int:
             response = call_websocket(arguments)
             maybe_write_png(arguments, response)
             emit_json(response, arguments.pretty)
+            return EXIT_SUCCESS
+        if arguments.operation == "http":
+            emit_json(call_http(arguments), arguments.pretty)
+            return EXIT_SUCCESS
+        if arguments.operation == "upload":
+            emit_json(upload_file(arguments), arguments.pretty)
+            return EXIT_SUCCESS
+        if arguments.operation == "download":
+            emit_json(download_file(arguments), arguments.pretty)
             return EXIT_SUCCESS
         if arguments.operation == "events":
             return watch_websocket_events(arguments)

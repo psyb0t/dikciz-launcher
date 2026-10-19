@@ -52,10 +52,21 @@ internal object DikcizControlStatus {
                     .put(DikcizControlPorts.KEY_LISTEN_ADDRESS, mcpListenAddress)
                     .put(KEY_PORT, mcpPort),
             )
+            .put(
+                KEY_HTTP,
+                JSONObject()
+                    .put(KEY_PATH, DikcizMcpControlPlane.HTTP_COMMAND_PATH)
+                    .put(DikcizControlPorts.KEY_LISTEN_ADDRESS, mcpListenAddress)
+                    .put(KEY_PORT, mcpPort),
+            )
     }
 
     private fun limits(): JSONObject {
         return JSONObject()
+            .put(KEY_DEFAULT_SHELL_TIMEOUT, DikcizPrivilegedShell.DEFAULT_SHELL_TIMEOUT_MILLISECONDS)
+            .put(KEY_DEFAULT_SHELL_OUTPUT, DikcizPrivilegedShell.DEFAULT_SHELL_OUTPUT_BYTES)
+            .put(KEY_MAXIMUM_SHELL_TIMEOUT, DikcizPrivilegedShell.MAXIMUM_SHELL_TIMEOUT_MILLISECONDS)
+            .put(KEY_MAXIMUM_SHELL_OUTPUT, DikcizPrivilegedShell.MAXIMUM_SHELL_OUTPUT_BYTES)
             .put(
                 KEY_MAXIMUM_SEMANTIC_ID_CHARACTERS,
                 DikcizAutomationControlPlane.MAXIMUM_SEMANTIC_ID_CHARACTERS,
@@ -155,6 +166,8 @@ internal object DikcizControlStatus {
     }
 
     private fun sideEffect(commandType: String): String {
+        if (commandType in DikcizFileCommands.READ_ONLY_TYPES) return SIDE_EFFECT_READ
+        if (commandType in DikcizFileCommands.FIELDS) return SIDE_EFFECT_DEVICE
         return when (commandType) {
             DikcizAutomationControlPlane.TYPE_APP_CATALOGUE,
             DikcizAutomationControlPlane.TYPE_AUTOMATION_STATUS,
@@ -200,6 +213,11 @@ internal object DikcizControlStatus {
     private const val KEY_MAXIMUM_SEMANTIC_ID_CHARACTERS = "maximumSemanticIdCharacters"
     private const val KEY_MAXIMUM_SHELL_COMMAND_CHARACTERS = "maximumShellCommandCharacters"
     private const val KEY_MAXIMUM_TEXT_CHARACTERS = "maximumTextCharacters"
+    private const val KEY_DEFAULT_SHELL_TIMEOUT = "defaultShellTimeoutMilliseconds"
+    private const val KEY_DEFAULT_SHELL_OUTPUT = "defaultShellOutputBytes"
+    private const val KEY_MAXIMUM_SHELL_TIMEOUT = "maximumShellTimeoutMilliseconds"
+    private const val KEY_MAXIMUM_SHELL_OUTPUT = "maximumShellOutputBytes"
+    private const val KEY_HTTP = "http"
     private const val KEY_MCP = "mcp"
     private const val KEY_MCP_TOOL = "mcpTool"
     private const val KEY_MINIMUM = "minimum"

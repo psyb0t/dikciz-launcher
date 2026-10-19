@@ -141,6 +141,7 @@ KEY_STATE = "state"
 KEY_SNAPSHOT_ID = "snapshotId"
 KEY_SNAPSHOT = "snapshot"
 KEY_SCRIPT_LOG_ACTION_TYPE = "actionType"
+KEY_SCRIPT_LOG_COMPONENT_PACKAGE = "componentPackage"
 KEY_SCRIPT_LOG_DIAGNOSTIC = "diagnostic"
 KEY_SCRIPT_LOG_EVENT = "event"
 KEY_SCRIPT_LOG_EVENT_TYPE = "eventType"
@@ -198,6 +199,10 @@ TOOL_SET_TEXT = "dikciz_set_text"
 TOOL_SHELL = "dikciz_shell"
 TOOL_SCRIPT_LOGS = "dikciz_script_logs"
 TOOL_INTENT = "dikciz_intent"
+FILE_TOOL_NAMES = {
+    "dikciz_file_list", "dikciz_file_read", "dikciz_file_write",
+    "dikciz_file_mkdir", "dikciz_apk_install", "dikciz_apk_install_status",
+}
 VALUE_APP_SANDBOX = "app_sandbox"
 VALUE_INTENT_BROADCAST = "broadcast"
 VALUE_SMOKE_BROADCAST_ACTION = "eu.psyb0t.dikciz.ACTION_MCP_SMOKE"
@@ -381,6 +386,10 @@ CONTROL_STATUS_LIMIT_KEYS = {
     "maximumIntentActionCharacters",
     "maximumSemanticIdCharacters",
     "maximumShellCommandCharacters",
+    "defaultShellTimeoutMilliseconds",
+    "defaultShellOutputBytes",
+    "maximumShellTimeoutMilliseconds",
+    "maximumShellOutputBytes",
     "maximumTextCharacters",
     "scrollDelta",
     "waitTimeoutMilliseconds",
@@ -401,7 +410,8 @@ CONTROL_STATUS_SIDE_EFFECTS = {
     CONTROL_STATUS_LAUNCHER_SIDE_EFFECT,
     CONTROL_STATUS_READ_SIDE_EFFECT,
 }
-CONTROL_STATUS_TRANSPORT_KEYS = {KEY_MCP, KEY_WEBSOCKET}
+KEY_HTTP = "http"
+CONTROL_STATUS_TRANSPORT_KEYS = {KEY_MCP, KEY_WEBSOCKET, KEY_HTTP}
 CONTROL_STATUS_TRANSPORT_VALUE_KEYS = {KEY_PATH, KEY_PORT, KEY_LISTEN_ADDRESS}
 CONTROL_STATUS_WEBSOCKET_PATH = "/v1/automation"
 CONTROL_STATUS_MCP_PATH = "/mcp"
@@ -409,6 +419,7 @@ CONTROL_STATUS_WEBSOCKET_PORT = 19_001
 CONTROL_STATUS_MCP_PORT = 19_002
 SCRIPT_LOG_RECORD_KEYS = {
     KEY_SCRIPT_LOG_ACTION_TYPE,
+    KEY_SCRIPT_LOG_COMPONENT_PACKAGE,
     KEY_SCRIPT_LOG_DIAGNOSTIC,
     KEY_SCRIPT_LOG_EVENT,
     KEY_SCRIPT_LOG_EVENT_TYPE,
@@ -793,6 +804,7 @@ def verify_control_status(
     expected_transports = {
         KEY_WEBSOCKET: (CONTROL_STATUS_WEBSOCKET_PATH, CONTROL_STATUS_WEBSOCKET_PORT),
         KEY_MCP: (CONTROL_STATUS_MCP_PATH, CONTROL_STATUS_MCP_PORT),
+        KEY_HTTP: (CONTROL_STATUS_WEBSOCKET_PATH, CONTROL_STATUS_MCP_PORT),
     }
     for name, (path, port) in expected_transports.items():
         transport = transports.get(name)
@@ -896,6 +908,7 @@ def verify_tools(arguments: argparse.Namespace, session_id: str) -> None:
         TOOL_SNAPSHOT,
         TOOL_WAIT_FOR,
     }
+    required_tools |= FILE_TOOL_NAMES
     if not required_tools.issubset(tool_names):
         raise McpProtocolError("tools/list omitted a required Dikciz control tool")
 

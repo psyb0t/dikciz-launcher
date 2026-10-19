@@ -5,6 +5,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
+import org.json.JSONObject
 
 internal data class DikcizShellResult(
     val exitCode: Int,
@@ -12,14 +13,10 @@ internal data class DikcizShellResult(
     val isOutputTruncated: Boolean,
 )
 
-/**
- * The single bounded shell facility. Every privileged Dikciz command shares one UID-zero
- * probe, one timeout, and one output ceiling, so no caller can widen that boundary.
- */
 internal class DikcizPrivilegedShell {
     fun isRootAvailable(): Boolean {
         val probe = try {
-            run(ROOT_SHELL_PROBE_COMMAND, useRoot = true)
+            run(ROOT_SHELL_PROBE_COMMAND, useRoot = true, timeoutMilliseconds = ROOT_PROBE_TIMEOUT_MILLISECONDS)
         } catch (_: DikcizAutomationRequestException) {
             return false
         } catch (_: IOException) {
@@ -37,21 +34,28 @@ internal class DikcizPrivilegedShell {
         )
     }
 
-    fun run(command: String, useRoot: Boolean): DikcizShellResult {
+    fun run(
+        command: String,
+        useRoot: Boolean,
+        timeoutMilliseconds: Long = DEFAULT_SHELL_TIMEOUT_MILLISECONDS,
+        maxOutputBytes: Int = DEFAULT_SHELL_OUTPUT_BYTES,
+    ): DikcizShellResult {
         val shellPath = if (useRoot) ROOT_SHELL_PATH else ANDROID_SHELL_PATH
         val process = ProcessBuilder(listOf(shellPath, SHELL_COMMAND_ARGUMENT, command))
             .redirectErrorStream(true)
             .start()
-        val outputCollector = ShellOutputCollector()
+        val outputCollector = ShellOutputCollector(maxOutputBytes)
         val reader = Thread(
             { collectShellOutput(process.inputStream, outputCollector) },
             SHELL_OUTPUT_READER_THREAD_NAME,
         )
         reader.isDaemon = true
         reader.start()
-        if (!process.waitFor(SHELL_COMMAND_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS)) {
+        if (!process.waitFor(timeoutMilliseconds, TimeUnit.MILLISECONDS)) {
             terminateShellProcess(process)
-            awaitShellOutput(reader, outputCollector)
+            // Cleanup read failures must not replace the command timeout.
+            reader.join(SHELL_OUTPUT_READER_JOIN_MILLISECONDS)
+            if (reader.isAlive) reader.interrupt()
             throw DikcizAutomationRequestException(
                 DikcizAutomationControlPlane.ERROR_TIMEOUT,
                 MESSAGE_SHELL_TIMEOUT,
@@ -109,7 +113,7 @@ internal class DikcizPrivilegedShell {
         )
     }
 
-    private class ShellOutputCollector {
+    private class ShellOutputCollector(private val maxOutputBytes: Int) {
         private val output = ByteArrayOutputStream()
 
         @Volatile
@@ -119,7 +123,7 @@ internal class DikcizPrivilegedShell {
         var isTruncated = false
 
         fun append(buffer: ByteArray, bytesRead: Int) {
-            val remainingBytes = MAXIMUM_SHELL_OUTPUT_BYTES - output.size()
+            val remainingBytes = maxOutputBytes - output.size()
             val bytesToWrite = minOf(remainingBytes.coerceAtLeast(NO_BYTES_READ), bytesRead)
             if (bytesToWrite > NO_BYTES_READ) {
                 output.write(buffer, NO_BYTES_READ, bytesToWrite)
@@ -134,7 +138,14 @@ internal class DikcizPrivilegedShell {
 
     companion object {
         const val ANDROID_SHELL_PATH = "/system/bin/sh"
-        const val MAXIMUM_SHELL_OUTPUT_BYTES = 64 * 1024
+        const val DEFAULT_SHELL_OUTPUT_BYTES = 64 * 1024
+        const val MAXIMUM_SHELL_OUTPUT_BYTES = 1024 * 1024
+        const val DEFAULT_SHELL_TIMEOUT_MILLISECONDS = 30_000L
+        const val MAXIMUM_SHELL_TIMEOUT_MILLISECONDS = Int.MAX_VALUE
+        const val KEY_MAX_OUTPUT_BYTES = "maxOutputBytes"
+        private const val MINIMUM_OPTION_VALUE = 1
+        private const val MESSAGE_INVALID_OPTIONS = "shell timeout and output size must be positive integers within the advertised limits"
+        private const val ROOT_PROBE_TIMEOUT_MILLISECONDS = 5_000L
         const val MESSAGE_ROOT_SHELL_UNAVAILABLE = "root shell is unavailable"
         const val MESSAGE_SHELL_OUTPUT_FAILED = "launcher shell output could not be read"
         const val MESSAGE_SHELL_OUTPUT_TIMEOUT = "launcher shell output did not finish in time"
@@ -145,12 +156,30 @@ internal class DikcizPrivilegedShell {
         const val ROOT_SHELL_USER_ID = "0"
         const val SHELL_COMMAND_ARGUMENT = "-c"
         const val SHELL_COMMAND_TERMINATION_WAIT_MILLISECONDS = 500L
-        const val SHELL_COMMAND_TIMEOUT_MILLISECONDS = 5_000L
         const val SHELL_EXIT_CODE_SUCCESS = 0
         const val SHELL_OUTPUT_READER_JOIN_MILLISECONDS = 1_000L
         const val SHELL_OUTPUT_READER_THREAD_NAME = "dikciz-shell-output"
         const val SHELL_OUTPUT_READ_BUFFER_BYTES = 4_096
         const val VALUE_APP_SANDBOX = "app_sandbox"
         const val VALUE_ROOT = "root"
+
+        fun validateOptions(request: JSONObject) {
+            val limits = mapOf(
+                DikcizAutomationControlPlane.KEY_TIMEOUT_MILLISECONDS to MAXIMUM_SHELL_TIMEOUT_MILLISECONDS,
+                KEY_MAX_OUTPUT_BYTES to MAXIMUM_SHELL_OUTPUT_BYTES,
+            )
+            for ((key, maximum) in limits) {
+                if (!request.has(key)) continue
+                val value = request.opt(key)
+                if ((value !is Int && value !is Long) ||
+                    (value as Number).toLong() !in MINIMUM_OPTION_VALUE.toLong()..maximum.toLong()
+                ) {
+                    throw DikcizAutomationRequestException(
+                        DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED,
+                        MESSAGE_INVALID_OPTIONS,
+                    )
+                }
+            }
+        }
     }
 }

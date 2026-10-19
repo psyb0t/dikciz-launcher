@@ -368,6 +368,11 @@ internal class HomeConfigStore(
         )
     }
 
+    fun readLoggingConfiguration(): DikcizLoggingConfiguration {
+        requireSharedStorageAccess()
+        return readJsonDocument(configurationFile, CONFIGURATION_FILE_NAME).parseLogging()
+    }
+
     fun readConfigurationDocument(): JSONObject {
         val configuration = loadOrCreate()
         return configurationDocument(configuration)

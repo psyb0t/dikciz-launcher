@@ -317,7 +317,7 @@ internal class DikcizAutomationControlPlane(
             .toString()
     }
 
-    internal fun executeLocalCommand(request: JSONObject): String {
+    internal fun executeLocalCommand(request: JSONObject, authorization: String? = null): String {
         val requestID = request.opt(KEY_REQUEST_ID) as? String
         if (requestID == null || !isValidRequestID(requestID)) {
             return errorResponse(null, ERROR_VALIDATION_FAILED, MESSAGE_INVALID_REQUEST_ID)
@@ -328,7 +328,7 @@ internal class DikcizAutomationControlPlane(
         )
         logger.debug(EVENT_COMMAND_RECEIVED, fields)
         return try {
-            val response = handleCommand(request, requestID)
+            val response = handleCommand(request, requestID, authorization)
             publishCommandCompletion(requestID, request, OUTCOME_SUCCEEDED)
             logger.info(EVENT_COMMAND_COMPLETED, fields)
             response
@@ -422,6 +422,10 @@ internal class DikcizAutomationControlPlane(
     }
 
     private fun validateCommand(request: JSONObject, commandType: String) {
+        if (commandType in DikcizFileCommands.FIELDS) {
+            DikcizFileCommands.validate(commandType, request, true)
+            return
+        }
         when (commandType) {
             TYPE_FIND,
             TYPE_TAP,
@@ -485,6 +489,7 @@ internal class DikcizAutomationControlPlane(
             }
 
             TYPE_SHELL -> {
+                DikcizPrivilegedShell.validateOptions(request)
                 request.requireBoundedString(KEY_COMMAND, MAXIMUM_SHELL_COMMAND_CHARACTERS)
                 if (request.has(KEY_ROOT) && request.opt(KEY_ROOT) !is Boolean) {
                     throw DikcizAutomationRequestException(ERROR_VALIDATION_FAILED, MESSAGE_INVALID_ROOT_REQUEST)
@@ -1202,7 +1207,8 @@ internal class DikcizAutomationControlPlane(
         val COMMAND_REQUIRED_KEYS = mapOf(
             TYPE_ACCESSIBILITY_ACTION to ACCESSIBILITY_ACTION_REQUIRED_KEYS,
             TYPE_APP_CATALOGUE to APP_CATALOGUE_REQUIRED_KEYS,
-        )
+            TYPE_SHELL to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_COMMAND),
+        ) + DikcizFileCommands.REQUIRED_FIELDS.mapValues { (_, fields) -> fields + setOf(KEY_REQUEST_ID, KEY_TYPE) }
         val COMMAND_KEYS = mapOf(
             TYPE_ACCESSIBILITY_SNAPSHOT to setOf(KEY_REQUEST_ID, KEY_TYPE),
             TYPE_APP_CATALOGUE to APP_CATALOGUE_REQUIRED_KEYS + KEY_QUERY,
@@ -1236,7 +1242,10 @@ internal class DikcizAutomationControlPlane(
             TYPE_SCROLL_TO to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_SEMANTIC_ID),
             TYPE_SET_TEXT to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_SEMANTIC_ID, KEY_TEXT),
             TYPE_LAUNCH_APP to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_SEMANTIC_ID),
-            TYPE_SHELL to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_COMMAND, KEY_ROOT),
+            TYPE_SHELL to setOf(
+                KEY_REQUEST_ID, KEY_TYPE, KEY_COMMAND, KEY_ROOT, KEY_TIMEOUT_MILLISECONDS,
+                DikcizPrivilegedShell.KEY_MAX_OUTPUT_BYTES,
+            ),
             TYPE_INTENT to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_INTENT_TYPE, KEY_ACTION),
             TYPE_SCREENSHOT to setOf(KEY_REQUEST_ID, KEY_TYPE),
             TYPE_UI_DUMP to setOf(KEY_REQUEST_ID, KEY_TYPE),
@@ -1260,7 +1269,7 @@ internal class DikcizAutomationControlPlane(
                 KEY_WIDGET_ADDRESS,
             ),
             TYPE_WAIT_FOR to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_SEMANTIC_ID, KEY_TIMEOUT_MILLISECONDS),
-        )
+        ) + DikcizFileCommands.FIELDS.mapValues { (_, fields) -> fields + setOf(KEY_REQUEST_ID, KEY_TYPE) }
         val REMOTE_AUTH_COMMAND_TYPES = setOf(
             TYPE_REMOTE_AUTH_STATUS,
             TYPE_REMOTE_AUTH_ENABLE,
