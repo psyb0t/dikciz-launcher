@@ -2,6 +2,12 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [Unreleased]
+
+### Changed
+
+- The lab pins Android Lab 0.14.1, whose emulator container has a 12g memory cap instead of 8g. At 8g, long test runs could get the emulator killed. `ANDROID_LAB_EMULATOR_MEMORY_LIMIT` passes through Make to override the cap. Run `make restart` once to recreate the emulator with the new cap.
+
 ## [0.15.0] - 2026-10-19
 
 ### Added
