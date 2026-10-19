@@ -6,6 +6,7 @@ This source set adds the Dikciz home, public configuration, scripting and local 
 
 | Path | Purpose |
 | --- | --- |
+| `proguard-rules.pro` | Preserves LuaJ library classes and constructors used through reflection in minified builds. |
 | `AndroidManifest.xml` | Registers the Dikciz Home activity, permissions, services and receivers, and replaces the inherited Main activity declaration. |
 | `kotlin/org/fossify/home/dikciz/` | Dikciz implementation, retaining the Fossify Kotlin namespace. |
 | `res/` | Native home layout, controls, labels, appearance and Android service metadata. |

@@ -2,6 +2,16 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.15.2] - 2026-10-19
+
+### Fixed
+
+- Lua automation no longer crashes minified builds with `NoClassDefFoundError` while initializing LuaJ's bit library. Dikciz preserves the library function classes and their constructors during release shrinking.
+
+### Added
+
+- `make dikciz-test-minified-lua` runs the Lua context and failure diagnostics tests with release shrinking enabled. Its debug-signed APK uses the debug package and can install alongside the signed release.
+
 ## [0.15.1] - 2026-10-19
 
 ### Changed

@@ -88,6 +88,12 @@ android {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
+        create("minified") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".debug"
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += "release"
+        }
     }
 
     flavorDimensions.add("variants")
@@ -95,6 +101,7 @@ android {
         register("core")
         register("dikciz") {
             applicationId = "eu.psyb0t.dikciz.launcher"
+            proguardFiles("src/dikciz/proguard-rules.pro")
             versionName = dikcizVersionName
             versionCode = dikcizVersionCode
         }

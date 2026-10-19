@@ -19,6 +19,8 @@ Run from the repository root through Make. `make dikciz-test` builds the debug A
 make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_native_page_hosts_individual_html_and_provider_widgets
 ```
 
+`make dikciz-test-minified-lua` runs the existing Lua context and failure diagnostics scenarios against `dikcizMinified`, which inherits release optimization and uses the debug signing key and package. Override `DIKCIZ_TEST_SELECTOR` to run another focused scenario against that build. Debug-only platform event fixtures are not included.
+
 The selector must match `test_` followed by letters, digits, or underscores. The runner passes it to pytest's `-k` filter, so a shared name prefix can select several tests. Use `make help` for focused targets that also build required fixture APKs.
 
 `scripts/dikciz-lab.sh` runs pytest in Android Lab's forward service and saves the complete `dikciz-test.log` and JUnit `dikciz-test.xml` alongside screenshots and UI captures in the lab artifact directory. The root [verification overview](../README.md#verification) describes artifact access.

@@ -10,6 +10,7 @@ EMULATOR_IMAGE ?= $(DEFAULT_EMULATOR_IMAGE)
 FOSSIFY_VERSION_CODE := $(shell sed -n 's/^VERSION_CODE=//p' gradle.properties)
 DIKCIZ_DEBUG_APK := app/build/outputs/apk/dikciz/debug/launcher-$(FOSSIFY_VERSION_CODE)-dikciz-debug.apk
 DIKCIZ_RELEASE_APK := app/build/outputs/apk/dikciz/release/launcher-$(FOSSIFY_VERSION_CODE)-dikciz-release.apk
+DIKCIZ_MINIFIED_APK := app/build/outputs/apk/dikciz/minified/launcher-$(FOSSIFY_VERSION_CODE)-dikciz-minified.apk
 DIKCIZ_RELEASE_KEYSTORE ?= .android-lab/release/dikciz-release.jks
 DIKCIZ_RELEASE_CERT_SHA256 := 5F:A2:02:5D:F9:B8:31:C3:56:3E:8D:44:00:88:7A:77:61:86:F1:F6:F4:69:4E:4E:41:04:EF:CF:0E:20:75:15
 ANDROID_API ?= 36
@@ -847,6 +848,15 @@ dikciz-test-notification-action: ensure-dev-image ## Build the fixture and prove
 		DIKCIZ_TEST_CONFIGURABLE_PROVIDER_APK="$(DIKCIZ_CONFIGURABLE_PROVIDER_APK)" \
 		DIKCIZ_TEST_CONFIGURABLE_PROVIDER_PACKAGE="$(DIKCIZ_CONFIGURABLE_PROVIDER_PACKAGE)" \
 		$(MAKE) --no-print-directory dikciz-test-existing-apk
+
+.PHONY: dikciz-test-minified-lua
+
+dikciz-test-minified-lua: DIKCIZ_TEST_SELECTOR := test_lua_
+dikciz-test-minified-lua: ensure-dev-image ## Test Lua execution and failure diagnostics with release shrinking and debug signing
+	@$(MAKE) --no-print-directory gradle ANDROID_PROJECT=. GRADLE_TASK=:app:assembleDikcizMinified
+	@$(MAKE) --no-print-directory dikciz-test-existing-apk \
+		APK="$(DIKCIZ_MINIFIED_APK)" \
+		DIKCIZ_TEST_SELECTOR="$(DIKCIZ_TEST_SELECTOR)"
 
 dikciz-test-script-diagnostics: ensure-dev-image ## Build Dikciz and prove script logs, the viewer, and rate-limited failure notifications
 	@$(MAKE) --no-print-directory gradle ANDROID_PROJECT=. GRADLE_TASK=:app:assembleDikcizDebug

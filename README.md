@@ -158,6 +158,7 @@ Dikciz does not publish through Google Play. The retained [`fastlane/README.md`]
 make build
 make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_native_page_hosts_individual_html_and_provider_widgets
 make dikciz-test-script-diagnostics
+make dikciz-test-minified-lua
 make dikciz-test-provider-actions
 make dikciz-test-accessibility
 make dikciz-test-accessibility-third-party
@@ -165,6 +166,8 @@ make dikciz-test-app-drawer-entry
 make dikciz-test-app-shortcut
 make dikciz-test-launcher-control
 ```
+
+`make dikciz-test-minified-lua` tests Lua execution, read-only context, and failure diagnostics with release shrinking enabled. Its debug-signed `dikcizMinified` APK uses the debug package and can install alongside a signed release.
 
 Choose the narrow target that covers the change. `make dikciz-test` is the broad shared-emulator UI suite. It resets the same phone to a clean installed Dikciz build, seeds its HTML-only test fixture, and leaves screenshots, UI dumps, layouts, and the complete pytest log in `.android-lab/shared/artifacts/`. After pytest returns, fails, or is interrupted, it resets only Dikciz and `/sdcard/Dikciz` to the bundled starter home. The fixture is never left visible for manual inspection.
 
