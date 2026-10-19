@@ -17,9 +17,9 @@ Read the [user guide](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/u
 
 ## Configuration and recovery
 
-The public root is `/sdcard/Dikciz/`. `config.json` references separate page and widget documents. Scripts have metadata, Lua source, state and run-status files. Automation policies and subscriptions, widget-library packages, themes, fonts, wallpapers, remote-auth configuration and logs have their own paths.
+The public root is `/sdcard/Dikciz/`. `config.json` references separate page and widget documents. Scripts have metadata, Lua source, state and run-status files. Automation policies and subscriptions, widget-library packages, HTML blocks, themes, fonts, wallpapers, control-port and remote-auth configuration, and logs have their own paths.
 
-Valid file edits are watched and applied without restarting the app. Configuration replacement validates and saves atomically. Preserve unrelated root namespaces and avoid whole-document replacement for a narrow change. Read the [configuration guide](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/dikciz-configuration.md) before editing files or assembling a replacement.
+Valid home and rendering-asset edits are watched and applied without restarting the app. Direct control-port edits apply when the listeners restart. Configuration replacement validates and saves atomically. Preserve unrelated root namespaces and avoid whole-document replacement for a narrow change. Read the [configuration guide](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/dikciz-configuration.md) before editing files or assembling a replacement.
 
 Safe mode opens the bundled first page without overwriting saved configuration. Diagnostics, snapshots, logs, screenshots, UI dumps and recovery remain available, while normal home edits and device mutations are blocked. Reset restores bundled home and automation files, so obtain approval before using it.
 
@@ -95,7 +95,7 @@ WebSocket and Streamable HTTP MCP expose the same launcher command target:
 - Inspect another app through Accessibility and invoke supported node actions. Obtain a fresh snapshot; its ID expires after five seconds and changed windows invalidate it.
 - Run device shell commands and explicit Android intents. `shell` requests root by default; use `root: false` for app-sandbox commands.
 - Inspect remote bearer-auth state and enable or disable it after approval. Password creation, replacement and clearing are phone-side operations.
-- Subscribe to persistent WebSocket events for UI changes, scroll, dialogs, lifecycle and command completion.
+- Subscribe to the persistent WebSocket event schema advertised by `controlStatus`, including command completion, UI rendering, HTML-widget events and automation events.
 - Deliberately crash one HTML renderer to test recovery through `htmlWidgetRendererCrash`. This is a diagnostic, not a normal widget operation.
 
 For exact commands and MCP tools, read [automation control](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/automation-control.md) and query the live contract. Do not manufacture a remote command by copying a Lua action name. Match WebSocket replies by request ID while handling interleaved events. For MCP, honor initialization and session headers.

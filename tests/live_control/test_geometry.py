@@ -211,6 +211,9 @@ def test_direct_resize_fill_controls_cover_the_fixed_page_viewport(
         AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
     )
     configured = configure_welcome_cell(original)
+    # Fill refuses to cover another widget, so welcome is alone on the page.
+    home_page = configuration_page(configured, FIXTURE_HOME_PAGE_ID)
+    home_page["widgets"] = [widget for widget in home_page["widgets"] if widget["id"] == "welcome"]
     AUTOMATION.request(
         websocket_control,
         AUTOMATION.TYPE_CONFIG_REPLACE,

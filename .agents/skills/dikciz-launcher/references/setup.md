@@ -41,7 +41,7 @@ adb -s "$SERIAL" forward --no-rebind tcp:19101 tcp:19001
 adb -s "$SERIAL" forward --no-rebind tcp:19102 tcp:19002
 ```
 
-If a host port is occupied, choose another unused port and use it in the client. The device ports stay `19001` and `19002`. These endpoints belong to the computer running the ADB server. Inside a separate container or on another computer, `127.0.0.1` is not automatically that host; use an explicitly configured private connection to it rather than publishing the ports publicly.
+If a host port is occupied, choose another unused port and use it in the client. These are the default device ports. The phone owner can change them under **Settings**, **Automation**, **Configure control ports**, or through `/sdcard/Dikciz/control/ports.json`. Forward the actual device ports and confirm them in `controlStatus.transports`. These endpoints belong to the computer running the ADB server. Inside a separate container or on another computer, `127.0.0.1` is not automatically that host; use an explicitly configured private connection to it rather than publishing the ports publicly.
 
 When done, remove only the mappings created for this operation, if the user does not want them left active:
 

@@ -48,7 +48,13 @@ internal class DikcizAutomationControlPlane(
     private val target: DikcizAutomationTarget,
     private val logger: DikcizLogger,
     private val remoteAccessAuth: DikcizRemoteAccessAuth,
+    private val portProvider: () -> Int,
 ) {
+    /** The device-loopback port of the running listener, or the port the next start would bind. */
+    @Volatile
+    var port: Int = CONTROL_PORT
+        private set
+
     private val clients = ConcurrentHashMap.newKeySet<ClientConnection>()
     private val revision = AtomicLong()
     private val isRunning = AtomicBoolean()
@@ -64,10 +70,11 @@ internal class DikcizAutomationControlPlane(
         if (!isRunning.compareAndSet(false, true)) {
             return true
         }
+        port = portProvider()
         try {
             serverSocket = ServerSocket().apply {
                 reuseAddress = true
-                bind(InetSocketAddress(InetAddress.getByName(LOOPBACK_ADDRESS), CONTROL_PORT))
+                bind(InetSocketAddress(InetAddress.getByName(LOOPBACK_ADDRESS), port))
             }
             workerPool = Executors.newCachedThreadPool { runnable ->
                 Thread(runnable, THREAD_NAME_PREFIX + UUID.randomUUID()).apply { isDaemon = true }
@@ -75,7 +82,7 @@ internal class DikcizAutomationControlPlane(
             workerPool?.execute(::acceptClients)
             logger.info(
                 EVENT_CONTROL_PLANE_STARTED,
-                mapOf(FIELD_BIND_ADDRESS to LOOPBACK_ADDRESS, FIELD_PORT to CONTROL_PORT),
+                mapOf(FIELD_BIND_ADDRESS to LOOPBACK_ADDRESS, FIELD_PORT to port),
             )
             return true
         } catch (exception: Exception) {
@@ -86,7 +93,7 @@ internal class DikcizAutomationControlPlane(
             workerPool = null
             logger.error(
                 EVENT_CONTROL_PLANE_START_FAILED,
-                mapOf(FIELD_ERROR_CLASS to exception::class.java.simpleName),
+                mapOf(FIELD_ERROR_CLASS to exception::class.java.simpleName, FIELD_PORT to port),
             )
             return false
         }
@@ -618,6 +625,11 @@ internal class DikcizAutomationControlPlane(
             val parsedHeaders = parseHeaders(request)
             val headers = parsedHeaders.values
             validateHandshake(request, headers)
+            val origin = headers[HEADER_ORIGIN]
+            if (origin != null && !LOCAL_ORIGIN_PATTERN.matches(origin)) {
+                writeForbiddenResponse()
+                throw DikcizAutomationRequestException(ERROR_ORIGIN_FORBIDDEN, MESSAGE_ORIGIN_FORBIDDEN)
+            }
             if (parsedHeaders.hasDuplicateAuthorization ||
                 !remoteAccessAuth.acceptsAuthorization(headers[HEADER_AUTHORIZATION])
             ) {
@@ -787,6 +799,18 @@ internal class DikcizAutomationControlPlane(
             output.flush()
         }
 
+        private fun writeForbiddenResponse() {
+            val response = buildString {
+                append(HTTP_FORBIDDEN)
+                append(HTTP_LINE_SEPARATOR)
+                append(HEADER_CONNECTION_CLOSE_RESPONSE)
+                append(HTTP_LINE_SEPARATOR)
+                append(HTTP_LINE_SEPARATOR)
+            }
+            output.write(response.toByteArray(StandardCharsets.US_ASCII))
+            output.flush()
+        }
+
         private fun validateHandshake(request: String, headers: Map<String, String>) {
             if (!request.startsWith("$HTTP_REQUEST_LINE$HTTP_LINE_SEPARATOR")) {
                 throw DikcizAutomationRequestException(
@@ -941,6 +965,7 @@ internal class DikcizAutomationControlPlane(
             const val HEADER_CONNECTION_CLOSE_RESPONSE = "Connection: close"
             const val HEADER_CONNECTION_RESPONSE = "Connection: Upgrade"
             const val HEADER_AUTHORIZATION = "authorization"
+            const val HEADER_ORIGIN = "origin"
             const val HEADER_UPGRADE = "upgrade"
             const val HEADER_UPGRADE_RESPONSE = "Upgrade: websocket"
             const val HEADER_WEBSOCKET_ACCEPT = "Sec-WebSocket-Accept"
@@ -952,6 +977,7 @@ internal class DikcizAutomationControlPlane(
             const val HTTP_LINE_SEPARATOR = "\r\n"
             const val HTTP_REQUEST_LINE = "GET ${DikcizAutomationControlPlane.CONTROL_PATH} HTTP/1.1"
             const val HTTP_SWITCHING_PROTOCOLS = "HTTP/1.1 101 Switching Protocols"
+            const val HTTP_FORBIDDEN = "HTTP/1.1 403 Forbidden"
             const val HTTP_UNAUTHORIZED = "HTTP/1.1 401 Unauthorized"
             const val LINE_FEED = 10
             const val LONG_PAYLOAD_SHIFT_BASE = 56
@@ -990,12 +1016,13 @@ internal class DikcizAutomationControlPlane(
 
     companion object {
         const val CONTROL_PATH = "/v1/automation"
-        const val CONTROL_PORT = 19_001
+        const val CONTROL_PORT = DikcizControlPorts.DEFAULT_WEBSOCKET_PORT
         const val ERROR_GRID_BOUNDS = "grid_bounds"
         const val ERROR_GRID_COLLISION = "grid_collision"
         const val ERROR_HELLO_REQUIRED = "hello_required"
         const val ERROR_PAGE_FULL = "page_full"
         const val ERROR_INTERNAL = "internal_error"
+        const val ERROR_ORIGIN_FORBIDDEN = "origin_forbidden"
         const val ERROR_PROTOCOL_MISMATCH = "protocol_mismatch"
         const val ERROR_REMOTE_AUTH_REQUIRED = "remote_auth_required"
         const val ERROR_ROOT_UNAVAILABLE = "root_unavailable"
@@ -1097,6 +1124,7 @@ internal class DikcizAutomationControlPlane(
         const val MESSAGE_INVALID_ROOT_REQUEST = "root must be a boolean"
         const val MESSAGE_MISSING_FIELD = "required field is missing"
         const val MESSAGE_PROTOCOL_MISMATCH = "unsupported protocol version"
+        const val MESSAGE_ORIGIN_FORBIDDEN = "browser origins other than device loopback are not allowed"
         const val MESSAGE_REMOTE_AUTH_REQUIRED = "a valid remote bearer credential is required"
         const val MESSAGE_UI_THREAD_TIMEOUT = "launcher UI did not respond in time"
         const val MESSAGE_UNEXPECTED_FIELD = "request contains an unsupported field"
@@ -1157,6 +1185,9 @@ internal class DikcizAutomationControlPlane(
         const val OUTCOME_SUCCEEDED = "succeeded"
         const val VALUE_UNKNOWN_COMMAND_TYPE = "unknown"
         const val WAIT_POLL_INTERVAL_MILLISECONDS = 50L
+        // Browsers always send Origin and page scripts cannot change it. Native clients
+        // send none. Only device-loopback pages may reach the WebSocket and MCP planes.
+        val LOCAL_ORIGIN_PATTERN = Regex("^https?://(127\\.0\\.0\\.1|localhost)(:[0-9]{1,5})?$")
         val HELLO_KEYS = setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_PROTOCOL_VERSION)
         val ACCESSIBILITY_ACTION_REQUIRED_KEYS = setOf(
             KEY_REQUEST_ID,

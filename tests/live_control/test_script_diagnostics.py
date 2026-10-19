@@ -47,6 +47,20 @@ def wait_for_script_diagnostic_events(
     )
 
 
+def scroll_viewer_to_text(fragment: str) -> bool:
+    # The viewer lists the newest records last, below the first screen.
+    window_bounds = node_bounds(physical_nodes()[0])
+    assert window_bounds is not None
+    x = (window_bounds["left"] + window_bounds["right"]) // 2
+    lower_y = window_bounds["top"] + (window_bounds["bottom"] - window_bounds["top"]) * 2 // 3
+    upper_y = window_bounds["top"] + (window_bounds["bottom"] - window_bounds["top"]) // 3
+    for _ in range(SCRIPT_DIAGNOSTICS_VIEWER_MAXIMUM_SCROLLS):
+        if any(fragment in text for text in physical_visible_texts()):
+            return True
+        direct_swipe((x, lower_y), (x, upper_y))
+    return any(fragment in text for text in physical_visible_texts())
+
+
 def assert_safe_script_log_snapshot(snapshot: dict[str, Any]) -> None:
     assert set(snapshot) == {
         AUTOMATION.KEY_SCRIPT_LOG_RECORDS,
@@ -101,6 +115,7 @@ def test_script_failures_are_logged_viewable_notified_and_rate_limited(
             "state": {},
         },
     ]
+    configured["automation"] = copy.deepcopy(SCRIPT_DIAGNOSTICS_AUTOMATION)
     AUTOMATION.request(
         script_diagnostics_websocket_control,
         AUTOMATION.TYPE_CONFIG_REPLACE,
@@ -178,7 +193,12 @@ def test_script_failures_are_logged_viewable_notified_and_rate_limited(
     )
     mcp_snapshot = mcp_script_log_snapshot()
     assert_safe_script_log_snapshot(mcp_snapshot)
-    assert mcp_snapshot == websocket_snapshot
+    # Each transport logs its own request, so only this script's records must match.
+    assert [
+        record
+        for record in mcp_snapshot[AUTOMATION.KEY_SCRIPT_LOG_RECORDS]
+        if record[AUTOMATION.KEY_SCRIPT_LOG_SCRIPT_ID] == SCRIPT_DIAGNOSTICS_SCRIPT_ID
+    ] == failure_records
 
     open_command_sheet()
     wait_for_snapshot_node(script_diagnostics_websocket_control, COMMAND_SETTINGS_SEMANTIC_ID)
@@ -194,10 +214,7 @@ def test_script_failures_are_logged_viewable_notified_and_rate_limited(
         semanticId=SCRIPT_DIAGNOSTICS_VIEWER_SEMANTIC_ID,
     )
     wait_for_physical_text_bounds(SCRIPT_DIAGNOSTICS_VIEWER_TITLE)
-    assert any(
-        SCRIPT_DIAGNOSTICS_FAILURE_EVENT in text
-        for text in physical_visible_texts()
-    )
+    assert scroll_viewer_to_text(SCRIPT_DIAGNOSTICS_FAILURE_EVENT)
     run_device_operation("screenshot")
     shutil.copyfile(
         ARTIFACT_DIRECTORY / "screenshot.png",

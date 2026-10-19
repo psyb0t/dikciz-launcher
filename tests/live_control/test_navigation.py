@@ -26,7 +26,7 @@ def test_direct_page_canvas_long_press_opens_page_menu_before_release(
         AUTOMATION.request(
             websocket_control,
             AUTOMATION.TYPE_TAP,
-            semanticId=LUA_MANAGER_CLOSE_SEMANTIC_ID,
+            semanticId=PAGE_MENU_HOME_CLOSE_SEMANTIC_ID,
         )
         wait_for_physical_text_bounds(FIXTURE_WIDGET_TITLES["welcome"])
 

@@ -17,9 +17,9 @@ CALENDAR_STATE_INITIAL = {
     "location": "waiting",
     "title": "waiting",
 }
-CALENDAR_UPDATED_DESCRIPTION = "Dikciz calendar fixture updated description"
-CALENDAR_UPDATED_LOCATION = "Dikciz calendar fixture updated location"
-CALENDAR_UPDATED_TITLE = "Dikciz calendar fixture updated title"
+CALENDAR_UPDATED_DESCRIPTION = "Android lab calendar fixture updated description"
+CALENDAR_UPDATED_LOCATION = "Android lab calendar fixture updated location"
+CALENDAR_UPDATED_TITLE = "Android lab calendar fixture updated title"
 CALENDAR_SOURCE = (
     'function on_event(event)\n'
     '  if event.type ~= "calendarEvent" then return end\n'

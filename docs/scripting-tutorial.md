@@ -98,7 +98,7 @@ Each Lua subscription, and each HTML widget `eventSubscriptions` entry, has this
 
 `minimumIntervalMilliseconds` is a per-subscription delivery floor. It prevents that one subscriber from receiving the same source too often. `coalescingKey` is optional and helps make repeated work identifiable. It is not a global throttle.
 
-Lua also needs the matching policy capability. HTML widgets do not use Lua policy files, but Android still requires the relevant permission or special access.
+Lua also needs the matching policy capability, and the policy must be enabled. Dikciz does not deliver an event to a script whose policy lacks it, and logs `capability_denied` instead. Where an event has a metadata and a content capability, either one admits the event, but the content fields listed below reach the script only with the content capability. HTML widgets do not use Lua policy files, but Android still requires the relevant permission or special access.
 
 ### Every built-in event
 
@@ -123,14 +123,14 @@ Lua also needs the matching policy capability. HTML widgets do not use Lua polic
 | `sensor` | `sensors` | Requires `sensorTypes` and `samplingPeriodMicroseconds`. |
 | `healthDailySteps` | `healthSteps` | Requires `healthRefreshIntervalMilliseconds`. |
 | `location` | `locationApproximate` or `locationPrecise` | Requires `locationPrecision`, either `approximate` or `precise`. |
-| `calendarEvent` | `calendarEventsMetadata` or `calendarEventsContent` | Content capability grants the richer calendar record. |
+| `calendarEvent` | `calendarEventsMetadata` or `calendarEventsContent` | `calendarEventsContent` adds `title`, `description`, and `location`. |
 | `contactsChanged` | `contactsMetadata` | Contacts change notification. |
 | `phoneState` | `phoneState` | Phone call-state changes. |
-| `smsReceived` | `smsMetadata` or `smsContent` | Content capability grants the richer SMS record. |
-| `notificationPosted` | `notificationsMetadata` or `notificationsContent` | Optional `packages` filter. |
-| `notificationRemoved` | `notificationsMetadata` or `notificationsContent` | Optional `packages` filter. |
-| `mediaSession` | `mediaSessionsMetadata` or `mediaSessionsContent` | Optional `packages` filter. |
-| `clipboardChanged` | `clipboardMetadata` or `clipboardContent` | Clipboard change notification. |
+| `smsReceived` | `smsMetadata` or `smsContent` | `smsContent` adds the `messages` list with each sender and body. |
+| `notificationPosted` | `notificationsMetadata` or `notificationsContent` | Optional `packages` filter. `notificationsContent` adds `title` and `text`. |
+| `notificationRemoved` | `notificationsMetadata` or `notificationsContent` | Optional `packages` filter. `notificationsContent` adds `title` and `text`. |
+| `mediaSession` | `mediaSessionsMetadata` or `mediaSessionsContent` | Optional `packages` filter. `mediaSessionsContent` adds `title`, `artist`, and `album`. |
+| `clipboardChanged` | `clipboardMetadata` or `clipboardContent` | `clipboardContent` adds `text` and `textTruncated`. |
 | `accessibilityWindow` | `accessibility` | Requires the owner to enable Dikciz in Android Accessibility settings. |
 | `accessibilityServiceState` | `accessibility` | Reports `connected`, `interrupted`, or `disconnected`. |
 | `widgetChanged` | `widgetState` | A Dikciz widget state change. |
@@ -456,6 +456,7 @@ When a result surprises you, check the script's status and logs first. Common ou
 | Outcome | Meaning and next step |
 | --- | --- |
 | `capability_denied` | Add the event capability or action to the enabled policy. |
+| `rate_limited` | The event arrived inside the subscription's `minimumIntervalMilliseconds` and was dropped. Dikciz records this at `debug` log level. |
 | `android_permission_denied` | Open **Settings**, then **Automation**, then grant the Android access. |
 | `device_admin_inactive` | Enable Dikciz Device Administration before `lockDevice`. |
 | `accessibility_not_enabled` | Enable Dikciz cross-app automation in Android Accessibility settings. |

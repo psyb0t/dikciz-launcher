@@ -123,9 +123,9 @@ def test_app_drawer_row_tap_launches_the_selected_android_app(
     )
     wait_for_foreground_application(ANDROID_SETTINGS_PACKAGE)
     restore_system_home()
-    # Launching an app leaves the drawer on the home screen behind it, and the
-    # next test would open its page underneath a drawer filtered to one row.
-    close_drawer(websocket_control)
+    # A successful launch closes the drawer, so the home screen is never left
+    # underneath a drawer filtered to one row.
+    wait_for_snapshot_node(websocket_control, APP_DRAWER_SEARCH_SEMANTIC_ID, should_exist=False)
 
 
 def test_app_catalogue_is_ordered_bounded_and_carries_stable_ids_and_labels(

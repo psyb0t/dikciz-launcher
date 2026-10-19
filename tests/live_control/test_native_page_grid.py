@@ -173,8 +173,9 @@ def test_native_page_hosts_individual_html_and_provider_widgets() -> None:
 
         direct_select_home_page(connection)
         direct_select_notes_page(connection)
-        wait_for_physical_text_bounds(HTML_WIDGET_INITIAL_LABEL)
-        wait_for_physical_text_bounds(HTML_WIDGET_BRIDGE_LABEL)
+        # Selecting a page moves the viewport, so the document keeps its state.
+        wait_for_physical_text_bounds(HTML_WIDGET_CHANGED_LABEL)
+        wait_for_physical_text_bounds(HTML_WIDGET_BRIDGE_RESULT)
         wait_for_visible_provider_content()
         final_configuration = AUTOMATION.require_configuration(
             AUTOMATION.request(connection, AUTOMATION.TYPE_CONFIG_GET),

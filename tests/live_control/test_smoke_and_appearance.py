@@ -212,7 +212,7 @@ def test_direct_appearance_editors_persist_widget_and_default_styles(
     }
 
     open_page_menu_on_selected_page()
-    direct_tap(wait_for_physical_text_bounds(SETTINGS_APP_LABEL))
+    direct_tap(wait_for_physical_text_bounds(PAGE_MENU_OPEN_SETTINGS_LABEL))
     wait_for_snapshot_node(websocket_control, SETTINGS_WIDGET_APPEARANCE_SEMANTIC_ID)
     direct_tap(wait_for_physical_button_bounds("New widget default appearance"))
     wait_for_snapshot_node(

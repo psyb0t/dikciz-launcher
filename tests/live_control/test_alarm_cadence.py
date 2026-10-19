@@ -60,6 +60,8 @@ def test_bundled_clock_posts_every_minute_while_awake(websocket_control: socket.
     previous_when = previous["when"] if previous else 0
     evidence = {"deliveries": [], "gapsMs": []}
     artifact = ARTIFACT_DIRECTORY / CADENCE_ARTIFACT
+    # The day's log also holds alarms from earlier tests in the same run.
+    record_count_before_deliveries = len(device_log_records())
     try:
         for index in range(DELIVERY_COUNT):
             deadline = time.monotonic() + DELIVERY_TIMEOUT_SECONDS
@@ -83,7 +85,7 @@ def test_bundled_clock_posts_every_minute_while_awake(websocket_control: socket.
             if index == 1:
                 device_command("am start -a android.settings.SETTINGS")
 
-        records = device_log_records()
+        records = device_log_records()[record_count_before_deliveries:]
         evidence["timerEvents"] = [
             record for record in records
             if record.get("event") == "automation_alarm_delivered"

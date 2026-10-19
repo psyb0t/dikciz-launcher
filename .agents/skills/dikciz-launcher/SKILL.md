@@ -3,7 +3,7 @@ name: "dikciz-launcher"
 description: "Install a Dikciz Launcher APK with ADB and use its home screen, configuration, HTML widgets, Lua automation, WebSocket controls, and MCP tools on the user's selected Android device."
 ---
 
-# Dikciz Launcher
+# Dikciz launcher
 
 Use this skill to install and operate Dikciz, not to develop its Android source or manage Android Lab.
 
@@ -32,7 +32,7 @@ Read [references/capabilities.md](references/capabilities.md) to choose among th
 
 Start with `snapshot`, `homeGet`, `configGet`, or the matching discovered MCP read tool. Use returned semantic IDs and page/widget addresses for actions. Read a fresh snapshot after an action to verify the change. Android accessibility actions require the phone owner to enable Dikciz's Accessibility service; ordinary launcher controls do not require it.
 
-The bundled home has pages, HTML widgets, native shortcuts, provider widgets, and a script dashboard. Lua runs as automation scripts, not as a widget type. Android permissions, special access and root remain device-controlled.
+The bundled home has pages, HTML widgets, a native shortcut, and a script dashboard. The native picker can add third-party provider widgets. Lua runs as automation scripts, not as a widget type. Android permissions, special access and root remain device-controlled.
 
 ## Boundaries and completion
 

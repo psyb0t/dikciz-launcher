@@ -21,9 +21,38 @@ SCRIPT_DIAGNOSTICS_SECOND_FAILURE_SOURCE = "local is_running = true\nwhile is_ru
 SCRIPT_DIAGNOSTICS_VIEWER_ARTIFACT_NAME = "script-log-viewer.png"
 SCRIPT_DIAGNOSTICS_VIEWER_SEMANTIC_ID = "settings:script-logs"
 SCRIPT_DIAGNOSTICS_VIEWER_TITLE = "Script logs"
+SCRIPT_DIAGNOSTICS_VIEWER_MAXIMUM_SCROLLS = 12
 SCRIPT_DIAGNOSTICS_GRANT_NOTIFICATION_COMMAND = (
     f"pm grant {DIKCIZ_DEBUG_PACKAGE} android.permission.POST_NOTIFICATIONS"
 )
 SCRIPT_DIAGNOSTICS_REVOKE_NOTIFICATION_COMMAND = (
     f"pm revoke {DIKCIZ_DEBUG_PACKAGE} android.permission.POST_NOTIFICATIONS"
 )
+SCRIPT_DIAGNOSTICS_POLICY_ID = "script-diagnostics-policy"
+SCRIPT_DIAGNOSTICS_MANUAL_EVENT = "manual"
+SCRIPT_DIAGNOSTICS_AUTOMATION = {
+    "apiVersion": 1,
+    "policies": [
+        {
+            "id": SCRIPT_DIAGNOSTICS_POLICY_ID,
+            "title": "Script diagnostics policy",
+            "enabled": True,
+            "capabilities": ["manualTrigger"],
+            "actions": [],
+        },
+    ],
+    "scripts": [
+        {
+            "scriptId": SCRIPT_DIAGNOSTICS_SCRIPT_ID,
+            "policyId": SCRIPT_DIAGNOSTICS_POLICY_ID,
+            "enabled": True,
+            "subscriptions": [
+                {
+                    "event": SCRIPT_DIAGNOSTICS_MANUAL_EVENT,
+                    "minimumIntervalMilliseconds": 0,
+                    "coalescingKey": SCRIPT_DIAGNOSTICS_MANUAL_EVENT,
+                },
+            ],
+        },
+    ],
+}

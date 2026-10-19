@@ -209,17 +209,19 @@ internal class DikcizLuaRuntime {
         executionBudget: LuaExecutionBudget,
     ): LuaValue {
         val thread = LuaThread(globals, chunk)
+        val instructionLimitHook = InstructionLimitHook(executionBudget)
         setHook.invoke(
             LuaValue.varargsOf(
                 arrayOf(
                     thread,
-                    InstructionLimitHook(executionBudget),
+                    instructionLimitHook,
                     LuaValue.EMPTYSTRING,
                     LuaValue.valueOf(INSTRUCTION_HOOK_INTERVAL),
                 ),
             ),
         )
         val result = thread.resume(argument)
+        instructionLimitHook.limitFailure?.let { failure -> throw failure }
         if (!result.arg1().toboolean()) {
             throw LuaError(result.arg(SECOND_RESULT_INDEX).tojstring())
         }
@@ -885,11 +887,22 @@ internal class DikcizLuaRuntime {
     ) : ZeroArgFunction() {
         private var executedInstructionCount = NO_EXECUTED_INSTRUCTIONS
 
+        // LuaJ runs a coroutine on its own thread and reduces a thrown error to its
+        // message, so the caller rethrows the recorded limit to keep its type.
+        @Volatile
+        var limitFailure: Error? = null
+            private set
+
         override fun call(): LuaValue {
             executedInstructionCount += INSTRUCTION_HOOK_INTERVAL
-            executionBudget.throwIfExceeded()
-            if (executedInstructionCount >= MAXIMUM_INSTRUCTION_COUNT) {
-                throw DikcizLuaInstructionLimitExceeded()
+            try {
+                executionBudget.throwIfExceeded()
+                if (executedInstructionCount >= MAXIMUM_INSTRUCTION_COUNT) {
+                    throw DikcizLuaInstructionLimitExceeded()
+                }
+            } catch (failure: Error) {
+                limitFailure = failure
+                throw failure
             }
             return LuaValue.NIL
         }
@@ -919,12 +932,12 @@ internal class DikcizLuaRuntime {
         }
     }
 
-    private class DikcizLuaExecutionCancelled : Error()
-    private class DikcizLuaExecutionDeadlineExceeded : Error()
+    private class DikcizLuaExecutionCancelled : Error("Lua execution cancelled")
+    private class DikcizLuaExecutionDeadlineExceeded : Error("Lua execution deadline exceeded")
 
-    private class DikcizLuaInstructionLimitExceeded : Error()
+    private class DikcizLuaInstructionLimitExceeded : Error("Lua instruction limit exceeded")
 
-    private class DikcizLuaMemoryBudgetExceeded : Error()
+    private class DikcizLuaMemoryBudgetExceeded : Error("Lua memory budget exceeded")
 
     private class ReadOnlyLuaTable : LuaTable() {
         fun putInitial(key: String, value: LuaValue) {

@@ -62,6 +62,14 @@ internal object DikcizAutomationForegroundNotification {
     const val ID = 7302
 }
 
+/**
+ * Stops the service through its own start queue. Android delivers start commands
+ * in order, so a pending startForegroundService reaches startForeground before this
+ * stop runs. Calling stopService during that window kills the launcher process with
+ * ForegroundServiceDidNotStartInTimeException.
+ */
+internal const val DIKCIZ_AUTOMATION_SERVICE_ACTION_STOP = "org.fossify.home.dikciz.AUTOMATION_STOP"
+
 internal class DikcizAutomationService : Service(), SensorEventListener, LocationListener {
     private lateinit var homeConfigStore: HomeConfigStore
     private lateinit var logger: DikcizLogger
@@ -176,6 +184,11 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == DIKCIZ_AUTOMATION_SERVICE_ACTION_STOP) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (!startForegroundForConfiguration(configuration)) {
             // Android refused the foreground start, which it does for a service
             // launched from the background. The launch used
@@ -452,7 +465,12 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
             if (DikcizAutomationEventType.RingerMode in events) {
                 addAction(AudioManager.RINGER_MODE_CHANGED_ACTION)
             }
-            if (DikcizAutomationEventType.InterruptionFilter in events) {
+            // Listen before Do Not Disturb access exists, so the grant itself reports the
+            // current filter. Each broadcast checks access again before it emits.
+            if (
+                DikcizAutomationEventType.InterruptionFilter in events ||
+                hasConfiguredInterruptionFilterSubscription(configuration)
+            ) {
                 addAction(NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED)
                 addAction(NotificationManager.ACTION_NOTIFICATION_POLICY_ACCESS_GRANTED_CHANGED)
             }
@@ -920,6 +938,13 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
         configuration: HomeConfiguration,
         event: DikcizAutomationEventType,
     ): List<DikcizAutomationSubscription> {
+        return allowedScriptSubscriptions(configuration, event).filter(::hasAndroidSubscriptionPermission)
+    }
+
+    private fun allowedScriptSubscriptions(
+        configuration: HomeConfiguration,
+        event: DikcizAutomationEventType,
+    ): List<DikcizAutomationSubscription> {
         return configuration.automation.scripts.flatMap { script ->
             val policy = configuration.automation.policy(script.policyID)
             val luaScript = configuration.scripts.firstOrNull { candidate -> candidate.id == script.scriptID }
@@ -927,11 +952,15 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
                 return@flatMap emptyList()
             }
             script.subscriptions.filter { subscription ->
-                subscription.event == event &&
-                    policy.allows(subscription) &&
-                    hasAndroidSubscriptionPermission(subscription)
+                subscription.event == event && policy.allows(subscription)
             }
         }
+    }
+
+    private fun hasConfiguredInterruptionFilterSubscription(configuration: HomeConfiguration): Boolean {
+        val event = DikcizAutomationEventType.InterruptionFilter
+        return allowedScriptSubscriptions(configuration, event).isNotEmpty() ||
+            htmlEventSubscriptions(configuration, event).isNotEmpty()
     }
 
     private fun htmlEventSubscriptions(

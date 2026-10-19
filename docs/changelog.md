@@ -2,6 +2,39 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.15.0] - 2026-10-19
+
+### Added
+
+- The WebSocket and MCP device ports are configurable in `/sdcard/Dikciz/control/ports.json` and under **Settings**, **Automation**, **Configure control ports**. Saving in Settings restarts both listeners. Direct file edits apply when the listeners next start. Ports must be 1024 to 65535 and differ; an invalid file falls back to 19001 and 19002. No control-plane command can change them, and `controlStatus` reports the ports in use.
+- The page menu's Cancel button has the semantic ID `page:menu:<page-id>:close`, so control clients can close the menu.
+
+### Security
+
+- The WebSocket control plane refuses browser origins other than device loopback with `403 Forbidden`, the rule MCP already applied. Before, any web page open in the phone's browser could connect to `ws://127.0.0.1:19001` and run launcher commands while the bearer password was off. Native clients, ADB forwards and apps without an `Origin` header connect as before.
+- An automation script receives an event only when its policy is enabled and grants that event's capability. A metadata capability without its content counterpart hides the content fields: clipboard `text` and `textTruncated`, calendar `title`, `description` and `location`, SMS `messages`, notification `title` and `text`, and media-session `title`, `artist` and `album`. Before, every subscribed script received full event content whatever its policy granted. A refused delivery logs `automation_delivery_rejected` with reason `capability_denied`.
+- `automationTrigger` refuses a script whose policy is disabled or does not grant `manualTrigger`.
+
+### Fixed
+
+- A reset to the bundled home outside safe mode keeps every bundled page. Before, the running launcher kept only the home page until the next reload, so selecting another page failed with `page ID was not found`.
+- Granting Do Not Disturb access delivers the current interruption filter to subscribed scripts and widgets. Before, Dikciz did not notice the grant until the automation service restarted.
+- A Lua script that hits the instruction, time or memory limit fails with its `instruction_budget_exceeded`, `execution_deadline_exceeded` or `memory_budget_exceeded` reason, logs the failure and sends the failed-script notification. Before, LuaJ reported the stopped run as a success, so the script showed `completed` with no event handler.
+- The cold-start brand stays in the semantic snapshot as `startup:dismiss` until it is gone, so a control client can dismiss it. Before, the first home render removed the node while the brand still covered the screen and took the next touch.
+- A delivery dropped by `minimumIntervalMilliseconds` logs `automation_delivery_rejected` with reason `rate_limited` at debug level.
+- HTML widgets draw their native card frame. The theme and the Appearance editor set their background, border, margin and padding, as the configuration guide describes. Before, Dikciz saved these settings for an HTML widget and drew none of them.
+- Dikciz no longer crashes with `ForegroundServiceDidNotStartInTimeException` when automation is switched off right after it starts, or when a cold start keeps the launcher busy. The visible launcher starts the automation service as a normal service, and a stop request reaches the service, which leaves the foreground before it ends.
+- The live test suite runs again. Its conftest pointed at the combined repository root and Android Lab's old in-repository device script, so every test failed at collection since the split. Tests that still expected removed widgets, older layouts or a fixed event order now follow the current launcher.
+
+### Migration
+
+- Check each automation policy against its script's subscriptions. A script needs the capability of every event it subscribes to, the content capability to keep reading content fields, and `manualTrigger` for `automationTrigger`. The bundled policies already declare theirs.
+
+### Documentation
+
+- "Who can connect" in the automation control guide and a README note explain that other installed apps can reach the control planes unless the bearer password is on.
+- Source, script, test and Fossify directories have their own README files, and the root README, configuration, automation and user guides match the current code. The automation guide documents MCP sessions and corrects the `patchDom` argument shape to a `values` object. A Fossify source refresh keeps `.fossify/README.md`.
+
 ## [0.14.1] - 2026-10-18
 
 ### Fixed

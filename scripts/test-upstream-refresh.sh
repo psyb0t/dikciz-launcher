@@ -22,7 +22,7 @@ printf '%s\n' phone >"$fixture/state/sentinel"
 printf '%s\n' product >"$fixture/app/app/src/dikciz/sentinel"
 printf '%s\n' product-debug >"$fixture/app/app/src/dikcizDebug/sentinel"
 printf '%s\n' product-test >"$fixture/app/app/src/testDikciz/sentinel"
-readonly -a DIKCIZ_ROOT_FILES=(VERSION .gitattributes .gitleaks.toml .dockerignore)
+readonly -a DIKCIZ_ROOT_FILES=(VERSION .gitattributes .gitleaks.toml .dockerignore .fossify/README.md)
 for path in "${DIKCIZ_ROOT_FILES[@]}"; do
     printf '%s\n' "dikciz $path" >"$fixture/app/$path"
 done

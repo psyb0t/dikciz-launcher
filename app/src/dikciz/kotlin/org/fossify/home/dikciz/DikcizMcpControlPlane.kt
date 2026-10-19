@@ -28,7 +28,13 @@ internal class DikcizMcpControlPlane(
     private val target: DikcizAutomationTarget,
     private val logger: DikcizLogger,
     private val remoteAccessAuth: DikcizRemoteAccessAuth,
+    private val portProvider: () -> Int,
 ) {
+    /** The device-loopback port of the running listener, or the port the next start would bind. */
+    @Volatile
+    var port: Int = CONTROL_PORT
+        private set
+
     private val isRunning = AtomicBoolean()
     private val sessions = ConcurrentHashMap<String, McpSession>()
 
@@ -43,10 +49,11 @@ internal class DikcizMcpControlPlane(
         if (!isRunning.compareAndSet(false, true)) {
             return true
         }
+        port = portProvider()
         try {
             serverSocket = ServerSocket().apply {
                 reuseAddress = true
-                bind(InetSocketAddress(InetAddress.getByName(LOOPBACK_ADDRESS), CONTROL_PORT))
+                bind(InetSocketAddress(InetAddress.getByName(LOOPBACK_ADDRESS), port))
             }
             workerPool = Executors.newFixedThreadPool(MAXIMUM_CONNECTION_COUNT) { runnable ->
                 Thread(runnable, THREAD_NAME_PREFIX + UUID.randomUUID()).apply { isDaemon = true }
@@ -54,7 +61,7 @@ internal class DikcizMcpControlPlane(
             workerPool?.execute(::acceptConnections)
             logger.info(
                 EVENT_MCP_CONTROL_PLANE_STARTED,
-                mapOf(FIELD_BIND_ADDRESS to LOOPBACK_ADDRESS, FIELD_PORT to CONTROL_PORT),
+                mapOf(FIELD_BIND_ADDRESS to LOOPBACK_ADDRESS, FIELD_PORT to port),
             )
             return true
         } catch (exception: Exception) {
@@ -65,7 +72,7 @@ internal class DikcizMcpControlPlane(
             workerPool = null
             logger.error(
                 EVENT_MCP_CONTROL_PLANE_START_FAILED,
-                mapOf(FIELD_ERROR_CLASS to exception::class.java.simpleName),
+                mapOf(FIELD_ERROR_CLASS to exception::class.java.simpleName, FIELD_PORT to port),
             )
             return false
         }
@@ -560,7 +567,7 @@ internal class DikcizMcpControlPlane(
 
     private fun validateOrigin(headers: Map<String, String>) {
         val origin = headers[HEADER_ORIGIN] ?: return
-        if (LOCAL_ORIGIN_PATTERN.matches(origin)) {
+        if (DikcizAutomationControlPlane.LOCAL_ORIGIN_PATTERN.matches(origin)) {
             return
         }
         throw McpHttpException(HTTP_STATUS_FORBIDDEN, REASON_ORIGIN, MESSAGE_ORIGIN)
@@ -953,7 +960,7 @@ internal class DikcizMcpControlPlane(
         const val COLON_SPACE = ": "
         const val CONTENT_TYPE_IMAGE = "image"
         const val CONTENT_TYPE_TEXT = "text"
-        const val CONTROL_PORT = 19_002
+        const val CONTROL_PORT = DikcizControlPorts.DEFAULT_MCP_PORT
         const val EVENT_MCP_ACCEPT_FAILED = "mcp_accept_failed"
         const val EVENT_MCP_CONTROL_PLANE_STARTED = "mcp_control_plane_started"
         const val EVENT_MCP_CONTROL_PLANE_START_FAILED = "mcp_control_plane_start_failed"
@@ -1148,7 +1155,6 @@ internal class DikcizMcpControlPlane(
             DikcizAutomationControlPlane.KEY_NODE_ID,
             DikcizAutomationControlPlane.KEY_ACTION,
         )
-        val LOCAL_ORIGIN_PATTERN = Regex("^https?://(127\\.0\\.0\\.1|localhost)(:[0-9]{1,5})?$")
         val APP_ACTION_REQUIRED_ARGUMENT_KEYS = setOf(
             DikcizAutomationControlPlane.KEY_ACTION,
             DikcizAutomationControlPlane.KEY_COMPONENT,

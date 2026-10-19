@@ -410,11 +410,7 @@ def test_direct_provider_click_back_returns_to_launcher_and_preserves_widget(
         direct_tap(provider_content_bounds)
         wait_for_foreground_application(DESKCLOCK_APP_PACKAGE)
         provider_control.close()
-        AUTOMATION.request(
-            websocket_control,
-            AUTOMATION.TYPE_TAP,
-            semanticId=LUA_MANAGER_CLOSE_SEMANTIC_ID,
-        )
+        device_command(f"input keyevent {KEYCODE_BACK}")
         wait_for_foreground_application(DIKCIZ_DEBUG_PACKAGE)
 
         resumed_control = wait_for_restarted_websocket_control()
@@ -725,6 +721,18 @@ def test_direct_unavailable_provider_recovers_without_corrupting_configuration(
     run_device_operation("home-start")
     restarted_control = wait_for_restarted_websocket_control()
     try:
+        # A cold start shows the startup brand, and the first touch only dismisses it.
+        restarted_snapshot = AUTOMATION.request(restarted_control, AUTOMATION.TYPE_SNAPSHOT)
+        if any(
+            node.get("semanticId") == STARTUP_DISMISS_SEMANTIC_ID
+            for node in restarted_snapshot["nodes"]
+        ):
+            AUTOMATION.request(
+                restarted_control,
+                AUTOMATION.TYPE_TAP,
+                semanticId=STARTUP_DISMISS_SEMANTIC_ID,
+            )
+        wait_for_snapshot_node(restarted_control, STARTUP_DISMISS_SEMANTIC_ID, should_exist=False)
         direct_select_notes_page(restarted_control)
         wait_for_snapshot_node(restarted_control, provider_semantic_id)
         physical_widget_bounds_for_title(UNAVAILABLE_PROVIDER_TITLE)

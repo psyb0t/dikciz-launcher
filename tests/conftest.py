@@ -9,9 +9,11 @@ from pathlib import Path
 import pytest
 
 
-LAB_ROOT = Path(__file__).resolve().parents[2]
+# The Dikciz checkout root. APK and helper script paths are relative to it.
+LAB_ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT_DIRECTORY = Path(os.environ.get("ANDROID_LAB_ARTIFACT_DIR", ""))
-DEVICE_OPERATION_SCRIPT = LAB_ROOT / "scripts/lab-device.sh"
+# Android Lab embeds its device operations in the tool image the tests run in.
+DEVICE_OPERATION_SCRIPT = Path("/opt/android-lab/scripts/lab-device.sh")
 SHARED_EMULATOR_INSTANCE = "shared"
 SHARED_EMULATOR_SERIAL = "emulator:5556"
 OPERATION_TIMEOUT_SECONDS = 300

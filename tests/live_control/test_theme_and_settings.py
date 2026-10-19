@@ -3,6 +3,16 @@
 from . import *
 
 
+def assert_reset_restored_starter_home(reset: dict[str, Any], seeded_state: dict[str, Any]) -> None:
+    configuration_widget(reset, STARTER_HOME_WIDGET_ID)
+    widget_states = [
+        widget.get("state")
+        for page in reset["launcher"]["home"]["pages"]
+        for widget in page["widgets"]
+    ]
+    assert seeded_state not in widget_states
+
+
 def wait_for_rendering_asset_reload(record_count: int) -> None:
     deadline = time.monotonic() + CONFIGURATION_SAVE_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
@@ -289,9 +299,7 @@ def test_websocket_seed_reset_and_wait_for_restore_the_bundled_home(
             AUTOMATION.request(websocket_control, AUTOMATION.TYPE_RESET),
         )
         assert reset[TEST_HARNESS_NAMESPACE] == TEST_HARNESS_NAMESPACE_VALUE
-        assert configuration_widget(reset, "welcome")["state"] != {
-            "body": "Seeded over WebSocket",
-        }
+        assert_reset_restored_starter_home(reset, {"body": "Seeded over WebSocket"})
         assert reset["launcher"]["home"]["selectedThemeId"] == "dikciz-dark"
     finally:
         AUTOMATION.request(
@@ -359,7 +367,7 @@ def test_mcp_seed_reset_and_wait_for_restore_the_bundled_home() -> None:
             ),
         )
         assert reset[TEST_HARNESS_NAMESPACE] == TEST_HARNESS_NAMESPACE_VALUE
-        assert configuration_widget(reset, "welcome")["state"] != {"body": "Seeded over MCP"}
+        assert_reset_restored_starter_home(reset, {"body": "Seeded over MCP"})
         assert reset["launcher"]["home"]["selectedThemeId"] == "dikciz-dark"
     finally:
         if original is not None:
@@ -586,12 +594,16 @@ def test_direct_command_sheet_launches_settings_and_restores_dikciz(
     original = AUTOMATION.require_configuration(
         AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
     )
+    # A Settings task left by an earlier test resumes on its last sub-screen.
+    device_command(f"am force-stop {COMMAND_SETTINGS_PACKAGE_QUERY}")
     search_bounds = open_command_sheet()
     direct_enter_text(search_bounds, SETTINGS_APP_LABEL)
     direct_tap(wait_for_physical_button_bounds(SETTINGS_APP_LABEL))
     direct_tap(wait_for_physical_button_bounds("Launch app"))
     try:
-        assert SETTINGS_ACTIVITY_COMPONENT in run_device_operation("app-current")
+        assert SETTINGS_ACTIVITY_COMPONENT in wait_for_foreground_application(
+            COMMAND_SETTINGS_PACKAGE_QUERY,
+        )
     finally:
         run_device_operation(
             "app-start",

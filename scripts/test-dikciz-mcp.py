@@ -8,10 +8,23 @@ import argparse
 import base64
 import copy
 import http.client
+import itertools
 import json
+import time
+from collections.abc import Iterator
 from typing import Any
 
 DEFAULT_HOST = "127.0.0.1"
+NODE_WAIT_TIMEOUT_SECONDS = 30
+NODE_POLL_SECONDS = 0.25
+# Request IDs above every fixed ID this script uses, for the polled mutation proof.
+PROOF_FIRST_REQUEST_ID = 1_000
+# Native controls that prove tap and setText without depending on fixture widgets.
+SEMANTIC_LAUNCHER_CONTROL = "launcher:controls"
+SEMANTIC_LAUNCHER_CONTROL_APP_DRAWER = "launcher:controls:app-drawer"
+SEMANTIC_APP_DRAWER_SEARCH = "drawer:search"
+SEMANTIC_APP_DRAWER_CLOSE = "drawer:close"
+APP_DRAWER_SEARCH_PROOF_TEXT = "Dikciz MCP smoke test"
 DEFAULT_PORT = 19_002
 AUTOMATION_API_VERSION = 1
 EMULATOR_ACCELEROMETER_TYPE = 1
@@ -595,6 +608,30 @@ def require_configuration(result: dict[str, Any]) -> dict[str, Any]:
     return configuration
 
 
+def snapshot_has_node(snapshot: dict[str, Any], semantic_id: str) -> bool:
+    nodes = snapshot.get("nodes")
+    if not isinstance(nodes, list):
+        raise McpProtocolError("snapshot has no nodes")
+    return any(isinstance(node, dict) and node.get("semanticId") == semantic_id for node in nodes)
+
+
+def wait_for_node(
+    arguments: argparse.Namespace,
+    session_id: str,
+    request_ids: Iterator[int],
+    semantic_id: str,
+    present: bool,
+) -> None:
+    deadline = time.monotonic() + NODE_WAIT_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        snapshot = require_tool_result(call_tool(arguments, session_id, next(request_ids), TOOL_SNAPSHOT))
+        if snapshot_has_node(snapshot, semantic_id) == present:
+            return
+        time.sleep(NODE_POLL_SECONDS)
+    state = "appear" if present else "disappear"
+    raise McpProtocolError(f"semantic ID did not {state}: {semantic_id}")
+
+
 def verify_script_logs(
     arguments: argparse.Namespace,
     session_id: str,
@@ -962,49 +999,46 @@ def verify_mutations(arguments: argparse.Namespace, session_id: str) -> None:
         if not isinstance(replacement_snapshot, dict) or replacement_snapshot.get("selectedPageId") != alternate_page_id:
             raise McpProtocolError("configuration seed did not reload the selected page")
 
+        require_tool_result(
+            call_tool(arguments, session_id, 16, TOOL_SELECT_PAGE, {"pageId": "home"}),
+        )
+        request_ids = itertools.count(PROOF_FIRST_REQUEST_ID)
+        before = require_tool_result(call_tool(arguments, session_id, next(request_ids), TOOL_SNAPSHOT))
+        if snapshot_has_node(before, SEMANTIC_APP_DRAWER_SEARCH):
+            raise McpProtocolError("app drawer is already open before the tap proof")
+        require_tool_result(
+            call_tool(arguments, session_id, next(request_ids), TOOL_TAP, {"semanticId": SEMANTIC_LAUNCHER_CONTROL}),
+        )
+        wait_for_node(arguments, session_id, request_ids, SEMANTIC_LAUNCHER_CONTROL_APP_DRAWER, present=True)
+        require_tool_result(
+            call_tool(
+                arguments,
+                session_id,
+                next(request_ids),
+                TOOL_TAP,
+                {"semanticId": SEMANTIC_LAUNCHER_CONTROL_APP_DRAWER},
+            ),
+        )
+        wait_for_node(arguments, session_id, request_ids, SEMANTIC_APP_DRAWER_SEARCH, present=True)
+        result = require_tool_result(
+            call_tool(
+                arguments,
+                session_id,
+                next(request_ids),
+                TOOL_SET_TEXT,
+                {"semanticId": SEMANTIC_APP_DRAWER_SEARCH, "text": APP_DRAWER_SEARCH_PROOF_TEXT},
+            ),
+        )
+        if result.get("text") != APP_DRAWER_SEARCH_PROOF_TEXT:
+            raise McpProtocolError("set text did not return the entered text")
+        require_tool_result(
+            call_tool(arguments, session_id, next(request_ids), TOOL_TAP, {"semanticId": SEMANTIC_APP_DRAWER_CLOSE}),
+        )
+        wait_for_node(arguments, session_id, request_ids, SEMANTIC_APP_DRAWER_SEARCH, present=False)
         reset = require_tool_result(call_tool(arguments, session_id, 15, TOOL_CONFIG_RESET))
         reset_snapshot = reset.get(KEY_SNAPSHOT)
         if not isinstance(reset_snapshot, dict) or reset_snapshot.get(KEY_SCREEN) != "home":
             raise McpProtocolError("configuration reset did not reload the bundled home")
-
-        require_tool_result(
-            call_tool(arguments, session_id, 16, TOOL_SELECT_PAGE, {"pageId": "home"}),
-        )
-        before = require_tool_result(call_tool(arguments, session_id, 17, TOOL_SNAPSHOT))
-        nodes = before.get("nodes")
-        if not isinstance(nodes, list):
-            raise McpProtocolError("snapshot has no nodes before mutation")
-        focus = next(
-            (
-                node
-                for node in nodes
-                if isinstance(node, dict) and node.get("semanticId") == "widget:focus:toggle"
-            ),
-            None,
-        )
-        if not isinstance(focus, dict) or not isinstance(focus.get("checked"), bool):
-            raise McpProtocolError("focus toggle is unavailable for mutation proof")
-        require_tool_result(
-            call_tool(arguments, session_id, 18, TOOL_TAP, {"semanticId": "widget:focus:toggle"}),
-        )
-        after = require_tool_result(call_tool(arguments, session_id, 19, TOOL_SNAPSHOT))
-        after_nodes = after.get("nodes")
-        after_focus = next(
-            (
-                node
-                for node in after_nodes
-                if isinstance(node, dict) and node.get("semanticId") == "widget:focus:toggle"
-            ),
-            None,
-        )
-        if not isinstance(after_focus, dict) or after_focus.get("checked") == focus.get("checked"):
-            raise McpProtocolError("tap did not change the focus toggle")
-        text = "Dikciz MCP smoke test"
-        result = require_tool_result(
-            call_tool(arguments, session_id, 20, TOOL_SET_TEXT, {"semanticId": "widget:welcome", "text": text}),
-        )
-        if result.get("text") != text:
-            raise McpProtocolError("set text did not return the saved value")
     finally:
         restored = require_tool_result(
             call_tool(arguments, session_id, 21, TOOL_CONFIG_REPLACE, {KEY_CONFIG: original}),

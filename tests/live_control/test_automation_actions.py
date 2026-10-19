@@ -12,6 +12,25 @@ def automation_action_records() -> list[dict[str, Any]]:
     ]
 
 
+def alarm_receiver_records() -> list[dict[str, Any]]:
+    return [
+        record
+        for record in device_log_records()
+        if record.get("event") == AUTOMATION_ACTION_ALARM_RECEIVED_EVENT
+    ]
+
+
+def wait_for_alarm_receiver_delivery(received_before: int) -> None:
+    # No alarm is scheduled, so a new receiver record can only come from the
+    # script's explicitIntent broadcast.
+    deadline = time.monotonic() + CONFIGURATION_SAVE_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        if len(alarm_receiver_records()) > received_before:
+            return
+        time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
+    raise AssertionError("explicitIntent broadcast did not reach its receiver")
+
+
 def test_automation_allowed_actions_change_their_real_android_targets(
     websocket_control: socket.socket,
 ) -> None:
@@ -29,12 +48,6 @@ def test_automation_allowed_actions_change_their_real_android_targets(
                 "event": "battery",
                 "minimumIntervalMilliseconds": 0,
                 "coalescingKey": AUTOMATION_ACTION_BATTERY_COALESCING_KEY,
-            },
-            {
-                "event": "alarm",
-                "minimumIntervalMilliseconds": 0,
-                "coalescingKey": AUTOMATION_ACTION_ALARM_COALESCING_KEY,
-                "alarmIntervalMilliseconds": AUTOMATION_ALARM_MINIMUM_INTERVAL_MILLISECONDS,
             },
         ],
     )
@@ -57,19 +70,15 @@ def test_automation_allowed_actions_change_their_real_android_targets(
         )
         time.sleep(CONFIGURATION_RELOAD_SETTLE_SECONDS)
 
+        received_before = len(alarm_receiver_records())
         device_command(f"dumpsys battery set level {AUTOMATION_ACTION_BATTERY_LEVEL}")
         updated = wait_for_automation_script_state(
             websocket_control,
             AUTOMATION_LIVE_SCRIPT_ID,
-            AUTOMATION_ACTION_EXPLICIT_BROADCAST_STATE_KEY,
+            AUTOMATION_ACTION_BATTERY_STATE_KEY,
             True,
         )
-        script = next(
-            item
-            for item in updated["scripts"]
-            if item["id"] == AUTOMATION_LIVE_SCRIPT_ID
-        )
-        assert script["state"][AUTOMATION_ACTION_BATTERY_STATE_KEY] is True
+        wait_for_alarm_receiver_delivery(received_before)
         assert updated["launcher"]["home"]["selectedPageId"] == FIXTURE_NOTES_PAGE_ID
         focus_widget = next(
             widget

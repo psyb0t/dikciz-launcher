@@ -56,7 +56,7 @@
               "title": "Focus mode",
               "html": "<label class=\"fixture-card\"><span>Focus mode</span><input id=\"focus-mode\" type=\"checkbox\"></label>",
               "css": ".fixture-card{box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;min-height:100%;padding:16px;border:1px solid #53667e;border-radius:18px;background:#172232;color:#edf3fb;font:600 16px system-ui,sans-serif}.fixture-card input{width:22px;height:22px;accent-color:#8cc7ff}",
-              "javascript": "(() => { const input = document.getElementById('focus-mode'); const render = state => { input.checked = Boolean(state.checked); }; input.addEventListener('change', () => selfWidget.patch({state: {...selfWidget.state, checked: input.checked}})); render(selfWidget.state); window.addEventListener('dikciz-state', event => render(event.detail || {})); })();",
+              "javascript": "(() => { const input = document.getElementById('focus-mode'); const render = state => { input.checked = Boolean(state.checked); }; input.addEventListener('change', () => selfWidget.patch({state: {...selfWidget.state, checked: input.checked}})); window.addEventListener('dikciz-state', event => render(event.detail || {})); window.addEventListener('dikciz-ready', () => render(selfWidget.state)); })();",
               "state": { "checked": false },
               "enabled": true,
               "cell": {
@@ -72,7 +72,7 @@
               "title": "Fixture detail",
               "html": "<article class=\"fixture-card\"><h2>Fixture detail</h2><p id=\"fixture-detail-body\">Fixture third card</p></article>",
               "css": ".fixture-card{box-sizing:border-box;min-height:100%;padding:16px;border:1px solid #53667e;border-radius:18px;background:#172232;color:#edf3fb;font:15px/1.45 system-ui,sans-serif}.fixture-card h2,.fixture-card p{margin:0}.fixture-card h2{margin-bottom:10px;font-size:18px}.fixture-card p{color:#c7d3e2}",
-              "javascript": "(() => { const body = document.getElementById('fixture-detail-body'); const render = state => { body.textContent = state.body || 'Fixture third card'; }; render(selfWidget.state); window.addEventListener('dikciz-state', event => render(event.detail || {})); })();",
+              "javascript": "(() => { const body = document.getElementById('fixture-detail-body'); const render = state => { body.textContent = state.body || 'Fixture third card'; }; window.addEventListener('dikciz-state', event => render(event.detail || {})); window.addEventListener('dikciz-ready', () => render(selfWidget.state)); })();",
               "enabled": true,
               "cell": {
                 "column": 0,

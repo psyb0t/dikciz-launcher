@@ -9,6 +9,8 @@ import secrets
 import socket
 from typing import Any, Generator
 
+import pytest
+
 from . import *
 
 
@@ -16,6 +18,18 @@ AUTHORIZATION_HEADER = "Authorization"
 AUTHORIZATION_SCHEME = "Bearer"
 AUTHORIZATION_WWW_CHALLENGE = 'Bearer realm="Dikciz"'
 HTTP_STATUS_UNAUTHORIZED = 401
+HTTP_STATUS_LINE_FORBIDDEN = "HTTP/1.1 403 Forbidden"
+HTTP_STATUS_LINE_SWITCHING_PROTOCOLS = "HTTP/1.1 101 Switching Protocols"
+ORIGIN_HEADER = "Origin"
+# Browser pages always send Origin. Remote sites, lookalike hosts and opaque "null" are refused.
+REJECTED_BROWSER_ORIGINS = (
+    "https://evil.example",
+    "http://192.168.1.20:8080",
+    "http://localhost.evil.example",
+    "http://127.0.0.1.evil.example",
+    "null",
+)
+ACCEPTED_LOOPBACK_ORIGINS = ("http://localhost", "http://127.0.0.1:8080", "https://localhost:8443")
 REMOTE_AUTH_ARTIFACT_FILE = "remote-auth.json"
 REMOTE_AUTH_ARTIFACT_NAME = "remote-bearer-auth-settings.png"
 REMOTE_AUTH_FILE = "/sdcard/Dikciz/control/remote-auth.json"
@@ -193,7 +207,11 @@ def connected_bearer_websocket(password: str) -> Generator[socket.socket, None, 
         connection.close()
 
 
-def websocket_upgrade_response(password: str | None = None) -> tuple[str, dict[str, str]]:
+def websocket_upgrade_response(
+    password: str | None = None,
+    origin: str | None = None,
+    origin_header: str = ORIGIN_HEADER,
+) -> tuple[str, dict[str, str]]:
     request_lines = [
         f"GET {AUTOMATION.AUTOMATION_PATH} HTTP/1.1",
         f"Host: {AUTOMATION_HOST}:{AUTOMATION_PORT}",
@@ -204,6 +222,8 @@ def websocket_upgrade_response(password: str | None = None) -> tuple[str, dict[s
     ]
     if password is not None:
         request_lines.append(f"{AUTHORIZATION_HEADER}: {bearer_authorization(password)}")
+    if origin is not None:
+        request_lines.append(f"{origin_header}: {origin}")
     with socket.create_connection((AUTOMATION_HOST, AUTOMATION_PORT), timeout=10) as connection:
         connection.settimeout(10)
         connection.sendall("\r\n".join((*request_lines, "", "")).encode("ascii"))
@@ -392,3 +412,35 @@ def test_phone_managed_remote_bearer_auth_controls_websocket_and_mcp(
         if is_configured:
             with connected_bearer_websocket(current_password) as connection:
                 clear_phone_password(connection)
+
+
+@pytest.mark.parametrize("origin", REJECTED_BROWSER_ORIGINS)
+def test_origin_rule_refuses_browser_pages_outside_device_loopback(
+    websocket_control: socket.socket,
+    origin: str,
+) -> None:
+    # Bearer auth stays off, so only the Origin rule can refuse the browser page.
+    status = AUTOMATION.request(websocket_control, TYPE_REMOTE_AUTH_STATUS)
+    assert status["enabled"] is False
+
+    status_line, headers = websocket_upgrade_response(origin=origin)
+
+    assert status_line == HTTP_STATUS_LINE_FORBIDDEN
+    assert "sec-websocket-accept" not in headers
+    # Header names are case-insensitive; a differently cased name must not bypass the rule.
+    shouted_status_line, _ = websocket_upgrade_response(origin=origin, origin_header=ORIGIN_HEADER.upper())
+    assert shouted_status_line == HTTP_STATUS_LINE_FORBIDDEN
+
+
+@pytest.mark.parametrize("origin", (None, *ACCEPTED_LOOPBACK_ORIGINS))
+def test_origin_rule_accepts_native_clients_and_loopback_pages(
+    websocket_control: socket.socket,
+    origin: str | None,
+) -> None:
+    status = AUTOMATION.request(websocket_control, TYPE_REMOTE_AUTH_STATUS)
+    assert status["enabled"] is False
+
+    status_line, headers = websocket_upgrade_response(origin=origin)
+
+    assert status_line == HTTP_STATUS_LINE_SWITCHING_PROTOCOLS
+    assert headers["sec-websocket-accept"]

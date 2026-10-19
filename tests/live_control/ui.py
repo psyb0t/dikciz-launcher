@@ -373,11 +373,14 @@ def assert_page_chrome_reaches_screen_edges(
 ) -> None:
     window_bounds = node_bounds(physical_nodes()[0])
     assert window_bounds is not None
+    # The launcher controls button sits in the bottom corner, after the horizontal rail.
+    controls_bounds = wait_for_physical_description_bounds(LAUNCHER_CONTROL_OPEN_DESCRIPTION)
     assert horizontal_bounds["left"] == window_bounds["left"]
-    assert horizontal_bounds["right"] == window_bounds["right"]
+    assert horizontal_bounds["right"] <= controls_bounds["left"]
     assert page_bounds["left"] == window_bounds["left"]
-    assert vertical_bounds["right"] == horizontal_bounds["right"]
-    assert page_bounds["bottom"] == horizontal_bounds["top"]
+    assert vertical_bounds["right"] == window_bounds["right"]
+    # The slightly taller controls button sets the chrome row, so the rail can sit a pixel or two lower.
+    assert 0 <= horizontal_bounds["top"] - page_bounds["bottom"] <= PHYSICAL_BOUNDS_TOLERANCE_PIXELS
 
 
 def assert_page_viewport_starts_at_top(snapshot: dict[str, Any]) -> None:
@@ -394,7 +397,10 @@ def assert_widget_frame_fills_page_with_theme_margin(
     widget_bounds: dict[str, int],
     page_bounds: dict[str, int],
 ) -> None:
-    expected_margin = round(DEFAULT_THEME_WIDGET_MARGIN_DP * device_density_scale())
+    # A full-grid widget sits inside the grid's outer padding and the theme margin.
+    expected_margin = round(
+        (NATIVE_GRID_OUTER_PADDING_DP + DEFAULT_THEME_WIDGET_MARGIN_DP) * device_density_scale(),
+    )
     expected_edges = {
         "left": page_bounds["left"] + expected_margin,
         "top": page_bounds["top"] + expected_margin,

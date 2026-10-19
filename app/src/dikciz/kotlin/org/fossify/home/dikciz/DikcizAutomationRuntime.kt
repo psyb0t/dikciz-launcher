@@ -379,18 +379,25 @@ internal class DikcizAutomationRuntime(
             return configuration
         }
         val matchingSubscriptions = automationScript.subscriptions.filter { subscription ->
-            subscription.matches(event) && isDeliveryDue(automationScript.scriptID, subscription, event)
+            subscription.matches(event) && isDeliveryDue(automationScript, subscription, event)
         }
         if (matchingSubscriptions.isEmpty()) {
             logUnmatchedLocationDelivery(automationScript, event)
             return configuration
         }
+        // A missing or disabled policy grants nothing, the same rule actions follow.
+        val deliveryPolicy = policy?.takeIf(DikcizAutomationPolicy::enabled)
+        if (deliveryPolicy == null || !DikcizAutomationEventAccess.allowsDelivery(deliveryPolicy, event)) {
+            logDeliveryRejected(script.id, policy?.id, event.name, REASON_CAPABILITY_DENIED, null)
+            return configuration
+        }
+        val visibleEvent = DikcizAutomationEventAccess.visibleEvent(deliveryPolicy, event)
         var actionConfiguration = configuration
         val accessibilitySnapshot = accessibilitySnapshot(event)
         matchingSubscriptions.forEach { _ ->
             val result = luaRuntime.executeEvent(
                 script,
-                event,
+                visibleEvent,
                 actionConfiguration.limits,
                 actionConfiguration.scriptWidgetContext(),
                 accessibilitySnapshot,
@@ -530,12 +537,12 @@ internal class DikcizAutomationRuntime(
     }
 
     private fun isDeliveryDue(
-        scriptID: String,
+        automationScript: DikcizAutomationScript,
         subscription: DikcizAutomationSubscription,
         event: DikcizAutomationEvent,
     ): Boolean {
         val now = eventDeliveryElapsedRealtime(event)
-        val key = AutomationSubscriptionKey(scriptID, subscription)
+        val key = AutomationSubscriptionKey(automationScript.scriptID, subscription)
         synchronized(deliverySchedules) {
             val schedule = deliverySchedules.getOrPut(key) {
                 AutomationDeliverySchedule.from(subscription, now)
@@ -554,6 +561,7 @@ internal class DikcizAutomationRuntime(
                 lastDeliveryElapsedRealtime != null &&
                 now - lastDeliveryElapsedRealtime < subscription.minimumIntervalMilliseconds
             ) {
+                logDeliveryRateLimited(automationScript, event)
                 return false
             }
             schedule.lastDeliveryElapsedRealtime = now
@@ -562,6 +570,26 @@ internal class DikcizAutomationRuntime(
             }
             return true
         }
+    }
+
+    private fun logDeliveryRateLimited(
+        automationScript: DikcizAutomationScript,
+        event: DikcizAutomationEvent,
+    ) {
+        // Location already records its own minimum-interval skip.
+        if (event.type == DikcizAutomationEventType.Location) {
+            return
+        }
+        // Debug, because a fast source such as a sensor can hit the floor many times a second.
+        logger.debug(
+            EVENT_DELIVERY_REJECTED,
+            mapOf(
+                FIELD_EVENT_TYPE to event.name,
+                FIELD_POLICY_ID to automationScript.policyID,
+                FIELD_REASON to REASON_RATE_LIMITED,
+                FIELD_SCRIPT_ID to automationScript.scriptID,
+            ),
+        )
     }
 
     private fun eventDeliveryElapsedRealtime(event: DikcizAutomationEvent): Long {

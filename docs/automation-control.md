@@ -7,7 +7,15 @@ Dikciz exposes two versioned local control planes. They call the same launcher c
 | WebSocket | `ws://127.0.0.1:19001/v1/automation` | `ws://127.0.0.1:19101/v1/automation` |
 | Streamable HTTP MCP | `http://127.0.0.1:19002/mcp` | `http://127.0.0.1:19102/mcp` |
 
-Both listeners bind only to device loopback. ADB forwarding is the normal remote route. `make forward` creates generic host-loopback forwards on `19001` and `19002`. `make dikciz-run` owns its separate `19101` and `19102` forwards.
+Both listeners bind only to device loopback. The ports above are the defaults; change them on the phone as described in [Control ports](dikciz-configuration.md#control-ports). ADB forwarding is the normal remote route. `make forward` creates generic host-loopback forwards on `19001` and `19002`. `make dikciz-run` owns its separate `19101` and `19102` forwards.
+
+## Who can connect
+
+Device loopback keeps the network out, but not other software on the phone.
+
+- Web pages: browsers send an `Origin` header that page scripts cannot change. Both planes refuse every origin except `http(s)://127.0.0.1` and `http(s)://localhost` on any port. A WebSocket upgrade from another origin, including the opaque `null` origin, gets `403 Forbidden`. A page served from a permitted loopback origin can connect; a page served from an external origin cannot.
+- Native clients: the Dikciz client, anything reaching the phone through ADB forwarding, Termux scripts and other apps send no `Origin` and are accepted.
+- Installed apps: any app on the phone can open a socket to `127.0.0.1`. While the bearer password is off, that app can run every command Dikciz offers with Dikciz's permissions, including shell commands, intents, SMS and Accessibility input. Turn the bearer password on if you install apps you do not trust.
 
 ## Discover the current build
 
@@ -41,7 +49,7 @@ When enabled, WebSocket upgrades and all MCP requests need:
 Authorization: Bearer <password>
 ```
 
-The client reads the value from `DIKCIZ_REMOTE_BEARER_TOKEN` by default. Remote clients can inspect, enable, and disable the requirement but cannot retrieve, replace, or clear the password.
+The client reads the value from `DIKCIZ_REMOTE_BEARER_TOKEN` by default. Remote clients can inspect, enable, and disable the requirement but cannot retrieve, replace, or clear the password. Enabling or disabling it requires the configured password even while the requirement is disabled. An invalid auth record refuses connections; repair or clear it from the phone.
 
 ## WebSocket
 
@@ -76,55 +84,31 @@ Each later request has a UUID `requestId` and a `type`. Replies carry that same 
 
 `tap`, `longPress`, and `launchApp` require `semanticId`. `selectPage` needs `pageId`. `addWidget` needs `widgetType`. `widgetMove` and `widgetResize` need `widgetAddress` and `cell`. `gridSet` needs `columns`, `rows`, `gapDp`, and `outerPaddingDp`. `setText` needs `semanticId` and `text`. `automationTrigger` needs `scriptId`. `automationDispatch` needs `sourceWidgetAddress` and `actions`. Read `controlStatus` for all current field and range rules.
 
-`appCatalogue` lists the launchable Android apps with their semantic IDs, human
-labels, package names, and flattened components, plus the supported app actions.
-Its optional `query` filters case-insensitively on label and package name.
-`appAction` needs `action` and a flattened `component`. The actions are `launch`,
-`addShortcut`, `appInfo`, `uninstall`, and `forceStop`. `addShortcut` places an app
-shortcut tile in the first free grid cell of the selected page, and reports
-`page_full` when the page has no free cell. `uninstall` and `appInfo` hand off to
-Android, which runs its own confirmation. `forceStop` needs root and reports
-`root_unavailable` when `su` is missing or denied. Dikciz never falls back to
-the app shell for it. Lua action records have no selected-page context, so they
-must not send `appAction` with `addShortcut`.
+`appCatalogue` lists the launchable Android apps with their semantic IDs, human labels, package names, and flattened components, plus the supported app actions. Its optional `query` filters case-insensitively on label and package name. `appAction` needs `action` and a flattened `component`. The actions are `launch`, `addShortcut`, `appInfo`, `uninstall`, and `forceStop`. `addShortcut` places an app shortcut tile in the first free grid cell of the selected page, and reports `page_full` when the page has no free cell. `uninstall` and `appInfo` hand off to Android, which runs its own confirmation. `forceStop` needs root and reports `root_unavailable` when `su` is missing or denied. Dikciz never falls back to the app shell for it. Lua action records have no selected-page context, so they must not send `appAction` with `addShortcut`.
 
-On the device an app group is made by dropping one app tile onto another, not
-from the widget picker. Automation still builds one directly: `addWidget` takes
-`appGroup`, and `configReplace` accepts a group with its `components` listed.
+On the device an app group is made by dropping one app tile onto another, not from the widget picker. Automation still builds one directly: `addWidget` takes `appGroup`, and `configReplace` accepts a group with its `components` listed.
 
-The native app drawer uses this same catalogue and action runtime. It opens from
-the launcher controls route or an upward swipe that begins on the horizontal
-page rail. Its own search is case-insensitive on label and package name. Tap a
-row to launch its app. Use the overflow button or a long press to expose the
-remaining app actions.
+The native app drawer uses this same catalogue and action runtime. It opens from the launcher controls route or an upward swipe that begins on the horizontal page rail. Its own search is case-insensitive on label and package name. Tap a row to launch its app. Use the overflow button or a long press to expose the remaining app actions.
 
-`openAutomationSetup` opens the native Automation access sheet so the phone owner
-can grant an Android access that a denied action needs.
+`openAutomationSetup` opens the native Automation access sheet so the phone owner can grant an Android access that a denied action needs.
 
 `shell` uses `/system/bin/sh -c` when `root: false`. When `root` is absent or true, Dikciz first checks `su -c id -u`. Only exactly `0` allows the requested command to run and report `executionScope: "root"`. A missing, denied, malformed, or timed-out probe returns WebSocket error `root_unavailable` or an MCP tool error. Dikciz never relabels or falls back to the app shell. Successful results include `executionScope`, `exitCode`, `output`, and `outputTruncated`. `intent` supports `activity` and `broadcast`. Android decides whether the requested component can run.
 
 `automationTrigger` queues one `manual` event for an enabled script with an enabled manual subscription. Acceptance means the event was queued. Read script status and logs to see whether its actions completed.
 
-`htmlWidgetRendererCrash` and `dikciz_html_widget_renderer_crash` take a
-rendered HTML `widgetAddress`. They call Android WebView's documented renderer
-crash URL for that widget so a developer can verify renderer-loss recovery.
-The immediate result is `crash_requested`. Read `scriptLogs` or
-`dikciz_script_logs` for `html_widget_renderer_gone` followed by
-`html_widget_renderer_recovered`. Android can place several WebViews in one
-renderer process, so it can report loss for more than one widget. Dikciz
-recreates each reported widget in place. It does not rebuild the selected page
-or write configuration.
+`htmlWidgetRendererCrash` and `dikciz_html_widget_renderer_crash` take a rendered HTML `widgetAddress`. They call Android WebView's documented renderer crash URL for that widget so a developer can verify renderer-loss recovery. The immediate result is `crash_requested`. Read `scriptLogs` or `dikciz_script_logs` for `html_widget_renderer_gone` followed by `html_widget_renderer_recovered`. Android can place several WebViews in one renderer process, so it can report loss for more than one widget. Dikciz recreates each reported widget in place. It does not rebuild the selected page or write configuration.
+
+## MCP sessions
+
+Connect a Streamable HTTP client to `/mcp`. Initialize a session, retain the returned `MCP-Session-Id`, and send `notifications/initialized` before `tools/list` or `tools/call`. POST requests use `Content-Type: application/json` and an `Accept` header containing both `application/json` and `text/event-stream`. Subsequent POSTs must carry the negotiated version in `MCP-Protocol-Version`. Requests with an ID also require that version in `params._meta["io.modelcontextprotocol/protocolVersion"]` and a `params._meta["io.modelcontextprotocol/clientCapabilities"]` object. The supplied client handles this handshake.
+
+The server returns JSON responses and does not provide an SSE event stream. GET returns `405`; DELETE with the session ID closes that session. Sessions expire after ten idle minutes, and at most eight can exist at once. Use WebSocket for persistent events.
 
 ## Cross-app Android UI
 
-Enable **Dikciz cross-app automation** in Android's Accessibility settings
-before requesting a cross-app tree. The Automation access sheet opens that
-system panel. Dikciz can report the missing access and open the panel, but
-Android requires the phone owner to turn the service on. Neither a WebSocket or
-MCP client nor a Lua or HTML widget can enable it.
+Enable **Dikciz cross-app automation** in Android's Accessibility settings before requesting a cross-app tree. The Automation access sheet opens that system panel. Dikciz can report the missing access and open the panel, but Android requires the phone owner to turn the service on. Neither a WebSocket or MCP client nor a Lua or HTML widget can enable it.
 
-`accessibilitySnapshot` and `dikciz_accessibility_snapshot` return the active
-Android window as one bounded document:
+`accessibilitySnapshot` and `dikciz_accessibility_snapshot` return the active Android window as one bounded document:
 
 ```json
 {
@@ -137,82 +121,23 @@ Android window as one bounded document:
 }
 ```
 
-Each node has a generated path ID such as `node.2.1`, nullable `text`,
-`contentDescription`, `viewIdResourceName`, finite supported `actions`, state,
-and screen bounds. A child that contains a visible label can have no action of
-its own. Walk its generated parent path to find the enclosing clickable row.
-The snapshot contains at most 256 nodes, descends at most 16 levels, and bounds
-copied text fields to 512 characters. Dikciz retains at most 32 live snapshot
-descriptors. The next snapshot request returns `accessibility_snapshot_limit`
-until a five-second descriptor expires.
+Each node has a generated path ID such as `node.2.1`, nullable `text`, `contentDescription`, `viewIdResourceName`, finite supported `actions`, state, and screen bounds. A child that contains a visible label can have no action of its own. Walk its generated parent path to find the enclosing clickable row. The snapshot contains at most 256 nodes, descends at most 16 levels, and bounds copied text fields to 512 characters. Dikciz retains at most 32 live snapshot descriptors. The next snapshot request returns `accessibility_snapshot_limit` until a five-second descriptor expires.
 
-`accessibilityAction` and `dikciz_accessibility_action` require `snapshotId`,
-`nodeId`, and one action: `click`, `longClick`, `focus`, `clearFocus`,
-`scrollForward`, `scrollBackward`, `setText`, or `select`. `setText` also
-requires `text`, with a maximum of 8,192 characters. The snapshot ID lasts five
-seconds. Before acting, Dikciz resolves the current root and node again. It
-rejects expired or changed windows, including a visible update elsewhere in the
-captured tree, instead of trusting a retained Android node.
-An expired descriptor returns `accessibility_snapshot_expired`; a descriptor
-that still exists but no longer matches its active window returns
-`accessibility_snapshot_stale`.
-An accepted action reports `executed`; Android can still return
-`android_rejected`.
-If the Accessibility service is unavailable, `accessibility_not_enabled` takes
-precedence over a retained descriptor's expiry. That result tells an unattended
-script to report the access problem instead of a stale local snapshot.
+`accessibilityAction` and `dikciz_accessibility_action` require `snapshotId`, `nodeId`, and one action: `click`, `longClick`, `focus`, `clearFocus`, `scrollForward`, `scrollBackward`, `setText`, or `select`. `setText` also requires `text`, with a maximum of 8,192 characters. The snapshot ID lasts five seconds. Before acting, Dikciz resolves the current root and node again. It rejects expired or changed windows, including a visible update elsewhere in the captured tree, instead of trusting a retained Android node. An expired descriptor returns `accessibility_snapshot_expired`; a descriptor that still exists but no longer matches its active window returns `accessibility_snapshot_stale`. An accepted action reports `executed`; Android can still return `android_rejected`. If the Accessibility service is unavailable, `accessibility_not_enabled` takes precedence over a retained descriptor's expiry. That result tells an unattended script to report the access problem instead of a stale local snapshot.
 
-A rejected action from an enabled automation script writes the normal action
-and script-failure records to `/sdcard/Dikciz/logs/`. WebSocket `scriptLogs` and
-MCP `dikciz_script_logs` return the same bounded projection. When
-`logging.notifyOnScriptError` is enabled and Android allows notifications, the
-existing per-script quiet period also applies to rejected actions. A direct
-WebSocket or MCP action returns its exact synchronous error without creating a
-background script-error notification.
+A rejected action from an enabled automation script writes the normal action and script-failure records to `/sdcard/Dikciz/logs/`. WebSocket `scriptLogs` and MCP `dikciz_script_logs` return the same bounded projection. When `logging.notifyOnScriptError` is enabled and Android allows notifications, the existing per-script quiet period also applies to rejected actions. A direct WebSocket or MCP action returns its exact synchronous error without creating a background script-error notification.
 
-The focused `make dikciz-test-accessibility-third-party` target installs a
-separate local Android fixture and proves both remote transports act on its
-visible native button. It also proves that an update anywhere in the captured
-fixture tree invalidates an earlier descriptor before another action can report
-success. A physical-phone run can prove owner-state parity after a clean current
-install, but direct cross-app actions remain unavailable until the owner enables
-Accessibility in Android settings.
+The focused `make dikciz-test-accessibility-third-party` target installs a separate local Android fixture and proves both remote transports act on its visible native button. It also proves that an update anywhere in the captured fixture tree invalidates an earlier descriptor before another action can report success. A physical-phone run can prove owner-state parity after a clean current install, but direct cross-app actions remain unavailable until the owner enables Accessibility in Android settings.
 
-`automationDispatch` and `dikciz_automation_dispatch` also accept two typed
-cross-app actions. `accessibilityGesture` requires a current `snapshotId`, a
-`gesture`, and `durationMilliseconds`. A `tap` supplies integral `x` and `y`.
-A `swipe` supplies integral `startX`, `startY`, `endX`, and `endY`. Coordinates
-must be visible screen coordinates. Duration is one through 10,000
-milliseconds. Dikciz rechecks the snapshot root before asking Android to run
-the gesture, then returns `executed`, `gesture_cancelled`, `gesture_timeout`,
-or `android_rejected`.
+`automationDispatch` and `dikciz_automation_dispatch` also accept two typed cross-app actions. `accessibilityGesture` requires a current `snapshotId`, a `gesture`, and `durationMilliseconds`. A `tap` supplies integral `x` and `y`. A `swipe` supplies integral `startX`, `startY`, `endX`, and `endY`. Coordinates must be visible screen coordinates. Duration is one through 10,000 milliseconds. Dikciz rechecks the snapshot root before asking Android to run the gesture, then returns `executed`, `gesture_cancelled`, `gesture_timeout`, or `android_rejected`.
 
-`accessibilityGlobalAction` takes one `action`: `back`, `home`, `recents`,
-`notifications`, `quickSettings`, `lockScreen`, or `takeScreenshot`. Android
-decides whether a particular global action is currently available. Dikciz
-returns its actual result. Accessibility does not provide arbitrary hardware
-key injection.
+`accessibilityGlobalAction` takes one `action`: `back`, `home`, `recents`, `notifications`, `quickSettings`, `lockScreen`, or `takeScreenshot`. Android decides whether a particular global action is currently available. Dikciz returns its actual result. Accessibility does not provide arbitrary hardware key injection.
 
-The commands return exact errors for disabled access, unavailable windows,
-unknown, expired, stale, or over-limit snapshots, missing nodes, unsupported
-actions, and invalid text. `automationStatus.androidAccess.accessibility` and the
-`deviceAccess` record show the actual owner-controlled state. The two
-transports return the same status document.
+The commands return exact errors for disabled access, unavailable windows, unknown, expired, stale, or over-limit snapshots, missing nodes, unsupported actions, and invalid text. `automationStatus.androidAccess.accessibility` and the `deviceAccess` record show the actual owner-controlled state. The two transports return the same status document.
 
-The Accessibility service publishes `accessibilityWindow` into the automation
-event bus. Its bounded payload contains `packageName`, `className`,
-`eventType`, and `windowId`. It also publishes
-`accessibilityServiceState` with a fixed `state` of `connected`, `interrupted`,
-or `disconnected`, plus the current `enabled` Boolean. A policy needs the
-`accessibility` capability to subscribe to either event. Lifecycle events do
-not contain an Android window snapshot.
+The Accessibility service publishes `accessibilityWindow` into the automation event bus. Its bounded payload contains `packageName`, `className`, `eventType`, and `windowId`. It also publishes `accessibilityServiceState` with a fixed `state` of `connected`, `interrupted`, or `disconnected`, plus the current `enabled` Boolean. A policy needs the `accessibility` capability to subscribe to either event. Lifecycle events do not contain an Android window snapshot.
 
-Lua receives `context.androidAccess` on every event. It is a read-only copy of
-the `automationStatus.androidAccess` map, so a script can report an
-owner-controlled missing capability before it tries an action. During an
-`accessibilityWindow` event, Lua also receives the bounded active-window
-document as `context.accessibility`. It contains `snapshotId` and `nodes`, not
-a retained Android object. Return an action in the normal event result:
+Lua receives `context.androidAccess` on every event. It is a read-only copy of the `automationStatus.androidAccess` map, so a script can report an owner-controlled missing capability before it tries an action. During an `accessibilityWindow` event, Lua also receives the bounded active-window document as `context.accessibility`. It contains `snapshotId` and `nodes`, not a retained Android object. Return an action in the normal event result:
 
 ```lua
 return {
@@ -227,9 +152,7 @@ return {
 }
 ```
 
-Lua can return the same gesture and global-action records. For a coordinate
-tap, derive integer coordinates from a visible node's `bounds` in the copied
-snapshot. HTML does the same through `dikciz.dispatch({ actions: [...] })`:
+Lua can return the same gesture and global-action records. For a coordinate tap, derive integer coordinates from a visible node's `bounds` in the copied snapshot. HTML does the same through `dikciz.dispatch({ actions: [...] })`:
 
 ```javascript
 const snapshot = await dikciz.command("accessibilitySnapshot");
@@ -245,82 +168,35 @@ await dikciz.dispatch({
 });
 ```
 
-An HTML widget first calls `await dikciz.command("accessibilitySnapshot")`,
-then sends the same action record through `dikciz.dispatch({ actions: [...] })`.
-Lua and HTML both use the same parser, live node re-resolution, action runtime,
-outcome log, and Android access checks as WebSocket and MCP. A stale or invalid
-direct action returns its exact accessibility outcome in the action result. It
-does not retain a node or click a replacement control.
+An HTML widget first calls `await dikciz.command("accessibilitySnapshot")`, then sends the same action record through `dikciz.dispatch({ actions: [...] })`. Lua and HTML both use the same parser, live node re-resolution, action runtime, outcome log, and Android access checks as WebSocket and MCP. A stale or invalid direct action returns its exact accessibility outcome in the action result. It does not retain a node or click a replacement control.
 
 ## Events and semantic UI
 
-Persistent WebSocket events include `automation_command_completed`,
-`automation_ui_rendered`, `html_widget_event`, and `automation_event`.
-`automation_ui_rendered` reports the selected page after an immediate native
-page selection. `automation_event.fields.event` is the same copied
-automation event document that scripts and HTML widgets receive: `type`,
-`source`, `timestampMilliseconds`, `coalescingKey`, and `payload`. Dikciz
-continues publishing it while its native Activity is behind another Android
-screen, as long as the control plane remains running. MCP is request and
-response only. Use `automationStatus`, configuration, and script-log tools to
-read the resulting state. `controlStatus` describes current event fields.
+Persistent WebSocket events include `automation_command_completed`, `automation_ui_rendered`, `html_widget_event`, and `automation_event`. `automation_ui_rendered` reports the selected page after an immediate native page selection. `automation_event.fields.event` is the same copied automation event document that scripts and HTML widgets receive: `type`, `source`, `timestampMilliseconds`, `coalescingKey`, and `payload`. Dikciz continues publishing it while its native Activity is behind another Android screen, as long as the control plane remains running. MCP is request and response only. Use `automationStatus`, configuration, and script-log tools to read the resulting state. `controlStatus` describes current event fields.
 
 Read a fresh `snapshot` after any native screen change. Dialog, picker, provider-child, resize, and page-menu semantic IDs can disappear immediately.
 
-`longPress` on `page:navigation:horizontal:edge:before`, `:edge:after`, or the
-matching `page:navigation:vertical:` IDs creates one saved, selected, empty page
-at that rail's far end. There is no provisional page and no cancel control to
-tap afterwards. The page menu carries `page:menu:<pageId>:move-left`,
-`:move-right`, `:move-up`, and `:move-down`. Each reports `enabled` false when
-no page exists at the neighbouring coordinate, and tapping a disabled one writes
-nothing. A successful reorder logs `page_moved` with `page_direction`,
-`page_column`, and `page_row`; a refused one logs `page_move_rejected`.
+`longPress` on `page:navigation:horizontal:edge:before`, `:edge:after`, or the matching `page:navigation:vertical:` IDs creates one saved, selected, empty page at that rail's far end. There is no provisional page and no cancel control to tap afterwards. The page menu carries `page:menu:<pageId>:move-left`, `:move-right`, `:move-up`, and `:move-down`. Each reports `enabled` false when no page exists at the neighbouring coordinate, and tapping a disabled one writes nothing. A successful reorder logs `page_moved` with `page_direction`, `page_column`, and `page_row`; a refused one logs `page_move_rejected`.
 
-The bottom chrome carries two icon-only buttons. `launcher:controls` opens the
-launcher routes. `launcher:page-search` opens the page jump list, which exposes
-`launcher:page-search:query` for `setText`, one
-`launcher:page-search:page:<pageId>` button per match, and
-`launcher:page-search:empty` when nothing matches. A query matches a
-case-insensitive substring of either the page title or its `1H1V` address, and
-an empty query lists every page. Tapping an entry performs the same selection as
-`selectPage`. Opening the sheet logs `page_search_opened` with `page_count`.
-Dikciz never logs the query text or the page titles.
+The bottom chrome carries two icon-only buttons. `launcher:controls` opens the launcher routes. `launcher:page-search` opens the page jump list, which exposes `launcher:page-search:query` for `setText`, one `launcher:page-search:page:<pageId>` button per match, and `launcher:page-search:empty` when nothing matches. A query matches a case-insensitive substring of either the page title or its `1H1V` address, and an empty query lists every page. Tapping an entry performs the same selection as `selectPage`. Opening the sheet logs `page_search_opened` with `page_count`. Dikciz never logs the query text or the page titles.
 
 A snapshot contains a stable `semanticId`, role, enabled and checked state, clickability, visibility, bounds, text, content description, and an Android resource ID where one exists. Use semantic IDs for automation. Do not derive coordinate taps from text. Provider child IDs include an opaque render token and expire after provider updates, page changes, and removals.
 
-A snapshot also reports the page grid. `grid` carries `columns`, `rows`,
-`gapDp`, and `outerPaddingDp`. Every entry in `widgetReferences` carries its
-logical `cell` with `column`, `row`, `columnSpan`, and `rowSpan`, plus the
-rendered screen `bounds` when that widget is on the selected page, or null when
-it is not. Only the cell is persistent; the bounds are render-time values.
+A snapshot also reports the page grid. `grid` carries `columns`, `rows`, `gapDp`, and `outerPaddingDp`. Every entry in `widgetReferences` carries its logical `cell` with `column`, `row`, `columnSpan`, and `rowSpan`, plus the rendered screen `bounds` when that widget is on the selected page, or null when it is not. Only the cell is persistent; the bounds are render-time values.
 
 `homeGet` returns pages keyed by page ID, one-based page address such as `1H2V`, and the `home` alias. Each page contains widgets by simple ID and full address. That is also the map exposed to HTML widgets.
 
-The current page snapshot includes `scroll.y`, `scroll.extent`, and
-`scroll.range`. They report the actual native page scroll position and bounds,
-not a simulated value. `scrollBy` accepts integral `deltaY`. `scrollTo` accepts
-a current semantic ID.
+The current page snapshot includes `scroll.y`, `scroll.extent`, and `scroll.range`. They report the actual native page scroll position and bounds, not a simulated value. `scrollBy` accepts integral `deltaY`. `scrollTo` accepts a current semantic ID.
 
-A native page is one fixed viewport and does not grow, so on a normal home
-`scroll.range` equals `scroll.extent` and both commands are no-ops. Scrolling
-belongs to an HTML widget's own document or to an Android provider that owns
-its scrolling, never to native placement.
+A native page is one fixed viewport and does not grow, so on a normal home `scroll.range` equals `scroll.extent` and both commands are no-ops. Scrolling belongs to an HTML widget's own document or to an Android provider that owns its scrolling, never to native placement.
 
 ## Placement commands
 
-`addWidget` creates one top-level item on the selected page. It takes only
-`widgetType`, one of `html`, `appGroup`, or `scriptDashboard`, and always places
-the item in the first fitting free cells, reading left to right and then down.
-There is no cell argument: placement is not chosen at insertion. Use
-`widgetMove` and `widgetResize` afterwards to place it.
+`addWidget` creates one top-level item on the selected page. It takes only `widgetType`, one of `html`, `appGroup`, or `scriptDashboard`, and always places the item in the first fitting free cells, reading left to right and then down. There is no cell argument: placement is not chosen at insertion. Use `widgetMove` and `widgetResize` afterwards to place it.
 
-App shortcuts keep the existing `appAction` route with `addShortcut`, and
-Android provider widgets keep the native picker because Android owns their
-binding step.
+App shortcuts keep the existing `appAction` route with `addShortcut`, and Android provider widgets keep the native picker because Android owns their binding step.
 
-`widgetMove` and `widgetResize` take a `widgetAddress` and an explicit `cell`
-with `column`, `row`, `columnSpan`, and `rowSpan`. A chosen rectangle is
-accepted or rejected, never silently relocated.
+`widgetMove` and `widgetResize` take a `widgetAddress` and an explicit `cell` with `column`, `row`, `columnSpan`, and `rowSpan`. A chosen rectangle is accepted or rejected, never silently relocated.
 
 ```bash
 python3 scripts/dikciz-control.py websocket addWidget \
@@ -330,9 +206,7 @@ python3 scripts/dikciz-control.py websocket widgetMove \
   --port 19101 --pretty
 ```
 
-All three return the widget document, including its saved `cell`. A rejection
-returns one of the finite placement failures, writes nothing to the public
-tree, and emits one bounded diagnostic:
+All three return the widget document, including its saved `cell`. A rejection returns one of the finite placement failures, writes nothing to the public tree, and emits one bounded diagnostic:
 
 | Code | Meaning |
 | --- | --- |
@@ -340,30 +214,20 @@ tree, and emits one bounded diagnostic:
 | `grid_collision` | The requested cells are already used. |
 | `grid_bounds` | The rectangle leaves the configured grid. |
 
-`controlStatus` publishes the same finite list as `placementFailures`. The
-WebSocket error envelope carries the value in `code`. The matching MCP tools
-`dikciz_add_widget`, `dikciz_widget_move`, and `dikciz_widget_resize` return
-`isError` with the same value in `structuredContent.code`, so both planes
-report one taxonomy.
+`controlStatus` publishes the same finite list as `placementFailures`. The WebSocket error envelope carries the value in `code`. The matching MCP tools `dikciz_add_widget`, `dikciz_widget_move`, and `dikciz_widget_resize` return `isError` with the same value in `structuredContent.code`, so both planes report one taxonomy.
 
 ## Page grid
 
-`gridSet` replaces the grid used by every page. It takes `columns`, `rows`,
-`gapDp`, and `outerPaddingDp`, and returns the saved grid. The MCP form is
-`dikciz_grid_set`.
+`gridSet` replaces the grid used by every page. It takes `columns`, `rows`, `gapDp`, and `outerPaddingDp`, and returns the saved grid. The MCP form is `dikciz_grid_set`.
 
-Validation covers every placed widget before anything is written. A widget that
-would leave the grid or collide under the new geometry rejects the whole change
-with `grid_bounds` or `grid_collision`, names the offending page and widget, and
-leaves the saved document untouched.
+Validation covers every placed widget before anything is written. A widget that would leave the grid or collide under the new geometry rejects the whole change with `grid_bounds` or `grid_collision`, names the offending page and widget, and leaves the saved document untouched.
 
 ```bash
 python3 scripts/dikciz-control.py websocket gridSet \
   --arguments '{"columns":4,"rows":6,"gapDp":8,"outerPaddingDp":12}' --port 19101 --pretty
 ```
 
-The same four fields are editable in the launcher under **Settings**, in the
-**Page grid** section.
+The same four fields are editable in the launcher under **Settings**, in the **Page grid** section.
 
 ## HTML widget JavaScript
 
@@ -378,19 +242,11 @@ window.addEventListener("dikciz-ready", async () => {
 
 `dikciz.command(type, fields)` returns the same result as the WebSocket command. `dikciz.dispatch({ actions })` uses the same typed action executor as Lua. `dikciz.fitContent()` asks the native frame to measure the current DOM.
 
-`diagnostics` includes `htmlWidgetResources`: active renderer count, total
-UTF-8 bytes for generated documents on the selected page, and the configured
-per-page renderer and document-byte limits. These are launcher-owned resource
-inputs, not a claim about opaque Chromium process memory.
+`diagnostics` includes `htmlWidgetResources`: active renderer count, total UTF-8 bytes for generated documents on the selected page, and the configured per-page renderer and document-byte limits. These are launcher-owned resource inputs, not a claim about opaque Chromium process memory.
 
 `selfWidget` and `dikciz.selfWidget` expose the current ID, page, full address, logical `cell`, state, and `get()`, `patch(values)`, and `patchState(values)` helpers. A widget document reports `cell`, never device pixels, so a widget author never persists a coordinate that rotation would invalidate. `dikciz.pages()` returns pages by ID, page address, and `home`. `await dikciz.home()` and `await dikciz.widget(address)` read current records after a configuration change.
 
-Use `await dikciz.patchWidget(address, values)` for a full named-widget patch,
-or `await dikciz.patchWidgetState(address, values)` for its persisted state.
-Addresses are human-readable, for example `2H1V-weather-card`. A target on the
-current page receives `dikciz-state` without a document reload. A target on a
-different page is not treated as live DOM. Its saved state is available through
-`selfWidget.state` when that page is selected and its widget renders.
+Use `await dikciz.patchWidget(address, values)` for a full named-widget patch, or `await dikciz.patchWidgetState(address, values)` for its persisted state. Addresses are human-readable, for example `2H1V-weather-card`. A target on the current page receives `dikciz-state` without a document reload. A target on a different page is not treated as live DOM. Its saved state is available through `selfWidget.state` when that page is selected and its widget renders.
 
 State patches keep the current document alive. Listen for `dikciz-state`:
 
@@ -400,11 +256,7 @@ window.addEventListener("dikciz-state", event => {
 });
 ```
 
-When the launcher adds a block through that widget's native Add block action,
-the same live document receives `dikciz-block-appended`. Its
-`detail.instanceId` is the stable instance ID used in the source markers. The
-event occurs after the marked source has been saved and inserted, and the
-widget then scrolls to that new block without a document reload.
+When the launcher adds a block through that widget's native Add block action, the same live document receives `dikciz-block-appended`. Its `detail.instanceId` is the stable instance ID used in the source markers. The event occurs after the marked source has been saved and inserted, and the widget then scrolls to that new block without a document reload.
 
 ```javascript
 window.addEventListener("dikciz-block-appended", event => {
@@ -422,38 +274,15 @@ await dikciz.emitEvent("weather.refresh.completed", { updatedAt: Date.now() });
 
 Custom names are 1 through 128 characters, start with a letter, and use letters, digits, `.`, `_`, `:`, or `-`. Lua uses its matching `emitEvent` action.
 
-The direct action vocabulary is `accessibilityAction`, `accessibilityGesture`,
-`accessibilityGlobalAction`, `selectPage`, `patchWidget`,
-`patchState`, `patchDom`, `launchApp`, `appAction`, `postNotification`, `sendSms`,
-`explicitIntent`, `emitEvent`, `mediaControl`, `mediaVolume`,
-`notificationControl`, and
-`lockDevice`. `appAction` takes an `action` and a `component`. A script action has
-no selected page, so it rejects `addShortcut`.
-`sendSms` takes a dialable `recipient` and a `body`, and needs the `SEND_SMS`
-permission that `automationStatus` reports as `smsSend`. Dikciz is not the
-default SMS app, so a sent message does not reach the Android SMS provider or
-the owner's messaging history.
-`accessibilityAction` requires the current `snapshotId`, a `nodeId`, and one
-supported `action`; `setText` also requires `text`. Current policy and Android
-access decide whether an action can complete.
+The direct action vocabulary is `accessibilityAction`, `accessibilityGesture`, `accessibilityGlobalAction`, `selectPage`, `patchWidget`, `patchState`, `patchDom`, `launchApp`, `appAction`, `postNotification`, `sendSms`, `explicitIntent`, `emitEvent`, `mediaControl`, `mediaVolume`, `notificationControl`, and `lockDevice`. `appAction` takes an `action` and a `component`. A script action has no selected page, so it rejects `addShortcut`. `sendSms` takes a dialable `recipient` and a `body`, and needs the `SEND_SMS` permission that `automationStatus` reports as `smsSend`. Dikciz is not the default SMS app, so a sent message does not reach the Android SMS provider or the owner's messaging history. `accessibilityAction` requires the current `snapshotId`, a `nodeId`, and one supported `action`; `setText` also requires `text`. Current policy and Android access decide whether an action can complete.
 
-`patchDom` takes `widgetAddress`, a CSS `selector`, and one or more of `text`, `html`, `value`, `className`, or `attributes`. It changes only a currently rendered HTML document and does not persist source or state. A target that is not rendered returns `target_not_rendered`.
+`patchDom` takes `widgetAddress`, a CSS `selector`, and a `values` object containing one or more of `text`, `html`, `value`, `className`, or `attributes`. It changes only a currently rendered HTML document and does not persist source or state. A target that is not rendered returns `target_not_rendered`.
 
 For a complete event, Lua, HTML bridge, state, and action walkthrough, read the [scripting tutorial](scripting-tutorial.md).
 
-`lockDevice` returns `device_admin_inactive` when Android Device Administration
-is not active. It does not open Android Settings. Open **Settings**, then
-**Automation**, then **Set up full device access** to request that access.
+`lockDevice` returns `device_admin_inactive` when Android Device Administration is not active. It does not open Android Settings. Open **Settings**, then **Automation**, then **Set up full device access** to request that access.
 
-The native bridge holds at most 32 waiting requests and accepts at most 65,536
-characters per request. The supplied JavaScript API separately allows at most
-32 outstanding promises, so ordinary `dikciz.command()` calls are backpressured
-before native saturation. Raw channel users can still receive `busy` when the
-native queue is full. Every rejected HTML command is logged as
-`web_command_rejected` with the HTML widget ID, HTML kind, and error reason,
-and is available through both log transports. A state patch does not reload the
-WebView. Replacing HTML, CSS, JavaScript, or the whole configuration can destroy
-the calling document.
+The native bridge holds at most 32 waiting requests and accepts at most 65,536 characters per request. The supplied JavaScript API separately allows at most 32 outstanding promises, so ordinary `dikciz.command()` calls are backpressured before native saturation. Raw channel users can still receive `busy` when the native queue is full. Every rejected HTML command is logged as `web_command_rejected` with the HTML widget ID, HTML kind, and error reason, and is available through both log transports. A state patch does not reload the WebView. Replacing HTML, CSS, JavaScript, or the whole configuration can destroy the calling document.
 
 ## Logs and recovery
 
@@ -471,13 +300,12 @@ DIKCIZ_MCP_MUTATE=true make dikciz-mcp-smoke
 make dikciz-test-accessibility
 ```
 
-Both smoke targets probe the shared Dikciz forward that `make dikciz-run`
-creates, so they default to host ports `19101` and `19102`. The device ports
-stay `19001` and `19002`, because the launcher always listens there. Point them
-at another forward by overriding the host ports:
+Both smoke targets probe the shared Dikciz forward that `make dikciz-run` creates, so they default to host ports `19101` and `19102`. The default device ports are `19001` and `19002`, unless changed through the phone's control-port settings. The smoke probes also verify the expected device ports. When using custom ports, set `ANDROID_LAB_FORWARD_DEVICE_PORT` and `ANDROID_LAB_MCP_DEVICE_PORT` to match. Point them at another forward by overriding the host ports:
 
 ```bash
 make dikciz-automation-smoke ANDROID_LAB_FORWARD_HOST_PORT=19001 ANDROID_LAB_MCP_HOST_PORT=19002
 ```
 
 The mutation checks restore the original configuration. Use a focused `make dikciz-test-*` target for a particular UI or Android behavior.
+
+The [client and script map](../scripts/README.md), [live-test map](../tests/README.md), and [Dikciz source map](../app/src/dikciz/README.md) describe the implementations behind these commands.

@@ -713,7 +713,18 @@ def wait_for_restarted_websocket_control() -> socket.socket:
             if connection is not None:
                 connection.close()
             time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
-    raise AssertionError("Dikciz control plane did not become reachable") from last_error
+    raise AssertionError(f"Dikciz control plane did not become reachable: {last_error!r}") from last_error
+
+
+def assert_system_configuration_keeps_saved_home(expected: dict[str, Any]) -> None:
+    restarted_control = wait_for_restarted_websocket_control()
+    try:
+        actual = AUTOMATION.require_configuration(
+            AUTOMATION.request(restarted_control, AUTOMATION.TYPE_CONFIG_GET),
+        )
+        assert actual == expected
+    finally:
+        restarted_control.close()
 
 
 def wait_for_foreground_application(package_name: str) -> str:

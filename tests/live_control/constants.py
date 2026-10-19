@@ -106,11 +106,10 @@ CONFIG_WELCOME_WIDGET_DEVICE_PATH = "/sdcard/Dikciz/pages/home/widgets/welcome.j
 LUA_SCRIPT_API_VERSION = 1
 CONFIG_WELCOME_WIDGET_ARTIFACT_NAME = "dikciz-pytest-welcome-widget.json"
 DIALOG_CLOSE_SEMANTIC_ID = "dialog:close"
-LUA_RESET_BUNDLED_SCRIPT_ID = "lua-example"
-LUA_RESET_BUNDLED_SCRIPT_STATE = {
-    "message": "This card reads public state. Tap it to return Home.",
-}
-LUA_RESET_BUNDLED_SCRIPT_TITLE = "Lua page hint"
+# A script the bundled starter home ships, so a seeded copy with the same ID collides on reset.
+LUA_RESET_BUNDLED_SCRIPT_ID = "hourly-clock"
+LUA_RESET_BUNDLED_SCRIPT_STATE: dict[str, Any] = {}
+LUA_RESET_BUNDLED_SCRIPT_TITLE = "Current hour notification"
 LUA_RESET_COLLISION_SOURCE = 'return { status = "Custom replacement" }'
 LUA_RESET_USER_SCRIPT_ID = "reset-user-script"
 LUA_RESET_USER_SCRIPT_SOURCE = 'return { status = "Keep this script" }'
@@ -519,6 +518,8 @@ FIXTURE_CONFIGURATION_FILE = TESTS_DIRECTORY / "fixtures" / "dikciz-ui-fixture.j
 FIXTURE_CONFIGURATION_VERSION = 4
 FIXTURE_ACTIVITY_PAGE_ID = "activity"
 FIXTURE_HOME_PAGE_ID = "home"
+DIKCIZ_ACCESSIBILITY_SERVICE_CLASS = "org.fossify.home.dikciz.DikcizAccessibilityAutomationService"
+PAGE_MENU_HOME_CLOSE_SEMANTIC_ID = f"page:menu:{FIXTURE_HOME_PAGE_ID}:close"
 FIXTURE_NOTES_CARD_TEXT = "Fixture notes card"
 FIXTURE_NOTES_PAGE_ID = "notes"
 PAGE_MENU_ACTION_ARTIFACT_NAME = "page-menu-semantic-actions.png"
@@ -545,13 +546,12 @@ AUTOMATION_ACTION_ALARM_COMPONENT = (
 )
 AUTOMATION_ACTION_ALARM_EVENT = "org.fossify.home.dikciz.AUTOMATION_ALARM"
 AUTOMATION_ALARM_MINIMUM_INTERVAL_MILLISECONDS = 60_000
-AUTOMATION_ACTION_ALARM_COALESCING_KEY = "automation-actions-alarm"
 AUTOMATION_ACTION_BATTERY_COALESCING_KEY = "automation-actions-battery"
 AUTOMATION_ACTION_BATTERY_LEVEL = AUTOMATION_LIVE_BATTERY_LEVEL
 AUTOMATION_ACTION_BATTERY_STATE_KEY = "batteryAction"
-AUTOMATION_ACTION_CAPABILITIES = ["battery", "alarm"]
+AUTOMATION_ACTION_CAPABILITIES = ["battery"]
 AUTOMATION_ACTION_COMPLETED_EVENT = "automation_action_completed"
-AUTOMATION_ACTION_EXPLICIT_BROADCAST_STATE_KEY = "explicitBroadcastDelivered"
+AUTOMATION_ACTION_ALARM_RECEIVED_EVENT = "automation_alarm_receiver_received"
 AUTOMATION_ACTION_HTML_WIDGET_ID = "focus"
 AUTOMATION_ACTION_HTML_WIDGET_ADDRESS = f"1H1V-{AUTOMATION_ACTION_HTML_WIDGET_ID}"
 AUTOMATION_ACTION_NOTIFICATION_TEXT = "Automation action notification"
@@ -573,14 +573,10 @@ AUTOMATION_ACTION_SOURCE = (
     f'action = "{AUTOMATION_ACTION_ALARM_EVENT}" }}\n'
     '    }\n'
     '  end\n'
-    '  if event.type == "alarm" then\n'
-    f'    return {{ type = "patchState", values = {{ {AUTOMATION_ACTION_EXPLICIT_BROADCAST_STATE_KEY} = true }} }}\n'
-    '  end\n'
     'end'
 )
 AUTOMATION_ACTION_INITIAL_STATE = {
     AUTOMATION_ACTION_BATTERY_STATE_KEY: False,
-    AUTOMATION_ACTION_EXPLICIT_BROADCAST_STATE_KEY: False,
 }
 AUTOMATION_ACTIONS = [
     "selectPage",
@@ -729,6 +725,7 @@ DIKCIZ_HOME_ROLE_REMOVE_COMMAND = (
 FONT_SCALE_BASELINE = "1.0"
 FONT_SCALE_ENLARGED = "1.3"
 LANDSCAPE_USER_ROTATION = "1"
+PORTRAIT_USER_ROTATION = "0"
 HORIZONTAL_PAGE_INDICATOR_DESCRIPTION_PREFIX = "Horizontal pages. Page "
 HORIZONTAL_PAGE_INDICATOR_SEMANTIC_ID = "page:navigation:horizontal"
 PAGE_INDICATOR_DOT_GAP_DP = 14

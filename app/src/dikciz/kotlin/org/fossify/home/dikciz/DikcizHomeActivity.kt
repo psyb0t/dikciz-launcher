@@ -114,6 +114,7 @@ class DikcizHomeActivity : Activity() {
     private lateinit var mcpControlPlane: DikcizMcpControlPlane
     private lateinit var dikcizLogger: DikcizLogger
     private lateinit var remoteAccessAuth: DikcizRemoteAccessAuth
+    private lateinit var controlPorts: DikcizControlPorts
     private lateinit var dikcizStyleRenderer: DikcizStyleRenderer
     private lateinit var appActionRunner: DikcizAppActionRunner
     private lateinit var homeGestureDetector: DikcizHomeGestureDetector
@@ -142,6 +143,7 @@ class DikcizHomeActivity : Activity() {
     private var pageBeingBuilt: HomePage? = null
     private var shouldResumeFullDeviceAccessSetup = false
     private var controlPlanesStarted = false
+    private var isActivityStarted = false
     private var controlPlaneStartAttemptsRemaining = CONTROL_PLANE_START_ATTEMPTS
     private var isControlPlaneStartRetryScheduled = false
     private var isConfigurationErrorVisible = false
@@ -181,6 +183,7 @@ class DikcizHomeActivity : Activity() {
             configurationDirectory,
             dikcizLogger,
         )
+        controlPorts = DikcizControlPorts(configurationDirectory, dikcizLogger)
         dikcizStyleRenderer = DikcizStyleRenderer(
             context = this,
             fontDirectory = File(
@@ -248,14 +251,22 @@ class DikcizHomeActivity : Activity() {
             automationTarget,
             dikcizLogger,
             remoteAccessAuth,
+            controlPorts::websocketPort,
         )
-        mcpControlPlane = DikcizMcpControlPlane(mainHandler, automationTarget, dikcizLogger, remoteAccessAuth)
+        mcpControlPlane = DikcizMcpControlPlane(
+            mainHandler,
+            automationTarget,
+            dikcizLogger,
+            remoteAccessAuth,
+            controlPorts::mcpPort,
+        )
         DikcizAutomationEventBus.setHtmlDomPatchListener(applicationContext, ::patchRenderedHtmlDom)
         dikcizLogger.info(EVENT_ACTIVITY_CREATED)
     }
 
     override fun onStart() {
         super.onStart()
+        isActivityStarted = true
         dikcizLogger.info(
             EVENT_ACTIVITY_STARTED,
             mapOf(FIELD_SAFE_MODE to isSafeMode),
@@ -292,6 +303,7 @@ class DikcizHomeActivity : Activity() {
     }
 
     override fun onStop() {
+        isActivityStarted = false
         dismissStartupBrand()
         DikcizClipboardMonitor.stop()
         appWidgetHost.stopListening()
@@ -463,6 +475,7 @@ class DikcizHomeActivity : Activity() {
             return
         }
         isStartupBrandVisible = false
+        automationViews.remove(SEMANTIC_STARTUP_DISMISS)
         startupOverlay.animate()
             .alpha(TRANSPARENT_OPACITY)
             .setDuration(STARTUP_BRAND_EXIT_DURATION_MILLISECONDS)
@@ -477,6 +490,7 @@ class DikcizHomeActivity : Activity() {
     private fun dismissStartupBrand() {
         mainHandler.removeCallbacks(hideStartupBrandRunnable)
         isStartupBrandVisible = false
+        automationViews.remove(SEMANTIC_STARTUP_DISMISS)
         startupOverlay.animate().cancel()
         startupBrandMark.animate().cancel()
         startupOverlay.alpha = ENABLED_WIDGET_ALPHA
@@ -573,6 +587,18 @@ class DikcizHomeActivity : Activity() {
         )
         controlPlanesStarted = true
         controlPlaneStartAttemptsRemaining = CONTROL_PLANE_START_ATTEMPTS
+    }
+
+    /** Rebinds both control planes on the ports currently saved in `control/ports.json`. */
+    private fun restartControlPlanes() {
+        mainHandler.removeCallbacks(retryControlPlaneStartRunnable)
+        isControlPlaneStartRetryScheduled = false
+        DikcizAutomationEventBus.setRemoteEventListener(applicationContext, null)
+        mcpControlPlane.stop()
+        automationControlPlane.stop()
+        controlPlanesStarted = false
+        controlPlaneStartAttemptsRemaining = CONTROL_PLANE_START_ATTEMPTS
+        startControlPlanesIfNeeded()
     }
 
     private fun scheduleControlPlaneStartRetry() {
@@ -917,6 +943,10 @@ class DikcizHomeActivity : Activity() {
         registerAutomationView(SEMANTIC_ID_HORIZONTAL_PAGE_INDICATOR, horizontalPageIndicator)
         registerAutomationView(SEMANTIC_ID_VERTICAL_PAGE_INDICATOR, verticalPageIndicator)
         registerAutomationView(SEMANTIC_ID_PAGE_SCROLL, pageScrollView)
+        // The startup brand covers the first render, so it stays reachable for a control client.
+        if (isStartupBrandVisible) {
+            registerAutomationView(SEMANTIC_STARTUP_DISMISS, startupOverlay)
+        }
         showCachedPage(configuration, selectedPage)
         scheduleNeighborPageCache(configuration, selectedPage)
     }
@@ -1188,6 +1218,9 @@ class DikcizHomeActivity : Activity() {
             widget is AppHomeWidget ||
             widget is AppGroupHomeWidget ||
             widget is ProviderHomeWidget
+        // An HTML document is transparent, so its card frame and theme spacing are
+        // drawn natively. App tiles and provider views draw their own surface.
+        val drawsNativeFrame = !isContentOwnedSurface || widget is HtmlHomeWidget
         val style = selectedWidgetStyle(widget)
         val frameStyle = dikcizStyleRenderer.resolveWidgetFrameStyle(
             style = style,
@@ -1197,12 +1230,12 @@ class DikcizHomeActivity : Activity() {
         return DikcizWidgetFrameLayout(this).apply {
             val widgetFrame = this
             layoutParams = widgetLayoutParams(widget).apply {
-                if (!isContentOwnedSurface) {
+                if (drawsNativeFrame) {
                     dikcizStyleRenderer.applyMargins(this, frameStyle)
                 }
             }
             alpha = if (isEnabled) ENABLED_WIDGET_ALPHA else DISABLED_WIDGET_ALPHA
-            background = if (isContentOwnedSurface) null else dikcizStyleRenderer.createBackground(frameStyle)
+            background = if (drawsNativeFrame) dikcizStyleRenderer.createBackground(frameStyle) else null
             contentDescription = widget.title
             resizeTouchCapture = { event ->
                 !isEditingLocked && shouldCaptureWidgetResizeTouch(this, event)
@@ -1241,10 +1274,10 @@ class DikcizHomeActivity : Activity() {
                     gravity = Gravity.CENTER
                 }
                 setPadding(
-                    if (isContentOwnedSurface) NO_PADDING else frameStyle.padding.left,
-                    if (isContentOwnedSurface) NO_PADDING else frameStyle.padding.top,
-                    if (isContentOwnedSurface) NO_PADDING else frameStyle.padding.right,
-                    if (isContentOwnedSurface) NO_PADDING else frameStyle.padding.bottom,
+                    if (drawsNativeFrame) frameStyle.padding.left else NO_PADDING,
+                    if (drawsNativeFrame) frameStyle.padding.top else NO_PADDING,
+                    if (drawsNativeFrame) frameStyle.padding.right else NO_PADDING,
+                    if (drawsNativeFrame) frameStyle.padding.bottom else NO_PADDING,
                 )
                 when (widget) {
                     is HtmlHomeWidget -> {
@@ -3605,6 +3638,8 @@ class DikcizHomeActivity : Activity() {
                 isSafeMode,
                 SAFE_MODE_READ_ONLY_COMMAND_TYPES,
                 SAFE_MODE_ACTION_SEMANTIC_IDS,
+                automationControlPlane.port,
+                mcpControlPlane.port,
             )
             DikcizAutomationControlPlane.TYPE_CONFIG_REPLACE -> replaceAutomationConfiguration(command)
             DikcizAutomationControlPlane.TYPE_CONFIG_SEED -> replaceAutomationConfiguration(command)
@@ -3994,8 +4029,10 @@ class DikcizHomeActivity : Activity() {
         if (!script.enabled || !automationScript.enabled || !hasManualSubscription) {
             throw automationFailure(MESSAGE_MANUAL_TRIGGER_UNAVAILABLE)
         }
-        configuration.automation.policy(automationScript.policyID)
-            ?: throw automationFailure(MESSAGE_MANUAL_TRIGGER_UNAVAILABLE)
+        val policy = configuration.automation.policy(automationScript.policyID)
+        if (policy == null || !policy.enabled || DikcizAutomationCapability.ManualTrigger !in policy.capabilities) {
+            throw automationFailure(MESSAGE_MANUAL_TRIGGER_UNAVAILABLE)
+        }
         DikcizAutomationEventBus.enqueueManualTrigger(applicationContext, scriptID)
         return JSONObject().put(DikcizAutomationControlPlane.KEY_SCRIPT_ID, scriptID)
     }
@@ -4482,8 +4519,8 @@ class DikcizHomeActivity : Activity() {
             .put(KEY_LOG_DIRECTORY, homeConfigStore.logDirectory.absolutePath)
             .put(KEY_THEME_DIRECTORY, homeConfigStore.themeDirectory.absolutePath)
             .put(KEY_WALLPAPER_DIRECTORY, homeConfigStore.wallpaperDirectory.absolutePath)
-            .put(KEY_CONTROL_PORT, DikcizAutomationControlPlane.CONTROL_PORT)
-            .put(KEY_MCP_CONTROL_PORT, DikcizMcpControlPlane.CONTROL_PORT)
+            .put(KEY_CONTROL_PORT, automationControlPlane.port)
+            .put(KEY_MCP_CONTROL_PORT, mcpControlPlane.port)
             .put(KEY_SCREEN, VALUE_HOME_SCREEN)
             .put(KEY_HTML_WIDGET_RESOURCES, htmlWidgetResourceDiagnostics())
     }
@@ -4683,6 +4720,10 @@ class DikcizHomeActivity : Activity() {
 
     private fun pageMenuActionSemanticID(pageID: String, action: PageMenuAction): String {
         return "$SEMANTIC_PAGE_MENU_PREFIX$pageID$SEMANTIC_WIDGET_ACTION_SEPARATOR${action.semanticAction}"
+    }
+
+    private fun pageMenuCloseSemanticID(pageID: String): String {
+        return "$SEMANTIC_PAGE_MENU_PREFIX$pageID$SEMANTIC_WIDGET_ACTION_SEPARATOR$SEMANTIC_PAGE_MENU_CLOSE"
     }
 
     private fun pageRenameControlSemanticID(pageID: String, control: String): String {
@@ -5045,6 +5086,9 @@ class DikcizHomeActivity : Activity() {
             onShown = {
                 actionButtons.forEach { (action, button) ->
                     registerAutomationView(pageMenuActionSemanticID(page.id, action), button)
+                }
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.let { closeButton ->
+                    registerAutomationView(pageMenuCloseSemanticID(page.id), closeButton)
                 }
             },
             onDismiss = ::clearPageMenuAutomationViews,
@@ -6372,6 +6416,12 @@ class DikcizHomeActivity : Activity() {
                 setOnClickListener { showRemoteAccessAuthSettings() }
                 registerAutomationView(SEMANTIC_SETTINGS_AUTOMATION_REMOTE_AUTH, this)
             })
+            addView(Button(this@DikcizHomeActivity).apply {
+                text = getString(R.string.dikciz_control_ports_open)
+                contentDescription = text
+                setOnClickListener { showControlPortsSettings() }
+                registerAutomationView(SEMANTIC_SETTINGS_AUTOMATION_CONTROL_PORTS, this)
+            })
             if (
                 DikcizAutomationCapability.ClipboardMetadata in capabilities ||
                 DikcizAutomationCapability.ClipboardContent in capabilities
@@ -6754,6 +6804,129 @@ class DikcizHomeActivity : Activity() {
                 }
             },
         )
+    }
+
+    private fun showControlPortsSettings() {
+        val initialStatus = controlPorts.status()
+        val summary = TextView(this).apply {
+            text = controlPortsSummary(initialStatus)
+            contentDescription = text
+        }
+        val websocketPortInput = EditText(this).apply {
+            hint = getString(R.string.dikciz_control_ports_websocket)
+            contentDescription = hint
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(initialStatus.websocketPort.toString())
+        }
+        val mcpPortInput = EditText(this).apply {
+            hint = getString(R.string.dikciz_control_ports_mcp)
+            contentDescription = hint
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(initialStatus.mcpPort.toString())
+        }
+        val form = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(standardPadding(), NO_PADDING, standardPadding(), NO_PADDING)
+            addView(TextView(this@DikcizHomeActivity).apply {
+                text = getString(R.string.dikciz_control_ports_message)
+                contentDescription = text
+            })
+            addView(summary)
+            addView(websocketPortInput)
+            addView(mcpPortInput)
+        }
+        val saveButton = Button(this).apply {
+            text = getString(R.string.dikciz_control_ports_save)
+            contentDescription = text
+            setOnClickListener {
+                val websocketPort = websocketPortInput.text.toString().toIntOrNull()
+                val mcpPort = mcpPortInput.text.toString().toIntOrNull()
+                if (websocketPort == null || mcpPort == null) {
+                    websocketPortInput.error = getString(R.string.dikciz_control_ports_invalid)
+                    return@setOnClickListener
+                }
+                try {
+                    controlPorts.setFromPhone(websocketPort, mcpPort)
+                } catch (exception: DikcizControlPortsException) {
+                    websocketPortInput.error = getString(
+                        if (exception.code == DikcizControlPorts.ERROR_PORTS_EQUAL) {
+                            R.string.dikciz_control_ports_equal
+                        } else {
+                            R.string.dikciz_control_ports_invalid
+                        },
+                    )
+                    return@setOnClickListener
+                }
+                applyControlPortsChange(summary)
+            }
+        }
+        val resetButton = Button(this).apply {
+            text = getString(R.string.dikciz_control_ports_reset)
+            contentDescription = text
+            setOnClickListener {
+                try {
+                    controlPorts.resetFromPhone()
+                } catch (_: DikcizControlPortsException) {
+                    Toast.makeText(
+                        this@DikcizHomeActivity,
+                        R.string.dikciz_control_ports_record_error,
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                    return@setOnClickListener
+                }
+                val defaults = controlPorts.status()
+                websocketPortInput.setText(defaults.websocketPort.toString())
+                mcpPortInput.setText(defaults.mcpPort.toString())
+                applyControlPortsChange(summary)
+            }
+        }
+        form.addView(saveButton)
+        form.addView(resetButton)
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.dikciz_control_ports_title)
+            .setView(form)
+            .setNegativeButton(R.string.dikciz_dialog_close, null)
+            .create()
+        showActiveDialog(
+            dialog,
+            onShown = {
+                clearControlPortsAutomationViews()
+                registerAutomationView(SEMANTIC_CONTROL_PORTS_WEBSOCKET, websocketPortInput)
+                registerAutomationView(SEMANTIC_CONTROL_PORTS_MCP, mcpPortInput)
+                registerAutomationView(SEMANTIC_CONTROL_PORTS_SAVE, saveButton)
+                registerAutomationView(SEMANTIC_CONTROL_PORTS_RESET, resetButton)
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.let { closeButton ->
+                    registerAutomationView(SEMANTIC_CONTROL_PORTS_CLOSE, closeButton)
+                }
+            },
+            onDismiss = {
+                if (activeDialog === dialog) {
+                    clearControlPortsAutomationViews()
+                }
+            },
+        )
+    }
+
+    // The restart closes every control-plane connection, including one that just tapped Save.
+    // The delay lets that tap's reply reach its client first.
+    private fun applyControlPortsChange(summary: TextView) {
+        summary.text = controlPortsSummary(controlPorts.status())
+        summary.contentDescription = summary.text
+        Toast.makeText(this, R.string.dikciz_control_ports_saved, Toast.LENGTH_SHORT).show()
+        mainHandler.postDelayed(::restartControlPlanes, CONTROL_PORTS_RESTART_DELAY_MILLISECONDS)
+    }
+
+    private fun controlPortsSummary(status: DikcizControlPortsStatus): String {
+        if (!status.valid) {
+            return getString(R.string.dikciz_control_ports_status_invalid, status.websocketPort, status.mcpPort)
+        }
+        return getString(R.string.dikciz_control_ports_status, status.websocketPort, status.mcpPort)
+    }
+
+    private fun clearControlPortsAutomationViews() {
+        automationViews.keys
+            .filter { semanticID -> semanticID.startsWith(SEMANTIC_CONTROL_PORTS_PREFIX) }
+            .forEach(automationViews::remove)
     }
 
     private fun remoteAccessAuthSummary(status: DikcizRemoteAccessAuthStatus): String {
@@ -7847,9 +8020,12 @@ class DikcizHomeActivity : Activity() {
         previousConfiguration?.let { previous ->
             cleanupRemovedProviderWidgets(previous, resetConfiguration)
         }
-        homeConfiguration = safeModeConfiguration(resetConfiguration)
+        homeConfiguration = if (isSafeMode) safeModeConfiguration(resetConfiguration) else resetConfiguration
         dikcizLogger.configure(resetConfiguration.logging)
         dikcizLogger.info(EVENT_CONFIGURATION_RESET_COMPLETED)
+        // The file observer sees the reset as unchanged, so the reset starts or stops
+        // the automation service itself, as a configuration replace does.
+        syncAutomationService(resetConfiguration)
         renderConfiguration()
         return resetConfiguration
     }
@@ -10327,28 +10503,47 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun syncAutomationService(configuration: HomeConfiguration) {
-        val serviceIntent = Intent(this, DikcizAutomationService::class.java)
         if (isSafeMode) {
             DikcizClipboardMonitor.stop()
-            stopService(serviceIntent)
+            requestAutomationServiceStop()
             return
         }
         DikcizClipboardMonitor.sync(this, configuration)
         if (!configuration.requiresBackgroundAutomationService()) {
-            stopService(serviceIntent)
+            requestAutomationServiceStop()
             return
         }
         requestAutomationServiceStart()
     }
 
+    private fun requestAutomationServiceStop() {
+        val stopIntent = Intent(this, DikcizAutomationService::class.java)
+            .setAction(DIKCIZ_AUTOMATION_SERVICE_ACTION_STOP)
+        try {
+            startService(stopIntent)
+        } catch (exception: IllegalStateException) {
+            // A hidden launcher cannot queue a stop through startService, so a direct
+            // stop is the only option left.
+            dikcizLogger.debug(
+                EVENT_AUTOMATION_SERVICE_STOP_FALLBACK,
+                mapOf(FIELD_ERROR_CLASS to exception::class.java.simpleName),
+            )
+            stopService(Intent(this, DikcizAutomationService::class.java))
+        }
+    }
+
+    // A visible launcher may start the service with startService, which has no
+    // deadline; the service then promotes itself with startForeground. Only a hidden
+    // launcher needs startForegroundService, whose deadline a busy startup main thread
+    // can miss, killing the launcher with ForegroundServiceDidNotStartInTimeException.
     private fun requestAutomationServiceStart(): Boolean {
         val serviceIntent = Intent(this, DikcizAutomationService::class.java)
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(serviceIntent)
+            if (isActivityStarted || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                startService(serviceIntent)
                 return true
             }
-            startService(serviceIntent)
+            startForegroundService(serviceIntent)
             return true
         } catch (exception: IllegalStateException) {
             dikcizLogger.warn(
@@ -10805,6 +11000,7 @@ class DikcizHomeActivity : Activity() {
             "automation_device_administration_request_rejected"
         const val EVENT_AUTOMATION_LONG_PRESSED = "automation_long_pressed"
         const val EVENT_AUTOMATION_SERVICE_START_REJECTED = "automation_service_start_rejected"
+        const val EVENT_AUTOMATION_SERVICE_STOP_FALLBACK = "automation_service_stop_fallback"
         const val EVENT_AUTOMATION_SERVICE_SYNC_REQUESTED = "automation_service_sync_requested"
         const val EVENT_AUTOMATION_SCROLLED = "automation_scrolled"
         const val EVENT_AUTOMATION_SCROLLED_TO = "automation_scrolled_to"
@@ -11373,6 +11569,7 @@ class DikcizHomeActivity : Activity() {
         const val SEMANTIC_COMMAND_PREFIX = "command:"
         const val SEMANTIC_DIALOG_CLOSE = "dialog:close"
         const val SEMANTIC_PAGE_MENU_PREFIX = "page:menu:"
+        const val SEMANTIC_PAGE_MENU_CLOSE = "close"
         const val SEMANTIC_PAGE_RENAME_PREFIX = "page:rename:"
         const val SEMANTIC_PAGE_RENAME_SAVE = "save"
         const val SEMANTIC_PAGE_RENAME_TITLE = "title"
@@ -11476,6 +11673,14 @@ class DikcizHomeActivity : Activity() {
             "${SEMANTIC_SETTINGS_AUTOMATION_ACCESS_PREFIX}open-notification-listener"
         const val SEMANTIC_SETTINGS_AUTOMATION_OPEN_NOTIFICATION_POLICY =
             "${SEMANTIC_SETTINGS_AUTOMATION_ACCESS_PREFIX}open-notification-policy"
+        const val SEMANTIC_SETTINGS_AUTOMATION_CONTROL_PORTS = "settings:automation:control-ports"
+        const val SEMANTIC_CONTROL_PORTS_PREFIX = "control-ports:"
+        const val SEMANTIC_CONTROL_PORTS_CLOSE = "${SEMANTIC_CONTROL_PORTS_PREFIX}close"
+        const val SEMANTIC_CONTROL_PORTS_MCP = "${SEMANTIC_CONTROL_PORTS_PREFIX}mcp"
+        const val SEMANTIC_CONTROL_PORTS_RESET = "${SEMANTIC_CONTROL_PORTS_PREFIX}reset"
+        const val SEMANTIC_CONTROL_PORTS_SAVE = "${SEMANTIC_CONTROL_PORTS_PREFIX}save"
+        const val SEMANTIC_CONTROL_PORTS_WEBSOCKET = "${SEMANTIC_CONTROL_PORTS_PREFIX}websocket"
+        const val CONTROL_PORTS_RESTART_DELAY_MILLISECONDS = 500L
         const val SEMANTIC_REMOTE_AUTH_PREFIX = "remote-auth:"
         const val SEMANTIC_REMOTE_AUTH_CLEAR_PASSWORD = "${SEMANTIC_REMOTE_AUTH_PREFIX}clear-password"
         const val SEMANTIC_REMOTE_AUTH_CLOSE = "${SEMANTIC_REMOTE_AUTH_PREFIX}close"

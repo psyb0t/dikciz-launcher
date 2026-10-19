@@ -47,6 +47,16 @@ def assert_websocket_event(
     assert event[AUTOMATION.KEY_FIELDS] == fields
 
 
+def receive_command_completed(observer: socket.socket, request_id: str) -> dict[str, Any]:
+    # Events reach every client, including the observer's own connection check.
+    deadline = time.monotonic() + CONFIGURATION_SAVE_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        event = AUTOMATION.receive_event(observer, WEBSOCKET_EVENT_COMMAND_COMPLETED)
+        if event[AUTOMATION.KEY_FIELDS].get(AUTOMATION.KEY_REQUEST_ID) == request_id:
+            return event
+    raise AssertionError(f"no commandCompleted event for request {request_id}")
+
+
 def test_semantic_snapshot_exposes_resource_ids_and_stable_roles_through_both_control_planes(
     websocket_control: socket.socket,
 ) -> None:
@@ -299,7 +309,7 @@ def test_websocket_events_are_discoverable_and_correlate_command_and_ui_changes(
         )
         assert snapshot[AUTOMATION.KEY_SELECTED_PAGE_ID] == FIXTURE_HOME_PAGE_ID
         assert_websocket_event(
-            AUTOMATION.receive_event(observer, WEBSOCKET_EVENT_COMMAND_COMPLETED),
+            receive_command_completed(observer, snapshot_request_id),
             WEBSOCKET_EVENT_COMMAND_COMPLETED,
             {
                 AUTOMATION.KEY_REQUEST_ID: snapshot_request_id,
@@ -319,7 +329,7 @@ def test_websocket_events_are_discoverable_and_correlate_command_and_ui_changes(
         )
         assert rejection[AUTOMATION.KEY_CODE] == WEBSOCKET_EVENT_REJECTED_CODE
         assert_websocket_event(
-            AUTOMATION.receive_event(observer, WEBSOCKET_EVENT_COMMAND_COMPLETED),
+            receive_command_completed(observer, rejected_request_id),
             WEBSOCKET_EVENT_COMMAND_COMPLETED,
             {
                 AUTOMATION.KEY_REQUEST_ID: rejected_request_id,
@@ -348,7 +358,7 @@ def test_websocket_events_are_discoverable_and_correlate_command_and_ui_changes(
             },
         )
         assert_websocket_event(
-            AUTOMATION.receive_event(observer, WEBSOCKET_EVENT_COMMAND_COMPLETED),
+            receive_command_completed(observer, select_page_request_id),
             WEBSOCKET_EVENT_COMMAND_COMPLETED,
             {
                 AUTOMATION.KEY_REQUEST_ID: select_page_request_id,
@@ -374,6 +384,9 @@ def test_dikciz_is_android_home_and_system_navigation_returns_to_it() -> None:
     assert DIKCIZ_DEBUG_PACKAGE in resolved_home
     assert DIKCIZ_DEBUG_ACTIVITY in resolved_home
 
+    # A Settings task left by an earlier test keeps its back stack, so one Back
+    # would only close a sub-screen.
+    device_command(f"am force-stop {COMMAND_SETTINGS_PACKAGE_QUERY}")
     device_command(f"am start -W -n {SETTINGS_ACTIVITY_COMPONENT}")
     wait_for_foreground_application("com.android.settings")
     device_command(f"input keyevent {KEYCODE_BACK}")
@@ -618,6 +631,10 @@ def test_dikciz_survives_rotation_dark_mode_and_font_scale(
         wait_for_physical_text_bounds(FIXTURE_WIDGET_TITLES["welcome"])
         assert_system_configuration_keeps_saved_home(expected)
 
+        # Landscape rows are too short for a one-row card at the enlarged scale,
+        # so the font check runs in the portrait layout the fixture is sized for.
+        set_device_system_setting(DEVICE_SETTING_USER_ROTATION, PORTRAIT_USER_ROTATION)
+        wait_for_page_viewport_orientation(EMULATOR_DEVICE_ORIENTATION_PORTRAIT)
         set_device_system_setting(DEVICE_SETTING_FONT_SCALE, FONT_SCALE_BASELINE)
         restore_system_home()
         baseline_title_bounds = physical_text_bounds(FIXTURE_WIDGET_TITLES["welcome"])

@@ -49,10 +49,10 @@ Open page search, type the name, then tap the matching row to return to it.
 
 **Manage this page** also lets you do the following:
 
-- **Set as home page** chooses the page Dikciz opens when Android returns Home.
-- **Lock page** prevents accidental layout edits until you unlock it. Widget buttons and normal page navigation still work.
+- **Make this the home page** chooses the page Dikciz opens when Android returns Home.
+- **Lock this page** prevents accidental layout edits until you unlock it. Widget buttons and normal page navigation still work.
 - **Move left**, **Move right**, **Move up**, and **Move down** exchange the page with its neighbour. A direction with no neighbour is disabled.
-- **Add page** and **Remove page** change the page grid after confirmation.
+- **Delete this page** removes the current page after confirmation. Create pages from the rail edges.
 
 ![Page management actions](images/user-guide/19-page-menu.png)
 
@@ -100,7 +100,7 @@ If the page has no free grid rectangle, Dikciz shows a refusal. It does not plac
 
 ### Move, resize, group, lock, or remove an item
 
-Drag an app shortcut to move it. Long press a widget for **Move**, **Resize**, **Edit**, **Appearance**, **Fit content**, **Lock**, **Delete**, and Z-order actions. HTML widgets keep the top 24Dp for moving, while their content keeps normal tap behaviour.
+Drag an app shortcut to move it. Long press a widget for **Move**, **Resize**, **Edit**, **Appearance**, **Fit content**, **Lock**, and **Delete**. The available actions depend on the item type. HTML widgets keep the top 24Dp for moving, while their content keeps normal tap behaviour.
 
 ![Widget action sheet](images/user-guide/11-widget-actions.png)
 
@@ -188,7 +188,7 @@ Settings contains the grid controls, themes, remote-control settings, diagnostic
 
 ![Dikciz settings](images/user-guide/27-settings.png)
 
-Choose a theme to apply its saved colors, fonts, and style defaults. Widget fields you have explicitly overridden stay overridden.
+Choose a theme to apply its saved colors, fonts, and style defaults. Applying a theme clears the launcher background override, appearance defaults, and every widget style override. Edit individual widget appearance afterwards to customize it.
 
 ![Themes](images/user-guide/29-themes.png)
 
@@ -200,12 +200,12 @@ Choose a theme to apply its saved colors, fonts, and style defaults. Widget fiel
 
 ### Connect Dikciz to a computer
 
-In **Settings**, you can enable or disable the WebSocket and MCP control interfaces and set, replace, or clear their optional bearer password. The password protects remote connections only. Changing or clearing it on the phone does not require knowing the old password.
+Open **Settings**, then **Automation**, to configure the WebSocket and MCP ports and set, replace, clear, enable, or disable their optional bearer password. The password protects remote connections only. Changing or clearing it on the phone does not require knowing the old password.
 
 The interfaces listen only on the phone's loopback address. You choose how to connect another machine, such as an ADB forward. The technical commands, protocol, event stream, remote authentication, logs, screenshots, UI inspection, and configuration actions are documented in [automation control](automation-control.md).
 
 ## Edit the public files directly
 
-All user-editable files live below `/sdcard/Dikciz/`. `config.json` is the root. Pages, widgets, themes, fonts, wallpapers, HTML packages, scripts, policies, remote-auth settings, and logs each have their own directory. Valid file changes reload automatically. An invalid file leaves the last accepted home running and adds the reason to the local log.
+All user-editable files live below `/sdcard/Dikciz/`. `config.json` is the root. Pages, widgets, themes, fonts, wallpapers, HTML packages, scripts, policies, remote-auth settings, and logs each have their own directory. Valid configuration and rendering-asset changes reload automatically. Direct edits to `control/ports.json` take effect when the listeners restart. An invalid file leaves the last accepted home running and adds the reason to the local log.
 
 Use a file manager on the phone, an ADB connection, or a remote-control client to edit those files. The [configuration guide](dikciz-configuration.md) lists every path, field, validation rule, and recovery path.

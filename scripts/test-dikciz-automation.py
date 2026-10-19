@@ -55,6 +55,13 @@ MAXIMUM_AVAILABLE_SENSOR_COUNT = 64
 # requests can queue any number of events behind the next answer, and a
 # count budget turns that into a protocol error the server never made.
 RESPONSE_TIMEOUT_SECONDS = 30
+NODE_POLL_SECONDS = 0.25
+# Native controls that prove tap and setText without depending on fixture widgets.
+SEMANTIC_LAUNCHER_CONTROL = "launcher:controls"
+SEMANTIC_LAUNCHER_CONTROL_APP_DRAWER = "launcher:controls:app-drawer"
+SEMANTIC_APP_DRAWER_SEARCH = "drawer:search"
+SEMANTIC_APP_DRAWER_CLOSE = "drawer:close"
+APP_DRAWER_SEARCH_PROOF_TEXT = "Dikciz automation test"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 PROTOCOL_VERSION = 1
 SHELL_COMMAND_CURRENT_UID = "id -u"
@@ -770,6 +777,23 @@ def hello(connection: socket.socket) -> dict[str, Any]:
     return snapshot
 
 
+def snapshot_has_node(snapshot: dict[str, Any], semantic_id: str) -> bool:
+    nodes = snapshot.get("nodes")
+    if not isinstance(nodes, list):
+        raise WebSocketProtocolError("snapshot has no nodes")
+    return any(isinstance(node, dict) and node.get("semanticId") == semantic_id for node in nodes)
+
+
+def wait_for_node(connection: socket.socket, semantic_id: str, present: bool) -> None:
+    deadline = time.monotonic() + RESPONSE_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        if snapshot_has_node(request(connection, TYPE_SNAPSHOT), semantic_id) == present:
+            return
+        time.sleep(NODE_POLL_SECONDS)
+    state = "appear" if present else "disappear"
+    raise WebSocketProtocolError(f"semantic ID did not {state}: {semantic_id}")
+
+
 def require_node(snapshot: dict[str, Any], semantic_id: str) -> dict[str, Any]:
     nodes = snapshot.get("nodes")
     if not isinstance(nodes, list):
@@ -1166,17 +1190,22 @@ def verify_mutations(connection: socket.socket) -> None:
             raise WebSocketProtocolError("configuration seed did not reload the selected page")
 
         request(connection, TYPE_SELECT_PAGE, pageId="home")
-        before = request(connection, TYPE_SNAPSHOT)
-        toggle_before = require_node(before, "widget:focus:toggle").get("checked")
-        request(connection, TYPE_TAP, semanticId="widget:focus:toggle")
-        after = request(connection, TYPE_SNAPSHOT)
-        toggle_after = require_node(after, "widget:focus:toggle").get("checked")
-        if not isinstance(toggle_before, bool) or toggle_after == toggle_before:
-            raise WebSocketProtocolError("tap did not change the toggle widget")
-        text = "Dikciz automation test"
-        result = request(connection, TYPE_SET_TEXT, semanticId="widget:welcome", text=text)
-        if result.get("text") != text:
-            raise WebSocketProtocolError("setText did not return the saved text")
+        if snapshot_has_node(request(connection, TYPE_SNAPSHOT), SEMANTIC_APP_DRAWER_SEARCH):
+            raise WebSocketProtocolError("app drawer is already open before the tap proof")
+        request(connection, TYPE_TAP, semanticId=SEMANTIC_LAUNCHER_CONTROL)
+        wait_for_node(connection, SEMANTIC_LAUNCHER_CONTROL_APP_DRAWER, present=True)
+        request(connection, TYPE_TAP, semanticId=SEMANTIC_LAUNCHER_CONTROL_APP_DRAWER)
+        wait_for_node(connection, SEMANTIC_APP_DRAWER_SEARCH, present=True)
+        result = request(
+            connection,
+            TYPE_SET_TEXT,
+            semanticId=SEMANTIC_APP_DRAWER_SEARCH,
+            text=APP_DRAWER_SEARCH_PROOF_TEXT,
+        )
+        if result.get("text") != APP_DRAWER_SEARCH_PROOF_TEXT:
+            raise WebSocketProtocolError("setText did not return the entered text")
+        request(connection, TYPE_TAP, semanticId=SEMANTIC_APP_DRAWER_CLOSE)
+        wait_for_node(connection, SEMANTIC_APP_DRAWER_SEARCH, present=False)
         reset = request(connection, TYPE_RESET)
         reset_snapshot = reset.get(KEY_SNAPSHOT)
         if not isinstance(reset_snapshot, dict) or reset_snapshot.get("screen") != "home":

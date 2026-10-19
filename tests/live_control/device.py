@@ -48,8 +48,12 @@ def device_command(command: str) -> str:
 
 
 def emulator_dikciz_accessibility_set(enabled: bool) -> str:
-    operation = "dikciz-accessibility-on" if enabled else "dikciz-accessibility-off"
-    return run_device_operation(operation)
+    operation = "accessibility-on" if enabled else "accessibility-off"
+    return run_device_operation(
+        operation,
+        PACKAGE_NAME=DIKCIZ_DEBUG_PACKAGE,
+        ANDROID_LAB_ACCESSIBILITY_SERVICE_CLASS=DIKCIZ_ACCESSIBILITY_SERVICE_CLASS,
+    )
 
 
 def device_density_scale() -> float:
@@ -280,17 +284,6 @@ def set_device_night_mode(mode: str) -> None:
     assert mode in DEVICE_UI_MODE_NIGHT_VALUES
     device_command(DEVICE_UI_MODE_NIGHT_SET_COMMAND.format(mode))
     assert device_night_mode() == mode
-
-
-def assert_system_configuration_keeps_saved_home(expected: dict[str, Any]) -> None:
-    restarted_control = wait_for_restarted_websocket_control()
-    try:
-        actual = AUTOMATION.require_configuration(
-            AUTOMATION.request(restarted_control, AUTOMATION.TYPE_CONFIG_GET),
-        )
-        assert actual == expected
-    finally:
-        restarted_control.close()
 
 
 def receive_exactly(connection: socket.socket, size: int) -> bytes:

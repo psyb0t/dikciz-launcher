@@ -8,6 +8,8 @@ internal object DikcizControlStatus {
         isSafeMode: Boolean,
         safeModeAllowedCommandTypes: Set<String>,
         safeModeAllowedTapSemanticIDs: Set<String>,
+        websocketPort: Int,
+        mcpPort: Int,
     ): JSONObject {
         return JSONObject()
             .put(KEY_PROTOCOL_VERSION, DikcizAutomationControlPlane.PROTOCOL_VERSION)
@@ -20,26 +22,26 @@ internal object DikcizControlStatus {
                 KEY_SAFE_MODE_ALLOWED_TAP_IDS,
                 JSONArray(safeModeAllowedTapSemanticIDs.sorted()),
             )
-            .put(KEY_TRANSPORTS, transports())
+            .put(KEY_TRANSPORTS, transports(websocketPort, mcpPort))
             .put(KEY_LIMITS, limits())
             .put(KEY_COMMANDS, commandSpecifications())
             .put(KEY_EVENTS, eventSpecifications())
             .put(KEY_PLACEMENT_FAILURES, placementFailures())
     }
 
-    private fun transports(): JSONObject {
+    private fun transports(websocketPort: Int, mcpPort: Int): JSONObject {
         return JSONObject()
             .put(
                 KEY_WEBSOCKET,
                 JSONObject()
                     .put(KEY_PATH, DikcizAutomationControlPlane.CONTROL_PATH)
-                    .put(KEY_PORT, DikcizAutomationControlPlane.CONTROL_PORT),
+                    .put(KEY_PORT, websocketPort),
             )
             .put(
                 KEY_MCP,
                 JSONObject()
                     .put(KEY_PATH, DikcizMcpControlPlane.MCP_PATH)
-                    .put(KEY_PORT, DikcizMcpControlPlane.CONTROL_PORT),
+                    .put(KEY_PORT, mcpPort),
             )
     }
 

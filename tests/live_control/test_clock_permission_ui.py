@@ -5,9 +5,9 @@ import shutil
 import time
 
 from . import (
-    ARTIFACT_DIRECTORY, AUTOMATION, COMMAND_SETTINGS_SEMANTIC_ID,
-    DIKCIZ_DEBUG_PACKAGE, device_command, direct_tap, node_bounds,
-    open_command_sheet, physical_nodes, run_device_operation, wait_for_snapshot_node,
+    ARTIFACT_DIRECTORY, AUTOMATION, DIKCIZ_DEBUG_PACKAGE, LAUNCHER_CONTROL_SEMANTIC_ID,
+    LAUNCHER_CONTROL_SETTINGS_SEMANTIC_ID, device_command, direct_tap, node_bounds,
+    physical_nodes, run_device_operation, wait_for_foreground_application, wait_for_snapshot_node,
     websocket_control,
 )
 from .test_alarm_cadence import CLOCK_TITLE, clock_notification
@@ -22,6 +22,7 @@ CLOSE_ACCESS = "settings:automation:close"
 OPEN_LISTENER = "settings:automation:open-notification-listener"
 SCRIPT_ID = "hourly-clock"
 SETTINGS_AUTOMATION = "settings:automation"
+SETTINGS_PACKAGE = "com.android.settings"
 
 
 def capture_screen(name):
@@ -55,8 +56,10 @@ def tap_access(connection, semantic_id):
 
 
 def open_automation_settings(connection):
-    open_command_sheet()
-    tap_access(connection, COMMAND_SETTINGS_SEMANTIC_ID)
+    # The bundled home's control deck fills the page, so no empty canvas is left
+    # for the long press that opens the command sheet. The visible controls work on any home.
+    tap_access(connection, LAUNCHER_CONTROL_SEMANTIC_ID)
+    tap_access(connection, LAUNCHER_CONTROL_SETTINGS_SEMANTIC_ID)
     tap_access(connection, SETTINGS_AUTOMATION)
 
 
@@ -102,8 +105,7 @@ def test_clock_notification_permission_ui(websocket_control):
         device_command("cmd statusbar collapse")
         open_automation_settings(connection)
         tap_access(connection, OPEN_LISTENER)
-        nodes = physical_nodes()
-        assert any(node.get("package") == "com.android.settings" for node in nodes)
+        wait_for_foreground_application(SETTINGS_PACKAGE)
         capture_screen("notification-listener-settings")
         evidence["listenerSettingsOpened"] = True
         evidence["result"] = "passed"

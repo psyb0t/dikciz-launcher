@@ -27,6 +27,7 @@ readonly -a PRESERVED_FILE_PATHS=(
     .gitattributes
     .gitleaks.toml
     .dockerignore
+    .fossify/README.md
     AGENTS.md
     CONTRIBUTING.md
     PLAN.md
