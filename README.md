@@ -6,187 +6,118 @@
 [![version](https://raw.githubusercontent.com/psyb0t/dikciz-launcher/badges/version.svg)](https://github.com/psyb0t/dikciz-launcher/releases)
 [![license](https://raw.githubusercontent.com/psyb0t/dikciz-launcher/badges/license.svg)](LICENSE)
 
-Dikciz is a programmable Android launcher for people who want to inspect, modify, and automate their own phones. It keeps Fossify Launcher as an upstream base and adds Dikciz in an isolated product flavour.
+Dikciz is a programmable Android home screen. Build pages from HTML widgets, native app shortcuts and Android widgets, write Lua automations, and control your phone through WebSocket or MCP over USB, Wi-Fi or Tailscale.
 
-Releases ship the signed `dikcizRelease` APK, package `eu.psyb0t.dikciz.launcher`. It keeps the local control planes, public configuration, logs, HTML widget bridge, and automation surface available. The lab runs `dikcizDebug`, package `eu.psyb0t.dikciz.launcher.debug`, which installs next to a release. Fossify Core remains a source-compatibility check. It is not the normal launcher installed by the lab.
+Your home lives in editable files under `/sdcard/Dikciz/`. The signed release includes scripting, inspection and remote control. Ordinary launcher control needs neither a debug build nor root. Android permissions govern access to the rest of the phone.
 
-## Contents
-
-- [Install it](#install-it)
-- [Run it](#run-it)
-- [What the home supports](#what-the-home-supports)
-- [Navigate and manage the home](#navigate-and-manage-the-home)
-- [Configure it](#configure-it)
-- [Inspect and control it remotely](#inspect-and-control-it-remotely)
-- [Logs and failure reporting](#logs-and-failure-reporting)
-- [Fossify source updates](#fossify-source-updates)
-- [Verification](#verification)
-- [Source map](#source-map)
-- [Agent use](#agent-use)
-- [Upstream](#upstream)
+<img src="docs/images/user-guide/01-first-launch.png" alt="Dikciz bundled home screen" width="280">
 
 ## Install it
 
-Each release attaches a signed APK to [GitHub Releases](https://github.com/psyb0t/dikciz-launcher/releases). Install and update it with [Obtainium](https://github.com/ImranR98/Obtainium): add the app with the URL `https://github.com/psyb0t/dikciz-launcher`, or open `obtainium://add/https://github.com/psyb0t/dikciz-launcher` on the phone. Obtainium offers every new release as an update.
+Download the signed `dikciz-launcher-vX.Y.Z.apk` from [GitHub Releases](https://github.com/psyb0t/dikciz-launcher/releases/latest), or add `https://github.com/psyb0t/dikciz-launcher` to [Obtainium](https://github.com/ImranR98/Obtainium) for updates. On the phone, open `obtainium://add/https://github.com/psyb0t/dikciz-launcher` to add it directly. Dikciz is not published through Google Play.
 
-Without Obtainium, download `dikciz-launcher-vX.Y.Z.apk` from the release and install it, or run `adb install -r dikciz-launcher-vX.Y.Z.apk`. Each APK has a `.sha256` file next to it.
+1. Install the APK and open Dikciz. For an ADB installation, use `adb install -r dikciz-launcher-vX.Y.Z.apk`.
+2. Choose Dikciz as Android's default Home app.
+3. Tap **Grant file access**, allow shared-storage access in Android, and return to Dikciz. It creates the starter home in `/sdcard/Dikciz/`.
+4. Open **Settings**, **Automation**, **Set up full device access** for features that need additional Android access. You choose which permissions and special access to grant. Cross-app UI control needs **Dikciz cross-app automation** enabled in Android Accessibility settings.
 
-Every release is signed with the same key. Its certificate SHA-256 fingerprint is:
+Release packages use `eu.psyb0t.dikciz.launcher`; debug packages use `eu.psyb0t.dikciz.launcher.debug` and install alongside them. Updates signed with the same key retain app data. Each release includes an APK checksum. Verify the signer with `apksigner verify --print-certs dikciz-launcher-vX.Y.Z.apk`; its certificate SHA-256 fingerprint is:
 
 ```text
 5F:A2:02:5D:F9:B8:31:C3:56:3E:8D:44:00:88:7A:77:61:86:F1:F6:F4:69:4E:4E:41:04:EF:CF:0E:20:75:15
 ```
 
-Check it with `apksigner verify --print-certs dikciz-launcher-vX.Y.Z.apk` before installing.
+## What the home supports
+
+- Native pages arranged across two axes, each with a fixed grid, stable identity and configurable layout.
+- Local HTML, CSS and JavaScript widgets with persistent state, events and the `window.dikciz` bridge.
+- Native app shortcuts, app groups and third-party Android AppWidget providers.
+- Lua scripts with event subscriptions, typed actions, explicit capability policies and a native script dashboard.
+- Themes, fonts, wallpaper, widget appearance, editing locks and a chosen Android Home destination.
+- Semantic UI inspection, screenshots, logs, configuration editing and device actions through both remote protocols.
+
+The starter home includes a control deck, notes, an Android Settings shortcut, a Lua script dashboard and a workbench. Lua runs as automation scripts, not as a widget type.
+
+## Navigate and manage the home
+
+Tap the Dikciz mark beside the bottom page rail for the app drawer, widgets, page management and Settings. Swipe up from that rail to open the app drawer. Tap the magnifier to find a page by name or address. A full page refuses another widget rather than overlapping existing items.
+
+The [illustrated user guide](docs/user-guide.md) walks through pages, apps, groups, provider widgets, moving and resizing items, appearance, scripts and recovery.
+
+## Configure it
+
+`/sdcard/Dikciz/config.json` is the root of the public configuration. Pages, widgets, scripts, automation policies, themes, fonts, wallpapers, HTML packages, control settings and logs have their own paths. Valid home and rendering-asset edits reload automatically. Listener address or port changes automatically restart both control planes, including while another Android app is in front.
+
+Use the [configuration guide](docs/dikciz-configuration.md) for file formats and validation. The [scripting tutorial](docs/scripting-tutorial.md) explains Lua events, HTML bridge calls, persistent state and typed actions. Android owns permissions, special access, roles and root approval; an automation policy does not grant Android access.
+
+## Inspect and control it remotely
+
+WebSocket carries commands and persistent events. Streamable HTTP MCP exposes the same command target as tools. Both default to `127.0.0.1` on the phone, reachable by phone apps and ADB forwarding. For direct access without USB:
+
+1. Connect the phone and controlling computer to the same reachable private network or Tailscale network. Its access policy must allow **computer to phone** traffic on TCP `19001` and `19002`. Being online or answering a Tailscale tunnel ping does not prove application access.
+2. On the phone, open **Settings**, **Automation**, **Configure remote bearer authentication**. Set and enable a password. The client reads it from `DIKCIZ_REMOTE_BEARER_TOKEN`; keep it in your secret environment, outside command arguments.
+3. Open **Configure control ports**, set **Listen address** to `0.0.0.0`, and save. The [public configuration file](docs/dikciz-configuration.md#control-ports) offers the same setting. Both listeners restart automatically when their endpoints change.
+4. Connect from the controlling computer using the phone's reachable hostname or IP and its device ports. `0.0.0.0` is a bind address, not a client destination.
+
+The supplied Python client has no third-party dependencies. Run it from a checkout, replacing `phone.example` with your phone's hostname or IP:
+
+```bash
+python3 scripts/dikciz-control.py websocket controlStatus --host phone.example --port 19001 --pretty
+python3 scripts/dikciz-control.py mcp-tools --host phone.example --port 19002 --pretty
+python3 scripts/dikciz-control.py mcp dikciz_snapshot --host phone.example --port 19002 --pretty
+```
+
+| Connection | WebSocket | Streamable HTTP MCP |
+| --- | --- | --- |
+| Direct private network | `ws://phone.example:19001/v1/automation` | `http://phone.example:19002/mcp` |
+| Lab ADB forwards after `make dikciz-run` | `ws://127.0.0.1:19101/v1/automation` | `http://127.0.0.1:19102/mcp` |
+
+Configure your MCP client's Streamable HTTP URL and bearer header, then initialize and list tools. Direct access needs no USB, ADB or emulator. The endpoints do not provide TLS themselves; use a trusted private network or an encrypted VPN. `0.0.0.0` listens on all IPv4 interfaces, including Wi-Fi, subject to network routing and filtering.
+
+The [connection walkthrough](docs/automation-control.md#connect-without-usb) covers setup, troubleshooting and ADB alternatives. Both protocols reject browser origins outside HTTP or HTTPS loopback pages. Native clients can omit `Origin`. Network access, bearer authentication and Android permissions are separate checks. Shell commands request root by default; pass `root: false` for Dikciz's app sandbox.
+
+## Logs and failure reporting
+
+Dikciz writes bounded JSON Lines files under `/sdcard/Dikciz/logs/`. Read script results and failures in the dashboard, Settings log viewer, WebSocket `scriptLogs` or MCP `dikciz_script_logs`. A queued event does not prove an action succeeded. The [logging reference](docs/dikciz-configuration.md#logs) covers redaction, limits and failure notifications.
 
 ## Run it
 
-Clone `https://github.com/psyb0t/dikciz-launcher.git` and run these commands from its checkout. The Makefile pins Android Lab with `ANDROID_LAB_VERSION`. The first command that needs a missing `android-lab:<version>` or emulator image builds it locally with that release's installer, after you read the [Android SDK license](https://developer.android.com/studio/terms) and set `ANDROID_LAB_ACCEPT_ANDROID_LICENSES=yes`. Without that, Make stops and says so. Nothing is pulled from a registry. The host needs Docker, Make and Git. To move to a newer Android Lab release, change `ANDROID_LAB_VERSION`.
+Source development uses Docker, Make and Git. Clone this repository and run commands from its root. The Makefile pins Android Lab. If its images are missing, read the [Android SDK license](https://developer.android.com/studio/terms) before accepting it for the local build:
 
 ```bash
 ANDROID_LAB_ACCEPT_ANDROID_LICENSES=yes make build
 make dikciz-run
 ```
 
-Tool containers use the Docker host's CPU count, capped at 10, with matching Gradle workers. Use `make build ANDROID_LAB_TOOL_CPU_LIMIT=2 ANDROID_LAB_GRADLE_MAX_WORKERS=2` for a smaller build budget. These overrides do not change the emulator's virtual CPU configuration.
+Open the shared emulator at `http://127.0.0.1:61326/vnc.html?autoconnect=true&resize=scale`. `make dikciz-run` installs the debug package, grants file access on that isolated emulator, selects it as Home and preserves existing configuration. `make dikciz-reset` clears only Dikciz and its public files there. Keep `.android-lab/`, which holds the emulator disk, cache, signing identity and artifacts.
 
-Use `make help` for the operation index. `make check-images` checks the two required tags, `make status` shows the stack, and `make stop` stops it without deleting the saved phone. Builds use your host UID/GID. `.android-lab/` holds the Gradle cache, stable signing identity, emulator disk and artifacts; keep it ignored. An existing shared data-directory symlink is supported through explicit bind mounts.
-
-Open the shared emulator at:
-
-```text
-http://127.0.0.1:61326/vnc.html?autoconnect=true&resize=scale
-```
-
-`make dikciz-run` grants Dikciz file access on the isolated emulator, selects it as Android Home and preserves its existing configuration. `make dikciz-storage-access` grants the same access without reinstalling or clearing configuration. On a real phone, grant file access through Android's settings instead. `make dikciz-reset` uninstalls only Dikciz, clears `/sdcard/Dikciz`, installs the current build, and starts the bundled starter home.
-
-## What the home supports
-
-- Two-axis native pages. A page is always a native grid.
-- A page is one fixed viewport and never grows. A new widget takes the first free cell, reading left to right and then down, and a page with no free cell refuses the add.
-- Resizable HTML widgets with local HTML, CSS, JavaScript, state, native long press actions, and content-fitted height.
-- Native Android app shortcuts and app groups.
-- Native third-party Android AppWidget provider cards. They keep their own `AppWidgetHostView` and are never wrapped in a WebView.
-- A native script dashboard that lists scripts, status, last run, logs, and enable, disable, and edit controls.
-- Themes, fonts, wallpaper, card style, locks, and one Android Home destination page.
-
-Fresh configuration demonstrates the surface without legacy text, toggle, or Lua widget types:
-
-| Page | Contents |
-| --- | --- |
-| `1H1V`, Home | Full-page HTML control deck with clock, diagnostics, lock, notification, and notification-digest controls. |
-| `2H1V`, Notes | Android Settings shortcut, HTML notes card, and script dashboard. |
-| `1H2V`, Workbench | HTML card that points to scripts, Android access, shell, and public files. |
-
-Lua is not a widget type. It runs as a script from the public scripts tree.
-
-## Navigate and manage the home
-
-The Dikciz mark beside the horizontal page rail opens the app drawer, add-to-page picker, page management, and Settings. The magnifier opens page search by name or address. Swipe up from the horizontal rail to open the app drawer.
-
-The [user guide](docs/user-guide.md) covers navigation, app shortcuts and groups, provider widgets, moving and resizing items, HTML editing, themes, scripts, and recovery with screenshots.
-
-## Configure it
-
-Every user-editable file lives below `/sdcard/Dikciz/`. `config.json` is the root. Pages, widgets, scripts, automation policies, themes, fonts, wallpaper, widget-library packages, bearer-auth configuration, and logs have their own named paths. Dikciz watches valid home and rendering-asset edits and applies them without an app restart. Direct control-port edits take effect when the listeners restart.
-
-Read the [configuration guide](docs/dikciz-configuration.md) for the full tree, widget schema, script layout, theme format, recovery behavior, logging, and Android access setup.
-
-For APK installation, Android Home setup, and native launcher tasks, use the [task-based user guide](docs/user-guide.md). For events, Lua, HTML widgets, state, and typed actions, use the [scripting tutorial](docs/scripting-tutorial.md). The [automation-control guide](docs/automation-control.md) owns the remote protocol.
-
-HTML widgets use `window.dikciz` for commands, persistent state, and events. Lua scripts receive events and dispatch typed actions allowed by their automation policies. The [scripting tutorial](docs/scripting-tutorial.md) explains both interfaces with examples.
-
-Android grants runtime permissions, roles, special access, Device Administration, and root separately. Open **Settings**, then **Automation**, then **Set up full device access** to inspect access and open the relevant Android panels. Cross-app UI inspection and actions require the owner to enable Dikciz's Accessibility service.
-
-## Inspect and control it remotely
-
-Dikciz exposes versioned device-loopback listeners:
-
-| Interface | Device endpoint | Host endpoint after `make dikciz-run` |
-| --- | --- | --- |
-| WebSocket | `ws://127.0.0.1:19001/v1/automation` | `ws://127.0.0.1:19101/v1/automation` |
-| Streamable HTTP MCP | `http://127.0.0.1:19002/mcp` | `http://127.0.0.1:19102/mcp` |
-
-The device ports are defaults. Change them on the phone under **Settings**, **Automation**, **Configure control ports**, or in `/sdcard/Dikciz/control/ports.json`; see [Control ports](docs/dikciz-configuration.md#control-ports).
-
-They expose the same command target. It covers configuration, semantic UI snapshots and interaction, pages, widgets, screenshots, UI dumps, diagnostics, script logs, app catalogue and actions, Android intents, and shell commands. `appCatalogue` lists launchable applications. `appAction` launches, creates a native shortcut, opens Android app info, requests uninstall, or force stops one component. Shell commands request `su` by default. Set `root: false` to run as Dikciz's Android app user. Root availability and approval come from the device.
-
-The phone can require a bearer password for both forwarded control planes. Set, replace, clear, enable, or disable it in Dikciz Settings. The public config stores a bcrypt verifier, never the plaintext password.
-
-Both control planes reject browser origins other than HTTP or HTTPS pages at `localhost` or `127.0.0.1`. Native clients can connect without an Origin header. With the bearer password off, other apps on the phone can use every command Dikciz offers, with its permissions. Turn the password on if you install apps you do not trust. [Who can connect](docs/automation-control.md#who-can-connect) has the details.
-
-Use the supplied client after the lab creates a forward:
-
-`make control` runs the client in the tooling image with host networking so it can reach the loopback ADB forwards. It does not mount the Docker socket. `CONTROL_ARGS` is a trusted shell argument list, not input from remote users. If authentication is enabled, export `DIKCIZ_REMOTE_BEARER_TOKEN` from your ignored local environment; never place it in a command argument.
-
-```bash
-make control CONTROL_ARGS='websocket controlStatus --port 19101 --pretty'
-make control CONTROL_ARGS='mcp-tools --port 19102 --pretty'
-make control CONTROL_ARGS='websocket scriptLogs --port 19101 --pretty'
-```
-
-The [automation-control guide](docs/automation-control.md) owns request envelopes, discovery, semantic IDs, MCP tools, HTML bridge calls, and limits.
-
-## Logs and failure reporting
-
-Dikciz writes bounded JSON Lines files below `/sdcard/Dikciz/logs/`. The script dashboard, Settings log viewer, WebSocket `scriptLogs`, and MCP `dikciz_script_logs` expose a redacted record projection. Lua failures include bounded source-location diagnostics; HTML console warnings and errors carry widget IDs. The [configuration guide](docs/dikciz-configuration.md#logs) defines logging settings and failure notifications.
+`make help` lists supported operations. `make status` inspects the stack; `make stop` stops it while preserving its saved phone. Tool containers use up to 10 host CPUs. Override `ANDROID_LAB_TOOL_CPU_LIMIT` and `ANDROID_LAB_GRADLE_MAX_WORKERS` for a smaller build budget. Images are built locally with the pinned installer after SDK license acceptance.
 
 ## Fossify source updates
 
-The complete Fossify source stays in this directory. Its upstream-owned source sets, Gradle build, resources, translations, and metadata remain replaceable. Dikciz code belongs under `app/src/dikciz/` and combined source sets such as `app/src/dikcizDebug/`.
-
-Use this repository's checked update route:
-
-```bash
-make dikciz-upstream-compare DIKCIZ_UPSTREAM_DIR=path/to/fossify-source
-make dikciz-upstream-refresh-dry-run DIKCIZ_UPSTREAM_DIR=path/to/fossify-source
-DIKCIZ_UPSTREAM_REFRESH=1 make dikciz-upstream-refresh \
-  DIKCIZ_UPSTREAM_DIR=path/to/fossify-source
-```
-
-The workflow stages the selected source, verifies a backup, preserves Dikciz-owned paths, and stops on a collision or patch failure. After a refresh, build the upstream-compatible core flavour, build Dikciz, then run the focused live controls affected by the update.
-
-Comparison covers source only. It ignores disposable Gradle state in `.gradle`, `.kotlin`, and build directories, so local build output cannot disguise or block a source refresh.
-
-The replacement command requires a selected Fossify release marker newer than the checked-in marker. The [Fossify integration map](.fossify/README.md) explains markers, overlays, and refresh boundaries.
-
-Dikciz does not publish through Google Play. The retained [`fastlane/README.md`](fastlane/README.md) is auto-generated Fossify upstream reference material, not a Dikciz install or release route.
+The complete Fossify source remains the maintained Android base. Dikciz code lives under `app/src/dikciz/` and combined source sets. Use `make dikciz-upstream-compare`, then `make dikciz-upstream-refresh-dry-run`, with `DIKCIZ_UPSTREAM_DIR` set to the selected upstream checkout. Replacement requires `DIKCIZ_UPSTREAM_REFRESH=1`, a newer upstream marker and a verified backup. The [Fossify integration map](.fossify/README.md) owns the full procedure and source boundaries.
 
 ## Verification
 
-```bash
-make build
-make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_native_page_hosts_individual_html_and_provider_widgets
-make dikciz-test-script-diagnostics
-make dikciz-test-minified-lua
-make dikciz-test-provider-actions
-make dikciz-test-accessibility
-make dikciz-test-accessibility-third-party
-make dikciz-test-app-drawer-entry
-make dikciz-test-app-shortcut
-make dikciz-test-launcher-control
-```
+Use `make lint` for script checks, `make gradle GRADLE_TASK=:app:assembleDikcizDebug` for a focused build and the relevant target from [the test guide](tests/README.md) for live behavior. `make dikciz-test` runs the broad shared-emulator suite. `make dikciz-test-minified-lua` verifies Lua execution and failure reporting with release shrinking enabled. Tests leave the shared emulator on the current bundled starter home.
 
-`make dikciz-test-minified-lua` tests Lua execution, read-only context, and failure diagnostics with release shrinking enabled. Its debug-signed `dikcizMinified` APK uses the debug package and can install alongside a signed release.
-
-Choose the narrow target that covers the change. `make dikciz-test` is the broad shared-emulator UI suite. It resets the same phone to a clean installed Dikciz build, seeds its HTML-only test fixture, and leaves screenshots, UI dumps, layouts, and the complete pytest log in `.android-lab/shared/artifacts/`. After pytest returns, fails, or is interrupted, it resets only Dikciz and `/sdcard/Dikciz` to the bundled starter home. The fixture is never left visible for manual inspection.
-
-A `v*` tag push builds the signed release in CI with `make release-apk` and attaches `dist/dikciz-launcher-vX.Y.Z.apk` and its `.sha256` to the GitHub Release. `make release-apk` needs the release keystore at `.android-lab/release/dikciz-release.jks` and `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD` and `SIGNING_STORE_PASSWORD` in the environment. It fails unless the APK is signed with the published certificate and reports the version in `VERSION`.
+A version tag builds the signed APK and checksum in CI through `make release-apk`. That target verifies the published signing certificate and the version from `VERSION`. Its keystore and signing secrets stay outside tracked source. The [release history](docs/changelog.md) records user-visible changes.
 
 ## Source map
 
-- [Dikciz flavour](app/src/dikciz/README.md): UI, configuration, scripts, widgets, and control planes.
-- [Scripts](scripts/README.md): build, control client, lab extensions, and upstream refresh tooling.
-- [Tests](tests/README.md): live controls, fixtures, provider app, and JVM checks.
-- [Fossify integration](.fossify/README.md): release marker and reviewed build overlays.
-- [Contributing](CONTRIBUTING.md): change boundaries, documentation, and verification.
+| Guide | Covers |
+| --- | --- |
+| [User guide](docs/user-guide.md) | Installation, Android access, navigation and native editing, with screenshots. |
+| [Configuration](docs/dikciz-configuration.md) | Public files, validation, reload behavior, themes and logs. |
+| [Scripting](docs/scripting-tutorial.md) | Lua, HTML, events, policies and typed actions. |
+| [Automation control](docs/automation-control.md) | Direct connections, ADB forwarding, authentication, WebSocket and MCP. |
+| [Dikciz source](app/src/dikciz/README.md) | Product architecture and implementation boundaries. |
+| [Scripts](scripts/README.md), [tests](tests/README.md), [contributing](CONTRIBUTING.md) | Build tooling, verification and change boundaries. |
 
 ## Agent use
 
-The [Dikciz Launcher skill](.agents/skills/dikciz-launcher/SKILL.md) teaches agents to install an APK with ADB and operate the launcher. Its [setup reference](.agents/skills/dikciz-launcher/references/setup.md) covers device selection, Android access and WebSocket/MCP connections. Its [capability reference](.agents/skills/dikciz-launcher/references/capabilities.md) lists the launcher, widget, scripting and device-control features. It does not require building the app or setting up Android Lab to install an APK.
-
-The separate [Dikciz Android Lab skill](.agents/skills/dikciz-android-lab/SKILL.md) routes source builds and emulator work to Android Lab's canonical skills, including direct GitHub links when those skills are not installed. Tag publishing selects only `dikciz-launcher` for ClawHub; it excludes the lab integration skill and publishes no plugin bundle.
+The [Dikciz Launcher skill](.agents/skills/dikciz-launcher/SKILL.md) covers installation and operation through ADB or direct network control. Its [setup reference](.agents/skills/dikciz-launcher/references/setup.md) and [capability reference](.agents/skills/dikciz-launcher/references/capabilities.md) describe connection checks and available actions. The [Dikciz Android Lab skill](.agents/skills/dikciz-android-lab/SKILL.md) covers source builds and emulator work. Tag publishing selects only `dikciz-launcher` for ClawHub and publishes no plugin bundle.
 
 ## Upstream
 
-Dikciz is based on [Fossify Launcher](https://github.com/FossifyOrg/Launcher) and is distributed under the [GNU General Public License v3.0](LICENSE).
+Dikciz is based on [Fossify Launcher](https://github.com/FossifyOrg/Launcher) and distributed under the [GNU General Public License v3.0](LICENSE).

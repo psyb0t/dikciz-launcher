@@ -2,7 +2,7 @@
 
 ## Install an APK
 
-Use the Dikciz APK supplied by the user. When the user asks for an official release instead, download `dikciz-launcher-vX.Y.Z.apk` and its `.sha256` from https://github.com/psyb0t/dikciz-launcher/releases, check the checksum, and check that `apksigner verify --print-certs` reports the certificate SHA-256 fingerprint published in the project README. Users who want automatic updates can add the repository URL in Obtainium instead. This is an APK installation, not an Android Lab setup or a source build. The host needs ADB and an Android device with USB debugging enabled. The phone owner must accept the host's debugging authorization prompt.
+Use the Dikciz APK supplied by the user. When the user asks for an official release instead, download `dikciz-launcher-vX.Y.Z.apk` and its `.sha256` from https://github.com/psyb0t/dikciz-launcher/releases, check the checksum, and check that `apksigner verify --print-certs` reports the certificate SHA-256 fingerprint published in the project README. Users who want automatic updates can add the repository URL in Obtainium instead. This is an APK installation, not an Android Lab setup or a source build. For the ADB installation route below, the host needs ADB and an Android device with USB debugging enabled. An already installed launcher can instead use the direct private-network route without ADB. For ADB, the phone owner must accept the host's debugging authorization prompt.
 
 ```bash
 adb devices -l
@@ -26,7 +26,7 @@ Installation is complete when ADB reports success, the selected device lists the
 
 ## Forward the control ports
 
-Dikciz listens on the Android device's loopback interfaces:
+Dikciz defaults to the Android device's loopback interface:
 
 | Interface | Device listener | Host endpoint with these forwards |
 | --- | --- | --- |
@@ -51,6 +51,21 @@ adb -s "$SERIAL" forward --remove tcp:19102
 ```
 
 Do not use `--remove-all` or stop the shared ADB server.
+
+## Connect directly over a private network
+
+Set `listenAddress` in `/sdcard/Dikciz/control/ports.json` to a local interface address or `0.0.0.0` for all IPv4 interfaces. Keep `version`, `websocketPort` and `mcpPort` in the same record. Valid file edits automatically restart both listeners. Existing records without `listenAddress` retain `127.0.0.1`.
+
+Connect the client using `--host <device-private-hostname>` and the actual device ports. A native MCP client uses `http://<device-private-hostname>:19002/mcp` with the default MCP port. This path needs no USB or ADB forwarding. The access policy must allow the computer running the client to reach the phone on its device ports. A build server or SSH host may belong to a different policy group. Test from the intended controlling computer; an online peer or tunnel ping alone is insufficient. Bearer authentication and browser Origin restrictions apply on every interface.
+
+For a complete phone setup, password handling, direct endpoint examples and timeout diagnostics, follow [Connect without USB](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/automation-control.md#connect-without-usb). Set and enable bearer authentication before choosing a network binding. `0.0.0.0` is a bind address; the client needs the phone's reachable IP or hostname. It also exposes the listeners on reachable Wi-Fi interfaces. The endpoints do not add TLS, so use a trusted network or encrypted VPN.
+
+```bash
+python3 scripts/dikciz-control.py websocket controlStatus --host phone.example --port 19001 --pretty
+python3 scripts/dikciz-control.py mcp-tools --host phone.example --port 19002 --pretty
+```
+
+Replace `phone.example` with the phone's reachable private hostname or IP and load `DIKCIZ_REMOTE_BEARER_TOKEN` from the user's secret environment. Use device ports for direct access, not the host forwarding ports.
 
 ## Discover and use controls
 

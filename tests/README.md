@@ -19,6 +19,14 @@ Run from the repository root through Make. `make dikciz-test` builds the debug A
 make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_native_page_hosts_individual_html_and_provider_widgets
 ```
 
+The control-listener scenarios cover Settings validation, legacy records, automatic address and port changes, atomic replacements, unchanged endpoint writes, deletion, malformed addresses, IPv6 bindings, browser Origin rejection and both protocols while Android Settings stays in front:
+
+```bash
+make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_control_ports_
+```
+
+The automation public-file reload scenario also edits scripts while another Android app is in front. Direct private-network reachability still needs a connection check from the intended controlling computer; an emulator forward cannot prove a tailnet policy permits that computer to reach a physical phone.
+
 `make dikciz-test-minified-lua` runs the existing Lua context and failure diagnostics scenarios against `dikcizMinified`, which inherits release optimization and uses the debug signing key and package. Override `DIKCIZ_TEST_SELECTOR` to run another focused scenario against that build. Debug-only platform event fixtures are not included.
 
 The selector must match `test_` followed by letters, digits, or underscores. The runner passes it to pytest's `-k` filter, so a shared name prefix can select several tests. Use `make help` for focused targets that also build required fixture APKs.

@@ -375,21 +375,25 @@ The local `shell` command and `dikciz_shell` tool request `su` by default. Dikci
 
 `control/remote-auth.json` is separate from `config.json`. It stores version, bcrypt verifier, cost, and enabled state. It never stores the plaintext password. Set, replace, clear, enable, or disable the password from **Settings**, then **Automation**. The phone does not ask for the old password when changing it.
 
-When enabled, forwarded WebSocket and MCP requests need `Authorization: Bearer <password>`. A remote client can check, enable, or disable the setting with the documented remote-auth commands. It cannot read, replace, or clear the password. Enabling or disabling remotely requires the configured password even while authentication is disabled. An invalid auth record refuses connections until repaired or cleared on the phone.
+When enabled, WebSocket and MCP requests on every interface need `Authorization: Bearer <password>`. A remote client can check, enable, or disable the setting with the documented remote-auth commands. It cannot read, replace, or clear the password. Enabling or disabling remotely requires the configured password even while authentication is disabled. An invalid auth record refuses connections until repaired or cleared on the phone.
 
 ## Control ports
 
-`control/ports.json` sets the device-loopback ports of the two control planes:
+`control/ports.json` sets the listen address and ports of both control planes:
 
 ```json
-{ "version": 1, "websocketPort": 19001, "mcpPort": 19002 }
+{ "version": 1, "listenAddress": "0.0.0.0", "websocketPort": 19001, "mcpPort": 19002 }
 ```
 
-Change them in **Settings**, then **Automation**, then **Configure control ports**. Saving restarts both listeners at once and closes their open connections. **Reset to defaults** deletes the file. You can also edit the file directly; Dikciz reads it the next time it starts its listeners, for example after the app restarts.
+Change them in **Settings**, then **Automation**, then **Configure control ports**. Saving a changed address or port restarts both listeners and closes their open connections. **Reset to defaults** deletes the file. Direct file edits also apply automatically, including atomic file replacements and writes through ADB. The configuration watcher restarts both listeners when their address or ports change, without restarting the launcher or rebuilding the home. Rewriting the same endpoints keeps existing connections open. Deleting the file restores the defaults.
 
-Ports must be whole numbers from 1024 to 65535 and must differ. Without the file, Dikciz uses 19001 and 19002. If the file is invalid, Dikciz logs `control_ports_invalid`, uses the defaults and says so in Settings, and reports the fallback in its status. A port conflict can still prevent a listener from starting. No control-plane command can change the ports. `controlStatus` reports the ports in use under `transports`.
+`listenAddress` is an optional numeric IPv4 or IPv6 address. It defaults to `127.0.0.1` for existing records. Set it to `0.0.0.0` to accept connections on all IPv4 interfaces, including Wi-Fi and a reachable VPN interface, or choose a specific local interface address. Hostnames, empty values and malformed addresses are rejected. Network binding preserves the existing bearer authentication and browser Origin checks.
 
-After a change, forward the new device ports, for example `make forward ANDROID_LAB_FORWARD_DEVICE_PORT=<websocket-port> ANDROID_LAB_MCP_DEVICE_PORT=<mcp-port>`.
+Ports must be whole numbers from 1024 to 65535 and must differ. Without the file, Dikciz uses `127.0.0.1` on ports 19001 and 19002. If the file is invalid, Dikciz logs `control_ports_invalid`, uses the defaults and says so in Settings, and reports the fallback in its status. A port conflict can still prevent a listener from starting. There is no dedicated command for changing listener settings. `controlStatus` reports each listener's `listenAddress` and `port` under `transports`.
+
+For direct access, connect to the phone's reachable private hostname or IP and the configured device ports. Enable bearer authentication and allow computer-to-phone traffic in the network policy. `0.0.0.0` is a binding value, not a client destination; it also accepts reachable Wi-Fi clients. Follow [Connect without USB](automation-control.md#connect-without-usb) for setup and troubleshooting.
+
+If using ADB forwarding, update the mappings after a port change, for example `make forward ANDROID_LAB_FORWARD_DEVICE_PORT=<websocket-port> ANDROID_LAB_MCP_DEVICE_PORT=<mcp-port>`.
 
 ## Themes and fonts
 

@@ -6,7 +6,6 @@ import android.os.SystemClock
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.ByteArrayOutputStream
-import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
@@ -28,11 +27,14 @@ internal class DikcizMcpControlPlane(
     private val target: DikcizAutomationTarget,
     private val logger: DikcizLogger,
     private val remoteAccessAuth: DikcizRemoteAccessAuth,
-    private val portProvider: () -> Int,
 ) {
-    /** The device-loopback port of the running listener, or the port the next start would bind. */
+    /** The port of the running listener, or the port the next start would bind. */
     @Volatile
     var port: Int = CONTROL_PORT
+        private set
+
+    @Volatile
+    var listenAddress: String = DikcizControlPorts.DEFAULT_LISTEN_ADDRESS
         private set
 
     private val isRunning = AtomicBoolean()
@@ -45,15 +47,16 @@ internal class DikcizMcpControlPlane(
     private var workerPool: ExecutorService? = null
 
     @Synchronized
-    fun start(): Boolean {
+    fun start(endpoint: InetSocketAddress): Boolean {
         if (!isRunning.compareAndSet(false, true)) {
             return true
         }
-        port = portProvider()
         try {
+            port = endpoint.port
+            listenAddress = endpoint.address.hostAddress ?: DikcizControlPorts.DEFAULT_LISTEN_ADDRESS
             serverSocket = ServerSocket().apply {
                 reuseAddress = true
-                bind(InetSocketAddress(InetAddress.getByName(LOOPBACK_ADDRESS), port))
+                bind(endpoint)
             }
             workerPool = Executors.newFixedThreadPool(MAXIMUM_CONNECTION_COUNT) { runnable ->
                 Thread(runnable, THREAD_NAME_PREFIX + UUID.randomUUID()).apply { isDaemon = true }
@@ -61,7 +64,7 @@ internal class DikcizMcpControlPlane(
             workerPool?.execute(::acceptConnections)
             logger.info(
                 EVENT_MCP_CONTROL_PLANE_STARTED,
-                mapOf(FIELD_BIND_ADDRESS to LOOPBACK_ADDRESS, FIELD_PORT to port),
+                mapOf(FIELD_BIND_ADDRESS to listenAddress, FIELD_PORT to port),
             )
             return true
         } catch (exception: Exception) {
@@ -1081,7 +1084,6 @@ internal class DikcizMcpControlPlane(
         const val KEY_TYPE = "type"
         const val KEY_VERSION = "version"
         const val LINE_FEED = 10
-        const val LOOPBACK_ADDRESS = "127.0.0.1"
         const val MAXIMUM_BODY_BYTES = HomeConfigStore.MAXIMUM_CONFIGURATION_DOCUMENT_BYTES
         const val MAXIMUM_CONNECTION_COUNT = 4
         const val MAXIMUM_HEADER_BYTES = 8_192

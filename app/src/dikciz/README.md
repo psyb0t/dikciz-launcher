@@ -30,7 +30,7 @@ All Kotlin files below live in `kotlin/org/fossify/home/dikciz/`.
 | `DikcizHtmlWidgetLibrary.kt`, `DikcizHtmlBlockLibrary.kt` | Validate and install complete widget packages and reusable fragments. |
 | `DikcizAutomationControlPlane.kt`, `DikcizMcpControlPlane.kt` | Serve WebSocket and Streamable HTTP MCP through one `DikcizAutomationTarget`. |
 | `DikcizControlStatus.kt`, `DikcizAutomationStatus.kt` | Describe the command protocol and Android capabilities for discovery. |
-| `DikcizControlPorts.kt`, `DikcizRemoteAccessAuth.kt` | Own device listener-port settings and bearer-password verification. |
+| `DikcizControlPorts.kt`, `DikcizRemoteAccessAuth.kt` | Own device listen-address and port settings and bearer-password verification. |
 | `DikcizAutomation.kt`, `DikcizAutomationActionDocument.kt` | Define policies, events, subscriptions and typed action documents. |
 | `DikcizAutomationService.kt`, `DikcizAutomationRuntime.kt`, `DikcizLuaRuntime.kt` | Collect Android events, dispatch subscriptions, enforce policies and execute Lua. |
 | `DikcizScriptWidgetBridge.kt`, `DikcizLuaScriptRunStatus.kt` | Resolve page/widget addresses and represent persisted script outcomes. |
@@ -47,6 +47,6 @@ Keep product changes in this source set or a Dikciz-specific combined source set
 
 Pages use a fixed native grid and transparent canvases over one launcher background. Placement and grid changes must respect bounds and collisions. Locks prevent editing while preserving widget actions and navigation. Style parsing belongs in `DikcizStyleCodec`, so editors and renderers use the same rules.
 
-Both remote listeners bind to device loopback and execute through the same command target. Keep human accessibility labels readable and machine identities in the semantic snapshot. The [automation-control guide](../../../docs/automation-control.md) owns commands, events, authentication, origin checks and limits. Debug-only event fixtures live in [the combined debug source set](../dikcizDebug/README.md); the control planes remain in this release source set.
+Both remote listeners default to device loopback and execute through the same command target. The owner can configure a numeric network listen address in `control/ports.json`. The configuration watcher applies address and port edits by restarting the listeners, without rebuilding the home. Keep human accessibility labels readable and machine identities in the semantic snapshot. The [automation-control guide](../../../docs/automation-control.md) owns commands, events, authentication, origin checks and limits. Debug-only event fixtures live in [the combined debug source set](../dikcizDebug/README.md); the control planes remain in this release source set.
 
 The [flavour JVM tests](../testDikciz/README.md) cover grid rules. The [live control suite](../../../tests/live_control/README.md) covers Android UI, persistence and public control behavior.

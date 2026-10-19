@@ -10,6 +10,8 @@ internal object DikcizControlStatus {
         safeModeAllowedTapSemanticIDs: Set<String>,
         websocketPort: Int,
         mcpPort: Int,
+        websocketListenAddress: String,
+        mcpListenAddress: String,
     ): JSONObject {
         return JSONObject()
             .put(KEY_PROTOCOL_VERSION, DikcizAutomationControlPlane.PROTOCOL_VERSION)
@@ -22,25 +24,32 @@ internal object DikcizControlStatus {
                 KEY_SAFE_MODE_ALLOWED_TAP_IDS,
                 JSONArray(safeModeAllowedTapSemanticIDs.sorted()),
             )
-            .put(KEY_TRANSPORTS, transports(websocketPort, mcpPort))
+            .put(KEY_TRANSPORTS, transports(websocketPort, mcpPort, websocketListenAddress, mcpListenAddress))
             .put(KEY_LIMITS, limits())
             .put(KEY_COMMANDS, commandSpecifications())
             .put(KEY_EVENTS, eventSpecifications())
             .put(KEY_PLACEMENT_FAILURES, placementFailures())
     }
 
-    private fun transports(websocketPort: Int, mcpPort: Int): JSONObject {
+    private fun transports(
+        websocketPort: Int,
+        mcpPort: Int,
+        websocketListenAddress: String,
+        mcpListenAddress: String,
+    ): JSONObject {
         return JSONObject()
             .put(
                 KEY_WEBSOCKET,
                 JSONObject()
                     .put(KEY_PATH, DikcizAutomationControlPlane.CONTROL_PATH)
+                    .put(DikcizControlPorts.KEY_LISTEN_ADDRESS, websocketListenAddress)
                     .put(KEY_PORT, websocketPort),
             )
             .put(
                 KEY_MCP,
                 JSONObject()
                     .put(KEY_PATH, DikcizMcpControlPlane.MCP_PATH)
+                    .put(DikcizControlPorts.KEY_LISTEN_ADDRESS, mcpListenAddress)
                     .put(KEY_PORT, mcpPort),
             )
     }

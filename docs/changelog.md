@@ -2,6 +2,23 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.15.3] - 2026-10-19
+
+### Added
+
+- WebSocket and MCP listeners accept a configurable numeric IPv4 or IPv6 `listenAddress` in `control/ports.json` and the native control-port settings. Set `0.0.0.0` for direct IPv4 connections over a private network or VPN without USB forwarding. Existing records retain the `127.0.0.1` default.
+- `controlStatus.transports` reports each listener's `listenAddress` alongside its port and path.
+
+### Changed
+
+- Editing, atomically replacing or deleting `control/ports.json` automatically rebinds both listeners when their effective address or ports change, including while another Android app is in front. Rewriting unchanged endpoints keeps current connections open.
+- The README, connection walkthrough, configuration reference, user guide and agent setup describe direct network access, bearer authentication, directional network policies and connection troubleshooting.
+
+### Migration
+
+- Existing installations keep their loopback binding and ADB forwards. For direct access, enable bearer authentication, choose a network listen address, and connect to the phone's reachable hostname or IP using its device ports. Allow traffic from the controlling computer to those ports in the network policy.
+- Invalid listener configuration falls back to `127.0.0.1:19001` and `127.0.0.1:19002`. A changed endpoint closes current connections; reconnect using the new settings.
+
 ## [0.15.2] - 2026-10-19
 
 ### Fixed

@@ -7,14 +7,75 @@ Dikciz exposes two versioned local control planes. They call the same launcher c
 | WebSocket | `ws://127.0.0.1:19001/v1/automation` | `ws://127.0.0.1:19101/v1/automation` |
 | Streamable HTTP MCP | `http://127.0.0.1:19002/mcp` | `http://127.0.0.1:19102/mcp` |
 
-Both listeners bind only to device loopback. The ports above are the defaults; change them on the phone as described in [Control ports](dikciz-configuration.md#control-ports). ADB forwarding is the normal remote route. `make forward` creates generic host-loopback forwards on `19001` and `19002`. `make dikciz-run` owns its separate `19101` and `19102` forwards.
+Both listeners default to device loopback. Set their listen address and ports through `control/ports.json` or Settings as described in [Control ports](dikciz-configuration.md#control-ports). Use ADB forwarding with loopback binding, or configure a network address for direct private-network access without USB. `make forward` creates generic host-loopback forwards on `19001` and `19002`. `make dikciz-run` owns its separate `19101` and `19102` forwards.
+
+## Connect without USB
+
+A signed release APK includes both interfaces. Direct access needs Python on the controlling computer or a native Streamable HTTP MCP client, a reachable private network, and the phone's own Android access grants. It does not need Android Lab, an emulator, ADB, root or a USB cable.
+
+### Set up the phone
+
+1. Install Dikciz, select it as Home, and grant shared-storage access so it can read `/sdcard/Dikciz/`.
+2. If using Tailscale, connect both devices to the tailnet. Check its access policy for traffic **from the computer running the client to the phone**, on TCP ports `19001` and `19002` or your configured replacements. An allowed connection in the reverse direction is insufficient.
+3. In Dikciz, open **Settings**, **Automation**, **Configure remote bearer authentication**. Set a password and enable authentication before choosing a network binding.
+4. Open **Configure control ports**. Set **Listen address** to `0.0.0.0`, keep distinct WebSocket and MCP ports, and save. Alternatively, save this complete record at `/sdcard/Dikciz/control/ports.json`:
+
+```json
+{
+  "version": 1,
+  "listenAddress": "0.0.0.0",
+  "websocketPort": 19001,
+  "mcpPort": 19002
+}
+```
+
+`0.0.0.0` binds all IPv4 interfaces, including Wi-Fi and a reachable VPN interface. It is not the address to enter in a client. A numeric address assigned to one local interface also works; it must exist when the listener binds. IPv6 bindings use numeric addresses such as `::1` or `::`. Existing files without `listenAddress` keep device loopback. The [configuration reference](dikciz-configuration.md#control-ports) defines validation and fallback behavior.
+
+Endpoint changes restart both listeners automatically, close current connections and invalidate MCP sessions. This also works while another Android app is in front. Reconnect and repeat protocol initialization at the new endpoint. Saving identical endpoints leaves existing connections open.
+
+### Connect from the controlling computer
+
+Replace `phone.example` below with the phone's reachable private hostname or IP. For Tailscale, use the phone's name shown in your tailnet or its Tailscale IP. Run the client on the computer your access policy allows. A build server or another SSH host can have different access rules even when it sees the same online phone.
+
+The Python client reads `DIKCIZ_REMOTE_BEARER_TOKEN` from its environment. Load the password from your secret store or ignored environment file. In an interactive Bash terminal, this prompts without echoing it or putting it in shell history:
+
+```bash
+read -r -s -p 'Dikciz bearer password: ' DIKCIZ_REMOTE_BEARER_TOKEN
+printf '\n'
+export DIKCIZ_REMOTE_BEARER_TOKEN
+python3 scripts/dikciz-control.py websocket controlStatus --host phone.example --port 19001 --pretty
+python3 scripts/dikciz-control.py mcp-tools --host phone.example --port 19002 --pretty
+python3 scripts/dikciz-control.py mcp dikciz_snapshot --host phone.example --port 19002 --pretty
+```
+
+Run from a checkout so the client's companion Python modules are available. It uses the Python standard library and handles protocol negotiation itself. Successful discovery should report `listenAddress: "0.0.0.0"` and the configured ports. The MCP snapshot should return the current launcher screen.
+
+Configure a native MCP client with transport **Streamable HTTP**, URL `http://phone.example:19002/mcp`, and an `Authorization: Bearer <password>` header through that client's secret configuration. The WebSocket endpoint is `ws://phone.example:19001/v1/automation`. Use the phone's device ports, not the `19101` and `19102` host ports used by the lab's ADB forwards.
+
+The endpoints do not provide TLS themselves. An encrypted VPN protects traffic over its tunnel; a direct Wi-Fi connection needs a trusted network. A wildcard bind also makes the ports available to reachable Wi-Fi clients. Bearer authentication and network access rules remain separate controls.
+
+### Diagnose a failed connection
+
+| Symptom | Check |
+| --- | --- |
+| Hostname fails, IP works | Name resolution on the computer running the client. Use the phone's reachable private IP while fixing DNS. |
+| TCP connection times out | The phone's binding, client-to-phone access policy, routes and filtering. A Tailscale tunnel ping alone does not prove application reachability. |
+| Connection refused | Dikciz is running, both ports are correct, and no other app owns a selected port. Read the listener status and logs on the phone. |
+| `401 Unauthorized` | Authentication is enabled and the client has the current bearer password. Network reachability is already working. |
+| `403 Forbidden` from a browser | Browser Origin restrictions apply on network bindings too. Use a native client rather than weakening those checks. |
+| `GET /mcp` returns `405` | Expected. MCP requires initialized POST requests; use `mcp-tools` for a protocol check. |
+| MCP tools connect but an action is denied | Check `automationStatus`, the relevant Android permission or special access, and any automation policy required for the action. |
+
+From the controlling computer, `nc -vz phone.example 19001` and `nc -vz phone.example 19002` test TCP reachability when netcat is installed. If debugging through an authorized ADB connection, `adb -s "$SERIAL" shell 'nc -n -z -w 3 127.0.0.1 19001'` checks the listener internally. Repeat for port `19002`, and use the phone's interface IP to distinguish a loopback-only binding. Internal success does not prove another device can connect.
+
+If direct access is unwanted, keep `127.0.0.1` and use [ADB forwarding](../.agents/skills/dikciz-launcher/references/setup.md#forward-the-control-ports). Deleting `control/ports.json` or choosing **Reset to defaults** restores loopback and the default device ports.
 
 ## Who can connect
 
-Device loopback keeps the network out, but not other software on the phone.
+The default device-loopback binding accepts local software. An explicitly configured network address also accepts clients that can reach that interface and port. For example, `0.0.0.0` listens on every IPv4 interface. Tailscale access depends on the controlling computer being allowed to reach the phone and the chosen TCP ports in the tailnet access policy. Rules can allow phone-to-computer traffic while denying computer-to-phone traffic.
 
 - Web pages: browsers send an `Origin` header that page scripts cannot change. Both planes refuse every origin except `http(s)://127.0.0.1` and `http(s)://localhost` on any port. A WebSocket upgrade from another origin, including the opaque `null` origin, gets `403 Forbidden`. A page served from a permitted loopback origin can connect; a page served from an external origin cannot.
-- Native clients: the Dikciz client, anything reaching the phone through ADB forwarding, Termux scripts and other apps send no `Origin` and are accepted.
+- Native clients: the Dikciz client, clients reaching a configured network interface or ADB forward, Termux scripts and other apps send no `Origin` and are accepted.
 - Installed apps: any app on the phone can open a socket to `127.0.0.1`. While the bearer password is off, that app can run every command Dikciz offers with Dikciz's permissions, including shell commands, intents, SMS and Accessibility input. Turn the bearer password on if you install apps you do not trust.
 
 ## Discover the current build
@@ -27,7 +88,7 @@ python3 scripts/dikciz-control.py websocket automationStatus --port 19101 --pret
 python3 scripts/dikciz-control.py mcp-tools --port 19102 --pretty
 ```
 
-`controlStatus` lists the protocol version, commands, fields, matching MCP tools, input limits, safe-mode state, and persistent event schema. `automationStatus` lists current Android access, policy vocabulary, event subscription fields, and available sensors. Treat these responses as the source of truth for a running build.
+`controlStatus.transports` reports each listener's current `listenAddress` and `port`. File edits restart the affected listeners automatically. `controlStatus` lists the protocol version, commands, fields, matching MCP tools, input limits, safe-mode state, and persistent event schema. `automationStatus` lists current Android access, policy vocabulary, event subscription fields, and available sensors. Treat these responses as the source of truth for a running build.
 
 The supplied client is dependency-free:
 

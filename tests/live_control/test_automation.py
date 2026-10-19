@@ -200,7 +200,6 @@ def test_automation_public_file_reload_preserves_last_accepted_service_configura
             ARTIFACT_FILE=AUTOMATION_LIVE_SCRIPT_ARTIFACT_NAME,
         )
         time.sleep(CONFIGURATION_RELOAD_SETTLE_SECONDS)
-        restore_system_home()
         device_command(f"dumpsys battery set level {AUTOMATION_RELOAD_BATTERY_LEVEL}")
         emulator_power_set("off")
         emulator_power_set("on")
@@ -227,7 +226,6 @@ def test_automation_public_file_reload_preserves_last_accepted_service_configura
             ARTIFACT_FILE=AUTOMATION_LIVE_SCRIPT_ARTIFACT_NAME,
         )
         time.sleep(CONFIGURATION_RELOAD_SETTLE_SECONDS)
-        restore_system_home()
         emulator_power_set("off")
         with connected_websocket_control() as resumed_control:
             wait_for_automation_script_state(

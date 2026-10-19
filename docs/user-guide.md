@@ -201,12 +201,18 @@ Choose a theme to apply its saved colors, fonts, and style defaults. Applying a 
 
 ### Connect Dikciz to a computer
 
-Open **Settings**, then **Automation**, to configure the WebSocket and MCP ports and set, replace, clear, enable, or disable their optional bearer password. The password protects remote connections only. Changing or clearing it on the phone does not require knowing the old password.
+Open **Settings**, then **Automation**, to configure the WebSocket and MCP listen address and ports and set, replace, clear, enable, or disable their optional bearer password. The password protects remote connections only. Changing or clearing it on the phone does not require knowing the old password.
 
-The interfaces listen only on the phone's loopback address. You choose how to connect another machine, such as an ADB forward. The technical commands, protocol, event stream, remote authentication, logs, screenshots, UI inspection, and configuration actions are documented in [automation control](automation-control.md).
+The interfaces default to the phone's loopback address. Choose a network listen address, such as `0.0.0.0` for all IPv4 interfaces, to connect directly over a reachable private network or VPN. ADB forwarding remains available with the default loopback binding. The technical commands, protocol, event stream, remote authentication, logs, screenshots, UI inspection, and configuration actions are documented in [automation control](automation-control.md).
+
+### Connect without keeping a USB cable attached
+
+Connect the phone and controlling computer to your private network or Tailscale network. In **Settings**, **Automation**, set and enable a remote bearer password, then open **Configure control ports**, enter `0.0.0.0` as the listen address and save. Connect the computer's client to the phone's private hostname or IP on device ports `19001` for WebSocket and `19002` for MCP. The network policy must allow traffic from that computer to the phone. `0.0.0.0` means listen on all IPv4 interfaces; it is not the hostname to enter in the computer's client.
+
+Saving a changed endpoint closes existing connections, so reconnect with the new settings. Keep `127.0.0.1` if you prefer ADB forwarding. The [USB-free walkthrough](automation-control.md#connect-without-usb) covers client commands, password handling, network exposure and troubleshooting.
 
 ## Edit the public files directly
 
-All user-editable files live below `/sdcard/Dikciz/`. `config.json` is the root. Pages, widgets, themes, fonts, wallpapers, HTML packages, scripts, policies, remote-auth settings, and logs each have their own directory. Valid configuration and rendering-asset changes reload automatically. Direct edits to `control/ports.json` take effect when the listeners restart. An invalid file leaves the last accepted home running and adds the reason to the local log.
+All user-editable files live below `/sdcard/Dikciz/`. `config.json` is the root. Pages, widgets, themes, fonts, wallpapers, HTML packages, scripts, policies, remote-auth settings, and logs each have their own directory. Valid configuration and rendering-asset changes reload automatically. Direct edits to `control/ports.json` automatically restart both listeners when the listen address or ports change. Other valid file edits refresh their owning component. An invalid file leaves the last accepted home running and adds the reason to the local log.
 
 Use a file manager on the phone, an ADB connection, or a remote-control client to edit those files. The [configuration guide](dikciz-configuration.md) lists every path, field, validation rule, and recovery path.

@@ -8,6 +8,7 @@ import argparse
 import base64
 import copy
 import hashlib
+import ipaddress
 import json
 import secrets
 import socket
@@ -182,6 +183,7 @@ KEY_SNAPSHOT = "snapshot"
 KEY_TEXT = "text"
 KEY_TIMEOUT_MILLISECONDS = "timeoutMilliseconds"
 KEY_TRANSPORTS = "transports"
+KEY_LISTEN_ADDRESS = "listenAddress"
 KEY_TYPE = "type"
 KEY_VISIBLE = "visible"
 KEY_WIDGETS = "widgets"
@@ -578,7 +580,7 @@ CONTROL_STATUS_SIDE_EFFECT_INTERACTIVE = "interactive"
 CONTROL_STATUS_SIDE_EFFECT_LAUNCHER = "launcher"
 CONTROL_STATUS_SIDE_EFFECT_READ = "read"
 CONTROL_STATUS_TRANSPORT_KEYS = {KEY_MCP, KEY_WEBSOCKET}
-CONTROL_STATUS_TRANSPORT_VALUE_KEYS = {KEY_PATH, KEY_PORT}
+CONTROL_STATUS_TRANSPORT_VALUE_KEYS = {KEY_PATH, KEY_PORT, KEY_LISTEN_ADDRESS}
 CONTROL_STATUS_WEBSOCKET_PATH = "/v1/automation"
 CONTROL_STATUS_MCP_PATH = "/mcp"
 CONTROL_STATUS_WEBSOCKET_PORT = 19_001
@@ -966,8 +968,13 @@ def verify_control_status(connection: socket.socket) -> dict[str, Any]:
             or set(transport) != CONTROL_STATUS_TRANSPORT_VALUE_KEYS
             or transport.get(KEY_PATH) != path
             or transport.get(KEY_PORT) != port
+            or not isinstance(transport.get(KEY_LISTEN_ADDRESS), str)
         ):
             raise WebSocketProtocolError("control status returned an invalid transport entry")
+        try:
+            ipaddress.ip_address(transport[KEY_LISTEN_ADDRESS])
+        except ValueError as exception:
+            raise WebSocketProtocolError("control status returned an invalid listen address") from exception
     limits = status.get(KEY_LIMITS)
     if not isinstance(limits, dict) or set(limits) != CONTROL_STATUS_LIMIT_KEYS:
         raise WebSocketProtocolError("control status returned invalid limits")

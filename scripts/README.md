@@ -22,6 +22,6 @@ The shared test runner validates the checked-in fixture path, waits for both for
 
 Physical-phone operations use a separate controller and an explicitly selected physical acceptance workflow. They do not restore an older launcher configuration after testing.
 
-The control client reads bearer credentials from `DIKCIZ_REMOTE_BEARER_TOKEN` by default. Keep credentials in ignored local environment files rather than command arguments. See the [automation-control guide](../docs/automation-control.md) for connections and authentication.
+The control client reads bearer credentials from `DIKCIZ_REMOTE_BEARER_TOKEN` by default. Keep credentials in ignored local environment files rather than command arguments. Pass `--host` and the device port to connect directly over a private network, or use the host forwarding port for ADB. Run the client on the computer permitted by the network policy, which may differ from the build host. See the [automation-control guide](../docs/automation-control.md#connect-without-usb) for connections and authentication.
 
 Fossify replacement requires `DIKCIZ_UPSTREAM_REFRESH=1`, a newer release marker, clean overlay application, and a verified backup. See the [Fossify source map](../.fossify/README.md) and root [source-update instructions](../README.md#fossify-source-updates).

@@ -130,7 +130,12 @@ class DikcizHomeActivity : Activity() {
     private var providerAutomationRenderTokenSequence = INITIAL_PROVIDER_AUTOMATION_RENDER_TOKEN
     private var activeTheme: DikcizTheme? = null
     private var homeConfiguration: HomeConfiguration? = null
-    private val homeConfigFileObservers = mutableListOf<HomeConfigFileObserver>()
+    private val controlConfigFileObservers = mutableListOf<ConfigurationFileObserver>()
+    private var controlConfigFingerprint: String? = null
+    private var appliedControlPorts: DikcizControlPortsStatus? = null
+    private val pollControlConfigurationRunnable = Runnable(::pollControlConfiguration)
+    private val restartControlPlanesRunnable = Runnable(::refreshControlConfiguration)
+    private val configurationFileObservers = mutableListOf<ConfigurationFileObserver>()
     private var pendingProviderWidget: PendingProviderWidget? = null
     private var pendingProviderReconfiguration: ProviderHomeWidget? = null
     private var activeWidgetEdit: ActiveWidgetEdit? = null
@@ -255,14 +260,12 @@ class DikcizHomeActivity : Activity() {
             automationTarget,
             dikcizLogger,
             remoteAccessAuth,
-            controlPorts::websocketPort,
         )
         mcpControlPlane = DikcizMcpControlPlane(
             mainHandler,
             automationTarget,
             dikcizLogger,
             remoteAccessAuth,
-            controlPorts::mcpPort,
         )
         DikcizAutomationEventBus.setHtmlDomPatchListener(applicationContext, ::patchRenderedHtmlDom)
         dikcizLogger.info(EVENT_ACTIVITY_CREATED)
@@ -320,6 +323,10 @@ class DikcizHomeActivity : Activity() {
 
     override fun onDestroy() {
         dismissStartupBrand()
+        controlConfigFileObservers.forEach(ConfigurationFileObserver::stopWatching)
+        controlConfigFileObservers.clear()
+        mainHandler.removeCallbacks(pollControlConfigurationRunnable)
+        mainHandler.removeCallbacks(restartControlPlanesRunnable)
         configurationPollExecutor.shutdownNow()
         mainHandler.removeCallbacks(retryControlPlaneStartRunnable)
         DikcizClipboardMonitor.stop()
@@ -603,11 +610,14 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun startControlPlanesIfNeeded() {
+        startControlConfigurationObserver()
         if (controlPlanesStarted || isControlPlaneStartRetryScheduled || isFinishing || isDestroyed) {
             return
         }
-        val automationStarted = automationControlPlane.start()
-        val mcpStarted = mcpControlPlane.start()
+        val listenerConfiguration = controlPorts.status()
+        appliedControlPorts = listenerConfiguration
+        val automationStarted = automationControlPlane.start(controlPorts.websocketEndpoint(listenerConfiguration))
+        val mcpStarted = mcpControlPlane.start(controlPorts.mcpEndpoint(listenerConfiguration))
         if (!automationStarted || !mcpStarted) {
             automationControlPlane.stop()
             mcpControlPlane.stop()
@@ -622,7 +632,63 @@ class DikcizHomeActivity : Activity() {
         controlPlaneStartAttemptsRemaining = CONTROL_PLANE_START_ATTEMPTS
     }
 
-    /** Rebinds both control planes on the ports currently saved in `control/ports.json`. */
+    private fun startControlConfigurationObserver() {
+        if (controlConfigFileObservers.isNotEmpty() || !homeConfigStore.hasSharedStorageAccess()) return
+        replaceControlConfigurationObservers()
+        mainHandler.post(pollControlConfigurationRunnable)
+    }
+
+    private fun replaceControlConfigurationObservers() {
+        controlConfigFileObservers.forEach(ConfigurationFileObserver::stopWatching)
+        controlConfigFileObservers.clear()
+        val root = homeConfigStore.configurationFile.parentFile ?: return
+        listOf(root, File(root, DikcizRemoteAccessAuth.CONTROL_DIRECTORY_NAME))
+            .filter(File::isDirectory)
+            .forEach { directory ->
+                controlConfigFileObservers += ConfigurationFileObserver(
+                    directory,
+                    ::scheduleControlConfigurationRefresh,
+                ).also(ConfigurationFileObserver::startWatching)
+            }
+    }
+
+    private fun scheduleControlConfigurationRefresh() {
+        mainHandler.post {
+            mainHandler.removeCallbacks(restartControlPlanesRunnable)
+            mainHandler.postDelayed(restartControlPlanesRunnable, CONTROL_PORTS_RESTART_DELAY_MILLISECONDS)
+        }
+    }
+
+    private fun refreshControlConfiguration() {
+        if (isDestroyed || isFinishing) return
+        val status = controlPorts.status()
+        val previous = appliedControlPorts
+        if (previous != null && status.listenAddress == previous.listenAddress &&
+            status.websocketPort == previous.websocketPort && status.mcpPort == previous.mcpPort
+        ) return
+        restartControlPlanes()
+    }
+
+    private fun pollControlConfiguration() {
+        if (isDestroyed || isFinishing) return
+        configurationPollExecutor.execute {
+            val root = homeConfigStore.configurationFile.parentFile
+            val directory = File(root, DikcizRemoteAccessAuth.CONTROL_DIRECTORY_NAME)
+            val fingerprint = directoryFingerprint(directory, emptySet())
+            mainHandler.post {
+                if (isDestroyed || isFinishing) return@post
+                if (fingerprint != controlConfigFingerprint) {
+                    controlConfigFingerprint = fingerprint
+                    replaceControlConfigurationObservers()
+                    scheduleControlConfigurationRefresh()
+                }
+                mainHandler.removeCallbacks(pollControlConfigurationRunnable)
+                mainHandler.postDelayed(pollControlConfigurationRunnable, CONFIGURATION_POLL_INTERVAL_MS)
+            }
+        }
+    }
+
+    /** Rebinds both control planes using the current public listener configuration. */
     private fun restartControlPlanes() {
         mainHandler.removeCallbacks(retryControlPlaneStartRunnable)
         isControlPlaneStartRetryScheduled = false
@@ -647,7 +713,7 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun startConfigurationObserver() {
-        if (homeConfigFileObservers.isNotEmpty()) {
+        if (configurationFileObservers.isNotEmpty()) {
             dikcizLogger.debug(EVENT_CONFIGURATION_OBSERVER_ALREADY_RUNNING)
             return
         }
@@ -656,20 +722,20 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun startConfigurationErrorObserver() {
-        if (homeConfigFileObservers.isNotEmpty()) return
+        if (configurationFileObservers.isNotEmpty()) return
         val configurationDirectory = homeConfigStore.configurationFile.parentFile ?: return
-        homeConfigFileObservers += HomeConfigFileObserver(
+        configurationFileObservers += ConfigurationFileObserver(
             configurationDirectory,
             { scheduleConfigurationReload() },
             setOf(DikcizRemoteAccessAuth.CONTROL_DIRECTORY_NAME),
-        ).also(HomeConfigFileObserver::startWatching)
+        ).also(ConfigurationFileObserver::startWatching)
         startConfigurationTreePolling(null)
         dikcizLogger.info(EVENT_CONFIGURATION_OBSERVER_STARTED)
     }
 
     private fun stopConfigurationObserver() {
-        homeConfigFileObservers.forEach(HomeConfigFileObserver::stopWatching)
-        homeConfigFileObservers.clear()
+        configurationFileObservers.forEach(ConfigurationFileObserver::stopWatching)
+        configurationFileObservers.clear()
         mainHandler.removeCallbacks(reloadConfigurationRunnable)
         mainHandler.removeCallbacks(pollConfigurationTreeRunnable)
         configurationTreeFingerprints = null
@@ -677,8 +743,8 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun replaceConfigurationObservers(configuration: HomeConfiguration) {
-        homeConfigFileObservers.forEach(HomeConfigFileObserver::stopWatching)
-        homeConfigFileObservers.clear()
+        configurationFileObservers.forEach(ConfigurationFileObserver::stopWatching)
+        configurationFileObservers.clear()
         val configurationDirectory = homeConfigStore.configurationFile.parentFile?.absolutePath
         val renderingAssetDirectories = setOf(
             homeConfigStore.themeDirectory.absolutePath,
@@ -691,7 +757,7 @@ class DikcizHomeActivity : Activity() {
             } else {
                 emptySet()
             }
-            homeConfigFileObservers += HomeConfigFileObserver(
+            configurationFileObservers += ConfigurationFileObserver(
                 directory,
                 {
                     scheduleConfigurationReload(
@@ -700,7 +766,7 @@ class DikcizHomeActivity : Activity() {
                 },
                 ignoredPaths,
             )
-                .also(HomeConfigFileObserver::startWatching)
+                .also(ConfigurationFileObserver::startWatching)
         }
         startConfigurationTreePolling(configuration)
     }
@@ -758,7 +824,7 @@ class DikcizHomeActivity : Activity() {
         configurationPollExecutor.execute {
             val fingerprints = currentConfigurationFingerprints(configuration)
             mainHandler.post {
-                if (homeConfigFileObservers.isEmpty()) return@post
+                if (configurationFileObservers.isEmpty()) return@post
                 onScanned(fingerprints)
                 mainHandler.removeCallbacks(pollConfigurationTreeRunnable)
                 mainHandler.postDelayed(
@@ -849,7 +915,7 @@ class DikcizHomeActivity : Activity() {
             }
             homeConfiguration = configuration
             syncAutomationService(configuration)
-            if (homeConfigFileObservers.isNotEmpty()) {
+            if (configurationFileObservers.isNotEmpty()) {
                 replaceConfigurationObservers(configuration)
             }
             dikcizLogger.info(
@@ -3670,6 +3736,8 @@ class DikcizHomeActivity : Activity() {
                 SAFE_MODE_ACTION_SEMANTIC_IDS,
                 automationControlPlane.port,
                 mcpControlPlane.port,
+                automationControlPlane.listenAddress,
+                mcpControlPlane.listenAddress,
             )
             DikcizAutomationControlPlane.TYPE_CONFIG_REPLACE -> replaceAutomationConfiguration(command)
             DikcizAutomationControlPlane.TYPE_CONFIG_SEED -> replaceAutomationConfiguration(command)
@@ -6849,6 +6917,12 @@ class DikcizHomeActivity : Activity() {
             text = controlPortsSummary(initialStatus)
             contentDescription = text
         }
+        val listenAddressInput = EditText(this).apply {
+            hint = getString(R.string.dikciz_control_listen_address)
+            contentDescription = hint
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            setText(initialStatus.listenAddress)
+        }
         val websocketPortInput = EditText(this).apply {
             hint = getString(R.string.dikciz_control_ports_websocket)
             contentDescription = hint
@@ -6869,6 +6943,7 @@ class DikcizHomeActivity : Activity() {
                 contentDescription = text
             })
             addView(summary)
+            addView(listenAddressInput)
             addView(websocketPortInput)
             addView(mcpPortInput)
         }
@@ -6883,8 +6958,16 @@ class DikcizHomeActivity : Activity() {
                     return@setOnClickListener
                 }
                 try {
-                    controlPorts.setFromPhone(websocketPort, mcpPort)
+                    controlPorts.setFromPhone(
+                        websocketPort,
+                        mcpPort,
+                        listenAddressInput.text.toString(),
+                    )
                 } catch (exception: DikcizControlPortsException) {
+                    if (exception.code == DikcizControlPorts.ERROR_ADDRESS_INVALID) {
+                        listenAddressInput.error = getString(R.string.dikciz_control_listen_address_invalid)
+                        return@setOnClickListener
+                    }
                     websocketPortInput.error = getString(
                         if (exception.code == DikcizControlPorts.ERROR_PORTS_EQUAL) {
                             R.string.dikciz_control_ports_equal
@@ -6912,6 +6995,7 @@ class DikcizHomeActivity : Activity() {
                     return@setOnClickListener
                 }
                 val defaults = controlPorts.status()
+                listenAddressInput.setText(defaults.listenAddress)
                 websocketPortInput.setText(defaults.websocketPort.toString())
                 mcpPortInput.setText(defaults.mcpPort.toString())
                 applyControlPortsChange(summary)
@@ -6928,6 +7012,7 @@ class DikcizHomeActivity : Activity() {
             dialog,
             onShown = {
                 clearControlPortsAutomationViews()
+                registerAutomationView(SEMANTIC_CONTROL_PORTS_LISTEN_ADDRESS, listenAddressInput)
                 registerAutomationView(SEMANTIC_CONTROL_PORTS_WEBSOCKET, websocketPortInput)
                 registerAutomationView(SEMANTIC_CONTROL_PORTS_MCP, mcpPortInput)
                 registerAutomationView(SEMANTIC_CONTROL_PORTS_SAVE, saveButton)
@@ -6950,14 +7035,14 @@ class DikcizHomeActivity : Activity() {
         summary.text = controlPortsSummary(controlPorts.status())
         summary.contentDescription = summary.text
         Toast.makeText(this, R.string.dikciz_control_ports_saved, Toast.LENGTH_SHORT).show()
-        mainHandler.postDelayed(::restartControlPlanes, CONTROL_PORTS_RESTART_DELAY_MILLISECONDS)
+        scheduleControlConfigurationRefresh()
     }
 
     private fun controlPortsSummary(status: DikcizControlPortsStatus): String {
         if (!status.valid) {
-            return getString(R.string.dikciz_control_ports_status_invalid, status.websocketPort, status.mcpPort)
+            return getString(R.string.dikciz_control_ports_status_invalid, status.websocketPort, status.mcpPort, status.listenAddress)
         }
-        return getString(R.string.dikciz_control_ports_status, status.websocketPort, status.mcpPort)
+        return getString(R.string.dikciz_control_ports_status, status.websocketPort, status.mcpPort, status.listenAddress)
     }
 
     private fun clearControlPortsAutomationViews() {
@@ -10529,7 +10614,7 @@ class DikcizHomeActivity : Activity() {
         cleanupRemovedProviderWidgets(currentConfiguration, updatedConfiguration)
         homeConfiguration = updatedConfiguration
         syncAutomationService(updatedConfiguration)
-        if (homeConfigFileObservers.isNotEmpty()) {
+        if (configurationFileObservers.isNotEmpty()) {
             replaceConfigurationObservers(updatedConfiguration)
         }
         dikcizLogger.debug(EVENT_CONFIGURATION_SAVE_COMPLETED)
@@ -10894,7 +10979,7 @@ class DikcizHomeActivity : Activity() {
     }
 
     @Suppress("DEPRECATION")
-    private class HomeConfigFileObserver(
+    private class ConfigurationFileObserver(
         directory: File,
         private val onConfigurationChange: () -> Unit,
         private val ignoredPaths: Set<String> = emptySet(),
@@ -11736,6 +11821,7 @@ class DikcizHomeActivity : Activity() {
         const val SEMANTIC_CONTROL_PORTS_MCP = "${SEMANTIC_CONTROL_PORTS_PREFIX}mcp"
         const val SEMANTIC_CONTROL_PORTS_RESET = "${SEMANTIC_CONTROL_PORTS_PREFIX}reset"
         const val SEMANTIC_CONTROL_PORTS_SAVE = "${SEMANTIC_CONTROL_PORTS_PREFIX}save"
+        const val SEMANTIC_CONTROL_PORTS_LISTEN_ADDRESS = "${SEMANTIC_CONTROL_PORTS_PREFIX}listen-address"
         const val SEMANTIC_CONTROL_PORTS_WEBSOCKET = "${SEMANTIC_CONTROL_PORTS_PREFIX}websocket"
         const val CONTROL_PORTS_RESTART_DELAY_MILLISECONDS = 500L
         const val SEMANTIC_REMOTE_AUTH_PREFIX = "remote-auth:"

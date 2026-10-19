@@ -8,6 +8,7 @@ import argparse
 import base64
 import copy
 import http.client
+import ipaddress
 import itertools
 import json
 import time
@@ -155,6 +156,7 @@ KEY_SCRIPT_LOGS_TRUNCATED = "truncated"
 KEY_SCRIPT_ID = "scriptId"
 KEY_TIMEOUT_MILLISECONDS = "timeoutMilliseconds"
 KEY_TRANSPORTS = "transports"
+KEY_LISTEN_ADDRESS = "listenAddress"
 KEY_STRUCTURED_CONTENT = "structuredContent"
 KEY_TOOLS = "tools"
 KEY_TYPE = "type"
@@ -400,7 +402,7 @@ CONTROL_STATUS_SIDE_EFFECTS = {
     CONTROL_STATUS_READ_SIDE_EFFECT,
 }
 CONTROL_STATUS_TRANSPORT_KEYS = {KEY_MCP, KEY_WEBSOCKET}
-CONTROL_STATUS_TRANSPORT_VALUE_KEYS = {KEY_PATH, KEY_PORT}
+CONTROL_STATUS_TRANSPORT_VALUE_KEYS = {KEY_PATH, KEY_PORT, KEY_LISTEN_ADDRESS}
 CONTROL_STATUS_WEBSOCKET_PATH = "/v1/automation"
 CONTROL_STATUS_MCP_PATH = "/mcp"
 CONTROL_STATUS_WEBSOCKET_PORT = 19_001
@@ -799,8 +801,13 @@ def verify_control_status(
             or set(transport) != CONTROL_STATUS_TRANSPORT_VALUE_KEYS
             or transport.get(KEY_PATH) != path
             or transport.get(KEY_PORT) != port
+            or not isinstance(transport.get(KEY_LISTEN_ADDRESS), str)
         ):
             raise McpProtocolError("control status returned an invalid transport entry")
+        try:
+            ipaddress.ip_address(transport[KEY_LISTEN_ADDRESS])
+        except ValueError as exception:
+            raise McpProtocolError("control status returned an invalid listen address") from exception
     limits = status.get(KEY_LIMITS)
     if not isinstance(limits, dict) or set(limits) != CONTROL_STATUS_LIMIT_KEYS:
         raise McpProtocolError("control status returned invalid limits")
