@@ -2,7 +2,7 @@
 
 This combined source set adds shell-driven test receivers to `dikcizDebug`. The launcher and its WebSocket, MCP and scripting interfaces live in the shared [Dikciz flavour](../dikciz/README.md), including release builds.
 
-`AndroidManifest.xml` exports each fixture receiver with the `android.permission.DUMP` sender requirement. `res/values/strings.xml` overrides the inherited launcher label to `Dikciz` for the debug variant.
+`AndroidManifest.xml` exports each fixture receiver with the `android.permission.DUMP` sender requirement. `res/values/strings.xml` overrides both launcher-name resources to `Dikciz (debug)` for the debug variant. Android Home selection, app info and the app drawer distinguish it from the release app named `Dikciz`.
 
 The receiver classes in `kotlin/org/fossify/home/dikciz/` accept only actions named by `DikcizAutomationDebugContract` in the shared flavour:
 

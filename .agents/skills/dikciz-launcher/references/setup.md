@@ -103,6 +103,8 @@ python3 scripts/dikciz-control.py events --port 19101 --count 10 --idle-timeout-
 
 `--arguments` accepts a JSON object or `@path/to/file.json`. Use `--host` and `--port` for the actual private endpoint. Read [automation control](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/automation-control.md) for errors, supported actions and limits.
 
+App and activity launch verification also needs the owner-enabled Accessibility service. Read the returned `activityLaunches` records: `accepted` only means the Android launch call returned without throwing. Only `verified: true` with `outcome: "launched"` confirms a stable visible target window. Missing Accessibility returns `launch_unverified`; request that access through the documented owner-review flow before explicitly retrying an authorized operation.
+
 ## Authentication and permission failures
 
 The phone owner can configure bearer authentication in **Settings**, **Automation**, **Configure remote bearer authentication**. When enabled, both protocols require `Authorization: Bearer <password>`. The client reads `DIKCIZ_REMOTE_BEARER_TOKEN` from the environment. Obtain it from the user's secret store or ignored local environment, not from the public configuration. The phone stores a bcrypt verifier, not a recoverable plaintext password.

@@ -42,7 +42,15 @@ def launch_clock(connection, route):
         result = AUTOMATION.request(
             connection, APP_ACTION_COMMAND, action=APP_ACTION_TYPE_LAUNCH, component=CLOCK_COMPONENT,
         )
-        assert result["outcome"] == "launched"
+        launch, = result["activityLaunches"]
+        assert launch["accepted"] is True
+        assert result["outcome"] == launch["outcome"]
+        if launch["verified"]:
+            assert result["outcome"] == "launched"
+            assert launch["observedPackageName"] == CLOCK_PACKAGE
+        else:
+            assert result["outcome"] == "launch_unverified"
+            assert launch["reason"] == "accessibility_not_enabled"
     wait_for_foreground_application(CLOCK_PACKAGE)
 
 

@@ -271,27 +271,32 @@ def test_app_action_add_shortcut_persists_a_native_app_widget(
 def test_app_action_app_info_opens_the_real_android_package_details_screen(
     websocket_control: socket.socket,
 ) -> None:
-    launched = AUTOMATION.request(
-        websocket_control,
-        APP_ACTION_COMMAND,
-        action=APP_ACTION_TYPE_LAUNCH,
-        component=ANDROID_SETTINGS_COMPONENT,
-    )
-    assert launched["outcome"] == APP_ACTION_OUTCOME_LAUNCHED
-    launcher_activity = wait_for_foreground_application(ANDROID_SETTINGS_PACKAGE)
-    restore_system_home()
+    try:
+        emulator_dikciz_accessibility_set(True)
+        launched = AUTOMATION.request(
+            websocket_control,
+            APP_ACTION_COMMAND,
+            action=APP_ACTION_TYPE_LAUNCH,
+            component=ANDROID_SETTINGS_COMPONENT,
+        )
+        assert launched["outcome"] == APP_ACTION_OUTCOME_LAUNCHED
+        launcher_activity = wait_for_foreground_application(ANDROID_SETTINGS_PACKAGE)
+        restore_system_home()
 
-    details = AUTOMATION.request(
-        websocket_control,
-        APP_ACTION_COMMAND,
-        action=APP_ACTION_TYPE_APP_INFO,
-        component=ANDROID_SETTINGS_COMPONENT,
-    )
-    assert details["outcome"] == APP_ACTION_OUTCOME_APP_INFO_OPENED
-    details_activity = wait_for_foreground_application(ANDROID_SETTINGS_PACKAGE)
-    # App info must reach the package-details screen, not the Settings entry activity.
-    assert details_activity != launcher_activity
-    restore_system_home()
+        details = AUTOMATION.request(
+            websocket_control,
+            APP_ACTION_COMMAND,
+            action=APP_ACTION_TYPE_APP_INFO,
+            component=ANDROID_SETTINGS_COMPONENT,
+        )
+        assert details["outcome"] == APP_ACTION_OUTCOME_APP_INFO_OPENED
+        details_activity = wait_for_foreground_application(ANDROID_SETTINGS_PACKAGE)
+        # App info must reach the package-details screen, not the Settings entry activity.
+        assert details_activity != launcher_activity
+        restore_system_home()
+    finally:
+        restore_system_home()
+        emulator_dikciz_accessibility_set(False)
 
 
 def test_app_action_force_stop_reports_root_unavailable_and_offers_app_info(

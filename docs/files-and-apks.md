@@ -55,7 +55,7 @@ python3 scripts/dikciz-control.py mcp dikciz_apk_install --host phone.example --
 
 The `sha256` argument is optional. Supply the checksum returned by the upload when the installer must verify the exact uploaded bytes. Android verifies the APK and its signing/update rules during installation. The maximum APK size is 512 MiB. APK bundles and split-package sets need their own packaging workflow.
 
-If Android has not granted installation from Dikciz, the result is `permission_required` and Dikciz requests the Android unknown-source settings screen. Grant the access on the phone, return to Dikciz and retry `apkInstall` against the same uploaded path.
+If Android has not granted installation from Dikciz, the result is `permission_required` with `permissionRequest` for `installPackages`. Pass `autoRequestPermissions: true` to queue owner review with a targeted **Allow access** notification, or explicitly request `installPackages` through `requestDeviceAccess`. Without opt-in, no permission UI opens. Grant the access on the phone, return to Dikciz and retry `apkInstall` against the same uploaded path.
 
 Revoking APK-install access can make Android restart Dikciz and invalidate existing MCP sessions. Reconnect after that permission change.
 

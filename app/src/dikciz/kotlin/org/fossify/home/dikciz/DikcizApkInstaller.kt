@@ -40,15 +40,11 @@ internal class DikcizApkInstaller(
         val packageInfo = context.packageManager.getPackageArchiveInfo(file.path, 0)
             ?: throw failure(ERROR_INVALID_APK)
         if (!context.packageManager.canRequestPackageInstalls()) {
-            context.startActivity(
-                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse(PACKAGE_URI_PREFIX + context.packageName))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
             logger.info(EVENT_PERMISSION_REQUESTED)
             return JSONObject()
                 .put(KEY_STATE, STATE_PERMISSION_REQUIRED)
                 .put(KEY_PACKAGE_NAME, packageInfo.packageName)
-                .put(KEY_SETTINGS_OPENED, true)
+                .put(KEY_SETTINGS_OPENED, false)
         }
         val installer = context.packageManager.packageInstaller
         if (installer.mySessions.size >= MAXIMUM_ACTIVE_SESSIONS) throw failure(ERROR_INSTALL_BUSY)

@@ -154,6 +154,8 @@ class DikcizHomeActivity : Activity() {
     private var pendingWidgetMove: PendingWidgetMove? = null
     private var pageAutomationViewCapture: MutableMap<String, View>? = null
     private var pageBeingBuilt: HomePage? = null
+    private var visiblePermissionRequirement: DikcizDeviceAccessRequirement? = null
+    private lateinit var permissionRequests: DikcizPermissionRequests
     private var shouldResumeFullDeviceAccessSetup = false
     private var controlPlanesStarted = false
     private var isActivityStarted = false
@@ -195,6 +197,9 @@ class DikcizHomeActivity : Activity() {
         homeConfigStore = HomeConfigStore(this)
         dikcizThemeStore = DikcizThemeStore(this, homeConfigStore.themeDirectory)
         dikcizLogger = DikcizLogger(LOG_TAG, homeConfigStore.logDirectory)
+        permissionRequests = DikcizPermissionRequests(this, dikcizLogger) {
+            mainHandler.post { if (isActivityStarted && !isFinishing && !isDestroyed) showPendingPermissionRequest() }
+        }
         val configurationDirectory = checkNotNull(homeConfigStore.configurationFile.parentFile)
         remoteAccessAuth = DikcizRemoteAccessAuth(
             configurationDirectory,
@@ -260,8 +265,20 @@ class DikcizHomeActivity : Activity() {
             }
 
             override fun execute(command: DikcizAutomationCommand): JSONObject {
-                return executeAutomationCommand(command)
+                return try {
+                    DikcizActivityLaunches.capture { executeAutomationCommand(command) }.also { result ->
+                        if (result.optString("state") == "permission_required" && command.type == DikcizFileCommands.TYPE_APK_INSTALL) {
+                            result.put(DikcizPermissionRequests.KEY_RECOVERY, permissionRequests.request(DikcizDeviceAccessRequirement.InstallPackages, command.autoRequestPermissions))
+                        }
+                    }
+                } catch (exception: DikcizAutomationRequestException) {
+                    val recovery = permissionRequests.forFailure(exception.code, command.autoRequestPermissions)
+                    if (recovery == null) throw exception
+                    throw DikcizAutomationRequestException(exception.code, exception.message.orEmpty(), recovery)
+                }
             }
+
+            override fun completeResult(result: JSONObject): JSONObject = DikcizActivityLaunches.complete(result)
 
             override fun responseSent(commandType: String, result: JSONObject) {
                 if (commandType !in DikcizDeviceInspection.RESPONSE_COMMAND_TYPES) return
@@ -300,6 +317,7 @@ class DikcizHomeActivity : Activity() {
         super.onStart()
         DikcizPackageUpdateReceiver.clearRecoveryNotification(this)
         isActivityStarted = true
+        mainHandler.post { if (!isFinishing && !isDestroyed) showPendingPermissionRequest() }
         dikcizLogger.info(
             EVENT_ACTIVITY_STARTED,
             mapOf(FIELD_SAFE_MODE to isSafeMode),
@@ -321,6 +339,7 @@ class DikcizHomeActivity : Activity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        mainHandler.post { if (!isFinishing && !isDestroyed) showPendingPermissionRequest() }
         hasPendingDefaultHomePageSelection = isLauncherHomeIntent()
         dikcizLogger.info(
             EVENT_SAFE_MODE_LAUNCH_REQUESTED,
@@ -3856,6 +3875,7 @@ class DikcizHomeActivity : Activity() {
             DikcizAutomationControlPlane.TYPE_LAUNCH_APP -> launchAutomationApp(command)
             DikcizAutomationControlPlane.TYPE_APP_CATALOGUE -> appCatalogueDocument(command)
             DikcizAutomationControlPlane.TYPE_APP_ACTION -> runAppActionCommand(command)
+            DikcizPermissionRequests.TYPE_REQUEST -> permissionRequests.request(DikcizPermissionRequests.requirement(command.request))
             DikcizAutomationControlPlane.TYPE_OPEN_AUTOMATION_SETUP -> openAutomationSetupCommand()
             DikcizShellStreams.TYPE_START -> JSONObject()
             DikcizAutomationControlPlane.TYPE_SHELL -> runAutomationShell(command)
@@ -3924,7 +3944,7 @@ class DikcizHomeActivity : Activity() {
         try {
             val target = packageManager.getLaunchIntentForPackage(targetPackage)
                 ?: throw android.content.ActivityNotFoundException()
-            startActivity(target.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            startTrackedActivity(target.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (exception: RuntimeException) {
             restoreAfterFailedHandoff(exception::class.java.simpleName)
             return
@@ -4062,7 +4082,12 @@ class DikcizHomeActivity : Activity() {
                     put(
                         JSONObject()
                             .put(KEY_ACTION_TYPE, result.type)
-                            .put(KEY_OUTCOME, result.outcome),
+                            .put(KEY_OUTCOME, result.outcome)
+                            .apply {
+                                permissionRequests.forAction(result.type, result.outcome, command.autoRequestPermissions)?.let { recovery ->
+                                    put(DikcizPermissionRequests.KEY_RECOVERY, recovery)
+                                }
+                            },
                     )
                 }
             },
@@ -4681,7 +4706,7 @@ class DikcizHomeActivity : Activity() {
         val action = command.request.getString(DikcizAutomationControlPlane.KEY_ACTION)
         try {
             when (intentType) {
-                DikcizAutomationControlPlane.INTENT_TYPE_ACTIVITY -> startActivity(Intent(action))
+                DikcizAutomationControlPlane.INTENT_TYPE_ACTIVITY -> startTrackedActivity(Intent(action))
                 DikcizAutomationControlPlane.INTENT_TYPE_BROADCAST -> sendBroadcast(Intent(action))
                 else -> throw automationFailure(MESSAGE_UNSUPPORTED_INTENT_TYPE)
             }
@@ -4718,7 +4743,7 @@ class DikcizHomeActivity : Activity() {
             EVENT_AUTOMATION_APP_LAUNCHED,
             mapOf(FIELD_SEMANTIC_ID to loggableSemanticID(semanticID)),
         )
-        return JSONObject().put(KEY_LAUNCHED, true).put(KEY_SEMANTIC_ID, semanticID)
+        return JSONObject().put(KEY_LAUNCHED, false).put(KEY_OUTCOME, DikcizActivityLaunches.REQUESTED).put(KEY_SEMANTIC_ID, semanticID)
     }
 
     private fun openAutomationSetupCommand(): JSONObject {
@@ -6370,7 +6395,7 @@ class DikcizHomeActivity : Activity() {
         action: DikcizAppActionType,
     ) {
         val result = appActionRunner.run(action, application)
-        if (action != DikcizAppActionType.Launch || !result.isSuccessful) {
+        if (action !in setOf(DikcizAppActionType.Launch, DikcizAppActionType.AppInfo) || !result.isSuccessful) {
             Toast.makeText(this, appActionOutcomeMessage(result, application), Toast.LENGTH_LONG).show()
         }
         if (action == DikcizAppActionType.Launch && result.isSuccessful) {
@@ -7395,13 +7420,60 @@ class DikcizHomeActivity : Activity() {
         showActiveDialog(dialog, onDismiss = ::clearDeviceAccessAutomationViews)
     }
 
-    private fun requestFullDeviceAccess(requirement: DikcizDeviceAccessRequirement) {
-        shouldResumeFullDeviceAccessSetup = true
+    private fun showPendingPermissionRequest() {
+        val requirement = permissionRequests.peekPending() ?: return
+        if (visiblePermissionRequirement == requirement && automationViews.containsKey(DikcizPermissionRequests.SEMANTIC_ALLOW)) return
+        if (DikcizDeviceAccess.state(this, requirement) != DikcizDeviceAccessState.NeedsSetup) {
+            permissionRequests.clearPending(requirement)
+            return
+        }
+        dismissStartupBrand()
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.dikciz_permission_title)
+            .setMessage(getString(R.string.dikciz_permission_message, getString(requirement.titleResourceID)))
+            .setPositiveButton(R.string.dikciz_permission_allow) { _, _ ->
+                if (DikcizDeviceAccess.state(this, requirement) == DikcizDeviceAccessState.NeedsSetup) {
+                    requestFullDeviceAccess(requirement, resumeSetup = false)
+                }
+            }
+            .setNegativeButton(R.string.dikciz_dialog_close, null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.findViewById<TextView>(android.R.id.message)?.let {
+                registerAutomationView(DikcizPermissionRequests.SEMANTIC_MESSAGE, it)
+            }
+            registerAutomationView(DikcizPermissionRequests.SEMANTIC_ALLOW, dialog.getButton(AlertDialog.BUTTON_POSITIVE))
+            registerAutomationView(DikcizPermissionRequests.SEMANTIC_DISMISS, dialog.getButton(AlertDialog.BUTTON_NEGATIVE))
+            publishAutomationUIRendered()
+        }
+        visiblePermissionRequirement = requirement
+        showActiveDialog(dialog, onDismiss = {
+            if (!isDestroyed && !isChangingConfigurations && visiblePermissionRequirement == requirement) {
+                permissionRequests.clearPending(requirement)
+                visiblePermissionRequirement = null
+            }
+            automationViews.remove(DikcizPermissionRequests.SEMANTIC_MESSAGE)
+            automationViews.remove(DikcizPermissionRequests.SEMANTIC_ALLOW)
+            automationViews.remove(DikcizPermissionRequests.SEMANTIC_DISMISS)
+        })
+        dikcizLogger.info("remote_permission_review_opened", mapOf("requirement_id" to requirement.persistedValue))
+    }
+
+    private fun requestFullDeviceAccess(requirement: DikcizDeviceAccessRequirement, resumeSetup: Boolean = true) {
+        shouldResumeFullDeviceAccessSetup = resumeSetup
         activeDialog?.dismiss()
         dikcizLogger.info(
             EVENT_DEVICE_ACCESS_REQUEST_STARTED,
             mapOf(FIELD_DEVICE_ACCESS_REQUIREMENT to requirement.persistedValue),
         )
+        if (requirement == DikcizDeviceAccessRequirement.SharedStorage && Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            requestPermissions(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), FULL_DEVICE_ACCESS_PERMISSION_REQUEST_CODE)
+            return
+        }
+        if (requirement == DikcizDeviceAccessRequirement.LocationBackground && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            startTrackedActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+            return
+        }
         when (requirement.kind) {
             DikcizDeviceAccessKind.RuntimePermission -> {
                 requestPermissions(
@@ -7417,7 +7489,7 @@ class DikcizHomeActivity : Activity() {
                     return
                 }
                 try {
-                    startActivity(settingsIntent)
+                    startTrackedActivity(settingsIntent)
                 } catch (exception: ActivityNotFoundException) {
                     showFullDeviceAccessRequestUnavailable(requirement, exception)
                 }
@@ -7675,14 +7747,14 @@ class DikcizHomeActivity : Activity() {
 
     private fun openAutomationSystemSettings(action: String) {
         try {
-            startActivity(Intent(action))
+            startTrackedActivity(Intent(action))
         } catch (exception: ActivityNotFoundException) {
             Toast.makeText(this, exception.message, Toast.LENGTH_LONG).show()
         }
     }
 
     private fun openAutomationAppSettings() {
-        startActivity(
+        startTrackedActivity(
             Intent(
                 Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                 Uri.parse("package:$packageName"),
@@ -8473,7 +8545,7 @@ class DikcizHomeActivity : Activity() {
             EVENT_SAFE_MODE_LAUNCH_REQUESTED,
             mapOf(FIELD_SAFE_MODE to shouldUseSafeMode),
         )
-        startActivity(
+        startTrackedActivity(
             Intent(this, DikcizHomeActivity::class.java)
                 .putExtra(EXTRA_SAFE_MODE, shouldUseSafeMode)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -11023,6 +11095,9 @@ class DikcizHomeActivity : Activity() {
         }
     }
 
+    private fun startTrackedActivity(intent: Intent): DikcizActivityLaunches.Launch =
+        DikcizActivityLaunches.start(this, intent, dikcizLogger)
+
     private fun launchExplicitComponent(component: ComponentName): Boolean {
         if (!resolvesActivity(component)) {
             dikcizLogger.warn(
@@ -11036,10 +11111,8 @@ class DikcizHomeActivity : Activity() {
             return false
         }
         try {
-            startActivity(
-                Intent.makeMainActivity(component).addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED,
-                ),
+            startTrackedActivity(
+                DikcizActivityLaunches.appIntent(component),
             )
             dikcizLogger.info(
                 EVENT_EXPLICIT_APP_LAUNCH_STARTED,
@@ -11056,6 +11129,16 @@ class DikcizHomeActivity : Activity() {
                     FIELD_ERROR_CLASS to exception::class.java.simpleName,
                     FIELD_COMPONENT_PACKAGE to component.packageName,
                     FIELD_ERROR_SUMMARY to exception.message.orEmpty(),
+                ),
+            )
+            Toast.makeText(this, R.string.dikciz_unavailable_app, Toast.LENGTH_SHORT).show()
+            return false
+        } catch (exception: SecurityException) {
+            dikcizLogger.warn(
+                EVENT_EXPLICIT_APP_LAUNCH_FAILED,
+                mapOf(
+                    FIELD_ERROR_CLASS to exception::class.java.simpleName,
+                    FIELD_COMPONENT_PACKAGE to component.packageName,
                 ),
             )
             Toast.makeText(this, R.string.dikciz_unavailable_app, Toast.LENGTH_SHORT).show()
@@ -11117,7 +11200,7 @@ class DikcizHomeActivity : Activity() {
             Uri.parse("package:$packageName"),
         )
         try {
-            startActivity(intent)
+            startTrackedActivity(intent)
             dikcizLogger.info(EVENT_STORAGE_SETTINGS_OPENED)
         } catch (exception: ActivityNotFoundException) {
             dikcizLogger.error(
@@ -11453,7 +11536,7 @@ class DikcizHomeActivity : Activity() {
         const val EVENT_DEVICE_ACCESS_REQUEST_STARTED = "device_access_request_started"
         const val EVENT_DEVICE_ACCESS_REQUEST_UNAVAILABLE = "device_access_request_unavailable"
         const val EVENT_DEVICE_ACCESS_SETUP_OPENED = "device_access_setup_opened"
-        const val EVENT_AUTOMATION_APP_LAUNCHED = "automation_app_launched"
+        const val EVENT_AUTOMATION_APP_LAUNCHED = "automation_app_launch_requested"
         const val EVENT_ACCESSIBILITY_ACTION_COMPLETED = "accessibility_action_completed"
         const val EVENT_ACCESSIBILITY_ACTION_REJECTED = "accessibility_action_rejected"
         const val EVENT_ACCESSIBILITY_SNAPSHOT_REJECTED = "accessibility_snapshot_rejected"
@@ -12244,6 +12327,7 @@ class DikcizHomeActivity : Activity() {
             DikcizAutomationControlPlane.TYPE_SCRIPT_LOGS,
         ) + DikcizFileCommands.FIELDS.keys
         val STORAGE_ACCESS_COMMAND_TYPES = setOf(
+            DikcizPermissionRequests.TYPE_REQUEST,
             DikcizDeviceInspection.TYPE_LAUNCHER_HANDOFF,
             DikcizDeviceInspection.TYPE_DISPLAY_SCREENSHOT,
             DikcizDeviceInspection.TYPE_DEVICE_INFO,

@@ -6,6 +6,8 @@
 [![version](https://raw.githubusercontent.com/psyb0t/dikciz-launcher/badges/version.svg)](https://github.com/psyb0t/dikciz-launcher/releases)
 [![license](https://raw.githubusercontent.com/psyb0t/dikciz-launcher/badges/license.svg)](LICENSE)
 
+*yes, it's dick cheese*
+
 Dikciz is a programmable Android home screen. Build pages from HTML widgets, native app shortcuts and Android widgets, write Lua automations, and control your phone through WebSocket, MCP or HTTP over USB, Wi-Fi or Tailscale.
 
 Your home lives in editable files under `/sdcard/Dikciz/`. The signed release includes scripting, inspection and remote control. Ordinary launcher control needs neither a debug build nor root. Android permissions govern access to the rest of the phone.
@@ -76,7 +78,7 @@ python3 scripts/dikciz-control.py mcp dikciz_snapshot --host phone.example --por
 
 Configure your MCP client's Streamable HTTP URL and bearer header, then initialize and list tools. Direct access needs no USB, ADB or emulator. The endpoints do not provide TLS themselves; use a trusted private network or an encrypted VPN. `0.0.0.0` listens on all IPv4 interfaces, including Wi-Fi, subject to network routing and filtering.
 
-The [connection walkthrough](docs/automation-control.md#connect-without-usb) covers setup, troubleshooting and ADB alternatives. Both protocols reject browser origins outside HTTP or HTTPS loopback pages. Native clients can omit `Origin`. Network access, bearer authentication and Android permissions are separate checks. Shell commands request root by default; pass `root: false` for Dikciz's app sandbox.
+The [connection walkthrough](docs/automation-control.md#connect-without-usb) covers setup, troubleshooting and ADB alternatives. Both protocols reject browser origins outside HTTP or HTTPS loopback pages. Native clients can omit `Origin`. Network access, bearer authentication and Android permissions are separate checks. Shell commands request root by default; pass `root: false` for Dikciz's app sandbox. Commands accept `autoRequestPermissions: true` to show owner review when Android access is missing. Use `requestDeviceAccess` or MCP `dikciz_request_device_access` to ask for one capability directly; responses report permission state, notification delivery and instructions. See [permission requests](docs/automation-control.md#request-missing-android-access).
 
 Browse and transfer any files Android lets Dikciz access, upload standalone APKs and request installation, or run Android shell commands and read their output and exit status. Shell commands default to a 30-second timeout and accept per-request timeout and output-size options. Android controls installation permission and confirmation. The [files, APKs and shell guide](docs/files-and-apks.md) covers commands, binary transfers and final installation status.
 
@@ -88,7 +90,7 @@ Dikciz writes daily UTC JSON Lines files under `/sdcard/Dikciz/logs/`. **Setting
 
 ## Run it
 
-Source development uses Docker, Make and Git. Clone this repository and run commands from its root. The Makefile pins Android Lab. If its images are missing, read the [Android SDK license](https://developer.android.com/studio/terms) before accepting it for the local build:
+Source development uses Docker, Make and Git. Clone this repository and run commands from its root. The Makefile pins [Android Lab](https://github.com/psyb0t/android-lab), which provides the Docker build tools and private Android emulator. If its images are missing, read the [Android SDK license](https://developer.android.com/studio/terms) before accepting it for the local build:
 
 ```bash
 ANDROID_LAB_ACCEPT_ANDROID_LICENSES=yes make build

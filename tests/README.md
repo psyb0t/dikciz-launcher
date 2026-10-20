@@ -76,3 +76,7 @@ The selector must match `test_` followed by letters, digits, or underscores. The
 The normal live suite requires the shared emulator and forward-service environment. Direct host pytest does not supply the device operations. `conftest.py` accepts the separate physical controller only when it sets `TEST_REAL=1`; physical acceptance requires an explicitly authorized workflow.
 
 Each test installs the checked-in configuration through `configReplace` and restores the bundled starter home afterward. The outer shell runner also resets the debug installation and public configuration on exit or interruption. Tests must restore Android state they change and remove fixture packages they install.
+
+## Remote permission handoff
+
+`make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_permission_request_` covers explicit permission requests, default suppression, opt-in recovery on all three network transports, strict Boolean and requirement validation, untrusted Origin rejection, notification denial, deduplication and the owner button opening Android permission UI. Tests use only the private emulator.

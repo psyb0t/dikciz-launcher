@@ -385,6 +385,8 @@ DEVICE_ACCESS_KINDS = {
 }
 DEVICE_ACCESS_NON_ACTIONABLE_STATES = {"onDemand", "unavailable"}
 DEVICE_ACCESS_REQUIREMENTS = {
+    "homeApp",
+    "installPackages",
     "accessibility",
     "activityRecognition",
     "bluetooth",
@@ -435,6 +437,8 @@ FILE_MCP_TOOLS = {
     TYPE_APK_INSTALL_STATUS: "dikciz_apk_install_status",
 }
 CONTROL_STATUS_COMMAND_FIELDS = {
+    "shellStream": ("chunkBytes", "command", "root", "timeoutMilliseconds"),
+    "shellStreamStop": ("streamId",),
     "launcherHandoff": ("packageName",),
     "displayScreenshot": (),
     "deviceInfo": (),
@@ -461,6 +465,7 @@ CONTROL_STATUS_COMMAND_FIELDS = {
     TYPE_INTENT: (KEY_ACTION, KEY_INTENT_TYPE),
     TYPE_LAUNCH_APP: (KEY_SEMANTIC_ID,),
     TYPE_LONG_PRESS: (KEY_SEMANTIC_ID,),
+    "requestDeviceAccess": ("requirementId",),
     TYPE_OPEN_AUTOMATION_SETUP: (),
     TYPE_REMOTE_AUTH_DISABLE: (),
     TYPE_REMOTE_AUTH_ENABLE: (),
@@ -482,6 +487,8 @@ CONTROL_STATUS_COMMAND_FIELDS = {
     TYPE_WIDGET_RESIZE: (KEY_CELL, KEY_WIDGET_ADDRESS),
 } | FILE_COMMAND_FIELDS
 CONTROL_STATUS_DEVICE_COMMAND_TYPES = {
+    "shellStream",
+    "shellStreamStop",
     TYPE_APP_ACTION,
     TYPE_AUTOMATION_SERVICE_SYNC,
     TYPE_INTENT,
@@ -531,6 +538,8 @@ CONTROL_STATUS_SAFE_MODE_ALLOWED_COMMAND_TYPES = {
 } | FILE_READ_COMMAND_TYPES
 CONTROL_STATUS_SAFE_MODE_ALLOWED_TAP_IDS = {"safeMode:exit", "safeMode:reset"}
 CONTROL_STATUS_MCP_TOOLS = {
+    "shellStream": "dikciz_shell_stream",
+    "shellStreamStop": "dikciz_shell_stream_stop",
     "launcherHandoff": "dikciz_launcher_handoff",
     "displayScreenshot": "dikciz_display_screenshot",
     "deviceInfo": "dikciz_device_info",
@@ -557,6 +566,7 @@ CONTROL_STATUS_MCP_TOOLS = {
     TYPE_INTENT: "dikciz_intent",
     TYPE_LAUNCH_APP: "dikciz_launch_app",
     TYPE_LONG_PRESS: "dikciz_long_press",
+    "requestDeviceAccess": "dikciz_request_device_access",
     TYPE_OPEN_AUTOMATION_SETUP: "dikciz_open_automation_setup",
     TYPE_REMOTE_AUTH_DISABLE: "dikciz_remote_auth_disable",
     TYPE_REMOTE_AUTH_ENABLE: "dikciz_remote_auth_enable",
@@ -598,6 +608,9 @@ SCRIPT_LOG_REQUIRED_STRING_KEYS = {
     KEY_SCRIPT_LOG_TIMESTAMP,
 }
 CONTROL_STATUS_LIMIT_KEYS = {
+    "defaultShellStreamTimeoutMilliseconds",
+    "maximumShellStreamsPerListener",
+    "maximumShellStreamChunkBytes",
     "maximumAppQueryCharacters",
     "maximumComponentCharacters",
     "maximumIntentActionCharacters",
@@ -1045,7 +1058,7 @@ def verify_control_status(connection: socket.socket) -> dict[str, Any]:
         command_type = command.get(KEY_TYPE)
         if command_type not in CONTROL_STATUS_COMMAND_FIELDS:
             raise WebSocketProtocolError("control status returned an unknown command")
-        if command.get(KEY_FIELDS) != list(CONTROL_STATUS_COMMAND_FIELDS[command_type]):
+        if command.get(KEY_FIELDS) != sorted((*CONTROL_STATUS_COMMAND_FIELDS[command_type], "autoRequestPermissions")):
             raise WebSocketProtocolError("control status returned invalid command fields")
         if command.get(KEY_MCP_TOOL) != CONTROL_STATUS_MCP_TOOLS[command_type]:
             raise WebSocketProtocolError("control status returned invalid MCP mapping")

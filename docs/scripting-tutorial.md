@@ -438,6 +438,8 @@ Lua returns one status plus an `actions` array. Each action must appear in the s
 | `accessibilityGesture` | Send a bounded tap or swipe tied to a fresh Accessibility snapshot. |
 | `accessibilityGlobalAction` | Ask Accessibility to perform back, home, recents, notifications, quick settings, lock screen, or screenshot. |
 
+App and activity launch actions use the [shared foreground verification contract](automation-control.md). `launched` means the target package was observed as the active visible window. Missing Accessibility returns `launch_unverified`; a target that never appears returns `launch_not_observed`. A locked device returns `device_locked`. These outcomes also appear in Lua action logs and script run status. Broadcast intents retain their dispatch outcome.
+
 For cross-app actions, first obtain a fresh `accessibilitySnapshot`. Its `snapshotId` expires after five seconds. Dikciz rechecks the active window and rejects an expired or changed snapshot instead of acting on stale UI.
 
 Lua has no arbitrary shell, filesystem, Android-object, or dynamic-load access. Its supported globals are `assert`, `error`, `ipairs`, `next`, `pairs`, `pcall`, `select`, `tonumber`, `tostring`, `type`, and `xpcall`, plus `math`, `string`, `table`, and `bit32`. `io`, `os`, `package`, `require`, `load`, `dofile`, `loadfile`, `debug`, and `print` are unavailable.

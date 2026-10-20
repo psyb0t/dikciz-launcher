@@ -249,9 +249,10 @@ internal class DikcizMcpControlPlane(
         }
     }
 
-    private fun handleHttpStream(command: JSONObject, request: HttpRequest, output: BufferedOutputStream, connection: Socket) {
-        val requestID = command.optString(DikcizAutomationControlPlane.KEY_REQUEST_ID)
+    private fun handleHttpStream(rawCommand: JSONObject, request: HttpRequest, output: BufferedOutputStream, connection: Socket) {
+        val requestID = rawCommand.optString(DikcizAutomationControlPlane.KEY_REQUEST_ID)
         try {
+            val command = DikcizPermissionRequests.operation(rawCommand)
             if (requestID.length != 36 || runCatching { UUID.fromString(requestID).toString() }.getOrNull() != requestID) {
                 throw DikcizAutomationRequestException(DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED, DikcizAutomationControlPlane.MESSAGE_INVALID_REQUEST_ID)
             }
@@ -262,7 +263,7 @@ internal class DikcizMcpControlPlane(
                 writeJson(output, streamEnvelope(requestID, shellStreams.stop(owner, command), false))
                 return
             }
-            dispatchCommand(DikcizAutomationCommand(DikcizShellStreams.TYPE_START, command), request.headers[HEADER_AUTHORIZATION])
+            dispatchCommand(DikcizPermissionRequests.command(DikcizShellStreams.TYPE_START, rawCommand), request.headers[HEADER_AUTHORIZATION])
             val stream = shellStreams.open(owner, command)
             val isAuthorized = remoteAccessAuth.authorizationMonitor(request.headers[HEADER_AUTHORIZATION])
             streamingSockets.add(connection)
@@ -282,7 +283,8 @@ internal class DikcizMcpControlPlane(
                 .put(DikcizAutomationControlPlane.KEY_TYPE, DikcizAutomationControlPlane.TYPE_ERROR)
                 .put(DikcizAutomationControlPlane.KEY_REQUEST_ID, requestID)
                 .put(DikcizAutomationControlPlane.KEY_CODE, exception.code)
-                .put(DikcizAutomationControlPlane.KEY_MESSAGE, exception.message))
+                .put(DikcizAutomationControlPlane.KEY_MESSAGE, exception.message)
+                .put(DikcizPermissionRequests.KEY_RECOVERY, exception.permissionRequest))
         }
     }
 
@@ -290,10 +292,11 @@ internal class DikcizMcpControlPlane(
         val requestID = message.requireID()
         val params = message.requireObject(KEY_PARAMS)
         val stop = params.getString(KEY_NAME) == TOOL_SHELL_STREAM_STOP
-        val arguments = params.optJSONObject(KEY_ARGUMENTS) ?: JSONObject()
+        val rawArguments = params.optJSONObject(KEY_ARGUMENTS) ?: JSONObject()
         val sessionID = request.headers.getValue(HEADER_MCP_SESSION_ID)
         val owner = MCP_STREAM_OWNER_PREFIX + sessionID
         try {
+            val arguments = DikcizPermissionRequests.operation(rawArguments)
             DikcizShellStreams.validate(arguments, stop)
             if (stop) {
                 writeJson(output, jsonRpcSuccess(requestID, toolSuccess(shellStreams.stop(owner, arguments))))
@@ -303,7 +306,7 @@ internal class DikcizMcpControlPlane(
             if (level !in STREAM_LOG_LEVELS) {
                 throw DikcizAutomationRequestException(DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED, MESSAGE_STREAM_LOG_OPT_IN)
             }
-            dispatchCommand(DikcizAutomationCommand(DikcizShellStreams.TYPE_START, arguments), request.headers[HEADER_AUTHORIZATION])
+            dispatchCommand(DikcizPermissionRequests.command(DikcizShellStreams.TYPE_START, rawArguments), request.headers[HEADER_AUTHORIZATION])
             val stream = shellStreams.open(owner, arguments)
             val isAuthorized = remoteAccessAuth.authorizationMonitor(request.headers[HEADER_AUTHORIZATION])
             streamingSockets.add(connection)
@@ -336,7 +339,7 @@ internal class DikcizMcpControlPlane(
                 stream.cancel(DikcizShellStreams.STATE_CANCELLED)
             }
         } catch (exception: DikcizAutomationRequestException) {
-            writeJson(output, jsonRpcSuccess(requestID, toolFailure(exception.message.orEmpty(), exception.code)))
+            writeJson(output, jsonRpcSuccess(requestID, toolFailure(exception.message.orEmpty(), exception.code, exception.permissionRequest)))
         }
     }
 
@@ -418,11 +421,12 @@ internal class DikcizMcpControlPlane(
         val toolName = params.requireMcpString(KEY_NAME)
         val commandType = TOOL_COMMANDS[toolName]
             ?: throw McpHttpException(HTTP_STATUS_BAD_REQUEST, REASON_UNKNOWN_TOOL, MESSAGE_UNKNOWN_TOOL)
-        val arguments = params.optJSONObject(KEY_ARGUMENTS) ?: JSONObject()
+        val rawArguments = params.optJSONObject(KEY_ARGUMENTS) ?: JSONObject()
         try {
+            val arguments = DikcizPermissionRequests.operation(rawArguments)
             validateCommandArguments(commandType, arguments)
             logger.debug(EVENT_MCP_TOOL_RECEIVED, mapOf(FIELD_TOOL_NAME to toolName))
-            val result = dispatchCommand(DikcizAutomationCommand(commandType, arguments), authorization)
+            val result = dispatchCommand(DikcizPermissionRequests.command(commandType, rawArguments), authorization)
             logger.debug(EVENT_MCP_TOOL_COMPLETED, mapOf(FIELD_TOOL_NAME to toolName))
             return toolSuccess(result)
         } catch (exception: DikcizAutomationRequestException) {
@@ -430,7 +434,7 @@ internal class DikcizMcpControlPlane(
                 EVENT_MCP_TOOL_REJECTED,
                 mapOf(FIELD_TOOL_NAME to toolName, FIELD_REASON to exception.code),
             )
-            return toolFailure(exception.message.orEmpty(), exception.code)
+            return toolFailure(exception.message.orEmpty(), exception.code, exception.permissionRequest)
         } catch (exception: Exception) {
             logger.error(
                 EVENT_MCP_TOOL_FAILED,
@@ -453,7 +457,10 @@ internal class DikcizMcpControlPlane(
                     .put(KEY_MIME_TYPE, MIME_TYPE_PNG),
             )
         }
-        content.put(JSONObject().put(KEY_TYPE, CONTENT_TYPE_TEXT).put(KEY_TEXT, MESSAGE_TOOL_COMPLETED))
+        val resultMessage = if (result.has(DikcizPermissionRequests.KEY_REQUIREMENT)) {
+            result.optString(DikcizPermissionRequests.KEY_INSTRUCTIONS, MESSAGE_TOOL_COMPLETED)
+        } else MESSAGE_TOOL_COMPLETED
+        content.put(JSONObject().put(KEY_TYPE, CONTENT_TYPE_TEXT).put(KEY_TEXT, resultMessage))
         return JSONObject()
             .put(KEY_RESULT_TYPE, RESULT_TYPE_COMPLETE)
             .put(KEY_CONTENT, content)
@@ -465,13 +472,20 @@ internal class DikcizMcpControlPlane(
      * A failed tool result. The typed [code] is carried in structured content so an MCP
      * client sees the same finite failure value the WebSocket plane returns.
      */
-    private fun toolFailure(message: String, code: String? = null): JSONObject {
+    private fun toolFailure(
+        message: String,
+        code: String? = null,
+        permissionRequest: JSONObject? = null,
+    ): JSONObject {
+        val instructions = permissionRequest?.optString(DikcizPermissionRequests.KEY_INSTRUCTIONS)
+        val text = if (instructions == null) message else "$message $instructions"
         return JSONObject()
             .put(KEY_RESULT_TYPE, RESULT_TYPE_COMPLETE)
-            .put(KEY_CONTENT, JSONArray().put(JSONObject().put(KEY_TYPE, CONTENT_TYPE_TEXT).put(KEY_TEXT, message)))
+            .put(KEY_CONTENT, JSONArray().put(JSONObject().put(KEY_TYPE, CONTENT_TYPE_TEXT).put(KEY_TEXT, text)))
             .put(
                 KEY_STRUCTURED_CONTENT,
                 JSONObject()
+                    .put(DikcizPermissionRequests.KEY_RECOVERY, permissionRequest)
                     .put(DikcizAutomationControlPlane.KEY_CODE, code ?: JSONObject.NULL)
                     .put(DikcizAutomationControlPlane.KEY_MESSAGE, message),
             )
@@ -492,10 +506,12 @@ internal class DikcizMcpControlPlane(
         if (command.type == DikcizAutomationControlPlane.TYPE_WAIT_FOR) {
             return waitForAutomationView(command)
         }
-        if (!target.requiresMainThread(command)) {
-            return target.execute(command)
+        val result = if (target.requiresMainThread(command)) {
+            callOnMain { target.execute(command) }
+        } else {
+            target.execute(command)
         }
-        return callOnMain { target.execute(command) }
+        return target.completeResult(result)
     }
 
     private fun waitForAutomationView(command: DikcizAutomationCommand): JSONObject {
@@ -1082,6 +1098,13 @@ internal class DikcizMcpControlPlane(
                     required.put(argument.name)
                 }
             }
+            properties.put(
+                DikcizPermissionRequests.KEY_AUTO_REQUEST,
+                JSONObject()
+                    .put(KEY_TYPE, "boolean")
+                    .put(KEY_DESCRIPTION, "Show owner permission recovery when required. Defaults to false; explicit permission-request tools always ask. Never grants access or retries an operation.")
+                    .put(KEY_SCHEMA_DEFAULT, false),
+            )
             val schema = JSONObject()
                 .put(KEY_TYPE, SCHEMA_TYPE_OBJECT)
                 .put(KEY_PROPERTIES, properties)
@@ -1359,6 +1382,7 @@ internal class DikcizMcpControlPlane(
             DikcizAutomationControlPlane.KEY_COMPONENT,
         )
         val COMMAND_ARGUMENT_KEYS = mapOf(
+            DikcizPermissionRequests.TYPE_REQUEST to setOf(DikcizPermissionRequests.KEY_REQUIREMENT),
             DikcizDeviceInspection.TYPE_DEVICE_INFO to emptySet(),
             DikcizDeviceInspection.TYPE_DISPLAY_SCREENSHOT to emptySet(),
             DikcizDeviceInspection.TYPE_PACKAGE_INFO to setOf(DikcizDeviceInspection.KEY_PACKAGE_NAME),
@@ -1453,6 +1477,7 @@ internal class DikcizMcpControlPlane(
             ),
         ) + DikcizFileCommands.FIELDS
         val TOOL_COMMANDS = mapOf(
+            DikcizPermissionRequests.TOOL_REQUEST to DikcizPermissionRequests.TYPE_REQUEST,
             "dikciz_device_info" to DikcizDeviceInspection.TYPE_DEVICE_INFO,
             "dikciz_display_screenshot" to DikcizDeviceInspection.TYPE_DISPLAY_SCREENSHOT,
             "dikciz_package_info" to DikcizDeviceInspection.TYPE_PACKAGE_INFO,
@@ -1521,6 +1546,7 @@ internal class DikcizMcpControlPlane(
         )
 
         private val TOOL_DEFINITIONS = listOf(
+            ToolDefinition(DikcizPermissionRequests.TOOL_REQUEST, "Request Android access", "Ask the phone owner to grant one deviceAccess requirement from automationStatus. Posts a targeted notification and consent prompt. Never grants automatically or retries the blocked operation. Read state and notificationPosted before telling the user to check the phone.", listOf(ToolArgument(DikcizPermissionRequests.KEY_REQUIREMENT, "Exact requirement ID from automationStatus.deviceAccess.requirements.", SCHEMA_TYPE_STRING, true, maximumLength = 64)), false),
             ToolDefinition("dikciz_launcher_handoff", "Switch Dikciz builds", "Acknowledge, release listener ownership and launch an installed Dikciz release/debug package. Same-package requests do nothing. Verify the target after reconnecting; failed startup retries the original listener configuration.", listOf(packageNameArgument()), false),
             ToolDefinition("dikciz_display_screenshot", "Capture the Android display", "Capture the visible Android display, including other apps, through owner-enabled Accessibility on Android 11+. Secure windows and system rate limits still apply.", emptyList(), true),
             ToolDefinition("dikciz_device_info", "Inspect Android and Dikciz", "Read the running package, version, process and launcher instance, plus Android device information.", emptyList(), true),

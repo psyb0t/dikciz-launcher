@@ -2,6 +2,22 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.17.0] - 2026-10-20
+
+### Added
+
+- Opt-in permission recovery through `autoRequestPermissions` and explicit `requestDeviceAccess` commands on WebSocket, MCP, HTTP and the HTML bridge. Phone notifications and consent dialogs identify the requested access. Replies distinguish missing access, queued owner review, notification delivery and already-granted or unavailable access.
+
+### Fixed
+
+- External activity launches share task isolation and foreground verification across native controls, Lua, HTML, WebSocket, MCP and HTTP. Replies distinguish accepted requests, observed launches, missing access, locked screens and targets that never appear.
+- Debug builds display `Dikciz (debug)` in Android Home selection, app info and the app drawer, distinguishing them from the release app named `Dikciz`.
+
+### Migration
+
+- Launch clients must accept the new `activityLaunches` result array and terminal outcomes `launch_unverified`, `launch_not_observed` and `device_locked`. `outcome: "launched"` and `launchApp.launched: true` require observed foreground evidence. Missing Accessibility no longer reports a verified launch. `app_action_completed` records request acceptance; `activity_launch_observed` records verification.
+- Exact command and discovery schemas must accept `autoRequestPermissions`, `requestDeviceAccess`, its MCP tool and `permissionRequest` recovery details. Device-access inventories include `homeApp` and `installPackages`. APK installation no longer opens unknown-source settings automatically; opt in to owner review or request the access explicitly.
+
 ## [0.16.2] - 2026-10-20
 
 ### Added

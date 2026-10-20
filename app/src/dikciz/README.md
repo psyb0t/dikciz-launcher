@@ -24,12 +24,14 @@ All Kotlin files below live in `kotlin/org/fossify/home/dikciz/`.
 | `DikcizHomeModelOperations.kt`, `DikcizHomeInteractionModels.kt` | Hold page operations, move and resize state, provider views and picker entries. |
 | `DikcizLauncherControlView.kt`, `DikcizPageIndicatorView.kt`, `DikcizHomeGestureDetector.kt` | Implement launcher routes, page rails and the drawer gesture. |
 | `DikcizAppCatalogue.kt`, `DikcizAppActions.kt`, `DikcizAppDrawerView.kt`, `DikcizAppShortcutTileView.kt` | Discover launchable apps, execute app actions and render the drawer and shortcut tiles. |
+| `DikcizActivityLaunches.kt` | Isolates external activities from the Home task and verifies stable foreground windows through Accessibility, with one outcome contract for native, scripted and remote launches. |
 | `DikcizStyleCodec.kt`, `DikcizStyleRenderer.kt`, `DikcizStyleEditor.kt` | Parse style and font selections, resolve Android appearance and provide native editing controls. |
 | `DikcizTheme.kt`, `DikcizLauncherBackground.kt` | Load and validate themes and the shared launcher background. |
 | `DikcizHtmlWidgetView.kt`, `DikcizWebCommandBridge.kt`, `DikcizWebWidgetContext.kt` | Render widget documents and connect JavaScript calls and widget context to native commands. |
 | `DikcizHtmlWidgetLibrary.kt`, `DikcizHtmlBlockLibrary.kt` | Validate and install complete widget packages and reusable fragments. |
 | `DikcizAutomationControlPlane.kt`, `DikcizMcpControlPlane.kt` | Serve WebSocket, Streamable HTTP MCP and HTTP JSON commands through one `DikcizAutomationTarget`. |
 | `DikcizControlStatus.kt`, `DikcizAutomationStatus.kt` | Describe the command protocol and Android capabilities for discovery. |
+| `DikcizPermissionRequests.kt` | Validates permission-recovery options, persists targeted owner reviews and posts permission notifications without replaying commands. |
 | `DikcizControlPorts.kt`, `DikcizRemoteAccessAuth.kt` | Own device listen-address and port settings and bearer-password verification. |
 | `DikcizAutomation.kt`, `DikcizAutomationActionDocument.kt` | Define policies, events, subscriptions and typed action documents. |
 | `DikcizAutomationService.kt`, `DikcizAutomationRuntime.kt`, `DikcizLuaRuntime.kt` | Collect Android events, dispatch subscriptions, enforce policies and execute Lua. |

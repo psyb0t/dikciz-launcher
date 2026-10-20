@@ -656,7 +656,7 @@ internal class DikcizAutomationRuntime(
             DikcizLuaAutomationAction.LockDevice -> lockDevice(configuration)
         }
         logAction(scriptID, policyID, event.name, capability, execution.outcome)
-        if (policyID != null && execution.outcome != OUTCOME_EXECUTED) {
+        if (policyID != null && execution.outcome !in SUCCESSFUL_ACTION_OUTCOMES) {
             DikcizScriptFailureNotifier.reportActionFailure(
                 context = context,
                 logger = logger,
@@ -921,6 +921,9 @@ internal class DikcizAutomationRuntime(
             launcherPackageName = context.packageName,
             component = component,
         ) ?: return AutomationActionExecution(configuration, REASON_TARGET_UNAVAILABLE)
+        if (action.action == DikcizAppActionType.Launch) {
+            return AutomationActionExecution(configuration, launchComponent(component))
+        }
         val result = appActionRunner.run(action.action, application)
         if (result.isSuccessful) {
             return AutomationActionExecution(configuration, OUTCOME_EXECUTED)
@@ -929,20 +932,16 @@ internal class DikcizAutomationRuntime(
     }
 
     private fun startLaunchableComponent(component: ComponentName): Boolean {
-        if (context.packageManager.resolveActivity(
-                Intent().setComponent(component),
-                RESOLVE_ACTIVITY_FLAGS,
-            ) == null
-        ) {
-            return false
-        }
+        return launchComponent(component) !in setOf(REASON_TARGET_UNAVAILABLE, REASON_ANDROID_REJECTED)
+    }
+
+    private fun launchComponent(component: ComponentName): String {
         return try {
-            context.startActivity(Intent().setComponent(component).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            true
+            DikcizActivityLaunches.start(context, DikcizActivityLaunches.appIntent(component), logger).awaitOutcome()
         } catch (_: ActivityNotFoundException) {
-            false
+            REASON_TARGET_UNAVAILABLE
         } catch (_: SecurityException) {
-            false
+            REASON_ANDROID_REJECTED
         }
     }
 
@@ -952,17 +951,7 @@ internal class DikcizAutomationRuntime(
     ): AutomationActionExecution {
         val component = ComponentName.unflattenFromString(componentValue)
             ?: return AutomationActionExecution(configuration, REASON_TARGET_UNAVAILABLE)
-        if (context.packageManager.resolveActivity(Intent().setComponent(component), RESOLVE_ACTIVITY_FLAGS) == null) {
-            return AutomationActionExecution(configuration, REASON_TARGET_UNAVAILABLE)
-        }
-        return try {
-            context.startActivity(Intent().setComponent(component).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            AutomationActionExecution(configuration, OUTCOME_EXECUTED)
-        } catch (_: ActivityNotFoundException) {
-            AutomationActionExecution(configuration, REASON_TARGET_UNAVAILABLE)
-        } catch (_: SecurityException) {
-            AutomationActionExecution(configuration, REASON_ANDROID_REJECTED)
-        }
+        return AutomationActionExecution(configuration, launchComponent(component))
     }
 
     private fun postNotification(
@@ -1062,8 +1051,9 @@ internal class DikcizAutomationRuntime(
         val intent = Intent(action.action).setComponent(component)
         return try {
             when (action.intentType) {
-                DikcizAutomationIntentType.Activity -> context.startActivity(
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                DikcizAutomationIntentType.Activity -> return AutomationActionExecution(
+                    configuration,
+                    DikcizActivityLaunches.start(context, intent, logger).awaitOutcome(),
                 )
 
                 DikcizAutomationIntentType.Broadcast -> context.sendBroadcast(intent)
@@ -1263,7 +1253,7 @@ internal class DikcizAutomationRuntime(
     }
 
     private fun List<String>.toDefaultScriptRunStatus(): String {
-        val rejectedOutcome = firstOrNull { outcome -> outcome != OUTCOME_EXECUTED }
+        val rejectedOutcome = firstOrNull { outcome -> outcome !in SUCCESSFUL_ACTION_OUTCOMES }
         if (rejectedOutcome != null) {
             return "$STATUS_ACTION_REJECTED_PREFIX$rejectedOutcome"
         }
@@ -1271,7 +1261,7 @@ internal class DikcizAutomationRuntime(
     }
 
     private fun List<String>.toScriptRunOutcome(): DikcizLuaScriptRunOutcome {
-        return if (all { outcome -> outcome == OUTCOME_EXECUTED }) {
+        return if (all { outcome -> outcome in SUCCESSFUL_ACTION_OUTCOMES }) {
             DikcizLuaScriptRunOutcome.Completed
         } else {
             DikcizLuaScriptRunOutcome.Rejected
@@ -1292,7 +1282,7 @@ internal class DikcizAutomationRuntime(
             FIELD_POLICY_ID to (policyID ?: POLICY_ID_UNRESTRICTED),
             FIELD_SCRIPT_ID to scriptID,
         )
-        if (outcome == OUTCOME_EXECUTED) {
+        if (outcome in SUCCESSFUL_ACTION_OUTCOMES) {
             logger.info(EVENT_ACTION_COMPLETED, fields)
             return
         }
@@ -1302,6 +1292,7 @@ internal class DikcizAutomationRuntime(
     }
 
     private companion object {
+        val SUCCESSFUL_ACTION_OUTCOMES = setOf(OUTCOME_EXECUTED, DikcizActivityLaunches.LAUNCHED)
         const val AUTOMATION_NOTIFICATION_CHANNEL_ID = "dikciz-automation"
         const val AUTOMATION_NOTIFICATION_CHANNEL_NAME = "Dikciz automation"
         const val EVENT_ACTION_COMPLETED = "automation_action_completed"

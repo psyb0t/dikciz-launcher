@@ -267,6 +267,15 @@ def test_device_files_apk_confirmation_success_cancel_and_checksum(file_controls
         device_command("appops set " + DIKCIZ_DEBUG_PACKAGE + " REQUEST_INSTALL_PACKAGES deny")
         permission = request_file(file_controls, "mcp", "apkInstall", path=path)
         assert permission["state"] == "permission_required"
+        assert permission["settingsRequested"] is False
+        assert permission["permissionRequest"]["state"] == "permission_required"
+        assert permission["permissionRequest"]["requirementId"] == "installPackages"
+        snapshot = AUTOMATION.request(file_controls["ws"], AUTOMATION.TYPE_SNAPSHOT)
+        assert not any(node.get("semanticId") == "permission:allow" for node in snapshot["nodes"])
+        permission = request_file(file_controls, "mcp", "apkInstall", path=path, autoRequestPermissions=True)
+        assert permission["permissionRequest"]["state"] == "user_action_required"
+        wait_for_snapshot_node(file_controls["ws"], "permission:allow")
+        AUTOMATION.request(file_controls["ws"], AUTOMATION.TYPE_TAP, semanticId="permission:allow")
         wait_for_foreground_application(ANDROID_SETTINGS_PACKAGE)
         wait_for_physical_text_bounds("Allow from this source")
         run_device_operation("screenshot")
@@ -298,7 +307,9 @@ def test_device_files_apk_confirmation_success_cancel_and_checksum(file_controls
             device_command("appops set " + DIKCIZ_DEBUG_PACKAGE + " REQUEST_INSTALL_PACKAGES default")
             restore_system_home()
             if not already_installed:
-                uninstall_configurable_provider_fixture(package)
+                installed_packages = device_command("pm list packages " + package).splitlines()
+                if "package:" + package in installed_packages:
+                    uninstall_configurable_provider_fixture(package)
 
 
 @pytest.mark.parametrize("protocol", PROTOCOLS)

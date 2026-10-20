@@ -3,6 +3,7 @@ package org.fossify.home.dikciz
 import android.Manifest
 import android.app.AlarmManager
 import android.app.AppOpsManager
+import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -37,6 +38,11 @@ internal enum class DikcizDeviceAccessRequirement(
     val kind: DikcizDeviceAccessKind,
     @StringRes val titleResourceID: Int,
 ) {
+    HomeApp(
+        "homeApp",
+        DikcizDeviceAccessKind.SystemSettings,
+        R.string.dikciz_device_access_home_app,
+    ),
     SharedStorage(
         "sharedStorage",
         DikcizDeviceAccessKind.SystemSettings,
@@ -152,6 +158,11 @@ internal enum class DikcizDeviceAccessRequirement(
         DikcizDeviceAccessKind.DeviceAdministration,
         R.string.dikciz_device_access_device_administration,
     ),
+    InstallPackages(
+        "installPackages",
+        DikcizDeviceAccessKind.SystemSettings,
+        R.string.dikciz_device_access_install_packages,
+    ),
     RootShell(
         "rootShell",
         DikcizDeviceAccessKind.OnDemand,
@@ -191,6 +202,8 @@ internal object DikcizDeviceAccess {
                 Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, packageUri)
             }
 
+            DikcizDeviceAccessRequirement.HomeApp -> Intent(Settings.ACTION_HOME_SETTINGS)
+            DikcizDeviceAccessRequirement.InstallPackages -> Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, packageUri)
             DikcizDeviceAccessRequirement.ExactAlarms -> {
                 Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, packageUri)
             }
@@ -251,7 +264,7 @@ internal object DikcizDeviceAccess {
             )
     }
 
-    private fun state(
+    fun state(
         context: Context,
         requirement: DikcizDeviceAccessRequirement,
     ): DikcizDeviceAccessState {
@@ -387,6 +400,17 @@ internal object DikcizDeviceAccess {
         requirement: DikcizDeviceAccessRequirement,
     ): Boolean {
         return when (requirement) {
+            DikcizDeviceAccessRequirement.HomeApp -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    context.getSystemService(RoleManager::class.java)?.isRoleHeld(RoleManager.ROLE_HOME) == true
+                } else {
+                    context.packageManager.resolveActivity(
+                        Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
+                        PackageManager.MATCH_DEFAULT_ONLY,
+                    )?.activityInfo?.packageName == context.packageName
+                }
+            }
+            DikcizDeviceAccessRequirement.InstallPackages -> context.packageManager.canRequestPackageInstalls()
             DikcizDeviceAccessRequirement.SharedStorage -> hasSharedStorageAccess(context)
             DikcizDeviceAccessRequirement.ExactAlarms -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

@@ -350,6 +350,8 @@ DEVICE_ACCESS_KINDS = {
 }
 DEVICE_ACCESS_NON_ACTIONABLE_STATES = {"onDemand", "unavailable"}
 DEVICE_ACCESS_REQUIREMENTS = {
+    "homeApp",
+    "installPackages",
     "accessibility",
     "activityRecognition",
     "bluetooth",
@@ -371,7 +373,6 @@ DEVICE_ACCESS_REQUIREMENTS = {
     "rootShell",
     "sharedStorage",
     "sms",
-    "smsRole",
     "systemSettings",
     "telephony",
     "usageAccess",
@@ -381,6 +382,9 @@ CONTROL_STATUS_DEVICE_SIDE_EFFECT = "device"
 CONTROL_STATUS_INTERACTIVE_SIDE_EFFECT = "interactive"
 CONTROL_STATUS_LAUNCHER_SIDE_EFFECT = "launcher"
 CONTROL_STATUS_LIMIT_KEYS = {
+    "defaultShellStreamTimeoutMilliseconds",
+    "maximumShellStreamsPerListener",
+    "maximumShellStreamChunkBytes",
     "maximumAppQueryCharacters",
     "maximumComponentCharacters",
     "maximumIntentActionCharacters",
@@ -908,6 +912,7 @@ def verify_tools(arguments: argparse.Namespace, session_id: str) -> None:
         TOOL_SNAPSHOT,
         TOOL_WAIT_FOR,
     }
+    required_tools |= {"dikciz_request_device_access"}
     required_tools |= FILE_TOOL_NAMES | {"dikciz_device_info", "dikciz_package_info", "dikciz_restart"}
     if not required_tools.issubset(tool_names):
         raise McpProtocolError("tools/list omitted a required Dikciz control tool")

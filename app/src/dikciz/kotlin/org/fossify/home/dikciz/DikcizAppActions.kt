@@ -45,10 +45,12 @@ internal data class DikcizAppActionResult(
 
 internal object DikcizAppActionOutcome {
     const val APP_INFO_OPENED = "app_info_opened"
+    const val APP_INFO_REQUESTED = "app_info_requested"
     const val ANDROID_REJECTED = "android_rejected"
     const val FORCE_STOP_FAILED = "force_stop_failed"
     const val FORCE_STOPPED = "force_stopped"
     const val LAUNCHED = "launched"
+    const val LAUNCH_REQUESTED = DikcizActivityLaunches.REQUESTED
     const val ROOT_UNAVAILABLE = "root_unavailable"
     const val SHORTCUT_ADDED = "shortcut_added"
     const val SHORTCUT_REJECTED = "shortcut_rejected"
@@ -58,8 +60,10 @@ internal object DikcizAppActionOutcome {
 
     val SUCCESSFUL_OUTCOMES = setOf(
         APP_INFO_OPENED,
+        APP_INFO_REQUESTED,
         FORCE_STOPPED,
         LAUNCHED,
+        LAUNCH_REQUESTED,
         SHORTCUT_ADDED,
         UNINSTALL_REQUESTED,
     )
@@ -127,7 +131,7 @@ internal class DikcizAppActionRunner(
         if (!launchComponent(component)) {
             return DikcizAppActionOutcome.TARGET_UNAVAILABLE
         }
-        return DikcizAppActionOutcome.LAUNCHED
+        return DikcizAppActionOutcome.LAUNCH_REQUESTED
     }
 
     private fun runAddShortcut(application: DikcizLaunchableApp): String {
@@ -141,10 +145,11 @@ internal class DikcizAppActionRunner(
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
             .setData(packageUri(packageName))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        if (!startAndroidActivity(intent)) {
-            return DikcizAppActionOutcome.ANDROID_REJECTED
+        return when (val outcome = startAndroidActivity(intent)) {
+            DikcizActivityLaunches.LAUNCHED -> DikcizAppActionOutcome.APP_INFO_OPENED
+            DikcizActivityLaunches.REQUESTED -> DikcizAppActionOutcome.APP_INFO_REQUESTED
+            else -> outcome
         }
-        return DikcizAppActionOutcome.APP_INFO_OPENED
     }
 
     private fun runUninstall(packageName: String): String {
@@ -154,7 +159,7 @@ internal class DikcizAppActionRunner(
         val intent = Intent(Intent.ACTION_DELETE)
             .setData(packageUri(packageName))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        if (!startAndroidActivity(intent)) {
+        if (startAndroidActivity(intent) == DikcizAppActionOutcome.ANDROID_REJECTED) {
             return DikcizAppActionOutcome.ANDROID_REJECTED
         }
         return DikcizAppActionOutcome.UNINSTALL_REQUESTED
@@ -224,10 +229,9 @@ internal class DikcizAppActionRunner(
         return !isSystemApp || isUpdatedSystemApp
     }
 
-    private fun startAndroidActivity(intent: Intent): Boolean {
+    private fun startAndroidActivity(intent: Intent): String {
         return try {
-            context.startActivity(intent)
-            true
+            DikcizActivityLaunches.start(context, intent, logger).awaitOutcome()
         } catch (exception: ActivityNotFoundException) {
             logger.warn(
                 EVENT_APP_ACTION_REJECTED,
@@ -236,7 +240,7 @@ internal class DikcizAppActionRunner(
                     FIELD_REASON to REASON_ANDROID_ACTIVITY_UNAVAILABLE,
                 ),
             )
-            false
+            DikcizAppActionOutcome.ANDROID_REJECTED
         } catch (exception: SecurityException) {
             logger.warn(
                 EVENT_APP_ACTION_REJECTED,
@@ -245,7 +249,7 @@ internal class DikcizAppActionRunner(
                     FIELD_REASON to REASON_ANDROID_DENIED,
                 ),
             )
-            false
+            DikcizAppActionOutcome.ANDROID_REJECTED
         }
     }
 

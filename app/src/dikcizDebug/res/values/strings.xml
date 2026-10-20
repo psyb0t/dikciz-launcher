@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">Dikciz</string>
+    <string name="app_launcher_name">Dikciz (debug)</string>
+    <string name="dikciz_app_name" translatable="false">Dikciz (debug)</string>
 </resources>

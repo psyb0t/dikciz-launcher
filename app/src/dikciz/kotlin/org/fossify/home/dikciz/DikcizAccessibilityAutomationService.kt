@@ -90,6 +90,15 @@ internal object DikcizAccessibilityAutomation {
         ).orEmpty().split(ACCESSIBILITY_SERVICE_SEPARATOR).any(component::equals)
     }
 
+    fun foregroundPackage(): String? {
+        val root = requireService().rootInActiveWindow ?: return null
+        return try {
+            if (root.refresh() && root.isVisibleToUser) root.packageName?.toString() else null
+        } finally {
+            root.recycle()
+        }
+    }
+
     @Synchronized
     fun snapshot(): JSONObject {
         val activeService = requireService()

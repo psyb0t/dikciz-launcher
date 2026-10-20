@@ -18,6 +18,8 @@ The bundled home opens on `Home (1H1V)`. Its native bottom and right rails show 
 
 ![Bundled home](images/user-guide/01-first-launch.png)
 
+If release and debug builds are installed together, Android lists them as **Dikciz** and **Dikciz (debug)**. Choose **Dikciz** as Home when using Obtainium releases. Updates replace only the matching package; updating release does not replace or restart the debug app.
+
 After an APK update, Dikciz reopens automatically when it is the default Home app or has overlay access. If it stays closed, tap **Dikciz updated** in notifications or open the app. [Update recovery](remote-device-control.md#recover-after-an-apk-update) explains the required access and reconnecting remote clients.
 
 ## Move around the home
@@ -230,3 +232,7 @@ Dikciz appends structured records to `/sdcard/Dikciz/logs/YYYY-MM-DD.log`, using
 All user-editable files live below `/sdcard/Dikciz/`. `config.json` is the root. Pages, widgets, themes, fonts, wallpapers, HTML packages, scripts, policies, remote-auth settings, and logs each have their own directory. Valid configuration and rendering-asset changes reload automatically. Direct edits to `control/ports.json` automatically restart both listeners when the listen address or ports change. Other valid file edits refresh their owning component. An invalid file leaves the last accepted home running and adds the reason to the local log.
 
 Use a file manager on the phone, an ADB connection, or a remote-control client to edit those files. The [configuration guide](dikciz-configuration.md) lists every path, field, validation rule, and recovery path.
+
+## Review remote permission requests
+
+A controller can ask for one Android permission or special access. Dikciz names it in a notification and an in-app dialog. Tap **Allow access** to open the relevant Android permission screen. Grant only access you want the controller to have. If notifications are disabled, open Dikciz to see the pending request. Closing the dialog grants nothing. Granting access never runs the original operation automatically; the controller checks access and retries it.

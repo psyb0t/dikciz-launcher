@@ -475,4 +475,10 @@
     <string name="dikciz_update_title">Dikciz updated</string>
     <string name="dikciz_update_open">Tap to reopen the launcher and remote controls.</string>
     <string name="dikciz_startup_version">v%1$s (%2$s)</string>
+    <string name="dikciz_permission_channel">Remote access requests</string>
+    <string name="dikciz_permission_title">Dikciz needs your permission</string>
+    <string name="dikciz_permission_message">A remote operation needs %1$s. Tap Allow access to review the Android permission screen. You choose whether to grant it. The original operation will not run automatically.</string>
+    <string name="dikciz_permission_allow">Allow access</string>
+    <string name="dikciz_device_access_install_packages">Install unknown apps</string>
+    <string name="dikciz_device_access_home_app">Default Home app</string>
 </resources>

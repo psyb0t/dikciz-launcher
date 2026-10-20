@@ -130,6 +130,7 @@ internal object DikcizControlStatus {
         val fields = DikcizAutomationControlPlane.COMMAND_KEYS.getValue(commandType)
             .minus(DikcizAutomationControlPlane.KEY_REQUEST_ID)
             .minus(DikcizAutomationControlPlane.KEY_TYPE)
+            .plus(DikcizPermissionRequests.KEY_AUTO_REQUEST)
             .sorted()
         return JSONObject()
             .put(KEY_TYPE, commandType)
