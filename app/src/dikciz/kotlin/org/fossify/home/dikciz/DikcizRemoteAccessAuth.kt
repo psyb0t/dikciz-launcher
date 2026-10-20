@@ -50,12 +50,19 @@ internal class DikcizRemoteAccessAuth(
     }
 
     @Synchronized
-    fun acceptsAuthorization(authorization: String?): Boolean {
-        val state = readState()
+    fun acceptsAuthorization(authorization: String?): Boolean = accepts(readState(), authorization)
+
+    @Synchronized
+    fun authorizationMonitor(authorization: String?): () -> Boolean {
+        val initialState = readState()
+        val accepted = accepts(initialState, authorization)
+        // Recheck the verified record, avoiding a password hash for every output chunk.
+        return { synchronized(this) { accepted && readState() == initialState } }
+    }
+
+    private fun accepts(state: RecordState, authorization: String?): Boolean {
         val record = state.record ?: return state is RecordState.Missing
-        if (!record.enabled) {
-            return true
-        }
+        if (!record.enabled) return true
         val password = parseBearerPassword(authorization) ?: return false
         return verifies(record, password)
     }

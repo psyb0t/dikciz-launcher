@@ -21,7 +21,7 @@ import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_EVENT_IDLE_TIMEOUT_SECONDS = 0.0
@@ -77,6 +77,13 @@ MAXIMUM_SHELL_TIMEOUT_MILLISECONDS = 2_147_483_647
 SHELL_RESPONSE_MARGIN_SECONDS = 10
 MILLISECONDS_PER_SECOND = 1000
 TYPE_SHELL = "shell"
+TYPE_SHELL_STREAM = "shellStream"
+TYPE_SHELL_STREAM_EVENT = "shellStreamEvent"
+TOOL_SHELL_STREAM = "dikciz_shell_stream"
+KEY_STREAM_EVENT = "event"
+KEY_STREAM_OUTPUT = "outputBase64"
+KEY_STREAM_COMPLETE = "complete"
+MAXIMUM_STREAM_EVENT_BYTES = 131_072
 TOOL_SHELL = "dikciz_shell"
 KEY_TIMEOUT_MILLISECONDS = "timeoutMilliseconds"
 HTTP_COMMAND_PATH = "/v1/automation"
@@ -432,6 +439,57 @@ def start_websocket_session(arguments: argparse.Namespace) -> socket.socket:
         raise
 
 
+def emit_stream_event(arguments: argparse.Namespace, envelope: dict[str, Any]) -> None:
+    if not getattr(arguments, "stream_raw", False):
+        emit_json(envelope, pretty=False)
+        return
+    event = envelope.get(KEY_RESULT, envelope.get(KEY_PARAMS, {}).get(KEY_DATA, {}))
+    encoded = event.get(KEY_STREAM_OUTPUT)
+    if encoded is None:
+        return
+    try:
+        data = base64.b64decode(encoded, validate=True)
+    except (TypeError, ValueError, binascii.Error) as exception:
+        raise DikcizControlError("invalid shell stream output encoding") from exception
+    sys.stdout.buffer.write(data)
+    sys.stdout.buffer.flush()
+
+
+def sse_messages(response: http.client.HTTPResponse) -> Iterator[dict[str, Any]]:
+    data_lines: list[str] = []
+    data_size = 0
+    while True:
+        line = response.readline(MAXIMUM_STREAM_EVENT_BYTES + 1)
+        if len(line) > MAXIMUM_STREAM_EVENT_BYTES:
+            raise DikcizControlError("oversized shell stream event")
+        if not line:
+            raise DikcizControlError("shell stream closed without a completion event")
+        try:
+            text = line.decode("utf-8").rstrip("\r\n")
+        except UnicodeDecodeError as exception:
+            raise DikcizControlError("invalid shell stream UTF-8") from exception
+        if text.startswith("data:"):
+            value = text[5:]
+            if value.startswith(" "):
+                value = value[1:]
+            data_lines.append(value)
+            data_size += len(line)
+            if data_size > MAXIMUM_STREAM_EVENT_BYTES:
+                raise DikcizControlError("oversized shell stream event")
+            continue
+        if text or not data_lines:
+            continue
+        try:
+            message = json.loads("\n".join(data_lines))
+        except json.JSONDecodeError as exception:
+            raise DikcizControlError("invalid shell stream JSON") from exception
+        if not isinstance(message, dict):
+            raise DikcizControlError("shell stream event is not an object")
+        data_lines = []
+        data_size = 0
+        yield message
+
+
 def call_websocket(arguments: argparse.Namespace) -> dict[str, Any]:
     command_arguments = parse_json_object(arguments.arguments)
     reject_websocket_envelope_arguments(command_arguments)
@@ -444,6 +502,19 @@ def call_websocket(arguments: argparse.Namespace) -> dict[str, Any]:
             connection, request_id,
             command_response_timeout(arguments, arguments.command_type, command_arguments),
         )
+        if arguments.command_type == TYPE_SHELL_STREAM and response.get(KEY_TYPE) == TYPE_RESULT:
+            emit_stream_event(arguments, response)
+            connection.settimeout(arguments.timeout_seconds)
+            while True:
+                event = receive_websocket_json(connection)
+                if event.get(KEY_TYPE) == TYPE_EVENT:
+                    continue
+                if event.get(KEY_REQUEST_ID) != request_id or event.get(KEY_TYPE) != TYPE_SHELL_STREAM_EVENT:
+                    raise DikcizControlError("unexpected shell stream response")
+                if event.get(KEY_RESULT, {}).get(KEY_STREAM_EVENT) == KEY_STREAM_COMPLETE:
+                    response = {**event, KEY_TYPE: TYPE_RESULT}
+                    break
+                emit_stream_event(arguments, event)
     if response.get(KEY_TYPE) == TYPE_ERROR:
         raise RemoteControlError(response)
     if response.get(KEY_TYPE) != TYPE_RESULT:
@@ -471,6 +542,13 @@ def http_command(
     try:
         connection.request(HTTP_METHOD_POST, HTTP_COMMAND_PATH, body=encode_json(message), headers=headers)
         response = connection.getresponse()
+        if response.status == HTTP_STATUS_OK and response.getheader(HEADER_CONTENT_TYPE, "").split(";", 1)[0] == MIME_TYPE_EVENT_STREAM:
+            for event in sse_messages(response):
+                if event.get(KEY_REQUEST_ID) != request_id:
+                    raise DikcizControlError("unexpected HTTP shell stream request ID")
+                if event.get(KEY_RESULT, {}).get(KEY_STREAM_EVENT) == KEY_STREAM_COMPLETE:
+                    return {**event, KEY_TYPE: TYPE_RESULT}
+                emit_stream_event(arguments, event)
         raw_body = response.read(MAXIMUM_HTTP_RESPONSE_BYTES + 1)
     except (OSError, http.client.HTTPException) as exception:
         raise DikcizControlError("could not complete the Dikciz HTTP command") from exception
@@ -618,8 +696,15 @@ def mcp_request(
             headers=headers,
         )
         response = connection.getresponse()
-        raw_body = response.read(MAXIMUM_HTTP_RESPONSE_BYTES + 1)
         response_headers = {name.lower(): value for name, value in response.getheaders()}
+        if response.status == expected_status and response.getheader(HEADER_CONTENT_TYPE, "").split(";", 1)[0] == MIME_TYPE_EVENT_STREAM:
+            for event in sse_messages(response):
+                if KEY_ID in event:
+                    if event.get(KEY_ID) != message.get(KEY_ID):
+                        raise DikcizControlError("unexpected MCP shell stream request ID")
+                    return response_headers, event
+                emit_stream_event(arguments, event)
+        raw_body = response.read(MAXIMUM_HTTP_RESPONSE_BYTES + 1)
     except (OSError, http.client.HTTPException) as exception:
         raise DikcizControlError("could not complete the Dikciz MCP request") from exception
     finally:
@@ -731,6 +816,8 @@ def call_mcp(arguments: argparse.Namespace, method: str, params: dict[str, Any])
         "io.modelcontextprotocol/clientCapabilities": {},
         "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
     }
+    if params.get(KEY_NAME) == TOOL_SHELL_STREAM:
+        request_params["_meta"]["io.modelcontextprotocol/logLevel"] = "info"
     request = {
         KEY_ID: request_id,
         KEY_METHOD: method,
@@ -850,6 +937,7 @@ def parse_arguments() -> argparse.Namespace:
     websocket.add_argument("command_type")
     websocket.add_argument("--arguments", default="{}")
     websocket.add_argument("--pretty", action="store_true")
+    websocket.add_argument("--stream-raw", action="store_true", help="write streaming command output as bytes")
     add_png_arguments(websocket)
     add_connection_arguments(websocket, DEFAULT_WEBSOCKET_PORT)
 
@@ -857,6 +945,7 @@ def parse_arguments() -> argparse.Namespace:
     http.add_argument("command_type")
     http.add_argument("--arguments", default="{}")
     http.add_argument("--pretty", action="store_true")
+    http.add_argument("--stream-raw", action="store_true", help="write streaming command output as bytes")
     add_connection_arguments(http, DEFAULT_MCP_PORT)
 
     for operation in ("upload", "download"):
@@ -884,6 +973,7 @@ def parse_arguments() -> argparse.Namespace:
     mcp.add_argument("tool")
     mcp.add_argument("--arguments", default="{}")
     mcp.add_argument("--pretty", action="store_true")
+    mcp.add_argument("--stream-raw", action="store_true", help="write streaming command output as bytes")
     add_png_arguments(mcp)
     add_connection_arguments(mcp, DEFAULT_MCP_PORT)
 
@@ -891,7 +981,28 @@ def parse_arguments() -> argparse.Namespace:
     mcp_tools.add_argument("--pretty", action="store_true")
     add_connection_arguments(mcp_tools, DEFAULT_MCP_PORT)
 
-    return parser.parse_args()
+    arguments = parser.parse_args()
+    if getattr(arguments, "stream_raw", False):
+        is_stream = (
+            arguments.operation in ("websocket", "http") and arguments.command_type == TYPE_SHELL_STREAM
+        ) or (arguments.operation == "mcp" and arguments.tool == TOOL_SHELL_STREAM)
+        if not is_stream:
+            parser.error("--stream-raw requires shellStream or dikciz_shell_stream")
+    return arguments
+
+
+def stream_exit_status(arguments: argparse.Namespace, response: dict[str, Any]) -> int:
+    result = response.get("structuredContent", response.get(KEY_RESULT, {}))
+    if result.get(KEY_STREAM_EVENT) != KEY_STREAM_COMPLETE:
+        return EXIT_SUCCESS
+    if result.get("state") not in ("exited", "cancelled"):
+        return EXIT_REMOTE_REJECTION
+    if result.get("state") == "cancelled":
+        return EXIT_SUCCESS
+    exit_code = result.get("exitCode")
+    if arguments.stream_raw and type(exit_code) is int and exit_code != 0:
+        return exit_code if 0 < exit_code < 256 else EXIT_CLIENT_FAILURE
+    return EXIT_SUCCESS
 
 
 def main() -> int:
@@ -905,11 +1016,14 @@ def main() -> int:
         if arguments.operation == "websocket":
             response = call_websocket(arguments)
             maybe_write_png(arguments, response)
-            emit_json(response, arguments.pretty)
-            return EXIT_SUCCESS
+            if not arguments.stream_raw:
+                emit_json(response, arguments.pretty)
+            return stream_exit_status(arguments, response)
         if arguments.operation == "http":
-            emit_json(call_http(arguments), arguments.pretty)
-            return EXIT_SUCCESS
+            response = call_http(arguments)
+            if not arguments.stream_raw:
+                emit_json(response, arguments.pretty)
+            return stream_exit_status(arguments, response)
         if arguments.operation == "upload":
             emit_json(upload_file(arguments), arguments.pretty)
             return EXIT_SUCCESS
@@ -921,18 +1035,23 @@ def main() -> int:
         if arguments.operation == "mcp":
             response = call_mcp_tool(arguments)
             maybe_write_png(arguments, response)
-            emit_json(response, arguments.pretty)
-            return EXIT_SUCCESS
+            if not arguments.stream_raw:
+                emit_json(response, arguments.pretty)
+            return stream_exit_status(arguments, response)
         if arguments.operation == "mcp-tools":
             emit_json(list_mcp_tools(arguments), arguments.pretty)
             return EXIT_SUCCESS
         raise DikcizControlError("unknown Dikciz control operation")
+    except KeyboardInterrupt:
+        LOGGER.info("Dikciz stream cancelled by client", extra={"operation": arguments.operation})
+        return 130
     except RemoteControlError as exception:
         LOGGER.error(
             "Dikciz rejected control request",
             extra={"operation": arguments.operation, "error_type": type(exception).__name__},
         )
-        emit_json({"error": str(exception), "response": exception.response}, pretty=False)
+        if not getattr(arguments, "stream_raw", False):
+            emit_json({"error": str(exception), "response": exception.response}, pretty=False)
         return EXIT_REMOTE_REJECTION
     except (DikcizControlError, OSError) as exception:
         LOGGER.error(

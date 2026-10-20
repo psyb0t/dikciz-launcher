@@ -55,6 +55,8 @@ import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import androidx.health.connect.client.PermissionController
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -74,6 +76,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import org.fossify.home.BuildConfig
 import org.fossify.home.R
 import org.json.JSONArray
 import org.json.JSONException
@@ -102,6 +105,7 @@ class DikcizHomeActivity : Activity() {
     private lateinit var safeModeResetButton: Button
     private lateinit var startupBrandMark: ImageView
     private lateinit var startupMessage: TextView
+    private lateinit var startupVersion: TextView
     private lateinit var startupOverlay: FrameLayout
     private lateinit var widgetContainer: DikcizPageGridLayout
     private lateinit var verticalPageIndicator: DikcizPageIndicatorView
@@ -157,6 +161,7 @@ class DikcizHomeActivity : Activity() {
     private var isControlPlaneStartRetryScheduled = false
     private var isConfigurationErrorVisible = false
     private var isStartupBrandVisible = false
+    private var systemBackCallback: OnBackInvokedCallback? = null
     private var hasPendingDefaultHomePageSelection = false
     private var hasPendingRenderingAssetChange = false
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -344,6 +349,10 @@ class DikcizHomeActivity : Activity() {
 
     override fun onDestroy() {
         dismissStartupBrand()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            systemBackCallback?.let(onBackInvokedDispatcher::unregisterOnBackInvokedCallback)
+            systemBackCallback = null
+        }
         controlConfigFileObservers.forEach(ConfigurationFileObserver::stopWatching)
         controlConfigFileObservers.clear()
         mainHandler.removeCallbacks(pollControlConfigurationRunnable)
@@ -425,18 +434,44 @@ class DikcizHomeActivity : Activity() {
         return super.dispatchTouchEvent(event)
     }
 
-    @Deprecated("Launcher back handling predates the predictive-back callback contract.")
+    // Android 12 and earlier still dispatch Back through this override.
+    @SuppressLint("GestureBackNavigation")
+    @Deprecated("Android 13 and newer use the system Back callback.")
     override fun onBackPressed() {
-        if (isStartupBrandVisible) {
-            dismissStartupBrand()
-            return
-        }
-        if (appDrawer.isOpen) {
-            closeAppDrawer()
+        if (handleLauncherBack()) {
             return
         }
         @Suppress("DEPRECATION")
         super.onBackPressed()
+    }
+
+    private fun handleLauncherBack(): Boolean {
+        if (isStartupBrandVisible) {
+            dismissStartupBrand()
+            return true
+        }
+        if (appDrawer.isOpen) {
+            closeAppDrawer()
+            return true
+        }
+        return false
+    }
+
+    private fun refreshSystemBackCallback() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return
+        }
+        systemBackCallback?.let(onBackInvokedDispatcher::unregisterOnBackInvokedCallback)
+        systemBackCallback = null
+        if (!isStartupBrandVisible && !appDrawer.isOpen) {
+            return
+        }
+        val callback = OnBackInvokedCallback { handleLauncherBack() }
+        systemBackCallback = callback
+        onBackInvokedDispatcher.registerOnBackInvokedCallback(
+            OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+            callback,
+        )
     }
 
     private fun bindViews() {
@@ -450,6 +485,12 @@ class DikcizHomeActivity : Activity() {
         safeModeResetButton = findViewById(R.id.dikciz_safe_mode_reset)
         startupBrandMark = findViewById(R.id.dikciz_startup_brand_mark)
         startupMessage = findViewById(R.id.dikciz_startup_message)
+        startupVersion = findViewById(R.id.dikciz_startup_version)
+        startupVersion.text = getString(
+            R.string.dikciz_startup_version,
+            BuildConfig.VERSION_NAME,
+            BuildConfig.BUILD_TYPE,
+        )
         startupOverlay = findViewById(R.id.dikciz_startup_overlay)
         widgetContainer = findViewById(R.id.dikciz_widget_container)
         verticalPageIndicator = findViewById(R.id.dikciz_vertical_page_indicator)
@@ -476,6 +517,7 @@ class DikcizHomeActivity : Activity() {
         }
         hasShownStartupBrandInCurrentProcess = true
         isStartupBrandVisible = true
+        refreshSystemBackCallback()
         startupOverlay.alpha = ENABLED_WIDGET_ALPHA
         startupOverlay.visibility = View.VISIBLE
         startupOverlay.setOnClickListener { dismissStartupBrand() }
@@ -513,6 +555,7 @@ class DikcizHomeActivity : Activity() {
         if (isStartupBrandVisible) {
             registerAutomationView(SEMANTIC_STARTUP_DISMISS, startupOverlay)
             registerAutomationView(SEMANTIC_STARTUP_MESSAGE, startupMessage)
+            registerAutomationView(SEMANTIC_STARTUP_VERSION, startupVersion)
         }
     }
 
@@ -530,9 +573,11 @@ class DikcizHomeActivity : Activity() {
             return
         }
         isStartupBrandVisible = false
+        refreshSystemBackCallback()
         mainHandler.removeCallbacks(showNextStartupMessageRunnable)
         automationViews.remove(SEMANTIC_STARTUP_DISMISS)
         automationViews.remove(SEMANTIC_STARTUP_MESSAGE)
+        automationViews.remove(SEMANTIC_STARTUP_VERSION)
         startupOverlay.animate()
             .alpha(TRANSPARENT_OPACITY)
             .setDuration(STARTUP_BRAND_EXIT_DURATION_MILLISECONDS)
@@ -548,8 +593,10 @@ class DikcizHomeActivity : Activity() {
         mainHandler.removeCallbacks(hideStartupBrandRunnable)
         mainHandler.removeCallbacks(showNextStartupMessageRunnable)
         isStartupBrandVisible = false
+        refreshSystemBackCallback()
         automationViews.remove(SEMANTIC_STARTUP_DISMISS)
         automationViews.remove(SEMANTIC_STARTUP_MESSAGE)
+        automationViews.remove(SEMANTIC_STARTUP_VERSION)
         startupOverlay.animate().cancel()
         startupBrandMark.animate().cancel()
         startupOverlay.alpha = ENABLED_WIDGET_ALPHA
@@ -1538,8 +1585,14 @@ class DikcizHomeActivity : Activity() {
             if (onTap != null) {
                 setOnClickListener { onTap() }
             }
-            setOnTouchListener { _, event ->
-                handleWidgetMoveTouch(widget, widgetView, event, isTopLevel = true, onTap = onTap)
+            setOnTouchListener { view, event ->
+                handleWidgetMoveTouch(
+                    widget,
+                    widgetView,
+                    event,
+                    isTopLevel = true,
+                    onTap = { view.performClick() },
+                )
             }
             registerAutomationView(moveHandleSemanticID(widget.id), this)
         }
@@ -3804,6 +3857,7 @@ class DikcizHomeActivity : Activity() {
             DikcizAutomationControlPlane.TYPE_APP_CATALOGUE -> appCatalogueDocument(command)
             DikcizAutomationControlPlane.TYPE_APP_ACTION -> runAppActionCommand(command)
             DikcizAutomationControlPlane.TYPE_OPEN_AUTOMATION_SETUP -> openAutomationSetupCommand()
+            DikcizShellStreams.TYPE_START -> JSONObject()
             DikcizAutomationControlPlane.TYPE_SHELL -> runAutomationShell(command)
             DikcizAutomationControlPlane.TYPE_INTENT -> dispatchAutomationIntent(command)
             DikcizAutomationControlPlane.TYPE_SCREENSHOT -> captureAutomationScreenshot()
@@ -6165,6 +6219,7 @@ class DikcizHomeActivity : Activity() {
         }
         val applications = launchableApps()
         appDrawer.open(applications)
+        refreshSystemBackCallback()
         registerAppDrawerAutomationViews()
         dikcizLogger.info(
             EVENT_APP_DRAWER_OPENED,
@@ -6181,6 +6236,7 @@ class DikcizHomeActivity : Activity() {
             return
         }
         appDrawer.close()
+        refreshSystemBackCallback()
         clearAppDrawerAutomationViews()
         dikcizLogger.info(EVENT_APP_DRAWER_CLOSED)
         publishAutomationUIRendered()
@@ -10980,7 +11036,11 @@ class DikcizHomeActivity : Activity() {
             return false
         }
         try {
-            startActivity(Intent().setComponent(component))
+            startActivity(
+                Intent.makeMainActivity(component).addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED,
+                ),
+            )
             dikcizLogger.info(
                 EVENT_EXPLICIT_APP_LAUNCH_STARTED,
                 mapOf(
@@ -11751,6 +11811,7 @@ class DikcizHomeActivity : Activity() {
         const val SEMANTIC_PAGE_SEARCH_PAGE_PREFIX = "launcher:page-search:page:"
         const val SEMANTIC_STARTUP_DISMISS = "startup:dismiss"
         const val SEMANTIC_STARTUP_MESSAGE = "startup:message"
+        const val SEMANTIC_STARTUP_VERSION = "startup:version"
         const val APP_SHORTCUT_BUTTON_ICON_GAP_DP = 8
         const val APP_SHORTCUT_ICON_LABEL_GAP_DP = 4
         const val APP_GROUP_ICON_SIZE_DP = 24

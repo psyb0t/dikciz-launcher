@@ -63,6 +63,9 @@ internal object DikcizControlStatus {
 
     private fun limits(): JSONObject {
         return JSONObject()
+            .put(KEY_DEFAULT_SHELL_STREAM_TIMEOUT, DikcizShellStreams.DEFAULT_TIMEOUT_MILLISECONDS)
+            .put(KEY_MAXIMUM_SHELL_STREAMS, DikcizShellStreams.MAXIMUM_STREAM_COUNT)
+            .put(KEY_MAXIMUM_SHELL_STREAM_CHUNK, DikcizShellStreams.MAXIMUM_CHUNK_BYTES)
             .put(KEY_DEFAULT_SHELL_TIMEOUT, DikcizPrivilegedShell.DEFAULT_SHELL_TIMEOUT_MILLISECONDS)
             .put(KEY_DEFAULT_SHELL_OUTPUT, DikcizPrivilegedShell.DEFAULT_SHELL_OUTPUT_BYTES)
             .put(KEY_MAXIMUM_SHELL_TIMEOUT, DikcizPrivilegedShell.MAXIMUM_SHELL_TIMEOUT_MILLISECONDS)
@@ -192,6 +195,8 @@ internal object DikcizControlStatus {
             DikcizAutomationControlPlane.TYPE_APP_ACTION,
             DikcizAutomationControlPlane.TYPE_INTENT,
             DikcizAutomationControlPlane.TYPE_LAUNCH_APP,
+            DikcizShellStreams.TYPE_START,
+            DikcizShellStreams.TYPE_STOP,
             DikcizAutomationControlPlane.TYPE_SHELL,
             DikcizAutomationControlPlane.TYPE_AUTOMATION_SERVICE_SYNC,
             -> SIDE_EFFECT_DEVICE
@@ -216,6 +221,9 @@ internal object DikcizControlStatus {
     private const val KEY_MAXIMUM_SEMANTIC_ID_CHARACTERS = "maximumSemanticIdCharacters"
     private const val KEY_MAXIMUM_SHELL_COMMAND_CHARACTERS = "maximumShellCommandCharacters"
     private const val KEY_MAXIMUM_TEXT_CHARACTERS = "maximumTextCharacters"
+    private const val KEY_DEFAULT_SHELL_STREAM_TIMEOUT = "defaultShellStreamTimeoutMilliseconds"
+    private const val KEY_MAXIMUM_SHELL_STREAMS = "maximumShellStreamsPerListener"
+    private const val KEY_MAXIMUM_SHELL_STREAM_CHUNK = "maximumShellStreamChunkBytes"
     private const val KEY_DEFAULT_SHELL_TIMEOUT = "defaultShellTimeoutMilliseconds"
     private const val KEY_DEFAULT_SHELL_OUTPUT = "defaultShellOutputBytes"
     private const val KEY_MAXIMUM_SHELL_TIMEOUT = "maximumShellTimeoutMilliseconds"

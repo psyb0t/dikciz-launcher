@@ -43,6 +43,26 @@ Shell limit scenarios verify the 30-second default, longer per-command timeouts,
 make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_shell_request_
 ```
 
+Launcher regression checks cover Android Back events in button and gesture navigation modes, app tasks after Home, state retention in a standard third-party activity, Recent apps resumption and the splash version. Build both APKs, then run against minified Dikciz:
+
+```bash
+make gradle GRADLE_TASK=:app:assembleDikcizMinified
+make gradle ANDROID_PROJECT=tests/configurable-widget-provider GRADLE_TASK=:app:assembleDebug
+make dikciz-test-existing-apk \
+  APK=app/build/outputs/apk/dikciz/minified/launcher-16-dikciz-minified.apk \
+  DIKCIZ_TEST_SELECTOR=test_launcher_regression_ \
+  DIKCIZ_TEST_CONFIGURABLE_PROVIDER_APK=tests/configurable-widget-provider/app/build/outputs/apk/debug/app-debug.apk \
+  DIKCIZ_TEST_CONFIGURABLE_PROVIDER_PACKAGE=eu.psyb0t.dikciz.fixture
+```
+
+The Back checks verify drawer dismissal through native Back key events in both navigation modes. An edge swipe probe also fails in Android Settings on the private API 36 image, so physical edge gesture recognition needs a separate device check.
+
+Live shell streaming cases cover output before exit, real logcat markers, process-group cancellation and disconnect cleanup, explicit deadlines, nonzero exit status, binary chunks and larger output through WebSocket, MCP SSE and HTTP SSE:
+
+```bash
+make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_shell_streaming_
+```
+
 The automation public-file reload scenario also edits scripts while another Android app is in front. Direct private-network reachability still needs a connection check from the intended controlling computer; an emulator forward cannot prove a tailnet policy permits that computer to reach a physical phone.
 
 `make dikciz-test-minified-lua` runs the existing Lua context and failure diagnostics scenarios against `dikcizMinified`, which inherits release optimization and uses the debug signing key and package. Override `DIKCIZ_TEST_SELECTOR` to run another focused scenario against that build. Debug-only platform event fixtures are not included.

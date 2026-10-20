@@ -157,5 +157,16 @@
                 android:textColor="@color/dikciz_foreground"
                 android:textSize="14sp" />
         </LinearLayout>
+
+        <TextView
+            android:id="@+id/dikciz_startup_version"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="64dp"
+            android:fontFamily="monospace"
+            android:padding="8dp"
+            android:textColor="@color/dikciz_muted_foreground"
+            android:textSize="12sp" />
     </FrameLayout>
 </FrameLayout>

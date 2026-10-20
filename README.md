@@ -105,7 +105,9 @@ The complete Fossify source remains the maintained Android base. Dikciz code liv
 
 ## Verification
 
-Use `make lint` for script checks, `make gradle GRADLE_TASK=:app:assembleDikcizDebug` for a focused build and the relevant target from [the test guide](tests/README.md) for live behavior. `make dikciz-test` runs the broad shared-emulator suite. `make dikciz-test-minified-lua` verifies Lua execution and failure reporting with release shrinking enabled. Tests leave the shared emulator on the current bundled starter home.
+Use `make lint` for script checks and Android lint on minified Dikciz, `make gradle GRADLE_TASK=:app:assembleDikcizDebug` for a focused build and the relevant target from [the test guide](tests/README.md) for live behavior. `make dikciz-test` runs the broad shared-emulator suite. `make dikciz-test-minified-lua` verifies Lua execution and failure reporting with release shrinking enabled. Tests leave the shared emulator on the current bundled starter home.
+
+CI runs `make lint` as a required code job step. Android lint errors fail that job and block the dependent release job. The minified lint task checks the Dikciz source set. `make app-lint` separately checks the upstream-compatible core.
 
 A version tag builds the signed APK and checksum in CI through `make release-apk`. That target verifies the published signing certificate and the version from `VERSION`. Its keystore and signing secrets stay outside tracked source. The [release history](docs/changelog.md) records user-visible changes.
 

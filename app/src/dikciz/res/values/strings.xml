@@ -474,4 +474,5 @@
     <string name="dikciz_update_channel">App updates</string>
     <string name="dikciz_update_title">Dikciz updated</string>
     <string name="dikciz_update_open">Tap to reopen the launcher and remote controls.</string>
+    <string name="dikciz_startup_version">v%1$s (%2$s)</string>
 </resources>

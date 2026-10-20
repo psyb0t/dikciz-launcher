@@ -322,8 +322,9 @@ app-test: gradle ## Run the default Fossify-compatible local Kotlin tests
 app-lint: GRADLE_TASK := :app:lintCoreDebug
 app-lint: gradle ## Run Android lint for the default Fossify-compatible debug variant
 
-lint: ensure-dev-image ## ShellCheck every lab script and verify formatting
+lint: ensure-dev-image ## Check scripts and run Android lint for minified Dikciz
 	@$(DEV_RUN) bash scripts/lint.sh
+	@$(MAKE) --no-print-directory gradle GRADLE_TASK=:app:lintDikcizMinified
 
 format: ensure-dev-image ## Format the lab shell and Python sources
 	@$(DEV_RUN) bash scripts/format.sh

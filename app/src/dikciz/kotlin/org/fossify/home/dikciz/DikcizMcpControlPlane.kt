@@ -38,6 +38,8 @@ internal class DikcizMcpControlPlane(
     var listenAddress: String = DikcizControlPorts.DEFAULT_LISTEN_ADDRESS
         private set
 
+    private val shellStreams = DikcizShellStreams(logger)
+    private val streamingSockets = ConcurrentHashMap.newKeySet<Socket>()
     private val isRunning = AtomicBoolean()
     private val sessions = ConcurrentHashMap<String, McpSession>()
 
@@ -87,6 +89,8 @@ internal class DikcizMcpControlPlane(
         }
         serverSocket?.close()
         serverSocket = null
+        shellStreams.close()
+        streamingSockets.forEach { it.close() }
         sessions.clear()
         workerPool?.shutdownNow()
         workerPool = null
@@ -119,7 +123,7 @@ internal class DikcizMcpControlPlane(
                 val request = readRequest(input)
                 validateOrigin(request.headers)
                 validateRemoteAuthorization(request.headers)
-                handleRequest(request, output)
+                handleRequest(request, output, connection)
             } catch (exception: McpHttpException) {
                 logger.warn(
                     EVENT_MCP_REQUEST_REJECTED,
@@ -136,12 +140,14 @@ internal class DikcizMcpControlPlane(
                     EVENT_MCP_REQUEST_FAILED,
                     mapOf(FIELD_ERROR_CLASS to exception::class.java.simpleName),
                 )
-                writeError(output, HTTP_STATUS_INTERNAL_SERVER_ERROR, MESSAGE_INTERNAL_ERROR)
+                if (connection !in streamingSockets) writeError(output, HTTP_STATUS_INTERNAL_SERVER_ERROR, MESSAGE_INTERNAL_ERROR)
+            } finally {
+                streamingSockets.remove(connection)
             }
         }
     }
 
-    private fun handleRequest(request: HttpRequest, output: BufferedOutputStream) {
+    private fun handleRequest(request: HttpRequest, output: BufferedOutputStream, connection: Socket) {
         if (request.path == HTTP_COMMAND_PATH) {
             if (request.method != HTTP_METHOD_POST) {
                 writeResponse(output, HTTP_STATUS_METHOD_NOT_ALLOWED, null, mapOf(HEADER_ALLOW to HTTP_METHOD_POST))
@@ -154,6 +160,10 @@ internal class DikcizMcpControlPlane(
                 JSONObject(String(request.body, StandardCharsets.UTF_8))
             } catch (exception: JSONException) {
                 throw McpHttpException(HTTP_STATUS_BAD_REQUEST, REASON_INVALID_JSON, MESSAGE_INVALID_JSON)
+            }
+            if (command.optString(DikcizAutomationControlPlane.KEY_TYPE) in setOf(DikcizShellStreams.TYPE_START, DikcizShellStreams.TYPE_STOP)) {
+                handleHttpStream(command, request, output, connection)
+                return
             }
             val response = executeHttpCommand(command, request.headers[HEADER_AUTHORIZATION])
             val document = JSONObject(response)
@@ -172,7 +182,7 @@ internal class DikcizMcpControlPlane(
         when (request.method) {
             HTTP_METHOD_GET -> writeMethodNotAllowed(output)
             HTTP_METHOD_DELETE -> deleteSession(request, output)
-            HTTP_METHOD_POST -> postMessage(request, output)
+            HTTP_METHOD_POST -> postMessage(request, output, connection)
             else -> writeMethodNotAllowed(output)
         }
     }
@@ -183,11 +193,12 @@ internal class DikcizMcpControlPlane(
         if (sessions.remove(sessionID) == null) {
             throw McpHttpException(HTTP_STATUS_NOT_FOUND, REASON_UNKNOWN_SESSION, MESSAGE_UNKNOWN_SESSION)
         }
+        shellStreams.closeOwner(MCP_STREAM_OWNER_PREFIX + sessionID)
         logger.info(EVENT_MCP_SESSION_DELETED)
         writeResponse(output, HTTP_STATUS_NO_CONTENT, null)
     }
 
-    private fun postMessage(request: HttpRequest, output: BufferedOutputStream) {
+    private fun postMessage(request: HttpRequest, output: BufferedOutputStream, connection: Socket) {
         validatePostHeaders(request.headers)
         val message = parseMessage(request.body)
         val method = message.requireMcpString(KEY_METHOD)
@@ -215,6 +226,11 @@ internal class DikcizMcpControlPlane(
 
             METHOD_TOOLS_CALL -> {
                 requireInitialized(session)
+                val toolName = message.requireObject(KEY_PARAMS).requireMcpString(KEY_NAME)
+                if (toolName in setOf(TOOL_SHELL_STREAM, TOOL_SHELL_STREAM_STOP)) {
+                    handleStreamingTool(message, request, session, output, connection)
+                    return
+                }
                 val result = callTool(message, request.headers[HEADER_AUTHORIZATION])
                 writeJson(output, jsonRpcSuccess(message.requireID(), result))
                 if (!result.optBoolean(KEY_IS_ERROR)) {
@@ -230,6 +246,127 @@ internal class DikcizMcpControlPlane(
                     MESSAGE_METHOD_NOT_FOUND,
                 ),
             )
+        }
+    }
+
+    private fun handleHttpStream(command: JSONObject, request: HttpRequest, output: BufferedOutputStream, connection: Socket) {
+        val requestID = command.optString(DikcizAutomationControlPlane.KEY_REQUEST_ID)
+        try {
+            if (requestID.length != 36 || runCatching { UUID.fromString(requestID).toString() }.getOrNull() != requestID) {
+                throw DikcizAutomationRequestException(DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED, DikcizAutomationControlPlane.MESSAGE_INVALID_REQUEST_ID)
+            }
+            val stop = command.getString(DikcizAutomationControlPlane.KEY_TYPE) == DikcizShellStreams.TYPE_STOP
+            DikcizShellStreams.validate(command, stop, envelope = true)
+            val owner = HTTP_STREAM_OWNER_PREFIX + (request.headers[HEADER_AUTHORIZATION] ?: HTTP_ANONYMOUS_OWNER)
+            if (stop) {
+                writeJson(output, streamEnvelope(requestID, shellStreams.stop(owner, command), false))
+                return
+            }
+            dispatchCommand(DikcizAutomationCommand(DikcizShellStreams.TYPE_START, command), request.headers[HEADER_AUTHORIZATION])
+            val stream = shellStreams.open(owner, command)
+            val isAuthorized = remoteAccessAuth.authorizationMonitor(request.headers[HEADER_AUTHORIZATION])
+            streamingSockets.add(connection)
+            try {
+                writeStreamHeaders(output)
+                writeStreamMessage(output, streamEnvelope(requestID, stream.description(), false))
+                val completed = stream.consume(
+                    isAllowed = { isRunning.get() && isAuthorized() },
+                    abortConnection = { connection.close() },
+                ) { event -> writeStreamMessage(output, streamEnvelope(requestID, event, true)) }
+                writeStreamMessage(output, streamEnvelope(requestID, completed, true))
+            } finally {
+                stream.cancel(DikcizShellStreams.STATE_CANCELLED)
+            }
+        } catch (exception: DikcizAutomationRequestException) {
+            writeJson(output, JSONObject()
+                .put(DikcizAutomationControlPlane.KEY_TYPE, DikcizAutomationControlPlane.TYPE_ERROR)
+                .put(DikcizAutomationControlPlane.KEY_REQUEST_ID, requestID)
+                .put(DikcizAutomationControlPlane.KEY_CODE, exception.code)
+                .put(DikcizAutomationControlPlane.KEY_MESSAGE, exception.message))
+        }
+    }
+
+    private fun handleStreamingTool(message: JSONObject, request: HttpRequest, session: McpSession, output: BufferedOutputStream, connection: Socket) {
+        val requestID = message.requireID()
+        val params = message.requireObject(KEY_PARAMS)
+        val stop = params.getString(KEY_NAME) == TOOL_SHELL_STREAM_STOP
+        val arguments = params.optJSONObject(KEY_ARGUMENTS) ?: JSONObject()
+        val sessionID = request.headers.getValue(HEADER_MCP_SESSION_ID)
+        val owner = MCP_STREAM_OWNER_PREFIX + sessionID
+        try {
+            DikcizShellStreams.validate(arguments, stop)
+            if (stop) {
+                writeJson(output, jsonRpcSuccess(requestID, toolSuccess(shellStreams.stop(owner, arguments))))
+                return
+            }
+            val level = params.optJSONObject(KEY_META)?.optString(KEY_META_LOG_LEVEL)
+            if (level !in STREAM_LOG_LEVELS) {
+                throw DikcizAutomationRequestException(DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED, MESSAGE_STREAM_LOG_OPT_IN)
+            }
+            dispatchCommand(DikcizAutomationCommand(DikcizShellStreams.TYPE_START, arguments), request.headers[HEADER_AUTHORIZATION])
+            val stream = shellStreams.open(owner, arguments)
+            val isAuthorized = remoteAccessAuth.authorizationMonitor(request.headers[HEADER_AUTHORIZATION])
+            streamingSockets.add(connection)
+            try {
+                writeStreamHeaders(output)
+                writeStreamMessage(output, streamNotification(stream.description()))
+                val completed = stream.consume(
+                    isAllowed = {
+                        session.touch()
+                        isRunning.get() && sessions[sessionID] === session && isAuthorized()
+                    },
+                    abortConnection = { connection.close() },
+                ) { event ->
+                    if (event.getString(DikcizShellStreams.KEY_EVENT) == DikcizShellStreams.EVENT_HEARTBEAT) {
+                        writeStreamHeartbeat(output)
+                    } else {
+                        writeStreamMessage(output, streamNotification(event))
+                    }
+                }
+                val result = toolSuccess(completed)
+                val state = completed.getString(DikcizShellStreams.KEY_STATE)
+                val isError = state !in STREAM_SUCCESS_STATES
+                result.put(KEY_IS_ERROR, isError)
+                if (isError) {
+                    result.getJSONArray(KEY_CONTENT).getJSONObject(0)
+                        .put(KEY_TEXT, MESSAGE_STREAM_FAILED + completed.optString(DikcizAutomationControlPlane.KEY_CODE, state))
+                }
+                writeStreamMessage(output, jsonRpcSuccess(requestID, result))
+            } finally {
+                stream.cancel(DikcizShellStreams.STATE_CANCELLED)
+            }
+        } catch (exception: DikcizAutomationRequestException) {
+            writeJson(output, jsonRpcSuccess(requestID, toolFailure(exception.message.orEmpty(), exception.code)))
+        }
+    }
+
+    private fun streamEnvelope(requestID: String, event: JSONObject, isEvent: Boolean): JSONObject = JSONObject()
+        .put(DikcizAutomationControlPlane.KEY_TYPE, if (isEvent) DikcizShellStreams.TYPE_EVENT else DikcizAutomationControlPlane.TYPE_RESULT)
+        .put(DikcizAutomationControlPlane.KEY_REQUEST_ID, requestID)
+        .put(DikcizAutomationControlPlane.KEY_RESULT, event)
+
+    private fun streamNotification(event: JSONObject): JSONObject = JSONObject()
+        .put(KEY_JSON_RPC, JSON_RPC_VERSION)
+        .put(KEY_METHOD, METHOD_LOG_MESSAGE)
+        .put(KEY_PARAMS, JSONObject().put(KEY_LEVEL, STREAM_LOG_LEVEL).put(KEY_LOGGER, STREAM_LOGGER).put(KEY_DATA, event))
+
+    private fun writeStreamHeaders(output: BufferedOutputStream) {
+        val headers = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream; charset=utf-8\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n"
+        output.write(headers.toByteArray(StandardCharsets.US_ASCII))
+        output.flush()
+    }
+
+    private fun writeStreamMessage(output: BufferedOutputStream, document: JSONObject) {
+        synchronized(output) {
+            output.write(("event: message\ndata: " + document.toString() + "\n\n").toByteArray(StandardCharsets.UTF_8))
+            output.flush()
+        }
+    }
+
+    private fun writeStreamHeartbeat(output: BufferedOutputStream) {
+        synchronized(output) {
+            output.write(STREAM_HEARTBEAT.toByteArray(StandardCharsets.US_ASCII))
+            output.flush()
         }
     }
 
@@ -666,7 +803,7 @@ internal class DikcizMcpControlPlane(
         val now = System.currentTimeMillis()
         sessions.entries.forEach { entry ->
             if (now - entry.value.lastTouched.get() > SESSION_TIMEOUT_MILLISECONDS) {
-                sessions.remove(entry.key, entry.value)
+                if (sessions.remove(entry.key, entry.value)) shellStreams.closeOwner(MCP_STREAM_OWNER_PREFIX + entry.key)
             }
         }
     }
@@ -1127,7 +1264,9 @@ internal class DikcizMcpControlPlane(
         const val KEY_VERSION = "version"
         const val LINE_FEED = 10
         const val MAXIMUM_BODY_BYTES = HomeConfigStore.MAXIMUM_CONFIGURATION_DOCUMENT_BYTES
-        const val MAXIMUM_CONNECTION_COUNT = 4
+        private const val MAXIMUM_COMMAND_CONNECTION_COUNT = 4
+        // Full stream capacity must leave workers available for stop and other commands.
+        const val MAXIMUM_CONNECTION_COUNT = MAXIMUM_COMMAND_CONNECTION_COUNT + DikcizShellStreams.MAXIMUM_STREAM_COUNT
         const val MAXIMUM_HEADER_BYTES = 8_192
         const val MAXIMUM_SESSION_COUNT = 8
         const val MCP_PATH = "/mcp"
@@ -1160,6 +1299,22 @@ internal class DikcizMcpControlPlane(
         const val METHOD_TOOLS_CALL = "tools/call"
         const val METHOD_TOOLS_LIST = "tools/list"
         const val ONE_BYTE = 1
+        const val TOOL_SHELL_STREAM = "dikciz_shell_stream"
+        const val TOOL_SHELL_STREAM_STOP = "dikciz_shell_stream_stop"
+        private const val KEY_META_LOG_LEVEL = "io.modelcontextprotocol/logLevel"
+        private const val KEY_LEVEL = "level"
+        private const val KEY_LOGGER = "logger"
+        private const val METHOD_LOG_MESSAGE = "notifications/message"
+        private const val STREAM_LOG_LEVEL = "info"
+        private const val STREAM_LOGGER = "dikciz.shell"
+        private const val STREAM_HEARTBEAT = ": keepalive\n\n"
+        private const val MESSAGE_STREAM_FAILED = "Shell stream stopped: "
+        private const val MESSAGE_STREAM_LOG_OPT_IN = "shell streaming requires params._meta io.modelcontextprotocol/logLevel set to info or debug"
+        private const val MCP_STREAM_OWNER_PREFIX = "mcp:"
+        private const val HTTP_STREAM_OWNER_PREFIX = "http:"
+        private const val HTTP_ANONYMOUS_OWNER = "anonymous"
+        private val STREAM_LOG_LEVELS = setOf("info", "debug")
+        private val STREAM_SUCCESS_STATES = setOf(DikcizShellStreams.STATE_EXITED, DikcizShellStreams.STATE_CANCELLED)
         const val PROTOCOL_VERSION = "2026-07-28"
         const val REASON_ACCEPT = "accept"
         const val REASON_BODY_SIZE = "body_size"
@@ -1332,6 +1487,8 @@ internal class DikcizMcpControlPlane(
             TOOL_APP_CATALOGUE to DikcizAutomationControlPlane.TYPE_APP_CATALOGUE,
             TOOL_APP_ACTION to DikcizAutomationControlPlane.TYPE_APP_ACTION,
             TOOL_OPEN_AUTOMATION_SETUP to DikcizAutomationControlPlane.TYPE_OPEN_AUTOMATION_SETUP,
+            TOOL_SHELL_STREAM to DikcizShellStreams.TYPE_START,
+            TOOL_SHELL_STREAM_STOP to DikcizShellStreams.TYPE_STOP,
             "dikciz_shell" to DikcizAutomationControlPlane.TYPE_SHELL,
             "dikciz_intent" to DikcizAutomationControlPlane.TYPE_INTENT,
             "dikciz_screenshot" to DikcizAutomationControlPlane.TYPE_SCREENSHOT,
@@ -1398,6 +1555,8 @@ internal class DikcizMcpControlPlane(
             ToolDefinition(TOOL_OPEN_AUTOMATION_SETUP, "Open Dikciz automation setup", "Open the native Dikciz Automation access sheet so the phone owner can grant the Android access a denied action needs.", emptyList(), false),
             ToolDefinition(TOOL_APP_CATALOGUE, "List launchable Android apps", "List the launcher app catalogue with stable semantic IDs, human labels, package names, and components, plus the supported app actions. An optional query filters on label and package name.", listOf(optionalAppQueryArgument()), true),
             ToolDefinition(TOOL_APP_ACTION, "Run a Dikciz app action", "Run one app action on a launchable component: launch, addShortcut, appInfo, uninstall, or forceStop. Force stop needs root and reports root_unavailable otherwise. Uninstall hands off to Android, which asks for its own confirmation.", listOf(appActionArgument(), appComponentArgument()), false, isDestructive = true),
+            ToolDefinition(TOOL_SHELL_STREAM, "Stream shell output", "Stream command output through SSE log notifications. Opt in with params._meta io.modelcontextprotocol/logLevel=info. timeoutMilliseconds=0 runs until cancellation. Root defaults to true; set false for app permissions.", listOf(shellCommandArgument(), rootArgument(), streamTimeoutArgument(), streamChunkArgument()), false),
+            ToolDefinition(TOOL_SHELL_STREAM_STOP, "Stop shell stream", "Stop a stream owned by the same MCP session.", listOf(ToolArgument(DikcizShellStreams.KEY_STREAM_ID, "Stream UUID from the started notification.", SCHEMA_TYPE_STRING, true, maximumLength = 36)), false),
             ToolDefinition("dikciz_shell", "Run Dikciz shell command", "Run a command through su by default, or as the launcher app user when root is false.", listOf(shellCommandArgument(), rootArgument(), shellTimeoutArgument(), shellOutputArgument()), false),
             ToolDefinition("dikciz_intent", "Dispatch Dikciz device intent", "Dispatch an Android activity or broadcast intent using the launcher app's permissions.", listOf(intentTypeArgument(), actionArgument()), false),
             ToolDefinition("dikciz_screenshot", "Capture Dikciz screenshot", "Capture a bounded PNG of the launcher.", emptyList(), true),
@@ -1482,6 +1641,26 @@ internal class DikcizMcpControlPlane(
             SCHEMA_TYPE_STRING,
             true,
             maximum = DikcizAutomationControlPlane.MAXIMUM_COMPONENT_CHARACTERS,
+        )
+
+        private fun streamTimeoutArgument(): ToolArgument = ToolArgument(
+            DikcizShellStreams.KEY_TIMEOUT,
+            "Deadline in milliseconds. Zero, the default, keeps streaming until stopped or disconnected.",
+            SCHEMA_TYPE_INTEGER,
+            false,
+            minimum = 0,
+            maximum = Int.MAX_VALUE,
+            defaultValue = 0,
+        )
+
+        private fun streamChunkArgument(): ToolArgument = ToolArgument(
+            DikcizShellStreams.KEY_CHUNK_BYTES,
+            "Maximum bytes per output chunk. Output is base64 encoded without a total output limit.",
+            SCHEMA_TYPE_INTEGER,
+            false,
+            minimum = 1,
+            maximum = DikcizShellStreams.MAXIMUM_CHUNK_BYTES,
+            defaultValue = DikcizShellStreams.DEFAULT_CHUNK_BYTES,
         )
 
         private fun semanticIDArgument(): ToolArgument = ToolArgument(

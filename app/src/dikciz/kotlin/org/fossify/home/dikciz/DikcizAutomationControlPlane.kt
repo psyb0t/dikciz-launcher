@@ -59,6 +59,7 @@ internal class DikcizAutomationControlPlane(
     var listenAddress: String = DikcizControlPorts.DEFAULT_LISTEN_ADDRESS
         private set
 
+    private val shellStreams = DikcizShellStreams(logger)
     private val clients = ConcurrentHashMap.newKeySet<ClientConnection>()
     private val revision = AtomicLong()
     private val isRunning = AtomicBoolean()
@@ -107,6 +108,7 @@ internal class DikcizAutomationControlPlane(
         if (!isRunning.compareAndSet(true, false)) {
             return
         }
+        shellStreams.close()
         serverSocket?.close()
         serverSocket = null
         clients.forEach { client -> client.close() }
@@ -183,6 +185,7 @@ internal class DikcizAutomationControlPlane(
                 )
             }
         } finally {
+            shellStreams.closeOwner(client.id)
             clients.remove(client)
             client.close()
         }
@@ -224,6 +227,10 @@ internal class DikcizAutomationControlPlane(
         }
         val isEstablishedCommand = client.hasCompletedHello
         try {
+            if (client.hasCompletedHello && request.optString(KEY_TYPE) in setOf(DikcizShellStreams.TYPE_START, DikcizShellStreams.TYPE_STOP)) {
+                handleShellStream(client, request, requestID)
+                return
+            }
             logger.debug(
                 EVENT_COMMAND_RECEIVED,
                 mapOf(FIELD_CLIENT_ID to client.id, FIELD_REQUEST_TYPE to request.optString(KEY_TYPE)),
@@ -275,6 +282,43 @@ internal class DikcizAutomationControlPlane(
             }
         }
     }
+
+    private fun handleShellStream(client: ClientConnection, request: JSONObject, requestID: String) {
+        val stop = request.getString(KEY_TYPE) == DikcizShellStreams.TYPE_STOP
+        DikcizShellStreams.validate(request, stop, envelope = true)
+        if (stop) {
+            client.sendText(streamResult(requestID, shellStreams.stop(client.id, request)))
+            return
+        }
+        dispatchCommand(DikcizAutomationCommand(DikcizShellStreams.TYPE_START, request))
+        val stream = shellStreams.open(client.id, request)
+        val isAuthorized = remoteAccessAuth.authorizationMonitor(client.authorization)
+        val accepted = client.sendText(streamResult(requestID, stream.description())) {
+            workerPool?.execute {
+                val completed = stream.consume(
+                    isAllowed = { client.isOpen() && isAuthorized() },
+                    abortConnection = { client.close() },
+                ) { event ->
+                    client.sendText(streamEvent(requestID, event))
+                }
+                client.sendText(streamEvent(requestID, completed))
+            } ?: stream.cancel(DikcizShellStreams.STATE_CANCELLED)
+        }
+        if (!accepted) stream.cancel(DikcizShellStreams.STATE_CANCELLED)
+    }
+
+    private fun streamResult(requestID: String, result: JSONObject): String = JSONObject()
+        .put(KEY_TYPE, TYPE_RESULT)
+        .put(KEY_REQUEST_ID, requestID)
+        .put(KEY_REVISION, revision.get())
+        .put(KEY_RESULT, result)
+        .toString()
+
+    private fun streamEvent(requestID: String, event: JSONObject): String = JSONObject()
+        .put(KEY_TYPE, DikcizShellStreams.TYPE_EVENT)
+        .put(KEY_REQUEST_ID, requestID)
+        .put(KEY_RESULT, event)
+        .toString()
 
     private fun publishCommandCompletion(
         requestID: String,
@@ -356,6 +400,9 @@ internal class DikcizAutomationControlPlane(
         authorization: String? = null,
     ): String {
         val commandType = request.requireString(KEY_TYPE)
+        if (commandType in setOf(DikcizShellStreams.TYPE_START, DikcizShellStreams.TYPE_STOP)) {
+            throw DikcizAutomationRequestException(ERROR_VALIDATION_FAILED, "shell streaming requires a network stream connection")
+        }
         val expectedKeys = COMMAND_KEYS[commandType]
             ?: throw DikcizAutomationRequestException(ERROR_UNKNOWN_COMMAND, MESSAGE_UNKNOWN_COMMAND)
         val requiredKeys = COMMAND_REQUIRED_KEYS[commandType]
@@ -1219,6 +1266,8 @@ internal class DikcizAutomationControlPlane(
         val COMMAND_REQUIRED_KEYS = mapOf(
             TYPE_ACCESSIBILITY_ACTION to ACCESSIBILITY_ACTION_REQUIRED_KEYS,
             TYPE_APP_CATALOGUE to APP_CATALOGUE_REQUIRED_KEYS,
+            DikcizShellStreams.TYPE_START to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_COMMAND),
+            DikcizShellStreams.TYPE_STOP to setOf(KEY_REQUEST_ID, KEY_TYPE, DikcizShellStreams.KEY_STREAM_ID),
             TYPE_SHELL to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_COMMAND),
         ) + DikcizFileCommands.REQUIRED_FIELDS.mapValues { (_, fields) -> fields + setOf(KEY_REQUEST_ID, KEY_TYPE) }
         val COMMAND_KEYS = mapOf(
@@ -1259,6 +1308,8 @@ internal class DikcizAutomationControlPlane(
             TYPE_SCROLL_TO to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_SEMANTIC_ID),
             TYPE_SET_TEXT to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_SEMANTIC_ID, KEY_TEXT),
             TYPE_LAUNCH_APP to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_SEMANTIC_ID),
+            DikcizShellStreams.TYPE_START to DikcizShellStreams.START_FIELDS + setOf(KEY_REQUEST_ID, KEY_TYPE),
+            DikcizShellStreams.TYPE_STOP to DikcizShellStreams.STOP_FIELDS + setOf(KEY_REQUEST_ID, KEY_TYPE),
             TYPE_SHELL to setOf(
                 KEY_REQUEST_ID, KEY_TYPE, KEY_COMMAND, KEY_ROOT, KEY_TIMEOUT_MILLISECONDS,
                 DikcizPrivilegedShell.KEY_MAX_OUTPUT_BYTES,

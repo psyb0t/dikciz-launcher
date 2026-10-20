@@ -9,7 +9,7 @@ For events, HTML widgets, Lua scripts, and typed actions, start with the [script
 1. Open the Dikciz APK from your browser, file manager, or Downloads app.
 2. If Android asks, allow that app to install unknown apps, then accept Android's installation screen.
 3. Open Dikciz. If Android asks which Home app to use, choose **Dikciz** and make it the default. If it does not ask, press the Home button and choose Dikciz there.
-4. Each time Dikciz starts, it shows its mark and five joke lines for five seconds. Tap anywhere to skip them.
+4. On a cold start, Dikciz shows its mark and five joke lines for five seconds. The bottom of this screen shows the running version and build type, such as release or debug. Tap anywhere to skip it.
 5. The first Dikciz screen asks for shared-storage access. Tap **Grant file access**, enable access for Dikciz in the Android panel, then return to Dikciz.
 
 That access lets Dikciz create and watch `/sdcard/Dikciz/`. It contains your pages, widgets, themes, scripts, packages, and logs. Dikciz cannot load or save your home until Android grants it.
@@ -21,6 +21,8 @@ The bundled home opens on `Home (1H1V)`. Its native bottom and right rails show 
 After an APK update, Dikciz reopens automatically when it is the default Home app or has overlay access. If it stays closed, tap **Dikciz updated** in notifications or open the app. [Update recovery](remote-device-control.md#recover-after-an-apk-update) explains the required access and reconnecting remote clients.
 
 ## Move around the home
+
+Apps opened from the drawer or a native shortcut run in their own Android task. Press Home to return to Dikciz, then use Android Recent apps to resume the app.
 
 ### Switch pages or search by name
 

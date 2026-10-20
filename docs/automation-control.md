@@ -75,6 +75,8 @@ If direct access is unwanted, keep `127.0.0.1` and use [ADB forwarding](../.agen
 
 All three APIs support `fileList`, `fileRead`, `fileWrite`, `fileMkdir`, `apkInstall`, `apkInstallStatus` and `shell`. MCP exposes their corresponding `dikciz_file_*`, `dikciz_apk_*` and `dikciz_shell` tools. File commands accept absolute paths anywhere Android permits Dikciz access. Use bounded binary chunks for transfers and poll the Android installer session for its final outcome.
 
+Live command output uses `shellStream` and `shellStreamStop`, with `dikciz_shell_stream` and `dikciz_shell_stream_stop` on MCP. WebSocket pushes correlated events; MCP and HTTP use SSE. Read [streaming commands](files-and-apks.md#stream-logs-and-long-running-commands) for logcat, cancellation, timeouts and client examples.
+
 Plain HTTP accepts POST JSON command envelopes at `/v1/automation` on the MCP listener, with the same bearer and Origin checks. It requires no MCP session and returns the WebSocket result/error envelope. The client supports `http`, `upload` and `download` commands. Read the [file, APK and shell reference](files-and-apks.md) for schemas, limits, examples and installation states.
 
 ## Who can connect
@@ -153,7 +155,7 @@ Each later request has a UUID `requestId` and a `type`. Replies carry that same 
 | Automation | `automationTrigger`, `automationDispatch`, `automationServiceSync`, `openAutomationSetup` | Matching tool listed by `controlStatus`. |
 | Renderer diagnostic | `htmlWidgetRendererCrash` | `dikciz_html_widget_renderer_crash`. |
 | Cross-app Android UI | `accessibilitySnapshot`, `accessibilityAction` | `dikciz_accessibility_snapshot`, `dikciz_accessibility_action`. |
-| Device | `shell`, `intent` | `dikciz_shell`, `dikciz_intent`. |
+| Device | `shell`, `shellStream`, `shellStreamStop`, `intent` | `dikciz_shell`, `dikciz_shell_stream`, `dikciz_shell_stream_stop`, `dikciz_intent`. |
 | Device inspection | `deviceInfo`, `packageInfo` | `dikciz_device_info`, `dikciz_package_info`. |
 | Launcher recovery | `restart`, `launcherHandoff` | `dikciz_restart`, `dikciz_launcher_handoff`. |
 | Visible Android display | `displayScreenshot` | `dikciz_display_screenshot`. |
@@ -263,7 +265,7 @@ The bottom chrome carries two icon-only buttons. `launcher:controls` opens the l
 
 A snapshot contains a stable `semanticId`, role, enabled and checked state, clickability, visibility, bounds, text, content description, and an Android resource ID where one exists. Use semantic IDs for automation. Do not derive coordinate taps from text. Provider child IDs include an opaque render token and expire after provider updates, page changes, and removals.
 
-While the cold-start brand covers the screen, the snapshot includes `startup:dismiss`, which a `tap` skips, and `startup:message`, whose text is the current line. Both disappear when the brand does. Until then a physical touch only dismisses the brand.
+While the cold-start brand covers the screen, the snapshot includes `startup:dismiss`, which a `tap` skips, `startup:message`, whose text is the current line, and `startup:version`, whose text identifies the running version and build type. All disappear when the brand does. Until then a physical touch only dismisses the brand.
 
 A snapshot also reports the page grid. `grid` carries `columns`, `rows`, `gapDp`, and `outerPaddingDp`. Every entry in `widgetReferences` carries its logical `cell` with `column`, `row`, `columnSpan`, and `rowSpan`, plus the rendered screen `bounds` when that widget is on the selected page, or null when it is not. Only the cell is persistent; the bounds are render-time values.
 

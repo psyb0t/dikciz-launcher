@@ -389,8 +389,12 @@ internal object DikcizDeviceAccess {
         return when (requirement) {
             DikcizDeviceAccessRequirement.SharedStorage -> hasSharedStorageAccess(context)
             DikcizDeviceAccessRequirement.ExactAlarms -> {
-                val alarmManager = context.getSystemService(AlarmManager::class.java)
-                alarmManager?.canScheduleExactAlarms() == true
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    val alarmManager = context.getSystemService(AlarmManager::class.java)
+                    alarmManager?.canScheduleExactAlarms() == true
+                } else {
+                    true
+                }
             }
 
             DikcizDeviceAccessRequirement.Overlay -> Settings.canDrawOverlays(context)

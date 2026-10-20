@@ -2,6 +2,25 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.16.2] - 2026-10-20
+
+### Added
+
+- Live shell and logcat output through WebSocket, MCP and HTTP, with explicit cancellation, configurable deadlines and binary-safe chunks. Streaming defaults to no deadline; ordinary shell commands retain their 30-second default.
+- The Python client consumes live output as JSON Lines or raw bytes with `--stream-raw`.
+- The startup screen shows the running version and build type.
+
+### Fixed
+
+- Apps opened from Dikciz use independent Android tasks, so Home and Recent apps preserve their running state.
+- Android Back handling uses the system callback on Android 13 and newer while keeping the legacy path for older devices.
+- Android lint now runs in the required CI code job. Permission declarations, exact-alarm checks and move-handle accessibility pass its checks.
+
+### Migration
+
+- Exact control schemas must accept `shellStream`, `shellStreamStop`, their MCP tools and the new streaming limits. WebSocket clients must accept `shellStreamEvent` frames. Clients must consume SSE for HTTP and MCP streaming calls. MCP callers must opt in to request-scoped log notifications; the supplied client does this automatically.
+- Continuous commands stop when their originating connection closes, authorization changes or the listener stops. Full device logcat requires privileged access.
+
 ## [0.16.1] - 2026-10-20
 
 ### Fixed
