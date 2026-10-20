@@ -367,6 +367,8 @@ The Dikciz manifest declares a broad Android access surface. It includes locatio
 
 The declaration allows Dikciz to request access. Android, the installer, the selected device role, the OEM, and root manager still decide whether it is available. Enable the automation policy first, then use **Settings**, then **Automation**, then **Set up full device access**. The screen shows the current state and opens the relevant Android panel. `automationStatus` and `dikciz_automation_status` return the same machine-readable status.
 
+The `deviceAccess` inventory includes the `sms` runtime-permission entry for reading, receiving and sending SMS. It does not include a default SMS role or request replacing the default messaging app.
+
 Cross-app Android UI automation is an Accessibility service requirement. Its record is `deviceAccess.requirements[id="accessibility"]`; its current Boolean is `automationStatus.androidAccess.accessibility`. The state is `needsSetup` until the phone owner enables Dikciz in Android's Accessibility settings, then becomes `granted`. This is not a runtime permission and is not configurable in `config.json`, a Lua policy, an HTML widget, WebSocket, or MCP. Those surfaces can inspect the state and open the Android panel only.
 
 The local `shell` command and `dikciz_shell` tool request `su` by default. Dikciz first runs `su -c id -u`; only an exact UID of `0` permits the requested command and `executionScope: "root"`. A missing, denied, malformed, or timed out root probe returns `root_unavailable` through WebSocket and an MCP tool error. It never falls back to Dikciz's app user. Pass `root: false` for the ordinary `/system/bin/sh` route, whose result reports `executionScope: "app_sandbox"`, exit code, output, and truncation state.

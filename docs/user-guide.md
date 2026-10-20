@@ -161,7 +161,7 @@ Open the bundled `hourly-clock` script to view its source, policy, state, and en
 
 ### Grant the Android access an automation needs
 
-Open **Settings**, then **Automation**, then **Set up full device access**. The access sheet tells you which Android permissions and special accesses are active, then opens the matching Android panels when you choose an access. Android makes the final decision.
+Open **Settings**, then **Automation**, then **Set up full device access**. The access sheet tells you which Android permissions and special accesses are active, then opens the matching Android panels when you choose an access. Android makes the final decision. SMS automation uses read, receive and send SMS permissions. Setup does not request replacing your default messaging app.
 
 ![Automation access](images/user-guide/31-automation-access.png)
 

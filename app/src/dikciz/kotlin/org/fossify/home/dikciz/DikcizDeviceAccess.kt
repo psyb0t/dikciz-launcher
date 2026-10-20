@@ -3,7 +3,6 @@ package org.fossify.home.dikciz
 import android.Manifest
 import android.app.AlarmManager
 import android.app.AppOpsManager
-import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -29,7 +28,6 @@ internal enum class DikcizDeviceAccessState(
 internal enum class DikcizDeviceAccessKind {
     RuntimePermission,
     SystemSettings,
-    Role,
     DeviceAdministration,
     OnDemand,
 }
@@ -83,11 +81,6 @@ internal enum class DikcizDeviceAccessRequirement(
         "sms",
         DikcizDeviceAccessKind.RuntimePermission,
         R.string.dikciz_device_access_sms,
-    ),
-    SmsRole(
-        "smsRole",
-        DikcizDeviceAccessKind.Role,
-        R.string.dikciz_device_access_sms_role,
     ),
     Bluetooth(
         "bluetooth",
@@ -231,17 +224,6 @@ internal object DikcizDeviceAccess {
         }
     }
 
-    fun smsRoleIntent(context: Context): Intent? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            return null
-        }
-        val roleManager = context.getSystemService(RoleManager::class.java) ?: return null
-        if (!roleManager.isRoleAvailable(RoleManager.ROLE_SMS)) {
-            return null
-        }
-        return roleManager.createRequestRoleIntent(RoleManager.ROLE_SMS)
-    }
-
     fun document(context: Context): JSONObject {
         val entries = entries(context)
         val actionableEntries = entries.filter { entry ->
@@ -301,7 +283,6 @@ internal object DikcizDeviceAccess {
             -> Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
 
             DikcizDeviceAccessRequirement.ExactAlarms -> Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-            DikcizDeviceAccessRequirement.SmsRole -> Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
             else -> true
         }
     }
@@ -432,7 +413,6 @@ internal object DikcizDeviceAccess {
                 DikcizDeviceAdministration.isActive(context)
             }
 
-            DikcizDeviceAccessRequirement.SmsRole -> hasSmsRole(context)
             else -> false
         }
     }
@@ -454,20 +434,10 @@ internal object DikcizDeviceAccess {
         ) == AppOpsManager.MODE_ALLOWED
     }
 
-    private fun hasSmsRole(context: Context): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            return false
-        }
-        val roleManager = context.getSystemService(RoleManager::class.java) ?: return false
-        return roleManager.isRoleAvailable(RoleManager.ROLE_SMS) &&
-            roleManager.isRoleHeld(RoleManager.ROLE_SMS)
-    }
-
     private val DikcizDeviceAccessKind.persistedValue: String
         get() = when (this) {
             DikcizDeviceAccessKind.RuntimePermission -> "runtimePermission"
             DikcizDeviceAccessKind.SystemSettings -> "systemSettings"
-            DikcizDeviceAccessKind.Role -> "role"
             DikcizDeviceAccessKind.DeviceAdministration -> "deviceAdministration"
             DikcizDeviceAccessKind.OnDemand -> "onDemand"
         }

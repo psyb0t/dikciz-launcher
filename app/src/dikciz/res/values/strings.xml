@@ -363,7 +363,6 @@
     <string name="dikciz_device_access_telephony">Phone state and calls</string>
     <string name="dikciz_device_access_call_history">Read and change call history</string>
     <string name="dikciz_device_access_sms">Read, receive, and send SMS</string>
-    <string name="dikciz_device_access_sms_role">Default SMS role</string>
     <string name="dikciz_device_access_bluetooth">Scan, connect, and advertise Bluetooth</string>
     <string name="dikciz_device_access_nearby_wifi">Nearby Wi-Fi devices</string>
     <string name="dikciz_device_access_media_library">Photos, video, and audio library</string>

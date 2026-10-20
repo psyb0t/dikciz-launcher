@@ -393,9 +393,7 @@ class DikcizHomeActivity : Activity() {
                 reloadConfiguration(false)
             }
         }
-        if (requestCode == FULL_DEVICE_ACCESS_SMS_ROLE_REQUEST_CODE ||
-            requestCode == AUTOMATION_DEVICE_ADMINISTRATION_REQUEST_CODE
-        ) {
+        if (requestCode == AUTOMATION_DEVICE_ADMINISTRATION_REQUEST_CODE) {
             resumeFullDeviceAccessSetupIfNeeded()
         }
     }
@@ -7368,19 +7366,6 @@ class DikcizHomeActivity : Activity() {
                 }
             }
 
-            DikcizDeviceAccessKind.Role -> {
-                val roleIntent = DikcizDeviceAccess.smsRoleIntent(this)
-                if (roleIntent == null) {
-                    showFullDeviceAccessRequestUnavailable(requirement)
-                    return
-                }
-                try {
-                    startActivityForResult(roleIntent, FULL_DEVICE_ACCESS_SMS_ROLE_REQUEST_CODE)
-                } catch (exception: ActivityNotFoundException) {
-                    showFullDeviceAccessRequestUnavailable(requirement, exception)
-                }
-            }
-
             DikcizDeviceAccessKind.DeviceAdministration -> requestDeviceAdministration()
             DikcizDeviceAccessKind.OnDemand -> showFullDeviceAccessRequestUnavailable(requirement)
         }
@@ -11392,7 +11377,6 @@ class DikcizHomeActivity : Activity() {
         const val AUTOMATION_HEALTH_CONNECT_PERMISSION_REQUEST_CODE = 12
         const val AUTOMATION_DEVICE_ADMINISTRATION_REQUEST_CODE = 13
         const val FULL_DEVICE_ACCESS_PERMISSION_REQUEST_CODE = 15
-        const val FULL_DEVICE_ACCESS_SMS_ROLE_REQUEST_CODE = 16
         const val APP_WIDGET_HOST_ID = 13_737
         const val APPEARANCE_SCOPE_WIDGET = "widget"
         const val CONFIGURATION_FILE_EVENTS = FileObserver.CLOSE_WRITE or

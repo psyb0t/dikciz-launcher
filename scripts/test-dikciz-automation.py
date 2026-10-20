@@ -380,7 +380,6 @@ DEVICE_ACCESS_ENTRY_KEYS = {KEY_ID, KEY_KIND, KEY_STATE}
 DEVICE_ACCESS_KINDS = {
     "deviceAdministration",
     "onDemand",
-    "role",
     "runtimePermission",
     "systemSettings",
 }
@@ -407,7 +406,6 @@ DEVICE_ACCESS_REQUIREMENTS = {
     "rootShell",
     "sharedStorage",
     "sms",
-    "smsRole",
     "systemSettings",
     "telephony",
     "usageAccess",

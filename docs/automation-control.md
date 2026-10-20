@@ -97,6 +97,8 @@ python3 scripts/dikciz-control.py mcp-tools --port 19102 --pretty
 
 `controlStatus.transports` reports `websocket`, `mcp` and `http` endpoints with their current `listenAddress`, `port` and `path`. HTTP shares the MCP listener. File edits restart the affected listeners automatically. `controlStatus` lists the protocol version, commands, fields, matching MCP tools, input limits, safe-mode state, and persistent event schema. `automationStatus` lists current Android access, policy vocabulary, event subscription fields, and available sensors. Treat these responses as the source of truth for a running build.
 
+The `automationStatus.deviceAccess` inventory contains ordinary SMS runtime permissions, without a default SMS role or a `role` kind.
+
 The supplied client is dependency-free:
 
 ```bash

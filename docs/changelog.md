@@ -2,6 +2,16 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.16.0] - 2026-10-20
+
+### Removed
+
+- Removed the default SMS role from permission setup, its request and result handling, and the public device-access inventory. The wizard no longer gets stuck retrying that role. Ordinary SMS read, receive and send permissions remain available.
+
+### Migration
+
+- Clients that validate the exact `automationStatus.deviceAccess` inventory must remove the `smsRole` requirement and unused `role` kind. Progress totals cover the remaining supported controls. No saved configuration change is required.
+
 ## [0.15.5] - 2026-10-20
 
 ### Added
