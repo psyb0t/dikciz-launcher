@@ -18,6 +18,8 @@ The bundled home opens on `Home (1H1V)`. Its native bottom and right rails show 
 
 ![Bundled home](images/user-guide/01-first-launch.png)
 
+After an APK update, Dikciz reopens automatically when it is the default Home app or has overlay access. If it stays closed, tap **Dikciz updated** in notifications or open the app. [Update recovery](remote-device-control.md#recover-after-an-apk-update) explains the required access and reconnecting remote clients.
+
 ## Move around the home
 
 ### Switch pages or search by name

@@ -13,6 +13,14 @@ python3 scripts/dikciz-control.py mcp dikciz_package_info --host phone.example -
 
 Release uses `eu.psyb0t.dikciz.launcher`; debug uses `eu.psyb0t.dikciz.launcher.debug`. Updating one does not update the other. Both read the public listener settings, so running both can cause port conflicts. A listener that cannot bind retries quickly at first and then every 30 seconds while the activity remains alive. Once the conflict clears, both listeners recover without reopening the launcher.
 
+## Recover after an APK update
+
+After Obtainium, Android's installer or `adb install -r` replaces the APK, Android stops the old process. The new package receives `MY_PACKAGE_REPLACED` and requests a fresh launcher activity when it is the default Home app or has **Draw over other apps** access. Startup reloads the saved configuration, scripts, authentication and listener endpoints. Reconnect WebSocket and HTTP clients and create a fresh MCP session. Verify the new version and instance with `deviceInfo`.
+
+If background startup is unavailable or blocked by the device, tap the **Dikciz updated** notification. Its action opens the updated launcher directly. Opening Dikciz clears this notification. Notification permission must be enabled to see it; otherwise open Dikciz from the app list. This recovery does not change the default Home app or grant permissions. An update to one installed package does not update or select the other package.
+
+The update receiver ships in the new APK, so it also handles the first update from an older version. It only handles package replacement, not a manual force-stop, reboot or crash. Manufacturer background restrictions can still require opening the app manually.
+
 ## Restart without dropping the only recovery path
 
 ```bash

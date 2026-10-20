@@ -293,6 +293,7 @@ class DikcizHomeActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        DikcizPackageUpdateReceiver.clearRecoveryNotification(this)
         isActivityStarted = true
         dikcizLogger.info(
             EVENT_ACTIVITY_STARTED,

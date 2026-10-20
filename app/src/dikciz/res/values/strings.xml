@@ -471,4 +471,7 @@
     <string name="dikciz_page_menu_settings_verb">Open Dikciz settings</string>
     <string name="dikciz_page_lock_verb">Lock this page</string>
     <string name="dikciz_page_unlock_verb">Unlock this page</string>
+    <string name="dikciz_update_channel">App updates</string>
+    <string name="dikciz_update_title">Dikciz updated</string>
+    <string name="dikciz_update_open">Tap to reopen the launcher and remote controls.</string>
 </resources>

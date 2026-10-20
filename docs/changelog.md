@@ -2,6 +2,13 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.16.1] - 2026-10-20
+
+### Fixed
+
+- APK updates now reopen Dikciz and its remote listeners when it is the default Home app or has overlay access. Saved configuration and authentication are preserved.
+- When background reopening is unavailable, an update notification opens the new launcher directly and clears on startup. If notifications are disabled, open Dikciz manually.
+
 ## [0.16.0] - 2026-10-20
 
 ### Removed
