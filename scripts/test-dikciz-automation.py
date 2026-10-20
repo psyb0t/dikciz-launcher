@@ -437,6 +437,11 @@ FILE_MCP_TOOLS = {
     TYPE_APK_INSTALL_STATUS: "dikciz_apk_install_status",
 }
 CONTROL_STATUS_COMMAND_FIELDS = {
+    "launcherHandoff": ("packageName",),
+    "displayScreenshot": (),
+    "deviceInfo": (),
+    "packageInfo": ("packageName",),
+    "restart": (),
     TYPE_ACCESSIBILITY_ACTION: (KEY_ACTION, KEY_NODE_ID, KEY_SNAPSHOT_ID, KEY_TEXT),
     TYPE_ACCESSIBILITY_SNAPSHOT: (),
     TYPE_ADD_WIDGET: (KEY_WIDGET_TYPE,),
@@ -487,6 +492,9 @@ CONTROL_STATUS_DEVICE_COMMAND_TYPES = {
 } | (FILE_COMMAND_FIELDS.keys() - FILE_READ_COMMAND_TYPES)
 CONTROL_STATUS_INTERACTIVE_COMMAND_TYPES = {TYPE_ACCESSIBILITY_ACTION, TYPE_TAP}
 CONTROL_STATUS_READ_COMMAND_TYPES = {
+    "displayScreenshot",
+    "deviceInfo",
+    "packageInfo",
     TYPE_ACCESSIBILITY_SNAPSHOT,
     TYPE_APP_CATALOGUE,
     TYPE_AUTOMATION_STATUS,
@@ -504,6 +512,11 @@ CONTROL_STATUS_READ_COMMAND_TYPES = {
     TYPE_WIDGET_GET,
 } | FILE_READ_COMMAND_TYPES
 CONTROL_STATUS_SAFE_MODE_ALLOWED_COMMAND_TYPES = {
+    "launcherHandoff",
+    "displayScreenshot",
+    "deviceInfo",
+    "packageInfo",
+    "restart",
     TYPE_ACCESSIBILITY_SNAPSHOT,
     TYPE_APP_CATALOGUE,
     TYPE_AUTOMATION_STATUS,
@@ -520,6 +533,11 @@ CONTROL_STATUS_SAFE_MODE_ALLOWED_COMMAND_TYPES = {
 } | FILE_READ_COMMAND_TYPES
 CONTROL_STATUS_SAFE_MODE_ALLOWED_TAP_IDS = {"safeMode:exit", "safeMode:reset"}
 CONTROL_STATUS_MCP_TOOLS = {
+    "launcherHandoff": "dikciz_launcher_handoff",
+    "displayScreenshot": "dikciz_display_screenshot",
+    "deviceInfo": "dikciz_device_info",
+    "packageInfo": "dikciz_package_info",
+    "restart": "dikciz_restart",
     TYPE_ACCESSIBILITY_ACTION: "dikciz_accessibility_action",
     TYPE_ACCESSIBILITY_SNAPSHOT: "dikciz_accessibility_snapshot",
     TYPE_ADD_WIDGET: "dikciz_add_widget",

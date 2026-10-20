@@ -15,6 +15,7 @@ These pytest scenarios exercise real Android UI and forwarded WebSocket, MCP and
 | `__init__.py` | Shared harness exports consumed by tests. |
 | Domain support modules | Accessibility, media sessions, notifications, alarms, and script-status helpers. |
 | `test_device_files.py` | Filesystem pagination, binary transfers, HTTP security, CLI results and actual Android APK install/cancel outcomes. |
+| `test_remote_device_control.py` | Production-client restart, instance/version inspection, external-display capture, validation and delayed port-conflict recovery. |
 | `test_logging_settings.py` | Native log settings, quiet launches and target metadata. |
 | `test_*.py` | Scenarios grouped by product area. `test_audit.py` runs last through the root collection hook. |
 
@@ -29,3 +30,7 @@ Use semantic IDs to inspect launcher state and raw Android accessibility data or
 Provider tests install the [fixture app](../configurable-widget-provider/README.md) through shared helpers. Some scenarios need a focused Make target to supply its APK or a secondary media-session package. Tests that change Android settings or permissions must restore them in cleanup.
 
 The [user-guide capture test](test_user_guide_capture.py) supplies images for the [user guide](../../docs/user-guide.md). `make dikciz-guide-capture` copies its generated captures into the documentation image directory.
+
+## Signed release handoff fixture
+
+`test_remote_device_handoff_to_signed_release_without_process_kill` temporarily installs the official v0.15.4 release on the private emulator. It refuses to replace an existing release installation and removes its fixture afterwards. Prepare `.testing/handoff-release/dikciz-launcher-v0.15.4.apk` from the official release, verify its published SHA-256 and the certificate fingerprint in the root README, then run the focused selector. This pinned older release proves compatibility with an already installed build. Without that optional compatibility fixture, this one scenario reports a skip. It never selects a physical phone.

@@ -30,6 +30,8 @@ internal interface DikcizAutomationTarget {
     fun requiresMainThread(command: DikcizAutomationCommand): Boolean
 
     fun execute(command: DikcizAutomationCommand): JSONObject
+
+    fun responseSent(commandType: String, result: JSONObject)
 }
 
 internal data class DikcizAutomationCommand(
@@ -75,10 +77,8 @@ internal class DikcizAutomationControlPlane(
         try {
             port = endpoint.port
             listenAddress = endpoint.address.hostAddress ?: DikcizControlPorts.DEFAULT_LISTEN_ADDRESS
-            serverSocket = ServerSocket().apply {
-                reuseAddress = true
-                bind(endpoint)
-            }
+            serverSocket = ServerSocket().apply { reuseAddress = true }
+            serverSocket?.bind(endpoint)
             workerPool = Executors.newCachedThreadPool { runnable ->
                 Thread(runnable, THREAD_NAME_PREFIX + UUID.randomUUID()).apply { isDaemon = true }
             }
@@ -233,7 +233,14 @@ internal class DikcizAutomationControlPlane(
             } else {
                 handleCommand(request, requestID, client.authorization)
             }
-            client.sendText(response)
+            val afterWrite: (() -> Unit)? = if (isEstablishedCommand &&
+                request.optString(KEY_TYPE) in DikcizDeviceInspection.RESPONSE_COMMAND_TYPES
+            ) {
+                { target.responseSent(request.getString(KEY_TYPE), JSONObject(response).getJSONObject(KEY_RESULT)) }
+            } else {
+                null
+            }
+            client.sendText(response, afterWrite)
             if (isEstablishedCommand) {
                 publishCommandCompletion(requestID, request, OUTCOME_SUCCEEDED)
             }
@@ -427,6 +434,9 @@ internal class DikcizAutomationControlPlane(
             return
         }
         when (commandType) {
+            DikcizDeviceInspection.TYPE_PACKAGE_INFO,
+            DikcizDeviceInspection.TYPE_LAUNCHER_HANDOFF,
+            -> DikcizDeviceInspection.validatePackageName(request)
             TYPE_FIND,
             TYPE_TAP,
             TYPE_LONG_PRESS,
@@ -677,6 +687,7 @@ internal class DikcizAutomationControlPlane(
                     } ?: continue
                     try {
                         writeFrame(frame.opcode, frame.payload)
+                        frame.afterWrite?.invoke()
                     } catch (_: Exception) {
                         close()
                     }
@@ -684,8 +695,8 @@ internal class DikcizAutomationControlPlane(
             }
         }
 
-        fun sendText(value: String): Boolean {
-            return enqueue(OutgoingFrame(OPCODE_TEXT, value.toByteArray(StandardCharsets.UTF_8)))
+        fun sendText(value: String, afterWrite: (() -> Unit)? = null): Boolean {
+            return enqueue(OutgoingFrame(OPCODE_TEXT, value.toByteArray(StandardCharsets.UTF_8), afterWrite))
         }
 
         fun sendControl(opcode: Int, payload: ByteArray): Boolean {
@@ -932,6 +943,7 @@ internal class DikcizAutomationControlPlane(
         private data class OutgoingFrame(
             val opcode: Int,
             val payload: ByteArray,
+            val afterWrite: (() -> Unit)? = null,
         )
 
         private data class ParsedHeaders(
@@ -1210,6 +1222,11 @@ internal class DikcizAutomationControlPlane(
             TYPE_SHELL to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_COMMAND),
         ) + DikcizFileCommands.REQUIRED_FIELDS.mapValues { (_, fields) -> fields + setOf(KEY_REQUEST_ID, KEY_TYPE) }
         val COMMAND_KEYS = mapOf(
+            DikcizDeviceInspection.TYPE_DEVICE_INFO to setOf(KEY_REQUEST_ID, KEY_TYPE),
+            DikcizDeviceInspection.TYPE_DISPLAY_SCREENSHOT to setOf(KEY_REQUEST_ID, KEY_TYPE),
+            DikcizDeviceInspection.TYPE_PACKAGE_INFO to setOf(KEY_REQUEST_ID, KEY_TYPE, DikcizDeviceInspection.KEY_PACKAGE_NAME),
+            DikcizDeviceInspection.TYPE_RESTART to setOf(KEY_REQUEST_ID, KEY_TYPE),
+            DikcizDeviceInspection.TYPE_LAUNCHER_HANDOFF to setOf(KEY_REQUEST_ID, KEY_TYPE, DikcizDeviceInspection.KEY_PACKAGE_NAME),
             TYPE_ACCESSIBILITY_SNAPSHOT to setOf(KEY_REQUEST_ID, KEY_TYPE),
             TYPE_APP_CATALOGUE to APP_CATALOGUE_REQUIRED_KEYS + KEY_QUERY,
             TYPE_APP_ACTION to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_ACTION, KEY_COMPONENT),

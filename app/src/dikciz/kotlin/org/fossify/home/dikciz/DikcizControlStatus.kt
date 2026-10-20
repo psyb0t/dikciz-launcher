@@ -169,6 +169,9 @@ internal object DikcizControlStatus {
         if (commandType in DikcizFileCommands.READ_ONLY_TYPES) return SIDE_EFFECT_READ
         if (commandType in DikcizFileCommands.FIELDS) return SIDE_EFFECT_DEVICE
         return when (commandType) {
+            DikcizDeviceInspection.TYPE_DEVICE_INFO,
+            DikcizDeviceInspection.TYPE_DISPLAY_SCREENSHOT,
+            DikcizDeviceInspection.TYPE_PACKAGE_INFO,
             DikcizAutomationControlPlane.TYPE_APP_CATALOGUE,
             DikcizAutomationControlPlane.TYPE_AUTOMATION_STATUS,
             DikcizAutomationControlPlane.TYPE_CONFIG_GET,

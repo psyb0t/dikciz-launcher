@@ -55,10 +55,8 @@ internal class DikcizMcpControlPlane(
         try {
             port = endpoint.port
             listenAddress = endpoint.address.hostAddress ?: DikcizControlPorts.DEFAULT_LISTEN_ADDRESS
-            serverSocket = ServerSocket().apply {
-                reuseAddress = true
-                bind(endpoint)
-            }
+            serverSocket = ServerSocket().apply { reuseAddress = true }
+            serverSocket?.bind(endpoint)
             workerPool = Executors.newFixedThreadPool(MAXIMUM_CONNECTION_COUNT) { runnable ->
                 Thread(runnable, THREAD_NAME_PREFIX + UUID.randomUUID()).apply { isDaemon = true }
             }
@@ -158,7 +156,14 @@ internal class DikcizMcpControlPlane(
                 throw McpHttpException(HTTP_STATUS_BAD_REQUEST, REASON_INVALID_JSON, MESSAGE_INVALID_JSON)
             }
             val response = executeHttpCommand(command, request.headers[HEADER_AUTHORIZATION])
-            writeJson(output, JSONObject(response))
+            val document = JSONObject(response)
+            writeJson(output, document)
+            if (document.optString(DikcizAutomationControlPlane.KEY_TYPE) == DikcizAutomationControlPlane.TYPE_RESULT) {
+                target.responseSent(
+                    command.getString(DikcizAutomationControlPlane.KEY_TYPE),
+                    document.getJSONObject(DikcizAutomationControlPlane.KEY_RESULT),
+                )
+            }
             return
         }
         if (request.path != MCP_PATH) {
@@ -210,10 +215,12 @@ internal class DikcizMcpControlPlane(
 
             METHOD_TOOLS_CALL -> {
                 requireInitialized(session)
-                writeJson(
-                    output,
-                    jsonRpcSuccess(message.requireID(), callTool(message, request.headers[HEADER_AUTHORIZATION])),
-                )
+                val result = callTool(message, request.headers[HEADER_AUTHORIZATION])
+                writeJson(output, jsonRpcSuccess(message.requireID(), result))
+                if (!result.optBoolean(KEY_IS_ERROR)) {
+                    val toolName = message.getJSONObject(KEY_PARAMS).getString(KEY_NAME)
+                    target.responseSent(TOOL_COMMANDS.getValue(toolName), result.getJSONObject(KEY_STRUCTURED_CONTENT))
+                }
             }
             else -> writeJson(
                 output,
@@ -421,6 +428,9 @@ internal class DikcizMcpControlPlane(
             requireExactKeys(arguments, expectedKeys)
         }
         when (commandType) {
+            DikcizDeviceInspection.TYPE_PACKAGE_INFO,
+            DikcizDeviceInspection.TYPE_LAUNCHER_HANDOFF,
+            -> DikcizDeviceInspection.validatePackageName(arguments)
             DikcizAutomationControlPlane.TYPE_APP_CATALOGUE -> {
                 if (arguments.has(DikcizAutomationControlPlane.KEY_QUERY)) {
                     arguments.requireBoundedString(
@@ -965,12 +975,14 @@ internal class DikcizMcpControlPlane(
         val minimum: Int? = null,
         val maximum: Int? = null,
         val defaultValue: Int? = null,
+        val maximumLength: Int? = null,
     ) {
         fun toJson(): JSONObject {
             val value = JSONObject().put(KEY_TYPE, type).put(KEY_DESCRIPTION, description)
             minimum?.let { value.put(KEY_MINIMUM, it) }
             maximum?.let { value.put(KEY_MAXIMUM, it) }
             defaultValue?.let { value.put(KEY_SCHEMA_DEFAULT, it) }
+            maximumLength?.let { value.put(KEY_SCHEMA_MAX_LENGTH, it) }
             return value
         }
     }
@@ -984,6 +996,7 @@ internal class DikcizMcpControlPlane(
 
     companion object {
         private const val KEY_SCHEMA_DEFAULT = "default"
+        private const val KEY_SCHEMA_MAX_LENGTH = "maxLength"
         const val HTTP_COMMAND_PATH = "/v1/automation"
         const val ALLOWED_METHODS = "POST, DELETE"
         const val CACHE_CONTROL_NO_STORE = "no-store"
@@ -1191,6 +1204,11 @@ internal class DikcizMcpControlPlane(
             DikcizAutomationControlPlane.KEY_COMPONENT,
         )
         val COMMAND_ARGUMENT_KEYS = mapOf(
+            DikcizDeviceInspection.TYPE_DEVICE_INFO to emptySet(),
+            DikcizDeviceInspection.TYPE_DISPLAY_SCREENSHOT to emptySet(),
+            DikcizDeviceInspection.TYPE_PACKAGE_INFO to setOf(DikcizDeviceInspection.KEY_PACKAGE_NAME),
+            DikcizDeviceInspection.TYPE_RESTART to emptySet(),
+            DikcizDeviceInspection.TYPE_LAUNCHER_HANDOFF to setOf(DikcizDeviceInspection.KEY_PACKAGE_NAME),
             DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_SNAPSHOT to emptySet(),
             DikcizAutomationControlPlane.TYPE_APP_CATALOGUE to setOf(
                 DikcizAutomationControlPlane.KEY_QUERY,
@@ -1280,6 +1298,11 @@ internal class DikcizMcpControlPlane(
             ),
         ) + DikcizFileCommands.FIELDS
         val TOOL_COMMANDS = mapOf(
+            "dikciz_device_info" to DikcizDeviceInspection.TYPE_DEVICE_INFO,
+            "dikciz_display_screenshot" to DikcizDeviceInspection.TYPE_DISPLAY_SCREENSHOT,
+            "dikciz_package_info" to DikcizDeviceInspection.TYPE_PACKAGE_INFO,
+            "dikciz_restart" to DikcizDeviceInspection.TYPE_RESTART,
+            "dikciz_launcher_handoff" to DikcizDeviceInspection.TYPE_LAUNCHER_HANDOFF,
             "dikciz_accessibility_snapshot" to DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_SNAPSHOT,
             "dikciz_accessibility_action" to DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_ACTION,
             "dikciz_snapshot" to DikcizAutomationControlPlane.TYPE_SNAPSHOT,
@@ -1341,6 +1364,11 @@ internal class DikcizMcpControlPlane(
         )
 
         private val TOOL_DEFINITIONS = listOf(
+            ToolDefinition("dikciz_launcher_handoff", "Switch Dikciz builds", "Acknowledge, release listener ownership and launch an installed Dikciz release/debug package. Same-package requests do nothing. Verify the target after reconnecting; failed startup retries the original listener configuration.", listOf(packageNameArgument()), false),
+            ToolDefinition("dikciz_display_screenshot", "Capture the Android display", "Capture the visible Android display, including other apps, through owner-enabled Accessibility on Android 11+. Secure windows and system rate limits still apply.", emptyList(), true),
+            ToolDefinition("dikciz_device_info", "Inspect Android and Dikciz", "Read the running package, version, process and launcher instance, plus Android device information.", emptyList(), true),
+            ToolDefinition("dikciz_package_info", "Inspect an installed package", "Read installed version and launch component through Android PackageManager without shell privileges.", listOf(packageNameArgument()), true),
+            ToolDefinition("dikciz_restart", "Restart Dikciz", "Acknowledge, then recreate the launcher and listeners without killing the process or changing saved configuration. Reconnect and verify a new instanceId through dikciz_device_info.", emptyList(), false),
             ToolDefinition("dikciz_accessibility_snapshot", "Read current Android app", "Read a bounded snapshot of the active Android accessibility tree. The owner must first enable Dikciz cross-app automation in Android Accessibility settings.", emptyList(), true),
             ToolDefinition("dikciz_accessibility_action", "Act on current Android app", "Run one supported action on a node from an unexpired accessibility snapshot.", listOf(accessibilitySnapshotIDArgument(), accessibilityNodeIDArgument(), accessibilityActionArgument(), optionalAccessibilityTextArgument()), false),
             ToolDefinition("dikciz_snapshot", "Dikciz UI snapshot", "Read the current semantic launcher UI tree.", emptyList(), true),
@@ -1617,6 +1645,14 @@ internal class DikcizMcpControlPlane(
             true,
             DikcizAutomationControlPlane.MINIMUM_WAIT_TIMEOUT_MILLISECONDS,
             DikcizAutomationControlPlane.MAXIMUM_WAIT_TIMEOUT_MILLISECONDS,
+        )
+
+        private fun packageNameArgument(): ToolArgument = ToolArgument(
+            DikcizDeviceInspection.KEY_PACKAGE_NAME,
+            "Installed Android package name.",
+            SCHEMA_TYPE_STRING,
+            true,
+            maximumLength = DikcizDeviceInspection.MAXIMUM_PACKAGE_NAME_CHARACTERS,
         )
 
         private fun shellCommandArgument(): ToolArgument = ToolArgument(

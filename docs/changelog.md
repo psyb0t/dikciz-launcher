@@ -2,6 +2,29 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.15.5] - 2026-10-20
+
+### Added
+
+- WebSocket, MCP and HTTP expose `deviceInfo`, `packageInfo` and an acknowledged `restart` that recreates the launcher and listeners while preserving saved configuration and the process.
+- `displayScreenshot` captures the visible Android display through enabled Accessibility on Android 11 or newer. Existing `screenshot` retains launcher-window capture.
+- Diagnostics identify the serving package, installed version, process and activity instance.
+- `launcherHandoff` switches listener ownership between installed debug and release builds without killing the serving process. Target file access and listener support are checked before shutdown.
+
+### Fixed
+
+- Listener bind failures continue retrying every 30 seconds after their initial fast attempts, so a released port conflict no longer requires manually restarting the app.
+- Failed binds close their sockets before retrying.
+- The Python MCP client deletes sessions after successful and rejected calls. Cleanup tolerates restart-invalidated sessions, preventing repeated CLI calls from exhausting the session limit.
+
+### Changed
+
+- Scheduled issue synchronization uses repository-specific hours to spread workflow load throughout the day.
+
+### Migration
+
+- Exact control schemas must accept the five new commands, matching MCP tools and the diagnostics `application` object. A restart closes old connections and MCP sessions; reconnect and verify a changed instance ID.
+
 ## [0.15.4] - 2026-10-19
 
 ### Added

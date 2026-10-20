@@ -4,6 +4,9 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.content.ComponentName
 import android.content.Context
+import android.graphics.Bitmap
+import android.os.Build
+import android.view.Display
 import android.graphics.Path
 import android.graphics.Rect
 import android.os.Bundle
@@ -18,6 +21,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -102,6 +106,68 @@ internal object DikcizAccessibilityAutomation {
             )
         }
         return captureSnapshot(root)
+    }
+
+    fun screenshot(): Bitmap {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            throw DikcizAccessibilityAutomationException(
+                "unsupported_android_version",
+                "display screenshots require Android 11 or newer",
+            )
+        }
+        val activeService = requireService()
+        val completion = CountDownLatch(1)
+        val result = AtomicReference<Bitmap?>()
+        val failure = AtomicReference<Int?>()
+        val guard = Any()
+        var expired = false
+        activeService.takeScreenshot(
+            Display.DEFAULT_DISPLAY,
+            activeService.mainExecutor,
+            object : AccessibilityService.TakeScreenshotCallback {
+                override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
+                    val bitmap = try {
+                        screenshot.hardwareBuffer.use { buffer ->
+                            val hardware = Bitmap.wrapHardwareBuffer(buffer, screenshot.colorSpace)
+                            try {
+                                hardware?.copy(Bitmap.Config.ARGB_8888, false)
+                            } finally {
+                                hardware?.recycle()
+                            }
+                        }
+                    } catch (_: RuntimeException) {
+                        failure.set(AccessibilityService.ERROR_TAKE_SCREENSHOT_INTERNAL_ERROR)
+                        null
+                    }
+                    synchronized(guard) {
+                        if (expired) bitmap?.recycle() else result.set(bitmap)
+                        completion.countDown()
+                    }
+                }
+
+                override fun onFailure(errorCode: Int) {
+                    failure.set(errorCode)
+                    completion.countDown()
+                }
+            },
+        )
+        val completed = try {
+            completion.await(GESTURE_RESULT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            false
+        }
+        synchronized(guard) {
+            if (!completed) {
+                expired = true
+                result.getAndSet(null)?.recycle()
+                throw DikcizAccessibilityAutomationException("timeout", "display screenshot did not complete in time")
+            }
+            return result.get() ?: throw DikcizAccessibilityAutomationException(
+                "display_screenshot_failed",
+                "Android rejected display screenshot with status ${failure.get()}",
+            )
+        }
     }
 
     fun performAction(

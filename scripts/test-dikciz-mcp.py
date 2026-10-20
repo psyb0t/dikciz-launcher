@@ -908,7 +908,7 @@ def verify_tools(arguments: argparse.Namespace, session_id: str) -> None:
         TOOL_SNAPSHOT,
         TOOL_WAIT_FOR,
     }
-    required_tools |= FILE_TOOL_NAMES
+    required_tools |= FILE_TOOL_NAMES | {"dikciz_device_info", "dikciz_package_info", "dikciz_restart"}
     if not required_tools.issubset(tool_names):
         raise McpProtocolError("tools/list omitted a required Dikciz control tool")
 

@@ -152,6 +152,9 @@ Each later request has a UUID `requestId` and a `type`. Replies carry that same 
 | Renderer diagnostic | `htmlWidgetRendererCrash` | `dikciz_html_widget_renderer_crash`. |
 | Cross-app Android UI | `accessibilitySnapshot`, `accessibilityAction` | `dikciz_accessibility_snapshot`, `dikciz_accessibility_action`. |
 | Device | `shell`, `intent` | `dikciz_shell`, `dikciz_intent`. |
+| Device inspection | `deviceInfo`, `packageInfo` | `dikciz_device_info`, `dikciz_package_info`. |
+| Launcher recovery | `restart`, `launcherHandoff` | `dikciz_restart`, `dikciz_launcher_handoff`. |
+| Visible Android display | `displayScreenshot` | `dikciz_display_screenshot`. |
 | Bearer setting | `remoteAuthEnable`, `remoteAuthDisable` | Matching tool listed by `controlStatus`. |
 
 `configReplace` and `configSeed` require one complete assembled `config` object. They validate and save atomically. `reset` restores the bundled home and bundled automation files.
@@ -171,6 +174,8 @@ The native app drawer uses this same catalogue and action runtime. It opens from
 `automationTrigger` queues one `manual` event for an enabled script with an enabled manual subscription. Acceptance means the event was queued. Read script status and logs to see whether its actions completed.
 
 `htmlWidgetRendererCrash` and `dikciz_html_widget_renderer_crash` take a rendered HTML `widgetAddress`. They call Android WebView's documented renderer crash URL for that widget so a developer can verify renderer-loss recovery. The immediate result is `crash_requested`. Read `scriptLogs` or `dikciz_script_logs` for `html_widget_renderer_gone` followed by `html_widget_renderer_recovered`. Android can place several WebViews in one renderer process, so it can report loss for more than one widget. Dikciz recreates each reported widget in place. It does not rebuild the selected page or write configuration.
+
+Read [remote device operations](remote-device-control.md) for build identification, acknowledged restart, listener recovery, full-display screenshots and Android privilege boundaries. `restart` writes its reply before recreating the launcher and listeners. Reconnect and verify a changed `deviceInfo.application.instanceId`; do not kill the process through its own shell.
 
 ## MCP sessions
 

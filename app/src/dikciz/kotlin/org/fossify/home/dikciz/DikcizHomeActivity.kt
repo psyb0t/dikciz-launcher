@@ -136,6 +136,8 @@ class DikcizHomeActivity : Activity() {
     private var appliedControlPorts: DikcizControlPortsStatus? = null
     private val pollControlConfigurationRunnable = Runnable(::pollControlConfiguration)
     private val restartControlPlanesRunnable = Runnable(::refreshControlConfiguration)
+    private val automationInstanceID = java.util.UUID.randomUUID().toString()
+    private var isRemoteRestartScheduled = false
     private val configurationFileObservers = mutableListOf<ConfigurationFileObserver>()
     private var pendingProviderWidget: PendingProviderWidget? = null
     private var pendingProviderReconfiguration: ProviderHomeWidget? = null
@@ -254,6 +256,22 @@ class DikcizHomeActivity : Activity() {
 
             override fun execute(command: DikcizAutomationCommand): JSONObject {
                 return executeAutomationCommand(command)
+            }
+
+            override fun responseSent(commandType: String, result: JSONObject) {
+                if (commandType !in DikcizDeviceInspection.RESPONSE_COMMAND_TYPES) return
+                if (result.optString("state") == "already_active") return
+                mainHandler.post {
+                    if (isDestroyed || isFinishing || isRemoteRestartScheduled) return@post
+                    isRemoteRestartScheduled = true
+                    if (commandType == DikcizDeviceInspection.TYPE_LAUNCHER_HANDOFF) {
+                        performLauncherHandoff(result.getString(DikcizDeviceInspection.KEY_PACKAGE_NAME))
+                        return@post
+                    }
+                    dikcizLogger.info("remote_restart_started")
+                    intent.putExtra(EXTRA_SAFE_MODE, false)
+                    recreate()
+                }
             }
         }
         automationControlPlane = DikcizAutomationControlPlane(
@@ -613,7 +631,7 @@ class DikcizHomeActivity : Activity() {
 
     private fun startControlPlanesIfNeeded() {
         startControlConfigurationObserver()
-        if (controlPlanesStarted || isControlPlaneStartRetryScheduled || isFinishing || isDestroyed) {
+        if (isRemoteRestartScheduled || controlPlanesStarted || isControlPlaneStartRetryScheduled || isFinishing || isDestroyed) {
             return
         }
         val listenerConfiguration = controlPorts.status()
@@ -703,14 +721,16 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun scheduleControlPlaneStartRetry() {
-        if (controlPlaneStartAttemptsRemaining == NO_CONTROL_PLANE_START_ATTEMPTS) {
-            return
+        val delayMilliseconds = if (controlPlaneStartAttemptsRemaining == NO_CONTROL_PLANE_START_ATTEMPTS) {
+            CONTROL_PLANE_RECOVERY_RETRY_DELAY_MILLISECONDS
+        } else {
+            controlPlaneStartAttemptsRemaining -= ONE_CONTROL_PLANE_START_ATTEMPT
+            CONTROL_PLANE_START_RETRY_DELAY_MILLISECONDS
         }
-        controlPlaneStartAttemptsRemaining -= ONE_CONTROL_PLANE_START_ATTEMPT
         isControlPlaneStartRetryScheduled = true
         mainHandler.postDelayed(
             retryControlPlaneStartRunnable,
-            CONTROL_PLANE_START_RETRY_DELAY_MILLISECONDS,
+            delayMilliseconds,
         )
     }
 
@@ -2472,6 +2492,14 @@ class DikcizHomeActivity : Activity() {
         sourceWidgetAddress: String,
         request: JSONObject,
     ): String {
+        if (request.optString(DikcizAutomationControlPlane.KEY_TYPE) in DikcizDeviceInspection.RESPONSE_COMMAND_TYPES) {
+            return JSONObject()
+                .put(DikcizAutomationControlPlane.KEY_TYPE, DikcizAutomationControlPlane.TYPE_ERROR)
+                .put(DikcizAutomationControlPlane.KEY_REQUEST_ID, request.opt(DikcizAutomationControlPlane.KEY_REQUEST_ID))
+                .put(DikcizAutomationControlPlane.KEY_CODE, DikcizDeviceInspection.ERROR_UNSUPPORTED_TRANSPORT)
+                .put(DikcizAutomationControlPlane.KEY_MESSAGE, "lifecycle commands require WebSocket, MCP or HTTP")
+                .toString()
+        }
         if (request.optString(DikcizAutomationControlPlane.KEY_TYPE) ==
             DikcizAutomationControlPlane.TYPE_AUTOMATION_DISPATCH
         ) {
@@ -3720,6 +3748,22 @@ class DikcizHomeActivity : Activity() {
         }
         if (command.type in DikcizFileCommands.FIELDS) return deviceFiles.execute(command)
         return when (command.type) {
+            DikcizDeviceInspection.TYPE_DISPLAY_SCREENSHOT -> {
+                try {
+                    encodeAutomationScreenshot(DikcizAccessibilityAutomation.screenshot())
+                } catch (exception: DikcizAccessibilityAutomationException) {
+                    throw DikcizAutomationRequestException(exception.code, exception.message.orEmpty())
+                }
+            }
+            DikcizDeviceInspection.TYPE_DEVICE_INFO -> DikcizDeviceInspection.deviceInfo(this, automationInstanceID)
+            DikcizDeviceInspection.TYPE_PACKAGE_INFO -> DikcizDeviceInspection.packageInfo(
+                this,
+                DikcizDeviceInspection.validatePackageName(command.request),
+            )
+            DikcizDeviceInspection.TYPE_LAUNCHER_HANDOFF -> prepareLauncherHandoff(command)
+            DikcizDeviceInspection.TYPE_RESTART -> JSONObject()
+                .put("state", "scheduled")
+                .put(DikcizDeviceInspection.KEY_INSTANCE_ID, automationInstanceID)
             DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_SNAPSHOT -> accessibilitySnapshot()
             DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_ACTION -> accessibilityAction(command)
             DikcizAutomationControlPlane.TYPE_SNAPSHOT,
@@ -3771,6 +3815,125 @@ class DikcizHomeActivity : Activity() {
             DikcizAutomationControlPlane.TYPE_WIDGET_MOVE -> moveAutomationWidget(command)
             DikcizAutomationControlPlane.TYPE_WIDGET_RESIZE -> resizeAutomationWidget(command)
             else -> throw automationFailure(MESSAGE_UNSUPPORTED_AUTOMATION_COMMAND)
+        }
+    }
+
+    private fun prepareLauncherHandoff(command: DikcizAutomationCommand): JSONObject {
+        val targetPackage = DikcizDeviceInspection.validatePackageName(command.request)
+        if (targetPackage !in DikcizDeviceInspection.LAUNCHER_PACKAGES) {
+            throw DikcizAutomationRequestException("unsupported_launcher_package", "handoff requires a Dikciz release or debug package")
+        }
+        if (packageManager.getLaunchIntentForPackage(targetPackage) == null) {
+            throw DikcizAutomationRequestException("package_not_found", "target launcher is not installed or enabled")
+        }
+        if (targetPackage != packageName) {
+            validateLauncherHandoffAccess(targetPackage)
+        }
+        return JSONObject()
+            .put("state", if (targetPackage == packageName) "already_active" else "scheduled")
+            .put(DikcizDeviceInspection.KEY_PACKAGE_NAME, targetPackage)
+            .put(DikcizDeviceInspection.KEY_INSTANCE_ID, automationInstanceID)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun validateLauncherHandoffAccess(targetPackage: String) {
+        val info = DikcizDeviceInspection.packageInfo(this, targetPackage)
+        if (info.getLong("versionCode") < MINIMUM_LAUNCHER_HANDOFF_VERSION_CODE) {
+            throw DikcizAutomationRequestException("unsupported_launcher_version", "target launcher must support shared listener addresses (0.15.3 or newer)")
+        }
+        val hasAccess = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val application = packageManager.getApplicationInfo(targetPackage, 0)
+                getSystemService(android.app.AppOpsManager::class.java).checkOpNoThrow(
+                    APP_OP_MANAGE_EXTERNAL_STORAGE,
+                    application.uid,
+                    targetPackage,
+                ) == android.app.AppOpsManager.MODE_ALLOWED
+            } else {
+                packageManager.checkPermission(Manifest.permission.READ_EXTERNAL_STORAGE, targetPackage) ==
+                    android.content.pm.PackageManager.PERMISSION_GRANTED
+            }
+        } catch (_: SecurityException) {
+            false
+        }
+        if (!hasAccess) {
+            throw DikcizAutomationRequestException("target_access_required", "grant file access to the target launcher before handing off control")
+        }
+    }
+
+    private fun performLauncherHandoff(targetPackage: String) {
+        mainHandler.removeCallbacks(retryControlPlaneStartRunnable)
+        isControlPlaneStartRetryScheduled = false
+        mcpControlPlane.stop()
+        automationControlPlane.stop()
+        controlPlanesStarted = false
+        stopService(Intent(this, DikcizAutomationService::class.java))
+        try {
+            val target = packageManager.getLaunchIntentForPackage(targetPackage)
+                ?: throw android.content.ActivityNotFoundException()
+            startActivity(target.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (exception: RuntimeException) {
+            restoreAfterFailedHandoff(exception::class.java.simpleName)
+            return
+        }
+        dikcizLogger.info("launcher_handoff_started", mapOf("target_package" to targetPackage))
+        waitForLauncherHandoff(SystemClock.elapsedRealtime() + LAUNCHER_HANDOFF_TIMEOUT_MILLISECONDS)
+    }
+
+    private fun waitForLauncherHandoff(deadline: Long) {
+        if (isDestroyed || isFinishing) return
+        val endpoints = listOf(
+            controlPorts.websocketEndpoint(controlPorts.status()),
+            controlPorts.mcpEndpoint(controlPorts.status()),
+        )
+        configurationPollExecutor.execute {
+            val ready = endpoints.all { endpoint ->
+                try {
+                    // Probe a real interface for wildcard bindings so a loopback fallback cannot strand remote clients.
+                    val address = if (!endpoint.address.isAnyLocalAddress) {
+                        endpoint.address
+                    } else {
+                        java.net.NetworkInterface.getNetworkInterfaces()
+                            ?.let { java.util.Collections.list(it) }.orEmpty()
+                            .asSequence()
+                            .flatMap { java.util.Collections.list(it.inetAddresses).asSequence() }
+                            .firstOrNull {
+                                !it.isLoopbackAddress && !it.isLinkLocalAddress &&
+                                    (it is java.net.Inet4Address) == (endpoint.address is java.net.Inet4Address)
+                            }
+                    } ?: return@all false
+                    java.net.Socket().use { socket ->
+                        socket.connect(java.net.InetSocketAddress(address, endpoint.port), LAUNCHER_HANDOFF_CONNECT_TIMEOUT_MILLISECONDS)
+                    }
+                    true
+                } catch (_: java.io.IOException) {
+                    false
+                } catch (_: SecurityException) {
+                    false
+                }
+            }
+            mainHandler.post {
+                if (isDestroyed || isFinishing) return@post
+                if (ready) {
+                    dikcizLogger.info("launcher_handoff_completed")
+                    finish()
+                    return@post
+                }
+                if (SystemClock.elapsedRealtime() >= deadline) {
+                    restoreAfterFailedHandoff("listener_timeout")
+                    return@post
+                }
+                mainHandler.postDelayed({ waitForLauncherHandoff(deadline) }, LAUNCHER_HANDOFF_POLL_MILLISECONDS)
+            }
+        }
+    }
+
+    private fun restoreAfterFailedHandoff(reason: String) {
+        dikcizLogger.warn("launcher_handoff_failed", mapOf("reason" to reason))
+        isRemoteRestartScheduled = false
+        startControlPlanesIfNeeded()
+        if (!isSafeMode && !isConfigurationErrorVisible) {
+            homeConfiguration?.let(::syncAutomationService)
         }
     }
 
@@ -4591,6 +4754,10 @@ class DikcizHomeActivity : Activity() {
         }
         val source = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
         root.draw(Canvas(source))
+        return encodeAutomationScreenshot(source)
+    }
+
+    private fun encodeAutomationScreenshot(source: Bitmap): JSONObject {
         val screenshot = scaleAutomationScreenshot(source)
         if (screenshot !== source) {
             source.recycle()
@@ -4637,6 +4804,7 @@ class DikcizHomeActivity : Activity() {
             .put(KEY_MCP_CONTROL_PORT, mcpControlPlane.port)
             .put(KEY_SCREEN, VALUE_HOME_SCREEN)
             .put(KEY_HTML_WIDGET_RESOURCES, htmlWidgetResourceDiagnostics())
+            .put(DikcizDeviceInspection.KEY_APPLICATION, DikcizDeviceInspection.application(this, automationInstanceID))
     }
 
     private fun htmlWidgetResourceDiagnostics(): JSONObject {
@@ -11666,7 +11834,13 @@ class DikcizHomeActivity : Activity() {
         const val WIDGET_ID_SEPARATOR_CHARACTER = '-'
         const val WIDGET_MOVE_ELEVATION_DP = 12
         const val WIDGET_TOP_EDGE_MOVE_GESTURE_HEIGHT_DP = 24
+        const val APP_OP_MANAGE_EXTERNAL_STORAGE = "android:manage_external_storage"
+        const val MINIMUM_LAUNCHER_HANDOFF_VERSION_CODE = 1503
+        const val LAUNCHER_HANDOFF_TIMEOUT_MILLISECONDS = 30_000L
+        const val LAUNCHER_HANDOFF_POLL_MILLISECONDS = 250L
+        const val LAUNCHER_HANDOFF_CONNECT_TIMEOUT_MILLISECONDS = 250
         const val CONTROL_PLANE_START_ATTEMPTS = 3
+        const val CONTROL_PLANE_RECOVERY_RETRY_DELAY_MILLISECONDS = 30_000L
         const val NO_CONTROL_PLANE_START_ATTEMPTS = 0
         const val ONE_CONTROL_PLANE_START_ATTEMPT = 1
         const val CONTROL_PLANE_START_RETRY_DELAY_MILLISECONDS = 500L
@@ -12017,12 +12191,18 @@ class DikcizHomeActivity : Activity() {
             SEMANTIC_SAFE_MODE_RESET,
         )
         val AUTOMATION_BACKGROUND_COMMAND_TYPES = setOf(
+            DikcizDeviceInspection.TYPE_DISPLAY_SCREENSHOT,
             DikcizAutomationControlPlane.TYPE_APP_CATALOGUE,
             DikcizAutomationControlPlane.TYPE_AUTOMATION_DISPATCH,
             DikcizAutomationControlPlane.TYPE_SHELL,
             DikcizAutomationControlPlane.TYPE_SCRIPT_LOGS,
         ) + DikcizFileCommands.FIELDS.keys
         val STORAGE_ACCESS_COMMAND_TYPES = setOf(
+            DikcizDeviceInspection.TYPE_LAUNCHER_HANDOFF,
+            DikcizDeviceInspection.TYPE_DISPLAY_SCREENSHOT,
+            DikcizDeviceInspection.TYPE_DEVICE_INFO,
+            DikcizDeviceInspection.TYPE_PACKAGE_INFO,
+            DikcizDeviceInspection.TYPE_RESTART,
             DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_ACTION,
             DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_SNAPSHOT,
             DikcizAutomationControlPlane.TYPE_AUTOMATION_STATUS,
@@ -12033,6 +12213,11 @@ class DikcizHomeActivity : Activity() {
             DikcizAutomationControlPlane.TYPE_UI_DUMP,
         ) + DikcizFileCommands.FIELDS.keys
         val SAFE_MODE_READ_ONLY_COMMAND_TYPES = setOf(
+            DikcizDeviceInspection.TYPE_LAUNCHER_HANDOFF,
+            DikcizDeviceInspection.TYPE_DISPLAY_SCREENSHOT,
+            DikcizDeviceInspection.TYPE_DEVICE_INFO,
+            DikcizDeviceInspection.TYPE_PACKAGE_INFO,
+            DikcizDeviceInspection.TYPE_RESTART,
             DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_SNAPSHOT,
             DikcizAutomationControlPlane.TYPE_APP_CATALOGUE,
             DikcizAutomationControlPlane.TYPE_CONFIG_GET,

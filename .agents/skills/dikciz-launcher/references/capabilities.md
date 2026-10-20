@@ -87,6 +87,9 @@ Read [typed actions](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/sc
 WebSocket, Streamable HTTP MCP and plain HTTP expose the same launcher command target:
 
 - Discover protocol, command fields, matching tools, limits, automation access, policy vocabulary, sensors and event schemas.
+- Identify the serving package and version with `deviceInfo`, inspect installed packages with `packageInfo`, and restart with `restart`. Reconnect and verify a new `application.instanceId`; do not kill the process through its own shell.
+- Use `launcherHandoff` to transfer control between installed Dikciz release and debug packages. Verify target package and version after reconnecting. Each target needs file access; same-package handoff changes nothing.
+- Capture the actual visible Android display with `displayScreenshot` on Android 11+ with owner-enabled Accessibility. Existing `screenshot` captures the launcher window.
 - Inspect semantic UI snapshots, find or wait for nodes, obtain home/widget/config records, logs, diagnostics, screenshots and UI dumps.
 - Tap, long press, select pages, scroll, set text, launch apps, place/move/resize widgets and configure the page grid.
 - Read app catalogue and execute supported app actions.

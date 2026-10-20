@@ -45,6 +45,10 @@ HEADER_MCP_PROTOCOL_VERSION = "MCP-Protocol-Version"
 HEADER_MCP_SESSION_ID = "MCP-Session-Id"
 HEADER_ORIGIN = "Origin"
 HTTP_METHOD_POST = "POST"
+HTTP_METHOD_DELETE = "DELETE"
+HTTP_STATUS_NO_CONTENT = 204
+HTTP_STATUS_NOT_FOUND = 404
+MCP_CLEANUP_TIMEOUT_SECONDS = 2.0
 HTTP_STATUS_ACCEPTED = 202
 HTTP_STATUS_OK = 200
 JSON_RPC_VERSION = "2.0"
@@ -648,6 +652,29 @@ def require_mcp_result(response: dict[str, Any], request_id: int) -> dict[str, A
     return result
 
 
+def close_mcp_session(
+    arguments: argparse.Namespace,
+    session_id: str,
+    authorization: str | None,
+    restarting: bool = False,
+) -> None:
+    connection = http.client.HTTPConnection(
+        arguments.host, arguments.port, timeout=MCP_CLEANUP_TIMEOUT_SECONDS,
+    )
+    try:
+        connection.request(HTTP_METHOD_DELETE, MCP_PATH, headers=mcp_headers(session_id, authorization))
+        response = connection.getresponse()
+        response.read(HANDSHAKE_MAXIMUM_BYTES)
+        if response.status not in (HTTP_STATUS_NO_CONTENT, HTTP_STATUS_NOT_FOUND):
+            LOGGER.warning("Dikciz MCP session cleanup rejected", extra={"status_code": response.status})
+    except (OSError, http.client.HTTPException) as exception:
+        # Restart closes listeners and invalidates the session after acknowledgement.
+        level = logging.DEBUG if restarting else logging.WARNING
+        LOGGER.log(level, "Dikciz MCP session cleanup disconnected", extra={"error_type": type(exception).__name__})
+    finally:
+        connection.close()
+
+
 def start_mcp_session(arguments: argparse.Namespace) -> str:
     authorization = remote_authorization(arguments)
     request_id = 1
@@ -680,14 +707,18 @@ def start_mcp_session(arguments: argparse.Namespace) -> str:
         KEY_PARAMS: {},
         "jsonrpc": JSON_RPC_VERSION,
     }
-    _, initialized_response = mcp_request(
-        arguments,
-        initialized,
-        mcp_headers(session_id, authorization),
-        HTTP_STATUS_ACCEPTED,
-    )
-    if initialized_response is not None:
-        raise DikcizControlError("Dikciz MCP initialization returned an unexpected body")
+    try:
+        _, initialized_response = mcp_request(
+            arguments,
+            initialized,
+            mcp_headers(session_id, authorization),
+            HTTP_STATUS_ACCEPTED,
+        )
+        if initialized_response is not None:
+            raise DikcizControlError("Dikciz MCP initialization returned an unexpected body")
+    except DikcizControlError:
+        close_mcp_session(arguments, session_id, authorization)
+        raise
     return session_id
 
 
@@ -706,15 +737,18 @@ def call_mcp(arguments: argparse.Namespace, method: str, params: dict[str, Any])
         KEY_PARAMS: request_params,
         "jsonrpc": JSON_RPC_VERSION,
     }
-    _, response = mcp_request(
-        arguments,
-        request,
-        mcp_headers(session_id, authorization),
-        HTTP_STATUS_OK,
-    )
-    if response is None:
-        raise DikcizControlError("Dikciz MCP request returned no response")
-    return require_mcp_result(response, request_id)
+    try:
+        _, response = mcp_request(
+            arguments,
+            request,
+            mcp_headers(session_id, authorization),
+            HTTP_STATUS_OK,
+        )
+        if response is None:
+            raise DikcizControlError("Dikciz MCP request returned no response")
+        return require_mcp_result(response, request_id)
+    finally:
+        close_mcp_session(arguments, session_id, authorization, params.get(KEY_NAME) in {"dikciz_restart", "dikciz_launcher_handoff"})
 
 
 def call_mcp_tool(arguments: argparse.Namespace) -> dict[str, Any]:
