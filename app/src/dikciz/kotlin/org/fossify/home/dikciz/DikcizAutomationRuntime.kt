@@ -395,6 +395,7 @@ internal class DikcizAutomationRuntime(
         var actionConfiguration = configuration
         val accessibilitySnapshot = accessibilitySnapshot(event)
         matchingSubscriptions.forEach { _ ->
+            val commandReplies = mutableListOf<DikcizLocalCommands.Reply>()
             val result = luaRuntime.executeEvent(
                 script,
                 visibleEvent,
@@ -402,77 +403,112 @@ internal class DikcizAutomationRuntime(
                 actionConfiguration.scriptWidgetContext(),
                 accessibilitySnapshot,
                 DikcizAutomationStatus.androidAccessDocument(context),
-            )
-            when (result) {
-                DikcizLuaAutomationResult.Disabled -> recordScriptRunStatus(
-                    script,
-                    event,
-                    DikcizLuaScriptRunOutcome.Rejected,
-                    REASON_SCRIPT_DISABLED,
-                    actionConfiguration.limits,
-                )
-
-                DikcizLuaAutomationResult.NoHandler -> recordScriptRunStatus(
-                    script,
-                    event,
-                    DikcizLuaScriptRunOutcome.Completed,
-                    STATUS_NO_EVENT_HANDLER,
-                    actionConfiguration.limits,
-                )
-
-                is DikcizLuaAutomationResult.Failure -> {
-                    logDeliveryRejected(
-                        script.id,
-                        policy?.id,
-                        event.name,
-                        result.reason.persistedValue,
-                        result.diagnostic,
-                    )
-                    DikcizScriptFailureNotifier.report(
-                        context,
-                        logger,
-                        configuration.logging,
-                        script.id,
-                        DikcizScriptKind.Automation,
-                        result.reason,
-                    )
-                    recordScriptRunStatus(
-                        script,
-                        event,
-                        DikcizLuaScriptRunOutcome.Failed,
-                        result.reason.persistedValue,
-                        actionConfiguration.limits,
-                    )
-                }
-
-                is DikcizLuaAutomationResult.Actions -> {
-                    val actionOutcomes = mutableListOf<String>()
-                    result.actions.forEach { action ->
-                        val execution = executeScriptAction(
-                            actionConfiguration,
-                            script.id,
-                            policy,
-                            event,
-                            action,
-                        )
-                        actionConfiguration = execution.configuration
-                        actionOutcomes += execution.outcome
+                executeCommand = { serialized ->
+                    val current = loadConfiguration()
+                    val reply = if (current != null && ownerScriptEnabled(current, script.id)) {
+                        DikcizLocalCommands.executeJson(LOCAL_COMMAND_OWNER_PREFIX + script.id, serialized)
+                    } else {
+                        DikcizLocalCommands.failure(null, REASON_SCRIPT_DISABLED, MESSAGE_OWNER_SCRIPT_DISABLED)
                     }
-                    recordScriptRunStatus(
+                    commandReplies += reply
+                    reply.response.toString()
+                },
+            )
+            if (commandReplies.isNotEmpty()) {
+                actionConfiguration = loadConfiguration() ?: actionConfiguration
+            }
+            try {
+                if (commandReplies.isNotEmpty() && !ownerScriptEnabled(actionConfiguration, script.id)) {
+                    return@forEach
+                }
+                when (result) {
+                    DikcizLuaAutomationResult.Disabled -> recordScriptRunStatus(
                         script,
                         event,
-                        actionOutcomes.toScriptRunOutcome(),
-                        if (actionOutcomes.toScriptRunOutcome() == DikcizLuaScriptRunOutcome.Completed) {
-                            result.status ?: actionOutcomes.toDefaultScriptRunStatus()
-                        } else {
-                            actionOutcomes.toDefaultScriptRunStatus()
-                        },
+                        DikcizLuaScriptRunOutcome.Rejected,
+                        REASON_SCRIPT_DISABLED,
                         actionConfiguration.limits,
                     )
+
+                    DikcizLuaAutomationResult.NoHandler -> recordScriptRunStatus(
+                        script,
+                        event,
+                        DikcizLuaScriptRunOutcome.Completed,
+                        STATUS_NO_EVENT_HANDLER,
+                        actionConfiguration.limits,
+                    )
+
+                    is DikcizLuaAutomationResult.Failure -> {
+                        logDeliveryRejected(
+                            script.id,
+                            policy?.id,
+                            event.name,
+                            result.reason.persistedValue,
+                            result.diagnostic,
+                        )
+                        DikcizScriptFailureNotifier.report(
+                            context,
+                            logger,
+                            configuration.logging,
+                            script.id,
+                            DikcizScriptKind.Automation,
+                            result.reason,
+                        )
+                        recordScriptRunStatus(
+                            script,
+                            event,
+                            DikcizLuaScriptRunOutcome.Failed,
+                            result.reason.persistedValue,
+                            actionConfiguration.limits,
+                        )
+                    }
+
+                    is DikcizLuaAutomationResult.Actions -> {
+                        val actionOutcomes = mutableListOf<String>()
+                        val actionPolicy = if (commandReplies.isEmpty()) policy else {
+                            actionConfiguration.automation.scripts
+                                .firstOrNull { it.scriptID == script.id }
+                                ?.let { current -> actionConfiguration.automation.policy(current.policyID) }
+                        }
+                        result.actions.forEach { action ->
+                            val execution = executeScriptAction(
+                                actionConfiguration,
+                                script.id,
+                                actionPolicy,
+                                event,
+                                action,
+                            )
+                            actionConfiguration = execution.configuration
+                            actionOutcomes += execution.outcome
+                        }
+                        recordScriptRunStatus(
+                            script,
+                            event,
+                            actionOutcomes.toScriptRunOutcome(),
+                            if (actionOutcomes.toScriptRunOutcome() == DikcizLuaScriptRunOutcome.Completed) {
+                                result.status ?: actionOutcomes.toDefaultScriptRunStatus()
+                            } else {
+                                actionOutcomes.toDefaultScriptRunStatus()
+                            },
+                            actionConfiguration.limits,
+                        )
+                    }
                 }
+            } finally {
+                commandReplies.forEach(DikcizLocalCommands.Reply::delivered)
             }
         }
         return actionConfiguration
+    }
+
+    private fun ownerScriptEnabled(configuration: HomeConfiguration, scriptID: String): Boolean {
+        if (configuration.scripts.none { it.id == scriptID && it.enabled }) {
+            return false
+        }
+        return configuration.automation.scripts.any { automation ->
+            automation.scriptID == scriptID && automation.enabled &&
+                configuration.automation.policy(automation.policyID)?.enabled == true
+        }
     }
 
     private fun logUnmatchedLocationDelivery(
@@ -1344,6 +1380,8 @@ internal class DikcizAutomationRuntime(
         const val REASON_TARGET_UNAVAILABLE = "target_unavailable"
         const val RESOLVE_ACTIVITY_FLAGS = PackageManager.MATCH_DEFAULT_ONLY
         const val REASON_SCRIPT_DISABLED = "script_disabled"
+        const val LOCAL_COMMAND_OWNER_PREFIX = "lua:"
+        const val MESSAGE_OWNER_SCRIPT_DISABLED = "The owner script is no longer enabled."
         const val REASON_SUBSCRIPTION_MISMATCH = "subscription_mismatch"
         const val STATUS_ACTION_REJECTED_PREFIX = "Action rejected: "
         const val STATUS_COMPLETED = "Completed"

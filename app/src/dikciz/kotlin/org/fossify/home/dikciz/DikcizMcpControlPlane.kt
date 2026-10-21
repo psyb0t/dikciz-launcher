@@ -423,10 +423,27 @@ internal class DikcizMcpControlPlane(
             ?: throw McpHttpException(HTTP_STATUS_BAD_REQUEST, REASON_UNKNOWN_TOOL, MESSAGE_UNKNOWN_TOOL)
         val rawArguments = params.optJSONObject(KEY_ARGUMENTS) ?: JSONObject()
         try {
-            val arguments = DikcizPermissionRequests.operation(rawArguments)
-            validateCommandArguments(commandType, arguments)
+            if (rawArguments.has(DikcizAutomationControlPlane.KEY_TYPE) ||
+                rawArguments.has(DikcizAutomationControlPlane.KEY_REQUEST_ID)
+            ) {
+                throw DikcizAutomationRequestException(
+                    DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED,
+                    DikcizAutomationControlPlane.MESSAGE_UNEXPECTED_FIELD,
+                )
+            }
             logger.debug(EVENT_MCP_TOOL_RECEIVED, mapOf(FIELD_TOOL_NAME to toolName))
-            val result = dispatchCommand(DikcizPermissionRequests.command(commandType, rawArguments), authorization)
+            val command = JSONObject(rawArguments.toString())
+                .put(DikcizAutomationControlPlane.KEY_TYPE, commandType)
+                .put(DikcizAutomationControlPlane.KEY_REQUEST_ID, UUID.randomUUID().toString())
+            val response = JSONObject(executeHttpCommand(command, authorization))
+            if (response.optString(DikcizAutomationControlPlane.KEY_TYPE) == DikcizAutomationControlPlane.TYPE_ERROR) {
+                return toolFailure(
+                    response.getString(DikcizAutomationControlPlane.KEY_MESSAGE),
+                    response.getString(DikcizAutomationControlPlane.KEY_CODE),
+                    response.optJSONObject(DikcizPermissionRequests.KEY_RECOVERY),
+                )
+            }
+            val result = response.getJSONObject(DikcizAutomationControlPlane.KEY_RESULT)
             logger.debug(EVENT_MCP_TOOL_COMPLETED, mapOf(FIELD_TOOL_NAME to toolName))
             return toolSuccess(result)
         } catch (exception: DikcizAutomationRequestException) {
@@ -449,7 +466,6 @@ internal class DikcizMcpControlPlane(
         val structuredContent = JSONObject(result.toString())
         val pngBase64 = structuredContent.optString(KEY_PNG_BASE_64)
         if (pngBase64.isNotBlank()) {
-            structuredContent.remove(KEY_PNG_BASE_64)
             content.put(
                 JSONObject()
                     .put(KEY_TYPE, CONTENT_TYPE_IMAGE)
@@ -554,195 +570,6 @@ internal class DikcizMcpControlPlane(
                     DikcizAutomationControlPlane.MESSAGE_WAIT_INTERRUPTED,
                 )
             }
-        }
-    }
-
-    private fun validateCommandArguments(commandType: String, arguments: JSONObject) {
-        if (commandType in DikcizFileCommands.FIELDS) {
-            DikcizFileCommands.validate(commandType, arguments)
-            return
-        }
-        val expectedKeys = COMMAND_ARGUMENT_KEYS[commandType]
-            ?: throw DikcizAutomationRequestException(
-                DikcizAutomationControlPlane.ERROR_UNKNOWN_COMMAND,
-                DikcizAutomationControlPlane.MESSAGE_UNKNOWN_COMMAND,
-            )
-        if (commandType == DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_ACTION) {
-            requireAllowedKeys(
-                arguments,
-                expectedKeys,
-                ACCESSIBILITY_ACTION_REQUIRED_ARGUMENT_KEYS,
-            )
-        } else if (commandType == DikcizAutomationControlPlane.TYPE_SHELL) {
-            requireAllowedKeys(arguments, expectedKeys, setOf(DikcizAutomationControlPlane.KEY_COMMAND))
-        } else if (commandType == DikcizAutomationControlPlane.TYPE_APP_CATALOGUE) {
-            requireAllowedKeys(arguments, expectedKeys, emptySet())
-        } else {
-            requireExactKeys(arguments, expectedKeys)
-        }
-        when (commandType) {
-            DikcizDeviceInspection.TYPE_PACKAGE_INFO,
-            DikcizDeviceInspection.TYPE_LAUNCHER_HANDOFF,
-            -> DikcizDeviceInspection.validatePackageName(arguments)
-            DikcizAutomationControlPlane.TYPE_APP_CATALOGUE -> {
-                if (arguments.has(DikcizAutomationControlPlane.KEY_QUERY)) {
-                    arguments.requireBoundedString(
-                        DikcizAutomationControlPlane.KEY_QUERY,
-                        DikcizAutomationControlPlane.MAXIMUM_APP_QUERY_CHARACTERS,
-                    )
-                }
-            }
-            DikcizAutomationControlPlane.TYPE_APP_ACTION -> {
-                val appAction = arguments.requireBoundedString(
-                    DikcizAutomationControlPlane.KEY_ACTION,
-                    DikcizAutomationControlPlane.MAXIMUM_APP_ACTION_CHARACTERS,
-                )
-                if (appAction !in DikcizAutomationControlPlane.SUPPORTED_APP_ACTIONS) {
-                    throw DikcizAutomationRequestException(
-                        DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED,
-                        DikcizAutomationControlPlane.MESSAGE_INVALID_APP_ACTION,
-                    )
-                }
-                arguments.requireBoundedString(
-                    DikcizAutomationControlPlane.KEY_COMPONENT,
-                    DikcizAutomationControlPlane.MAXIMUM_COMPONENT_CHARACTERS,
-                )
-            }
-            DikcizAutomationControlPlane.TYPE_ACCESSIBILITY_ACTION -> {
-                arguments.requireBoundedString(
-                    DikcizAutomationControlPlane.KEY_SNAPSHOT_ID,
-                    DikcizAutomationControlPlane.MAXIMUM_ACCESSIBILITY_SNAPSHOT_ID_CHARACTERS,
-                )
-                arguments.requireBoundedString(
-                    DikcizAutomationControlPlane.KEY_NODE_ID,
-                    DikcizAutomationControlPlane.MAXIMUM_ACCESSIBILITY_NODE_ID_CHARACTERS,
-                )
-                arguments.requireBoundedString(
-                    DikcizAutomationControlPlane.KEY_ACTION,
-                    DikcizAutomationControlPlane.MAXIMUM_ACCESSIBILITY_ACTION_CHARACTERS,
-                )
-                if (arguments.has(DikcizAutomationControlPlane.KEY_TEXT)) {
-                    arguments.requireBoundedString(
-                        DikcizAutomationControlPlane.KEY_TEXT,
-                        DikcizAutomationControlPlane.MAXIMUM_TEXT_CHARACTERS,
-                    )
-                }
-            }
-            DikcizAutomationControlPlane.TYPE_FIND,
-            DikcizAutomationControlPlane.TYPE_TAP,
-            DikcizAutomationControlPlane.TYPE_LONG_PRESS,
-            DikcizAutomationControlPlane.TYPE_SCROLL_TO,
-            DikcizAutomationControlPlane.TYPE_LAUNCH_APP,
-            -> arguments.requireBoundedString(
-                DikcizAutomationControlPlane.KEY_SEMANTIC_ID,
-                DikcizAutomationControlPlane.MAXIMUM_SEMANTIC_ID_CHARACTERS,
-            )
-
-            DikcizAutomationControlPlane.TYPE_SELECT_PAGE -> arguments.requireBoundedString(
-                DikcizAutomationControlPlane.KEY_PAGE_ID,
-                DikcizAutomationControlPlane.MAXIMUM_SEMANTIC_ID_CHARACTERS,
-            )
-
-            DikcizAutomationControlPlane.TYPE_SCROLL_BY -> arguments.requireBoundedInt(
-                DikcizAutomationControlPlane.KEY_DELTA_Y,
-                DikcizAutomationControlPlane.MINIMUM_SCROLL_DELTA,
-                DikcizAutomationControlPlane.MAXIMUM_SCROLL_DELTA,
-            )
-
-            DikcizAutomationControlPlane.TYPE_SET_TEXT -> {
-                arguments.requireBoundedString(
-                    DikcizAutomationControlPlane.KEY_SEMANTIC_ID,
-                    DikcizAutomationControlPlane.MAXIMUM_SEMANTIC_ID_CHARACTERS,
-                )
-                arguments.requireBoundedString(
-                    DikcizAutomationControlPlane.KEY_TEXT,
-                    DikcizAutomationControlPlane.MAXIMUM_TEXT_CHARACTERS,
-                )
-            }
-
-            DikcizAutomationControlPlane.TYPE_CONFIG_REPLACE,
-            DikcizAutomationControlPlane.TYPE_CONFIG_SEED,
-            -> arguments.requireObject(
-                DikcizAutomationControlPlane.KEY_CONFIG,
-            )
-
-            DikcizAutomationControlPlane.TYPE_WAIT_FOR -> {
-                arguments.requireBoundedString(
-                    DikcizAutomationControlPlane.KEY_SEMANTIC_ID,
-                    DikcizAutomationControlPlane.MAXIMUM_SEMANTIC_ID_CHARACTERS,
-                )
-                arguments.requireBoundedInt(
-                    DikcizAutomationControlPlane.KEY_TIMEOUT_MILLISECONDS,
-                    DikcizAutomationControlPlane.MINIMUM_WAIT_TIMEOUT_MILLISECONDS,
-                    DikcizAutomationControlPlane.MAXIMUM_WAIT_TIMEOUT_MILLISECONDS,
-                )
-            }
-
-            DikcizAutomationControlPlane.TYPE_SHELL -> {
-                DikcizPrivilegedShell.validateOptions(arguments)
-                arguments.requireBoundedString(
-                    DikcizAutomationControlPlane.KEY_COMMAND,
-                    DikcizAutomationControlPlane.MAXIMUM_SHELL_COMMAND_CHARACTERS,
-                )
-                arguments.requireOptionalBoolean(DikcizAutomationControlPlane.KEY_ROOT)
-            }
-
-            DikcizAutomationControlPlane.TYPE_INTENT -> {
-                arguments.requireBoundedString(
-                    DikcizAutomationControlPlane.KEY_ACTION,
-                    DikcizAutomationControlPlane.MAXIMUM_INTENT_ACTION_CHARACTERS,
-                )
-                val intentType = arguments.requireBoundedString(
-                    DikcizAutomationControlPlane.KEY_INTENT_TYPE,
-                    DikcizAutomationControlPlane.MAXIMUM_INTENT_TYPE_CHARACTERS,
-                )
-                if (intentType !in DikcizAutomationControlPlane.SUPPORTED_INTENT_TYPES) {
-                    throw DikcizAutomationRequestException(
-                        DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED,
-                        DikcizAutomationControlPlane.MESSAGE_INVALID_INTENT_TYPE,
-                    )
-                }
-            }
-        }
-    }
-
-    private fun requireExactKeys(arguments: JSONObject, expectedKeys: Set<String>) {
-        val iterator = arguments.keys()
-        while (iterator.hasNext()) {
-            if (iterator.next() !in expectedKeys) {
-                throw DikcizAutomationRequestException(
-                    DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED,
-                    DikcizAutomationControlPlane.MESSAGE_UNEXPECTED_FIELD,
-                )
-            }
-        }
-        if (expectedKeys.any { key -> !arguments.has(key) }) {
-            throw DikcizAutomationRequestException(
-                DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED,
-                DikcizAutomationControlPlane.MESSAGE_MISSING_FIELD,
-            )
-        }
-    }
-
-    private fun requireAllowedKeys(
-        arguments: JSONObject,
-        allowedKeys: Set<String>,
-        requiredKeys: Set<String>,
-    ) {
-        val iterator = arguments.keys()
-        while (iterator.hasNext()) {
-            if (iterator.next() !in allowedKeys) {
-                throw DikcizAutomationRequestException(
-                    DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED,
-                    DikcizAutomationControlPlane.MESSAGE_UNEXPECTED_FIELD,
-                )
-            }
-        }
-        if (requiredKeys.any { key -> !arguments.has(key) }) {
-            throw DikcizAutomationRequestException(
-                DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED,
-                DikcizAutomationControlPlane.MESSAGE_MISSING_FIELD,
-            )
         }
     }
 
@@ -983,38 +810,6 @@ internal class DikcizMcpControlPlane(
             return value
         }
         throw McpHttpException(HTTP_STATUS_BAD_REQUEST, REASON_INVALID_JSON, MESSAGE_INVALID_JSON)
-    }
-
-    private fun JSONObject.requireBoundedString(key: String, maximumLength: Int): String {
-        val value = opt(key)
-        if (value !is String || value.isBlank() || value.length > maximumLength) {
-            throw DikcizAutomationRequestException(
-                DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED,
-                DikcizAutomationControlPlane.MESSAGE_MISSING_FIELD,
-            )
-        }
-        return value
-    }
-
-    private fun JSONObject.requireBoundedInt(key: String, minimum: Int, maximum: Int): Int {
-        val value = opt(key)
-        if (value !is Number || value.toDouble() != value.toInt().toDouble() || value.toInt() !in minimum..maximum) {
-            throw DikcizAutomationRequestException(
-                DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED,
-                DikcizAutomationControlPlane.MESSAGE_MISSING_FIELD,
-            )
-        }
-        return value.toInt()
-    }
-
-    private fun JSONObject.requireOptionalBoolean(key: String) {
-        if (!has(key) || opt(key) is Boolean) {
-            return
-        }
-        throw DikcizAutomationRequestException(
-            DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED,
-            "${key} must be a boolean",
-        )
     }
 
     private fun JSONObject.requireID(): Any {

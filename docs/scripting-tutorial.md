@@ -184,7 +184,7 @@ This example makes an HTML button ask a Lua script to update the widget and repo
 
 ### 1. Add an HTML widget
 
-Use **Add to this page**, choose **Empty HTML widget**, then long press it and choose **Edit**. Set its HTML to:
+Use **Add to this page**, choose **Empty HTML widget**, then long press its top move handle and choose **Edit**. Set its HTML to:
 
 ```html
 <main>
@@ -387,9 +387,12 @@ Lua returns the same action:
 
 The native bridge creates `window.dikciz`, `window.selfWidget`, and a `dikciz-ready` event. Start bridge work from that event. Do not call the transport-only `receiveEvent` or `receiveState` functions yourself.
 
+Long press a saved HTML card to open its native Edit/Delete menu. Dikciz targets the touched DOM item and preserves the containing widget, page, CSS, JavaScript and state. Cards, articles, sections and list items are recognized automatically; add `data-dikciz-item` to another element to mark its boundary explicitly. Runtime-only elements without saved source cannot be edited this way. Use the top move handle for whole-widget controls.
+
 | API | Use it for |
 | --- | --- |
-| `dikciz.command(type, fields)` | Run one launcher command and receive its result or rejected promise. Examples: `diagnostics`, `automationStatus`, `homeGet`, `widgetGet`, `scriptLogs`, `accessibilitySnapshot`, `shell`, and `intent`. The full command list is in [Automation control](automation-control.md). |
+| `dikciz.request(document, options)` | Return the complete canonical command response, including error and permission metadata. `options.responseTimeoutMilliseconds` defaults to at least 60 seconds or the command timeout plus five seconds; zero disables the response timer. A response timeout does not cancel dispatched work. |
+| `dikciz.command(type, fields, options)` | Run one launcher command and receive its result or rejected promise. Errors retain permission recovery and the raw response. Response timeout options match `dikciz.request`. Examples: `diagnostics`, `automationStatus`, `homeGet`, `widgetGet`, `scriptLogs`, `accessibilitySnapshot`, `shell`, and `intent`. The full command list is in [Automation control](automation-control.md). |
 | `dikciz.dispatch({ actions })` | Run one non-empty array of typed actions through the same executor Lua uses. Read `result.actions` for each outcome. |
 | `dikciz.emitEvent(name, payload, coalescingKey)` | Emit one custom event. This is shorthand for a one-action dispatch. |
 | `dikciz.onEvent(listener)` | Receive matching configured events while the widget renders. It returns an unsubscribe function. |
@@ -442,7 +445,13 @@ App and activity launch actions use the [shared foreground verification contract
 
 For cross-app actions, first obtain a fresh `accessibilitySnapshot`. Its `snapshotId` expires after five seconds. Dikciz rechecks the active window and rejects an expired or changed snapshot instead of acting on stale UI.
 
-Lua has no arbitrary shell, filesystem, Android-object, or dynamic-load access. Its supported globals are `assert`, `error`, `ipairs`, `next`, `pairs`, `pcall`, `select`, `tonumber`, `tostring`, `type`, and `xpcall`, plus `math`, `string`, `table`, and `bit32`. `io`, `os`, `package`, `require`, `load`, `dofile`, `loadfile`, `debug`, and `print` are unavailable.
+Enabled Lua scripts can call ordinary launcher commands through `context.request(json)` or `context.requestJson(json)`. Both accept a JSON object encoded as a string and return the canonical result or error envelope. `request` returns a read-only Lua table; `requestJson` preserves the complete JSON representation, including nulls and empty arrays. For example, `context.request([[{"type":"deviceInfo"}]])` returns device information. Failed commands retain `code`, `message`, and any `permissionRequest`. Set `autoRequestPermissions` on the command to request the same on-device access review as a network client.
+
+Live shell streaming requires WebSocket, MCP or HTTP. HTML and Lua command calls have no stream delivery channel.
+
+Enabling a script grants owner command access, including app-accessible files and shell commands through these functions. Android permissions and root approval still apply. The policy's returned-action list applies to typed actions returned by `on_event`; it does not restrict `context.request`. Native command execution is excluded from Lua CPU and allocation accounting, while aggregate command response bytes remain bounded by the Lua memory allowance.
+
+Lua has no Android-object or dynamic-load access. Its supported globals are `assert`, `error`, `ipairs`, `next`, `pairs`, `pcall`, `select`, `tonumber`, `tostring`, `type`, and `xpcall`, plus `math`, `string`, `table`, and `bit32`. `io`, `os`, `package`, `require`, `load`, `dofile`, `loadfile`, `debug`, and `print` are unavailable.
 
 ## Trigger work and diagnose failures
 

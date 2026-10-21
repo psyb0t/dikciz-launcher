@@ -15,7 +15,7 @@ Release uses `eu.psyb0t.dikciz.launcher`; debug uses `eu.psyb0t.dikciz.launcher.
 
 ## Recover after an APK update
 
-After Obtainium, Android's installer or `adb install -r` replaces the APK, Android stops the old process. The new package receives `MY_PACKAGE_REPLACED` and requests a fresh launcher activity when it is the default Home app or has **Draw over other apps** access. Startup reloads the saved configuration, scripts, authentication and listener endpoints. Reconnect WebSocket and HTTP clients and create a fresh MCP session. Verify the new version and instance with `deviceInfo`.
+After Obtainium, Android's installer or `adb install -r` replaces the APK, Android stops the old process. The new package receives `MY_PACKAGE_REPLACED` and starts its automation service independently of Home. The service enters foreground before requesting Home startup, then reloads the saved configuration, background event sources, configuration observers and alarm schedules. It stops again if no configured automation needs it. Recovery also requests rebinding for notification access already enabled by the owner; Android restores enabled Accessibility bindings. It requests a fresh launcher activity when Dikciz is the default Home app or has **Draw over other apps** access. Home startup reloads scripts, authentication, configuration watchers, WebSocket and HTTP/MCP listeners. Reconnect WebSocket and HTTP clients and create a fresh MCP session. Verify the new version and instance with `deviceInfo`.
 
 If background startup is unavailable or blocked by the device, tap the **Dikciz updated** notification. Its action opens the updated launcher directly. Opening Dikciz clears this notification. Notification permission must be enabled to see it; otherwise open Dikciz from the app list. This recovery does not change the default Home app or grant permissions. An update to one installed package does not update or select the other package.
 
@@ -29,7 +29,7 @@ python3 scripts/dikciz-control.py mcp dikciz_restart --host phone.example --port
 python3 scripts/dikciz-control.py http restart --host phone.example --port 19002 --pretty
 ```
 
-Use one of these commands. Each accepts no arguments. Lifecycle commands (`restart` and `launcherHandoff`) require WebSocket, MCP or HTTP; the HTML widget bridge returns `unsupported_transport`. The server writes `{ "state": "scheduled", "instanceId": "..." }` before recreating the launcher activity and both listeners. Saved configuration, widget state, files and the app process remain intact. The command also permits recovery from safe mode or a missing-storage screen and opens normal mode.
+Use one of these commands. Each accepts no arguments. HTML can request the same operation with `dikciz.request({ type: "restart" })`; enabled Lua scripts can use `context.requestJson([[{"type":"restart"}]])`. The server returns `{ "state": "scheduled", "instanceId": "..." }` before recreating the launcher activity and both listeners. HTML acknowledges response delivery after its promise handlers run; Lua schedules the lifecycle action after the current script result is handled. Saved configuration, widget state, files and the app process remain intact. The command also permits recovery from safe mode or a missing-storage screen and opens normal mode.
 
 Reconnect using the same endpoint. Start a fresh MCP session. Read `deviceInfo` until its `application.instanceId` differs from the acknowledged value, then verify the home or configuration. A scheduled reply alone does not prove recovery. `restart` recreates the running package, so inspect its package name before requesting it. It does not switch between release and debug packages.
 
@@ -51,10 +51,11 @@ Enable **Dikciz cross-app automation** in Android Accessibility settings. `acces
 
 ```bash
 python3 scripts/dikciz-control.py websocket displayScreenshot --host phone.example --port 19001 --png-file ./display.png
+python3 scripts/dikciz-control.py http displayScreenshot --host phone.example --port 19002 --png-file ./display.png
 python3 scripts/dikciz-control.py mcp dikciz_display_screenshot --host phone.example --port 19002 --png-file ./display.png
 ```
 
-`displayScreenshot` captures the visible Android display, including other apps, on Android 11 or newer with enabled Accessibility access. The result contains bounded PNG data and dimensions. MCP also returns the standard image content block. Existing `screenshot` remains a capture of the launcher window. HTTP returns the PNG as `pngBase64` in its result object.
+`displayScreenshot` captures the visible Android display, including other apps, on Android 11 or newer with enabled Accessibility access. Every interface retains `pngBase64` and dimensions in its operation result. MCP also returns the standard image content block. Existing `screenshot` remains a capture of the launcher window. The client supports `--png-file` on WebSocket, HTTP and MCP, and refuses to replace an existing output file unless you pass `--overwrite`.
 
 Missing Accessibility returns `accessibility_not_enabled`; older Android returns `unsupported_android_version`. Platform screenshot rejection returns `display_screenshot_failed`, including the Android status number. Android rate limits and secure-window restrictions still apply. A callback timeout returns `timeout`.
 

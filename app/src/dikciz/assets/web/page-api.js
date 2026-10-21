@@ -4,8 +4,11 @@
     const AUTOMATION_EVENT = "dikciz-event";
     const STATE_EVENT = "dikciz-state";
     const MAX_PENDING = 32;
-    const MAX_MESSAGE_CHARACTERS = 65536;
+    const MAX_MESSAGE_BYTES = 1048576;
     const TIMEOUT_MS = 60000;
+    const RESPONSE_GRACE_MS = 5000;
+    const MAX_RESPONSE_TIMEOUT_MS = 2147483647;
+    const RESPONSE_RECEIVED_TYPE = "commandResponseReceived";
     const CONTENT_HEIGHT_MESSAGE_TYPE = "htmlContentHeight";
     const pending = new Map();
     let port;
@@ -18,7 +21,15 @@
     let currentState = selfWidgetDocument.state ??
         window.dikcizWidgetState?.[selfWidgetDocument.id] ?? {};
 
-    const failure = (code, message) => Object.assign(new Error(message), { code });
+    const failure = (code, message, response) => Object.assign(new Error(message), {
+        code,
+        ...(response ? {
+            requestId: response.requestId,
+            revision: response.revision,
+            permissionRequest: response.permissionRequest,
+            response,
+        } : {}),
+    });
     const contentHeight = () => Math.ceil(Math.max(
         document.documentElement.scrollHeight,
         document.body?.scrollHeight ?? 0,
@@ -46,7 +57,11 @@
         }
         reportContentHeight();
     };
-    const command = (type, fields = {}) => new Promise((resolve, reject) => {
+    const request = (document, options = {}) => new Promise((resolve, reject) => {
+        if (!document || typeof document !== "object" || Array.isArray(document)) {
+            reject(failure("validation_failed", "Command must be a JSON object"));
+            return;
+        }
         if (!port) {
             reject(failure("not_ready", "Wait for dikciz-ready before sending commands"));
             return;
@@ -56,15 +71,21 @@
             return;
         }
         const requestId = crypto.randomUUID();
-        const payload = JSON.stringify({ ...fields, type, requestId });
-        if (payload.length > MAX_MESSAGE_CHARACTERS) {
-            reject(failure("validation_failed", "HTML command exceeds 65536 characters"));
+        const payload = JSON.stringify({ ...document, requestId });
+        if (new TextEncoder().encode(payload).byteLength > MAX_MESSAGE_BYTES) {
+            reject(failure("validation_failed", "HTML command exceeds the control request size limit"));
             return;
         }
-        const timer = setTimeout(() => {
+        const operationTimeout = Number.isFinite(document.timeoutMilliseconds) ? document.timeoutMilliseconds : 0;
+        const timeout = options.responseTimeoutMilliseconds ?? Math.max(TIMEOUT_MS, operationTimeout + RESPONSE_GRACE_MS);
+        if (!Number.isSafeInteger(timeout) || timeout < 0 || timeout > MAX_RESPONSE_TIMEOUT_MS) {
+            reject(failure("validation_failed", "Invalid responseTimeoutMilliseconds"));
+            return;
+        }
+        const timer = timeout === 0 ? null : setTimeout(() => {
             pending.delete(requestId);
             reject(failure("timeout", "No reply; an already dispatched command may still complete"));
-        }, TIMEOUT_MS);
+        }, timeout);
         pending.set(requestId, { resolve, reject, timer });
         try {
             port.postMessage(payload);
@@ -74,13 +95,21 @@
             reject(error);
         }
     });
+    const command = (type, fields = {}, options = {}) => request({ ...fields, type }, options).then(response => {
+        if (response.type === "error") throw failure(response.code, response.message, response);
+        return response.result;
+    });
 
     const dispatch = document => {
         const actions = Array.isArray(document) ? document : document?.actions;
         if (!Array.isArray(actions) || actions.length === 0) {
             return Promise.reject(failure("validation_failed", "dispatch requires a non-empty actions array"));
         }
-        return command("automationDispatch", { actions });
+        const fields = { actions };
+        if (!Array.isArray(document) && Object.prototype.hasOwnProperty.call(document, "autoRequestPermissions")) {
+            fields.autoRequestPermissions = document.autoRequestPermissions;
+        }
+        return command("automationDispatch", fields);
     };
     const emitEvent = (event, payload = {}, coalescingKey) => {
         const action = { type: "emitEvent", event, payload };
@@ -130,6 +159,7 @@
     window.dikciz = Object.freeze({
         version: 4,
         command,
+        request,
         dispatch,
         emitEvent,
         fitContent: () => {
@@ -156,11 +186,16 @@
             if (!entry) return;
             pending.delete(response.requestId);
             clearTimeout(entry.timer);
-            if (response.type === "error") {
-                entry.reject(failure(response.code, response.message));
-                return;
-            }
-            entry.resolve(response.result);
+            entry.resolve(response);
+            // Promise handlers must consume the reply before a lifecycle action destroys this document.
+            setTimeout(() => {
+                if (!port) return;
+                try {
+                    port.postMessage(JSON.stringify({ type: RESPONSE_RECEIVED_TYPE, requestId: response.requestId }));
+                } catch (error) {
+                    console.warn("Dikciz response acknowledgement failed", error.name);
+                }
+            }, 0);
         });
         port.start();
         observeContentHeight();

@@ -537,7 +537,7 @@ internal class DikcizAutomationControlPlane(
 
             TYPE_SET_TEXT -> {
                 request.requireBoundedString(KEY_SEMANTIC_ID, MAXIMUM_SEMANTIC_ID_CHARACTERS)
-                request.requireBoundedString(KEY_TEXT, MAXIMUM_TEXT_CHARACTERS)
+                request.requireBoundedString(KEY_TEXT, MAXIMUM_TEXT_CHARACTERS, allowBlank = true)
             }
 
             TYPE_CONFIG_REPLACE,
@@ -1361,16 +1361,20 @@ internal class DikcizAutomationControlPlane(
     }
 }
 
-private fun JSONObject.requireString(key: String): String {
+private fun JSONObject.requireString(key: String, allowBlank: Boolean = false): String {
     val value = opt(key)
-    if (value !is String || value.isBlank()) {
+    if (value !is String || (!allowBlank && value.isBlank())) {
         throw DikcizAutomationRequestException("validation_failed", "field $key must be a string")
     }
     return value
 }
 
-private fun JSONObject.requireBoundedString(key: String, maximumLength: Int): String {
-    val value = requireString(key)
+private fun JSONObject.requireBoundedString(
+    key: String,
+    maximumLength: Int,
+    allowBlank: Boolean = false,
+): String {
+    val value = requireString(key, allowBlank)
     if (value.length > maximumLength) {
         throw DikcizAutomationRequestException("validation_failed", "field $key exceeds its limit")
     }

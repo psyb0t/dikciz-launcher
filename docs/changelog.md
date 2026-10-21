@@ -2,6 +2,27 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.18.0] - 2026-10-21
+
+### Added
+
+- Enabled Lua scripts can call ordinary launcher commands through `context.request` and `context.requestJson`, receiving canonical results and permission recovery. Enabling a script grants owner command access; Android permissions and root approval remain required.
+
+### Fixed
+
+- Long presses inside HTML content select the pressed card or block for a native item editor and scoped deletion. Removing an HTML item preserves its containing widget, page and siblings. Whole-widget controls remain on the top move handle.
+- The bundled command deck tolerates missing card elements so remaining controls can initialize after a card is removed.
+- APK update recovery starts the automation foreground service before reopening Home, restoring configured background event sources and schedules when Android prevents background activity launch.
+- Ordinary MCP operations use the shared command validator and executor. MCP screenshot results retain their PNG payload alongside image content, and the HTTP client supports PNG export and explicit overwrite.
+- Remote text editing accepts empty strings, allowing clients to clear an input like the native editor.
+- HTML errors retain permission recovery metadata. HTML and Lua lifecycle requests deliver their response before recreating the launcher.
+
+### Migration
+
+- Review enabled Lua scripts before upgrading. Their new owner command functions can access files and shell commands independently of the policy's returned-action list. Disable scripts you do not trust. Event delivery and returned typed actions still require their configured policy grants.
+- Use the top move handle for whole-widget HTML controls. Long presses inside HTML now edit or delete the nearest saved item.
+- Exact MCP screenshot schemas must accept `pngBase64` in structured results alongside the image content block. HTML requests now allow one MiB of UTF-8 JSON. Live shell streaming remains available through WebSocket, MCP and HTTP only.
+
 ## [0.17.0] - 2026-10-20
 
 ### Added

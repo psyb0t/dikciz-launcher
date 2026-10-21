@@ -5,11 +5,13 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
+import android.service.notification.NotificationListenerService
 import org.fossify.home.R
 
 class DikcizPackageUpdateReceiver : BroadcastReceiver() {
@@ -19,62 +21,21 @@ class DikcizPackageUpdateReceiver : BroadcastReceiver() {
         }
         val logger = DikcizLogger(LOG_TAG, HomeConfigStore(context).logDirectory)
         logger.info(EVENT_UPDATE_RECEIVED)
-        val launch = Intent(context, DikcizHomeActivity::class.java)
-            .setAction(Intent.ACTION_MAIN)
-            .addCategory(Intent.CATEGORY_HOME)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-        postRecoveryNotification(context, launch, logger)
-        val home = context.packageManager.resolveActivity(
-            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
-            PackageManager.MATCH_DEFAULT_ONLY,
-        )
-        val canOpen = home?.activityInfo?.packageName == context.packageName ||
-            Settings.canDrawOverlays(context) || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
-        if (!canOpen) {
-            logger.warn(EVENT_OPEN_REQUIRED)
-            return
-        }
+        postRecoveryNotification(context, launcherIntent(context), logger)
+        rebindNotificationListener(context, logger)
+        val service = Intent(context, DikcizAutomationService::class.java)
+            .setAction(ACTION_RECOVER_SERVICES)
         try {
-            context.startActivity(launch)
-            logger.info(EVENT_RESTART_REQUESTED)
+            val component = context.startForegroundService(service)
+            if (component != null) {
+                logger.info(EVENT_SERVICE_REQUESTED)
+                return
+            }
+            logger.warn(EVENT_SERVICE_FAILED)
         } catch (exception: RuntimeException) {
-            // OEM activity policies can reject startup even when the standard exemption applies.
-            logger.error(EVENT_RESTART_FAILED, mapOf(FIELD_REASON to exception.javaClass.simpleName))
+            logger.warn(EVENT_SERVICE_FAILED, mapOf(FIELD_REASON to exception.javaClass.simpleName))
         }
-    }
-
-    private fun postRecoveryNotification(context: Context, launch: Intent, logger: DikcizLogger) {
-        val manager = context.getSystemService(NotificationManager::class.java)
-        if (!manager.areNotificationsEnabled()) {
-            logger.warn(EVENT_NOTIFICATION_UNAVAILABLE)
-            return
-        }
-        try {
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_ID,
-                    context.getString(R.string.dikciz_update_channel),
-                    NotificationManager.IMPORTANCE_LOW,
-                ),
-            )
-            val open = PendingIntent.getActivity(
-                context,
-                NOTIFICATION_ID,
-                launch,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-            val notification = Notification.Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_popup_sync)
-                .setContentTitle(context.getString(R.string.dikciz_update_title))
-                .setContentText(context.getString(R.string.dikciz_update_open))
-                .setContentIntent(open)
-                .setAutoCancel(true)
-                .build()
-            manager.notify(NOTIFICATION_ID, notification)
-        } catch (exception: RuntimeException) {
-            // Notification denial must not prevent an otherwise permitted restart.
-            logger.warn(EVENT_NOTIFICATION_UNAVAILABLE, mapOf(FIELD_REASON to exception.javaClass.simpleName))
-        }
+        resumeLauncher(context)
     }
 
     companion object {
@@ -87,6 +48,91 @@ class DikcizPackageUpdateReceiver : BroadcastReceiver() {
         private const val EVENT_RESTART_FAILED = "package_update_restart_failed"
         private const val EVENT_OPEN_REQUIRED = "package_update_open_required"
         private const val EVENT_NOTIFICATION_UNAVAILABLE = "package_update_notification_unavailable"
+
+        internal const val ACTION_RECOVER_SERVICES = "org.fossify.home.dikciz.RECOVER_AFTER_UPDATE"
+        private const val EVENT_SERVICE_REQUESTED = "package_update_service_requested"
+        private const val EVENT_SERVICE_FAILED = "package_update_service_failed"
+        private const val EVENT_LISTENER_REBIND_REQUESTED = "package_update_notification_listener_rebind_requested"
+        private const val EVENT_LISTENER_REBIND_FAILED = "package_update_notification_listener_rebind_failed"
+        private const val EVENT_LISTENER_DISABLED = "package_update_notification_listener_disabled"
+
+        internal fun resumeLauncher(context: Context) {
+            val logger = DikcizLogger(LOG_TAG, HomeConfigStore(context).logDirectory)
+            val launch = launcherIntent(context)
+            val home = context.packageManager.resolveActivity(
+                Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
+                PackageManager.MATCH_DEFAULT_ONLY,
+            )
+            val canOpen = home?.activityInfo?.packageName == context.packageName ||
+                Settings.canDrawOverlays(context) || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+            if (!canOpen) {
+                logger.warn(EVENT_OPEN_REQUIRED)
+                return
+            }
+            try {
+                context.startActivity(launch)
+                logger.info(EVENT_RESTART_REQUESTED)
+            } catch (exception: RuntimeException) {
+                // OEM activity policies can reject startup even when the standard exemption applies.
+                logger.error(EVENT_RESTART_FAILED, mapOf(FIELD_REASON to exception.javaClass.simpleName))
+            }
+        }
+
+        private fun launcherIntent(context: Context): Intent {
+            return Intent(context, DikcizHomeActivity::class.java)
+                .setAction(Intent.ACTION_MAIN)
+                .addCategory(Intent.CATEGORY_HOME)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        }
+
+        private fun rebindNotificationListener(context: Context, logger: DikcizLogger) {
+            try {
+                if (!DikcizAutomationStatus.hasNotificationListenerAccess(context)) {
+                    logger.info(EVENT_LISTENER_DISABLED)
+                    return
+                }
+                NotificationListenerService.requestRebind(
+                    ComponentName(context, DikcizNotificationListenerService::class.java),
+                )
+                logger.info(EVENT_LISTENER_REBIND_REQUESTED)
+            } catch (exception: RuntimeException) {
+                logger.warn(EVENT_LISTENER_REBIND_FAILED, mapOf(FIELD_REASON to exception.javaClass.simpleName))
+            }
+        }
+
+        private fun postRecoveryNotification(context: Context, launch: Intent, logger: DikcizLogger) {
+            val manager = context.getSystemService(NotificationManager::class.java)
+            if (!manager.areNotificationsEnabled()) {
+                logger.warn(EVENT_NOTIFICATION_UNAVAILABLE)
+                return
+            }
+            try {
+                manager.createNotificationChannel(
+                    NotificationChannel(
+                        CHANNEL_ID,
+                        context.getString(R.string.dikciz_update_channel),
+                        NotificationManager.IMPORTANCE_LOW,
+                    ),
+                )
+                val open = PendingIntent.getActivity(
+                    context,
+                    NOTIFICATION_ID,
+                    launch,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+                val notification = Notification.Builder(context, CHANNEL_ID)
+                    .setSmallIcon(android.R.drawable.ic_popup_sync)
+                    .setContentTitle(context.getString(R.string.dikciz_update_title))
+                    .setContentText(context.getString(R.string.dikciz_update_open))
+                    .setContentIntent(open)
+                    .setAutoCancel(true)
+                    .build()
+                manager.notify(NOTIFICATION_ID, notification)
+            } catch (exception: RuntimeException) {
+                // Notification denial must not prevent an otherwise permitted restart.
+                logger.warn(EVENT_NOTIFICATION_UNAVAILABLE, mapOf(FIELD_REASON to exception.javaClass.simpleName))
+            }
+        }
 
         internal fun clearRecoveryNotification(context: Context) {
             context.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)

@@ -851,13 +851,13 @@ def list_mcp_tools(arguments: argparse.Namespace) -> dict[str, Any]:
     return call_mcp(arguments, METHOD_TOOLS_LIST, {})
 
 
-def png_base64_from_websocket(response: dict[str, Any]) -> str:
+def png_base64_from_result(response: dict[str, Any]) -> str:
     result = response.get(KEY_RESULT)
     if not isinstance(result, dict):
-        raise DikcizControlError("WebSocket screenshot response has no result")
+        raise DikcizControlError("Screenshot response has no result")
     png_base64 = result.get(KEY_PNG_BASE64)
     if not isinstance(png_base64, str):
-        raise DikcizControlError("WebSocket response has no PNG image")
+        raise DikcizControlError("Response has no PNG image")
     return png_base64
 
 
@@ -898,8 +898,8 @@ def maybe_write_png(arguments: argparse.Namespace, response: dict[str, Any]) -> 
     png_path = arguments.png_file
     if png_path is None:
         return
-    if arguments.operation == "websocket":
-        png_base64 = png_base64_from_websocket(response)
+    if arguments.operation in ("websocket", "http"):
+        png_base64 = png_base64_from_result(response)
     else:
         png_base64 = png_base64_from_mcp(response)
     write_png(png_base64, png_path, arguments.overwrite)
@@ -946,6 +946,7 @@ def parse_arguments() -> argparse.Namespace:
     http.add_argument("--arguments", default="{}")
     http.add_argument("--pretty", action="store_true")
     http.add_argument("--stream-raw", action="store_true", help="write streaming command output as bytes")
+    add_png_arguments(http)
     add_connection_arguments(http, DEFAULT_MCP_PORT)
 
     for operation in ("upload", "download"):
@@ -1021,6 +1022,7 @@ def main() -> int:
             return stream_exit_status(arguments, response)
         if arguments.operation == "http":
             response = call_http(arguments)
+            maybe_write_png(arguments, response)
             if not arguments.stream_raw:
                 emit_json(response, arguments.pretty)
             return stream_exit_status(arguments, response)

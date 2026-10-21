@@ -61,7 +61,7 @@ Built-in event names:
 
 Subscriptions support per-subscriber delivery intervals and optional coalescing keys. Alarm, sensor, location and Health Connect subscriptions require their own fields; notification and media subscriptions can filter packages. Metadata and content capabilities differ for personal-data sources. Do not request content access for a metadata-only task.
 
-Lua has a bounded runtime, not arbitrary shell, filesystem or Android-object access. `io`, `os`, `package`, `require`, dynamic loaders, `debug` and `print` are unavailable. Use typed actions, script state and logs. Read [every built-in event](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/scripting-tutorial.md#every-built-in-event) and [special subscription fields](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/scripting-tutorial.md#the-special-subscription-fields) before writing an automation.
+Lua has a bounded runtime and owner command access through `context.request(json)` and `context.requestJson(json)`. Enabling a script grants access to ordinary control commands, including app-accessible files and shell; Android permissions and root approval still apply. The returned-action policy does not restrict those command functions. Lua receives no Android object handles. `io`, `os`, `package`, `require`, dynamic loaders, `debug` and `print` are unavailable. Use typed actions, script state and logs. Read [every built-in event](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/scripting-tutorial.md#every-built-in-event) and [special subscription fields](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/scripting-tutorial.md#the-special-subscription-fields) before writing an automation.
 
 ## Typed actions
 

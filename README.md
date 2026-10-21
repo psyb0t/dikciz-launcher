@@ -36,7 +36,7 @@ Release packages use `eu.psyb0t.dikciz.launcher`; debug packages use `eu.psyb0t.
 - Native pages arranged across two axes, each with a fixed grid, stable identity and configurable layout.
 - Local HTML, CSS and JavaScript widgets with persistent state, events and the `window.dikciz` bridge.
 - Native app shortcuts, app groups and third-party Android AppWidget providers.
-- Lua scripts with event subscriptions, typed actions, explicit capability policies and a native script dashboard.
+- Lua scripts with event subscriptions, typed actions, owner command access and a native script dashboard. Enable only trusted scripts; their command access includes files and shell.
 - Themes, fonts, wallpaper, widget appearance, editing locks and a chosen Android Home destination.
 - Semantic UI inspection, screenshots, logs, configuration editing and device actions through the remote APIs.
 

@@ -2,6 +2,8 @@
 
 Dikciz exposes WebSocket, Streamable HTTP MCP and plain HTTP commands through two listeners. They call the same launcher command target.
 
+Ordinary MCP, WebSocket, HTTP, HTML and enabled Lua command calls share validation, execution and Android permission recovery. Network calls also enforce bearer authentication and browser Origin rules. Enabling a Lua script grants owner command access independently of its returned-action policy. See the [Lua command reference](scripting-tutorial.md#return-device-and-launcher-actions-from-lua). Live `shellStream` and `shellStreamStop` use network transports only; HTML and Lua have no stream delivery channel.
+
 | Interface | Device listener | Lab host listener after `make dikciz-run` |
 | --- | --- | --- |
 | WebSocket | `ws://127.0.0.1:19001/v1/automation` | `ws://127.0.0.1:19101/v1/automation` |
@@ -332,7 +334,7 @@ window.addEventListener("dikciz-ready", async () => {
 });
 ```
 
-`dikciz.command(type, fields)` returns the same result as the WebSocket command. `dikciz.dispatch({ actions })` uses the same typed action executor as Lua. `dikciz.fitContent()` asks the native frame to measure the current DOM.
+`dikciz.request(document, options)` returns the complete command result/error envelope. `dikciz.command(type, fields, options)` returns its result or rejects with an error retaining `code`, `message`, `requestId`, `revision`, `permissionRequest` and the raw `response`. Both accept `options.responseTimeoutMilliseconds`; the default is at least 60 seconds or the operation timeout plus five seconds, and zero disables the response timer. A response timeout does not cancel dispatched work. `dikciz.dispatch({ actions })` uses the same typed action executor as Lua. `dikciz.fitContent()` asks the native frame to measure the current DOM.
 
 `diagnostics` includes `htmlWidgetResources`: active renderer count, total UTF-8 bytes for generated documents on the selected page, and the configured per-page renderer and document-byte limits. These are launcher-owned resource inputs, not a claim about opaque Chromium process memory.
 
@@ -374,7 +376,7 @@ For a complete event, Lua, HTML bridge, state, and action walkthrough, read the 
 
 `lockDevice` returns `device_admin_inactive` when Android Device Administration is not active. It does not open Android Settings. Open **Settings**, then **Automation**, then **Set up full device access** to request that access.
 
-The native bridge holds at most 32 waiting requests and accepts at most 65,536 characters per request. The supplied JavaScript API separately allows at most 32 outstanding promises, so ordinary `dikciz.command()` calls are backpressured before native saturation. Raw channel users can still receive `busy` when the native queue is full. Every rejected HTML command is logged as `web_command_rejected` with the HTML widget ID, HTML kind, and error reason, and is available through both log transports. A state patch does not reload the WebView. Replacing HTML, CSS, JavaScript, or the whole configuration can destroy the calling document.
+The native bridge holds at most 32 waiting requests and accepts at most one MiB of UTF-8 JSON per request. The supplied JavaScript API separately allows at most 32 outstanding promises, so ordinary `dikciz.command()` calls are backpressured before native saturation. Raw channel users can still receive `busy` when the native queue is full. Every rejected HTML command is logged as `web_command_rejected` with the HTML widget ID, HTML kind, and error reason, and is available through both log transports. A state patch does not reload the WebView. Replacing HTML, CSS, JavaScript, or the whole configuration can destroy the calling document. Lifecycle commands acknowledge their response after promise handlers run, before destroying that document.
 
 ## Logs and recovery
 

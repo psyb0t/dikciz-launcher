@@ -16,11 +16,13 @@ import org.luaj.vm2.lib.DebugLib
 import org.luaj.vm2.lib.PackageLib
 import org.luaj.vm2.lib.StringLib
 import org.luaj.vm2.lib.TableLib
+import org.luaj.vm2.lib.OneArgFunction
 import org.luaj.vm2.lib.ZeroArgFunction
 import org.luaj.vm2.lib.jse.JseMathLib
 import org.luaj.vm2.LoadState
 import java.time.Instant
 import java.time.ZoneId
+import java.nio.charset.StandardCharsets
 
 internal class DikcizLuaRuntime {
     fun executeEvent(
@@ -30,13 +32,24 @@ internal class DikcizLuaRuntime {
         widgets: JSONObject,
         accessibility: JSONObject?,
         androidAccess: JSONObject,
+        executeCommand: ((String) -> String)? = null,
     ): DikcizLuaAutomationResult {
         if (!script.enabled) {
             return DikcizLuaAutomationResult.Disabled
         }
         return try {
             val setupBudget = LuaExecutionBudget(MAXIMUM_SETUP_DURATION_NANOS)
-            val executionGlobals = createExecutionGlobals(script, widgets, accessibility, androidAccess)
+            var activeBudget = setupBudget
+            val commandHost = executeCommand?.let { execute ->
+                { request: String -> activeBudget.runHostRequest { execute(request) } }
+            }
+            val executionGlobals = createExecutionGlobals(
+                script,
+                widgets,
+                accessibility,
+                androidAccess,
+                commandHost,
+            )
             setupBudget.throwIfExceeded()
             val setHook = takeInstructionHook(executionGlobals)
             val chunk = createCompilerGlobals().load(
@@ -55,6 +68,7 @@ internal class DikcizLuaRuntime {
                 return DikcizLuaAutomationResult.Failure(DikcizLuaFailure.InvalidResult)
             }
             val executionBudget = LuaExecutionBudget(MAXIMUM_EXECUTION_DURATION_NANOS)
+            activeBudget = executionBudget
             val result = resumeWithLimits(
                 executionGlobals,
                 setHook,
@@ -88,9 +102,19 @@ internal class DikcizLuaRuntime {
         widgets: JSONObject = JSONObject(),
         accessibility: JSONObject? = null,
         androidAccess: JSONObject = JSONObject(),
+        executeCommand: ((String) -> String)? = null,
     ): Globals {
         val globals = createBaseGlobals()
-        globals.set(CONTEXT_GLOBAL_NAME, createExecutionContext(script, widgets, accessibility, androidAccess))
+        globals.set(
+            CONTEXT_GLOBAL_NAME,
+            createExecutionContext(
+                script,
+                widgets,
+                accessibility,
+                androidAccess,
+                executeCommand,
+            ),
+        )
         globals.load(DebugLib())
         globals.get(DEBUG_GLOBAL_NAME).get(DEBUG_SET_HOOK_FUNCTION_NAME).also { hook ->
             globals.set(PRIVATE_SET_HOOK_GLOBAL_NAME, hook)
@@ -107,12 +131,15 @@ internal class DikcizLuaRuntime {
         widgets: JSONObject,
         accessibility: JSONObject?,
         androidAccess: JSONObject,
+        executeCommand: ((String) -> String)?,
     ): LuaTable {
         return ReadOnlyLuaTable().apply {
             putInitial(CONTEXT_SCRIPT_ID_FIELD, LuaValue.valueOf(script.id))
             putInitial(CONTEXT_STATE_FIELD, scriptStateToLuaTable(script.state))
             putInitial(CONTEXT_WIDGETS_FIELD, scriptStateToLuaTable(widgets))
             putInitial(CONTEXT_ANDROID_ACCESS_FIELD, scriptStateToLuaTable(androidAccess))
+            putInitial(CONTEXT_REQUEST_FIELD, commandFunction(executeCommand, rawJson = false))
+            putInitial(CONTEXT_REQUEST_JSON_FIELD, commandFunction(executeCommand, rawJson = true))
             if (accessibility != null) {
                 putInitial(CONTEXT_ACCESSIBILITY_FIELD, scriptStateToLuaTable(accessibility))
             }
@@ -127,6 +154,23 @@ internal class DikcizLuaRuntime {
             putInitial(EVENT_TIMESTAMP_MILLISECONDS_FIELD, LuaValue.valueOf(event.timestampMilliseconds.toDouble()))
             putInitial(EVENT_TIME_FIELD, eventTimeToLuaTable(event.timestampMilliseconds))
             putInitial(EVENT_TYPE_FIELD, LuaValue.valueOf(event.name))
+        }
+    }
+
+    private fun commandFunction(execute: ((String) -> String)?, rawJson: Boolean): LuaValue {
+        return object : OneArgFunction() {
+            override fun call(argument: LuaValue): LuaValue {
+                if (argument.type() != LuaValue.TSTRING) {
+                    throw LuaError(MESSAGE_COMMAND_JSON_REQUIRED)
+                }
+                val command = execute ?: throw LuaError(MESSAGE_COMMAND_UNAVAILABLE)
+                val response = command(argument.tojstring())
+                return if (rawJson) {
+                    LuaValue.valueOf(response)
+                } else {
+                    scriptStateToLuaTable(JSONObject(response))
+                }
+            }
         }
     }
 
@@ -221,6 +265,7 @@ internal class DikcizLuaRuntime {
             ),
         )
         val result = thread.resume(argument)
+        executionBudget.limitFailure?.let { failure -> throw failure }
         instructionLimitHook.limitFailure?.let { failure -> throw failure }
         if (!result.arg1().toboolean()) {
             throw LuaError(result.arg(SECOND_RESULT_INDEX).tojstring())
@@ -913,22 +958,52 @@ internal class DikcizLuaRuntime {
     ) {
         private val startedAtThreadCpuNanos = Debug.threadCpuTimeNanos()
         private val initialUsedMemoryBytes = usedMemoryBytes()
+        private var nativeCpuNanos = 0L
+        private var nativeAllocationBytes = 0L
+        private var hostResponseBytes = 0L
+        @Volatile
+        var limitFailure: Error? = null
+            private set
+
+        fun runHostRequest(action: () -> String): String {
+            throwIfExceeded()
+            val startedCpu = Debug.threadCpuTimeNanos()
+            val startedMemory = usedMemoryBytes()
+            try {
+                return action().also { response ->
+                    hostResponseBytes += response.toByteArray(StandardCharsets.UTF_8).size
+                    if (hostResponseBytes >= MAXIMUM_EXECUTION_MEMORY_DELTA_BYTES) {
+                        fail(DikcizLuaMemoryBudgetExceeded())
+                    }
+                }
+            } finally {
+                nativeCpuNanos += (Debug.threadCpuTimeNanos() - startedCpu).coerceAtLeast(0L)
+                nativeAllocationBytes += (usedMemoryBytes() - startedMemory).coerceAtLeast(0L)
+            }
+        }
 
         fun throwIfExceeded() {
             if (Thread.currentThread().isInterrupted) {
-                throw DikcizLuaExecutionCancelled()
+                fail(DikcizLuaExecutionCancelled())
             }
-            if (Debug.threadCpuTimeNanos() - startedAtThreadCpuNanos >= maximumDurationNanos) {
-                throw DikcizLuaExecutionDeadlineExceeded()
+            if (Debug.threadCpuTimeNanos() - startedAtThreadCpuNanos - nativeCpuNanos >= maximumDurationNanos) {
+                fail(DikcizLuaExecutionDeadlineExceeded())
             }
-            if (usedMemoryBytes() - initialUsedMemoryBytes >= MAXIMUM_EXECUTION_MEMORY_DELTA_BYTES) {
-                throw DikcizLuaMemoryBudgetExceeded()
+            if (usedMemoryBytes() - initialUsedMemoryBytes - nativeAllocationBytes + hostResponseBytes >=
+                MAXIMUM_EXECUTION_MEMORY_DELTA_BYTES
+            ) {
+                fail(DikcizLuaMemoryBudgetExceeded())
             }
         }
 
         private fun usedMemoryBytes(): Long {
             val runtime = Runtime.getRuntime()
             return runtime.totalMemory() - runtime.freeMemory()
+        }
+
+        private fun fail(failure: Error): Nothing {
+            limitFailure = failure
+            throw failure
         }
     }
 
@@ -988,6 +1063,10 @@ internal class DikcizLuaRuntime {
         const val CONTEXT_GLOBAL_NAME = "context"
         const val CONTEXT_ACCESSIBILITY_FIELD = "accessibility"
         const val CONTEXT_ANDROID_ACCESS_FIELD = "androidAccess"
+        const val CONTEXT_REQUEST_FIELD = "request"
+        const val CONTEXT_REQUEST_JSON_FIELD = "requestJson"
+        const val MESSAGE_COMMAND_JSON_REQUIRED = "Control request must be a JSON string"
+        const val MESSAGE_COMMAND_UNAVAILABLE = "Control commands are unavailable in this Lua execution"
         const val CONTEXT_SCRIPT_ID_FIELD = "scriptId"
         const val CONTEXT_STATE_FIELD = "state"
         const val CONTEXT_WIDGETS_FIELD = "widgets"

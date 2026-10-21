@@ -107,7 +107,7 @@ If the page has no free grid rectangle, Dikciz shows a refusal. It does not plac
 
 ### Move, resize, group, lock, or remove an item
 
-Drag an app shortcut to move it. Long press a widget for **Move**, **Resize**, **Edit**, **Appearance**, **Fit content**, **Lock**, and **Delete**. The available actions depend on the item type. HTML widgets keep the top 24Dp for moving, while their content keeps normal tap behaviour.
+Drag an app shortcut to move it. Long press a native widget, or the top move handle of an HTML widget, for **Move**, **Resize**, **Edit**, **Appearance**, **Fit content**, **Lock**, and **Delete**. The available actions depend on the item type. HTML widgets keep the top 24Dp for moving, while their content keeps normal tap behaviour and item editing.
 
 ![Widget action sheet](images/user-guide/11-widget-actions.png)
 
@@ -129,7 +129,13 @@ Drop one app shortcut on another to make an app group. Open the group to launch 
 
 ### Edit an HTML widget
 
-Long press an HTML widget, choose **Edit**, then change its title, HTML, CSS, JavaScript, or JSON state. The editor contains the source that widget runs.
+Long press the move handle at the top of an HTML widget, choose **Edit**, then change its title, HTML, CSS, JavaScript, or JSON state. The editor contains the source that widget runs.
+
+Long press a card or block inside the HTML content to open its native **HTML item** menu. The title names the selected item. **Edit** changes that item's HTML; **Delete** removes that item from the saved source while keeping its containing widget, page and sibling items. Page and widget locks protect these edits too. Use the top move handle for controls that affect the entire HTML widget.
+
+Item edits preserve the widget's CSS, JavaScript and state. Custom JavaScript must tolerate missing elements when its cards can be deleted.
+
+Dikciz recognizes `article`, `section`, `li`, `.card`, `.dikciz-block`, and elements marked with `data-dikciz-item` or `data-dikciz-widget`. A nested press selects the nearest item. Empty container padding and elements created only at runtime do not fall back to deleting the containing widget. To make a custom card editable, include its element in the saved HTML and mark it with `data-dikciz-item`.
 
 ![HTML editor](images/user-guide/16-widget-editor.png)
 
@@ -143,7 +149,7 @@ Use **Appearance** to set its background, border, corner radius, spacing, and fo
 
 ### Add a ready-made block to one HTML widget
 
-Long press the HTML widget you want to change, select **Add block**, choose a block, then confirm. Dikciz appends marked HTML source to that widget. It does not use another native grid cell or reload the page.
+Long press the top move handle of the HTML widget you want to change, select **Add block**, choose a block, then confirm. Dikciz appends marked HTML source to that widget. It does not use another native grid cell or reload the page.
 
 ![HTML block picker](images/user-guide/18-html-block-picker.png)
 

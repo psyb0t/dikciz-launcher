@@ -56,6 +56,8 @@
     <string name="dikciz_app_group_remove_title">Remove %1$s?</string>
     <string name="dikciz_app_group_remove_message">It leaves %1$s. The app stays installed.</string>
     <string name="dikciz_html_widget_add_block">Add block</string>
+    <string name="dikciz_html_item_title">HTML item: %1$s</string>
+    <string name="dikciz_html_item_unavailable">No saved HTML item here. Use the widget move handle for whole-widget controls.</string>
     <string name="dikciz_html_widget_add_block_description">Add a block to the %1$s HTML widget source</string>
     <string name="dikciz_html_block_picker_title">Add block to %1$s</string>
     <string name="dikciz_html_block_picker_subtitle">Appends editable source to the %1$s widget only. It does not create another widget.</string>

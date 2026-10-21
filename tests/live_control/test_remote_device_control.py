@@ -257,34 +257,47 @@ def test_remote_device_auth_and_origin_reject_before_effects(websocket_control):
                 clear_phone_password(connection)
 
 
-def test_remote_device_html_lifecycle_commands_reject_without_restart(websocket_control):
+def test_remote_device_html_restart_delivers_response_before_recreation(websocket_control):
     from .test_html_widget_command_queue import html_queue_configuration
 
     before = remote_call("http", "deviceInfo")["application"]["instanceId"]
     original = AUTOMATION.require_configuration(remote_call("http", "configGet"))
     configured = html_queue_configuration(original)
     widget = configuration_page(configured, FIXTURE_HOME_PAGE_ID)["widgets"][0]
+    storage_key = f"restart-regression-{time.monotonic_ns()}"
     widget["javascript"] = """window.addEventListener("dikciz-ready", async () => {
-  let rejected = 0;
-  for (const type of ["restart", "launcherHandoff"]) {
-    try {
-      await dikciz.command(type, type === "launcherHandoff" ? {packageName: "eu.psyb0t.dikciz.launcher.debug"} : {});
-    } catch (error) {
-      if (error.code === "unsupported_transport") rejected++;
-      else document.getElementById("queue-status").textContent = `Unexpected error: ${error.code}`;
+  try {
+    const key = %s;
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      await selfWidget.patchState({ lifecycleReply: JSON.parse(stored) });
+      return;
     }
+    const response = await dikciz.request({ type: "restart" });
+    localStorage.setItem(key, JSON.stringify(response));
+  } catch (error) {
+    document.getElementById("queue-status").textContent = `Restart failed: ${error.code}`;
   }
-  document.getElementById("queue-status").textContent = `Lifecycle commands rejected: ${rejected}`;
-});"""
+});""" % json.dumps(storage_key)
     try:
         AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured)
-        try:
-            wait_for_physical_text_bounds("Lifecycle commands rejected: 2")
-        except AssertionError:
-            run_device_operation("screenshot")
-            logs = AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SCRIPT_LOGS)
-            (ARTIFACT_DIRECTORY / "html-lifecycle-logs.json").write_text(json.dumps(logs, indent=2))
-            raise
-        assert remote_call("http", "deviceInfo")["application"]["instanceId"] == before
+        deadline = time.monotonic() + RECOVERY_SECONDS
+        observed = None
+        while time.monotonic() < deadline:
+            try:
+                current = AUTOMATION.require_configuration(remote_call("http", "configGet"))
+            except AssertionError:
+                time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
+                continue
+            observed = configuration_page(current, FIXTURE_HOME_PAGE_ID)["widgets"][0]["state"].get("lifecycleReply")
+            if isinstance(observed, dict):
+                break
+            time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
+        assert isinstance(observed, dict), observed
+        assert observed["type"] == "result"
+        assert observed["result"]["state"] == "scheduled"
+        assert observed["result"]["instanceId"] == before
+        assert remote_call("http", "deviceInfo")["application"]["instanceId"] != before
     finally:
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=original)
+        with connected_websocket_control() as connection:
+            AUTOMATION.request(connection, AUTOMATION.TYPE_CONFIG_REPLACE, config=original)

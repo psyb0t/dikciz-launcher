@@ -302,6 +302,11 @@ class DikcizHomeActivity : Activity() {
             dikcizLogger,
             remoteAccessAuth,
         )
+        DikcizLocalCommands.attach(
+            automationInstanceID,
+            { request, _ -> automationControlPlane.executeLocalCommand(request) },
+            automationTarget::responseSent,
+        )
         mcpControlPlane = DikcizMcpControlPlane(
             mainHandler,
             automationTarget,
@@ -367,6 +372,7 @@ class DikcizHomeActivity : Activity() {
     }
 
     override fun onDestroy() {
+        DikcizLocalCommands.detach(automationInstanceID)
         dismissStartupBrand()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             systemBackCallback?.let(onBackInvokedDispatcher::unregisterOnBackInvokedCallback)
@@ -1424,6 +1430,9 @@ class DikcizHomeActivity : Activity() {
                 !isEditingLocked && shouldCaptureWidgetResizeTouch(this, event)
             }
             setOnLongClickListener {
+                if (widget is HtmlHomeWidget) {
+                    return@setOnLongClickListener true
+                }
                 if (isEditingLocked) {
                     return@setOnLongClickListener false
                 }
@@ -2549,7 +2558,7 @@ class DikcizHomeActivity : Activity() {
                         contentHeightPixels,
                     )
                 },
-                widgetFrame::performLongClick,
+                { view, selection -> showHtmlItemActions(page.id, widget.id, view, selection) },
                 { recoverHtmlWidgetRenderer(widget.id, container, widgetFrame) },
             ),
             LinearLayout.LayoutParams(
@@ -2559,24 +2568,115 @@ class DikcizHomeActivity : Activity() {
         )
     }
 
+    private fun showHtmlItemActions(
+        pageID: String,
+        widgetID: String,
+        view: DikcizHtmlWidgetView,
+        selection: HtmlItemSelection?,
+    ) {
+        val page = homeConfiguration?.selectedPage() ?: return
+        val widget = page.findWidget(widgetID) as? HtmlHomeWidget ?: return
+        if (page.id != pageID || selectedPageOrWidgetIsLocked(widget.id)) {
+            return
+        }
+        if (selection == null) {
+            Toast.makeText(this, R.string.dikciz_html_item_unavailable, Toast.LENGTH_SHORT).show()
+            return
+        }
+        dismissWidgetEditActions()
+        val prefix = "widget:${widget.id}:html-item"
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(standardPadding(), NO_PADDING, standardPadding(), NO_PADDING)
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(getString(R.string.dikciz_html_item_title, selection.label))
+            .setView(actions)
+            .setNegativeButton(R.string.dikciz_dialog_cancel, null)
+            .create()
+        actions.addView(Button(this).apply {
+            text = getString(R.string.dikciz_widget_edit)
+            setOnClickListener {
+                val input = EditText(this@DikcizHomeActivity).apply {
+                    setText(selection.html)
+                    minLines = HTML_ITEM_EDITOR_MIN_LINES
+                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                }
+                val editor = AlertDialog.Builder(this@DikcizHomeActivity)
+                    .setTitle(getString(R.string.dikciz_html_item_title, selection.label))
+                    .setView(input)
+                    .setNegativeButton(R.string.dikciz_dialog_cancel, null)
+                    .setPositiveButton(R.string.dikciz_dialog_save, null)
+                    .create()
+                showActiveDialog(
+                    editor,
+                    onShown = {
+                        registerAutomationView("$prefix:source", input)
+                        val save = editor.getButton(AlertDialog.BUTTON_POSITIVE)
+                        registerAutomationView("$prefix:save", save)
+                        save.setOnClickListener {
+                            saveHtmlItem(pageID, widget, view, selection, input.text.toString(), editor)
+                        }
+                    },
+                    onDismiss = {
+                        automationViews.remove("$prefix:source")
+                        automationViews.remove("$prefix:save")
+                    },
+                )
+            }
+            registerAutomationView("$prefix:edit", this)
+        })
+        actions.addView(Button(this).apply {
+            text = getString(R.string.dikciz_widget_delete)
+            setOnClickListener { saveHtmlItem(pageID, widget, view, selection, null, dialog) }
+            registerAutomationView("$prefix:delete", this)
+        })
+        showActiveDialog(dialog, onDismiss = {
+            automationViews.remove("$prefix:edit")
+            automationViews.remove("$prefix:delete")
+        })
+    }
+
+    private fun saveHtmlItem(
+        pageID: String,
+        widget: HtmlHomeWidget,
+        view: DikcizHtmlWidgetView,
+        selection: HtmlItemSelection,
+        replacement: String?,
+        dialog: AlertDialog,
+    ) {
+        view.replaceHtmlItem(selection, replacement) { html ->
+            val page = homeConfiguration?.selectedPage()
+            val current = page?.findWidget(widget.id) as? HtmlHomeWidget
+            if (html == null || page == null || page.id != pageID || page.locked || current == null ||
+                current.locked || current.html != widget.html
+            ) {
+                dikcizLogger.warn(EVENT_HTML_ITEM_EDIT_REJECTED, mapOf(FIELD_WIDGET_ID to widget.id))
+                Toast.makeText(this, R.string.dikciz_html_item_unavailable, Toast.LENGTH_SHORT).show()
+                return@replaceHtmlItem
+            }
+            if (updateSelectedPage { selected ->
+                    selected.replaceWidget(widget.id) { existing ->
+                        (existing as HtmlHomeWidget).copy(html = html)
+                    }
+                }
+            ) {
+                dialog.dismiss()
+                dikcizLogger.info(EVENT_HTML_ITEM_EDITED, mapOf(FIELD_WIDGET_ID to widget.id))
+            }
+        }
+    }
+
     private fun executeHtmlWidgetCommand(
         sourceWidgetAddress: String,
         request: JSONObject,
-    ): String {
-        if (request.optString(DikcizAutomationControlPlane.KEY_TYPE) in DikcizDeviceInspection.RESPONSE_COMMAND_TYPES) {
-            return JSONObject()
-                .put(DikcizAutomationControlPlane.KEY_TYPE, DikcizAutomationControlPlane.TYPE_ERROR)
-                .put(DikcizAutomationControlPlane.KEY_REQUEST_ID, request.opt(DikcizAutomationControlPlane.KEY_REQUEST_ID))
-                .put(DikcizAutomationControlPlane.KEY_CODE, DikcizDeviceInspection.ERROR_UNSUPPORTED_TRANSPORT)
-                .put(DikcizAutomationControlPlane.KEY_MESSAGE, "lifecycle commands require WebSocket, MCP or HTTP")
-                .toString()
-        }
+    ): DikcizLocalCommands.Reply {
         if (request.optString(DikcizAutomationControlPlane.KEY_TYPE) ==
             DikcizAutomationControlPlane.TYPE_AUTOMATION_DISPATCH
         ) {
             request.put(DikcizAutomationControlPlane.KEY_SOURCE_WIDGET_ADDRESS, sourceWidgetAddress)
         }
-        return automationControlPlane.executeLocalCommand(request)
+        return DikcizLocalCommands.execute(LOCAL_HTML_COMMAND_OWNER_PREFIX + sourceWidgetAddress, request)
     }
 
     private fun recoverHtmlWidgetRenderer(
@@ -11669,6 +11769,10 @@ class DikcizHomeActivity : Activity() {
         const val EVENT_WIDGET_CONFIGURATION_REJECTED = "widget_configuration_rejected"
         const val EVENT_WIDGET_CONFIGURATION_REQUESTED = "widget_configuration_requested"
         const val EVENT_WIDGET_DELETED = "widget_deleted"
+        const val EVENT_HTML_ITEM_EDITED = "html_item_edited"
+        const val EVENT_HTML_ITEM_EDIT_REJECTED = "html_item_edit_rejected"
+        const val HTML_ITEM_EDITOR_MIN_LINES = 4
+        const val LOCAL_HTML_COMMAND_OWNER_PREFIX = "html:"
         const val EVENT_WIDGET_DELETION_REJECTED = "widget_deletion_rejected"
         const val EVENT_WIDGET_ID_GENERATION_REJECTED = "widget_id_generation_rejected"
         const val EVENT_HTML_BLOCK_APPENDED = "html_block_appended"

@@ -33,7 +33,7 @@ def open_widget_appearance_editor(websocket_control: socket.socket) -> dict[str,
     AUTOMATION.request(
         websocket_control,
         AUTOMATION.TYPE_LONG_PRESS,
-        semanticId=APPEARANCE_ACTIONS_WIDGET_SEMANTIC_ID,
+        semanticId=f"{APPEARANCE_ACTIONS_WIDGET_SEMANTIC_ID}:move-handle",
     )
     wait_for_snapshot_node(websocket_control, APPEARANCE_WIDGET_ACTION_SEMANTIC_ID)
     appearance_mcp_call(

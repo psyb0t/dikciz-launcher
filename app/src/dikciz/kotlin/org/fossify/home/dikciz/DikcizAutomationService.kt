@@ -189,7 +189,11 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
             stopSelf()
             return START_NOT_STICKY
         }
+        val recoveringPackageUpdate = intent?.action == DikcizPackageUpdateReceiver.ACTION_RECOVER_SERVICES
         if (!startForegroundForConfiguration(configuration)) {
+            if (recoveringPackageUpdate) {
+                DikcizPackageUpdateReceiver.resumeLauncher(this)
+            }
             // Android refused the foreground start, which it does for a service
             // launched from the background. The launch used
             // startForegroundService, so the only way out is to stop now.
@@ -197,6 +201,11 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
             // platform kill the whole launcher process at the deadline.
             stopSelf()
             return START_NOT_STICKY
+        }
+        if (recoveringPackageUpdate) {
+            // Promote before Home queues heavy startup on this same main thread.
+            logger.info(EVENT_PACKAGE_UPDATE_FOREGROUND_READY)
+            DikcizPackageUpdateReceiver.resumeLauncher(this)
         }
         val recoveringAlarm = intent?.action == ACTION_ALARM && scheduledAlarmInterval == null
         if (
@@ -2001,6 +2010,7 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
         const val LOCATION_MINIMUM_DISTANCE_METERS = 0f
         const val APPROXIMATE_LOCATION_COORDINATE_SCALE = 100.0
         const val LOCATION_MINIMUM_INTERVAL_MILLISECONDS = 1_000L
+        private const val EVENT_PACKAGE_UPDATE_FOREGROUND_READY = "package_update_foreground_ready"
         const val LOG_TAG = "DikcizAutomationService"
         const val MAXIMUM_SENSOR_NAME_CHARACTERS = 120
         const val MAXIMUM_SENSOR_VALUES = 16
