@@ -31,6 +31,8 @@ All Kotlin files below live in `kotlin/org/fossify/home/dikciz/`.
 | `DikcizHtmlWidgetLibrary.kt`, `DikcizHtmlBlockLibrary.kt` | Validate and install complete widget packages and reusable fragments. |
 | `DikcizAutomationControlPlane.kt`, `DikcizMcpControlPlane.kt` | Serve WebSocket, Streamable HTTP MCP and HTTP JSON commands through one `DikcizAutomationTarget`. |
 | `DikcizControlStatus.kt`, `DikcizAutomationStatus.kt` | Describe the command protocol and Android capabilities for discovery. |
+| `DikcizMcpResources.kt` | Maps exact documentation URIs to packaged Markdown, validates resource parameters and paginates the fixed catalog. |
+| `DikcizDeviceAccessActivity.kt` | Owns the separate full-access setup task, recomputes Android grants on resume and exposes its active controls to the existing Home command target. |
 | `DikcizPermissionRequests.kt` | Validates permission-recovery options, persists targeted owner reviews and posts permission notifications without replaying commands. |
 | `DikcizControlPorts.kt`, `DikcizRemoteAccessAuth.kt` | Own device listen-address and port settings and bearer-password verification. |
 | `DikcizAutomation.kt`, `DikcizAutomationActionDocument.kt` | Define policies, events, subscriptions and typed action documents. |
@@ -53,6 +55,8 @@ Keep product changes in this source set or a Dikciz-specific combined source set
 Pages use a fixed native grid and transparent canvases over one launcher background. Placement and grid changes must respect bounds and collisions. Locks prevent editing while preserving widget actions and navigation. Style parsing belongs in `DikcizStyleCodec`, so editors and renderers use the same rules.
 
 Both remote listeners default to device loopback and execute through the same command target. The owner can configure a numeric network listen address in `control/ports.json`. The configuration watcher applies address and port edits by restarting the listeners, without rebuilding the home. Keep human accessibility labels readable and machine identities in the semantic snapshot. The [automation-control guide](../../../docs/automation-control.md) owns commands, events, authentication, origin checks and limits. Debug-only event fixtures live in [the combined debug source set](../dikcizDebug/README.md); the control planes remain in this release source set.
+
+MCP documentation resources use a fixed URI allowlist and immutable APK assets. The catalog returns eight descriptors per page and enforces a 4096-byte UTF-8 budget per section. Asset reads run on MCP workers, with cached content and new response objects per request. Existing authentication, Origin, protocol and initialized-session checks precede resource dispatch. The [resource guide](../../../docs/mcp-resources.md) owns the public contract.
 
 Filesystem commands use direct file I/O with bounded reads and writes. They are not confined to the public configuration tree. APK installation uses PackageInstaller sessions, device-granted unknown-source access and Android confirmation. The [files and APK guide](../../../docs/files-and-apks.md) owns transfer rules and installer states.
 

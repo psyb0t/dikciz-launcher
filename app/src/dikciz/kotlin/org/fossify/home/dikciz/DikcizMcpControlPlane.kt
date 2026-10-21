@@ -6,6 +6,7 @@ import android.os.SystemClock
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
@@ -28,6 +29,7 @@ internal class DikcizMcpControlPlane(
     private val logger: DikcizLogger,
     private val remoteAccessAuth: DikcizRemoteAccessAuth,
     private val executeHttpCommand: (JSONObject, String?) -> String,
+    private val resources: DikcizMcpResources,
 ) {
     /** The port of the running listener, or the port the next start would bind. */
     @Volatile
@@ -224,6 +226,14 @@ internal class DikcizMcpControlPlane(
                 writeJson(output, jsonRpcSuccess(message.requireID(), toolsListResult()))
             }
 
+            DikcizMcpResources.METHOD_LIST,
+            DikcizMcpResources.METHOD_READ,
+            DikcizMcpResources.METHOD_TEMPLATES,
+            -> {
+                requireInitialized(session)
+                writeJson(output, resourceResponse(message, method))
+            }
+
             METHOD_TOOLS_CALL -> {
                 requireInitialized(session)
                 val toolName = message.requireObject(KEY_PARAMS).requireMcpString(KEY_NAME)
@@ -400,7 +410,10 @@ internal class DikcizMcpControlPlane(
         logger.info(EVENT_MCP_SESSION_CREATED)
         val result = JSONObject()
             .put(KEY_PROTOCOL_VERSION, PROTOCOL_VERSION)
-            .put(KEY_CAPABILITIES, JSONObject().put(KEY_TOOLS, JSONObject().put(KEY_LIST_CHANGED, false)))
+            .put(KEY_CAPABILITIES, JSONObject()
+                .put(KEY_TOOLS, JSONObject().put(KEY_LIST_CHANGED, false))
+                .put(DikcizMcpResources.KEY_RESOURCES, JSONObject()))
+            .put(KEY_INSTRUCTIONS, DikcizMcpResources.INSTRUCTIONS)
             .put(KEY_SERVER_INFO, JSONObject().put(KEY_NAME, SERVER_NAME).put(KEY_VERSION, SERVER_VERSION))
             .put(KEY_RESULT_TYPE, RESULT_TYPE_COMPLETE)
         writeJson(
@@ -408,6 +421,36 @@ internal class DikcizMcpControlPlane(
             jsonRpcSuccess(requestID, result),
             mapOf(HEADER_MCP_SESSION_ID_RESPONSE to sessionID),
         )
+    }
+
+    private fun resourceResponse(message: JSONObject, method: String): JSONObject {
+        val requestID = message.requireID()
+        val params = message.requireObject(KEY_PARAMS)
+        return try {
+            val result = when (method) {
+                DikcizMcpResources.METHOD_LIST -> resources.list(params)
+                DikcizMcpResources.METHOD_READ -> resources.read(params)
+                else -> resources.templates(params)
+            }
+            logger.debug(EVENT_MCP_RESOURCE_COMPLETED, mapOf(FIELD_RESOURCE_METHOD to method))
+            jsonRpcSuccess(requestID, result)
+        } catch (exception: DikcizMcpResourceException) {
+            logger.warn(EVENT_MCP_RESOURCE_REJECTED, mapOf(FIELD_RESOURCE_METHOD to method))
+            jsonRpcError(requestID, DikcizMcpResources.JSON_RPC_INVALID_PARAMS, exception.message.orEmpty()).apply {
+                exception.uri?.let { uri ->
+                    getJSONObject(KEY_ERROR).put(KEY_DATA, JSONObject().put(DikcizMcpResources.KEY_URI, uri))
+                }
+            }
+        } catch (exception: IOException) {
+            resourceFailure(requestID, method, exception)
+        } catch (exception: IllegalStateException) {
+            resourceFailure(requestID, method, exception)
+        }
+    }
+
+    private fun resourceFailure(requestID: Any, method: String, exception: Exception): JSONObject {
+        logger.error(EVENT_MCP_RESOURCE_FAILED, mapOf(FIELD_RESOURCE_METHOD to method, FIELD_ERROR_CLASS to exception.javaClass.simpleName))
+        return jsonRpcError(requestID, JSON_RPC_INTERNAL_ERROR, MESSAGE_RESOURCE_FAILED)
     }
 
     private fun toolsListResult(): JSONObject {
@@ -1035,6 +1078,13 @@ internal class DikcizMcpControlPlane(
         )
         const val HTTP_VERSION = "HTTP/1.1"
         const val HTTP_VERSION_INDEX = 2
+        private const val JSON_RPC_INTERNAL_ERROR = -32603
+        private const val KEY_INSTRUCTIONS = "instructions"
+        private const val EVENT_MCP_RESOURCE_COMPLETED = "mcp_resource_completed"
+        private const val EVENT_MCP_RESOURCE_REJECTED = "mcp_resource_rejected"
+        private const val EVENT_MCP_RESOURCE_FAILED = "mcp_resource_failed"
+        private const val FIELD_RESOURCE_METHOD = "resource_method"
+        private const val MESSAGE_RESOURCE_FAILED = "Packaged documentation could not be loaded"
         const val JSON_RPC_INVALID_REQUEST = -32600
         const val JSON_RPC_METHOD_NOT_FOUND = -32601
         const val JSON_RPC_VERSION = "2.0"
@@ -1092,7 +1142,7 @@ internal class DikcizMcpControlPlane(
         const val MESSAGE_BODY_SIZE = "request body exceeds its size limit"
         const val MESSAGE_CONTENT_TYPE = "Content-Type must be application/json"
         const val MESSAGE_HEADERS = "invalid HTTP headers"
-        const val MESSAGE_INITIALIZATION_REQUIRED = "send notifications/initialized before calling tools"
+        const val MESSAGE_INITIALIZATION_REQUIRED = "send notifications/initialized before calling tools or resources"
         const val MESSAGE_INTERNAL_ERROR = "request could not complete"
         const val MESSAGE_INVALID_JSON = "request body must be a JSON object"
         const val MESSAGE_INVALID_JSON_RPC = "request must use JSON-RPC 2.0"

@@ -84,6 +84,8 @@ Read [typed actions](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/sc
 
 ## Remote controls and UI automation
 
+MCP also exposes packaged documentation through `resources/list` and `resources/read`. Start with `dikciz://docs/index`, then fetch the needed guides or recipes individually. Discovery returns eight entries per page; follow `nextCursor`. Each section is at most 4096 UTF-8 bytes. The supplied client supports `mcp-resources` and `mcp-read <uri>`. Read the [resource guide](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/mcp-resources.md) for the protocol and examples.
+
 WebSocket, Streamable HTTP MCP and plain HTTP expose the same launcher command target:
 
 - Discover protocol, command fields, matching tools, limits, automation access, policy vocabulary, sensors and event schemas.

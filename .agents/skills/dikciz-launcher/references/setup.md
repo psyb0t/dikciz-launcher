@@ -22,6 +22,8 @@ Release APKs use the package `eu.psyb0t.dikciz.launcher`. The `dikcizDebug` pack
 
 Open Dikciz on the phone. Choose it as the default Home app when Android asks, or select it in Android's default Home app settings. Follow **Grant file access** to allow it to create and watch `/sdcard/Dikciz/`. Existing pages, widgets, themes, scripts and logs live there. Grant only the additional Android access needed for the user's requested features through Dikciz's **Settings**, **Automation**, **Set up full device access** screen.
 
+**Set up full device access** opens its own task. Return with Back from Android access panels or reopen **Full device access** in Recents after another app takes the foreground. The checklist refreshes actual grants on resume and survives recreation. A targeted remote permission review still requests only its selected access.
+
 Installation is complete when ADB reports success, the selected device lists the installed package, and Dikciz opens and can load its home. Do not claim the phone's UI or Home selection was verified from the ADB install result alone.
 
 ## Forward the control ports

@@ -132,6 +132,16 @@
         <activity-alias android:name=".activities.SplashActivity.Grey_black" tools:node="remove" />
 
         <activity
+            android:name=".dikciz.DikcizDeviceAccessActivity"
+            android:alwaysRetainTaskState="true"
+            android:excludeFromRecents="false"
+            android:exported="false"
+            android:label="@string/dikciz_device_access_title"
+            android:launchMode="singleTop"
+            android:taskAffinity="${applicationId}.deviceAccess"
+            android:theme="@style/LauncherTheme" />
+
+        <activity
             android:name=".dikciz.DikcizHealthPermissionRationaleActivity"
             android:exported="true"
             android:theme="@style/LauncherTheme">

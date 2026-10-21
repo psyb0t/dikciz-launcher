@@ -15,7 +15,9 @@ These pytest scenarios exercise real Android UI and forwarded WebSocket, MCP and
 | `__init__.py` | Shared harness exports consumed by tests. |
 | Domain support modules | Accessibility, media sessions, notifications, alarms, and script-status helpers. |
 | `test_device_files.py` | Filesystem pagination, binary transfers, HTTP security, CLI results and actual Android APK install/cancel outcomes. |
+| `test_mcp_resources.py` | Resource discovery, every section read, bounded pagination, protocol errors, authentication/session gates, CLI reads and execution of the packaged event recipe. |
 | `test_remote_device_control.py` | Production-client restart, instance/version inspection, external-display capture, validation and delayed port-conflict recovery. |
+| `test_device_access_screen.py` | Full-access setup task, grant and denial, Settings return, Recents, rotation, process restoration and shared controls across transports. |
 | `test_permission_requests.py` | Opt-in recovery across transports, explicit access requests, validation, cooldowns and owner notification/permission UI. |
 | `test_activity_launch_verification.py` | Foreground evidence across transports, native routes, HTML and Lua, with disabled access, locked screens, self-finishing targets and separate Settings tasks. |
 | `test_logging_settings.py` | Native log settings, quiet launches and target metadata. |

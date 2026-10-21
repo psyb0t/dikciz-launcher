@@ -11,6 +11,8 @@ internal object DikcizLocalCommands {
     @Volatile
     private var endpoint: Endpoint? = null
 
+    fun isAvailable(): Boolean = endpoint != null
+
     @Synchronized
     fun attach(
         ownerID: String,

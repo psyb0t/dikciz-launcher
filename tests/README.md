@@ -71,6 +71,18 @@ The selector must match `test_` followed by letters, digits, or underscores. The
 
 `scripts/dikciz-lab.sh` runs pytest in Android Lab's forward service and saves the complete `dikciz-test.log` and JUnit `dikciz-test.xml` alongside screenshots and UI captures in the lab artifact directory. The root [verification overview](../README.md#verification) describes artifact access.
 
+MCP documentation checks walk every discovery page, read every bounded section, validate errors and access gates, exercise CLI reads and run the packaged two-event Lua/HTML recipe on the shared emulator:
+
+```bash
+make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_mcp_resources_
+```
+
+The full-access setup scenarios cover the separate Android task, actual permission grant and denial, return from Android Settings, app switching, Recents, rotation, process restoration and shared semantic controls through all three APIs:
+
+```bash
+make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_device_access_screen_
+```
+
 ## Isolation
 
 The normal live suite requires the shared emulator and forward-service environment. Direct host pytest does not supply the device operations. `conftest.py` accepts the separate physical controller only when it sets `TEST_REAL=1`; physical acceptance requires an explicitly authorized workflow.

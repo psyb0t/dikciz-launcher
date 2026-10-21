@@ -106,6 +106,8 @@ METHOD_INITIALIZE = "initialize"
 METHOD_INITIALIZED = "notifications/initialized"
 METHOD_TOOLS_CALL = "tools/call"
 METHOD_TOOLS_LIST = "tools/list"
+METHOD_RESOURCES_LIST = "resources/list"
+METHOD_RESOURCES_READ = "resources/read"
 MIME_TYPE_EVENT_STREAM = "text/event-stream"
 MIME_TYPE_JSON = "application/json"
 MIME_TYPE_PNG = "image/png"
@@ -982,6 +984,16 @@ def parse_arguments() -> argparse.Namespace:
     mcp_tools.add_argument("--pretty", action="store_true")
     add_connection_arguments(mcp_tools, DEFAULT_MCP_PORT)
 
+    resources = subparsers.add_parser("mcp-resources", help="list one page of MCP documentation resources")
+    resources.add_argument("--cursor", help="nextCursor from the previous resource page")
+    resources.add_argument("--pretty", action="store_true")
+    add_connection_arguments(resources, DEFAULT_MCP_PORT)
+
+    resource_read = subparsers.add_parser("mcp-read", help="read one MCP documentation section")
+    resource_read.add_argument("uri")
+    resource_read.add_argument("--pretty", action="store_true")
+    add_connection_arguments(resource_read, DEFAULT_MCP_PORT)
+
     arguments = parser.parse_args()
     if getattr(arguments, "stream_raw", False):
         is_stream = (
@@ -1042,6 +1054,13 @@ def main() -> int:
             return stream_exit_status(arguments, response)
         if arguments.operation == "mcp-tools":
             emit_json(list_mcp_tools(arguments), arguments.pretty)
+            return EXIT_SUCCESS
+        if arguments.operation == "mcp-resources":
+            params = {} if arguments.cursor is None else {"cursor": arguments.cursor}
+            emit_json(call_mcp(arguments, METHOD_RESOURCES_LIST, params), arguments.pretty)
+            return EXIT_SUCCESS
+        if arguments.operation == "mcp-read":
+            emit_json(call_mcp(arguments, METHOD_RESOURCES_READ, {"uri": arguments.uri}), arguments.pretty)
             return EXIT_SUCCESS
         raise DikcizControlError("unknown Dikciz control operation")
     except KeyboardInterrupt:

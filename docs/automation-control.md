@@ -180,7 +180,9 @@ On the device an app group is made by dropping one app tile onto another, not fr
 
 The native app drawer uses this same catalogue and action runtime. It opens from the launcher controls route or an upward swipe that begins on the horizontal page rail. Its own search is case-insensitive on label and package name. Tap a row to launch its app. Use the overflow button or a long press to expose the remaining app actions.
 
-`openAutomationSetup` opens the native Automation access sheet so the phone owner can grant an Android access that a denied action needs.
+`openAutomationSetup` opens native Automation settings. Its **Set up full device access** button opens the separate **Full device access** task, which the owner can return to through Recents after switching apps or reviewing an Android panel. The checklist refreshes from actual grants on resume.
+
+While that screen is resumed, `snapshot.screen` is `deviceAccess`. Semantic snapshots, `find`, `tap`, `scrollBy`, `scrollTo`, UI dumps and launcher screenshots use its views through WebSocket, MCP and HTTP. Stable controls are `settings:device-access:next`, `settings:device-access:close`, `settings:device-access:progress` and `settings:device-access:scroll`. Each requirement has a `settings:device-access:entry:<requirementId>` label; missing requirements also have a `settings:device-access:setup:<requirementId>` button. Closing or leaving setup removes its controls from the current semantic target. Targeted remote permission reviews continue to request only their selected capability.
 
 `shell` uses `/system/bin/sh -c` when `root: false`. When `root` is absent or true, Dikciz first checks `su -c id -u`. Only exactly `0` allows the requested command to run and report `executionScope: "root"`. A missing, denied, malformed, or timed-out probe returns WebSocket error `root_unavailable` or an MCP tool error. Dikciz never relabels or falls back to the app shell. Optional `timeoutMilliseconds` and `maxOutputBytes` set the command timeout and captured output budget. Defaults are 30000 milliseconds and 65536 bytes. MCP schemas and `controlStatus.limits` advertise their ranges and defaults. The [shell reference](files-and-apks.md#execute-android-cli-commands) includes examples and client wait behavior. Successful results include `executionScope`, `exitCode`, `output`, and `outputTruncated`. `intent` supports `activity` and `broadcast`. Android decides whether the requested component can run.
 
@@ -403,6 +405,10 @@ make dikciz-automation-smoke ANDROID_LAB_FORWARD_HOST_PORT=19001 ANDROID_LAB_MCP
 The mutation checks restore the original configuration. Use a focused `make dikciz-test-*` target for a particular UI or Android behavior.
 
 The [client and script map](../scripts/README.md), [live-test map](../tests/README.md), and [Dikciz source map](../app/src/dikciz/README.md) describe the implementations behind these commands.
+
+## MCP documentation resources
+
+MCP advertises packaged guides and recipes through `resources/list` and `resources/read`. Start at `dikciz://docs/index`, follow discovery cursors and fetch only the sections needed. Each page lists at most eight entries; each section contains at most 4096 UTF-8 bytes. The [resource guide](mcp-resources.md) owns the protocol, CLI examples and access contract. Tools remain the executable command interface.
 
 ## Request missing Android access
 

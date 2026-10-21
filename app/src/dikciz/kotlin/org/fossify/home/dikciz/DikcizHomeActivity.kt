@@ -156,7 +156,6 @@ class DikcizHomeActivity : Activity() {
     private var pageBeingBuilt: HomePage? = null
     private var visiblePermissionRequirement: DikcizDeviceAccessRequirement? = null
     private lateinit var permissionRequests: DikcizPermissionRequests
-    private var shouldResumeFullDeviceAccessSetup = false
     private var controlPlanesStarted = false
     private var isActivityStarted = false
     private var controlPlaneStartAttemptsRemaining = CONTROL_PLANE_START_ATTEMPTS
@@ -313,8 +312,10 @@ class DikcizHomeActivity : Activity() {
             dikcizLogger,
             remoteAccessAuth,
             automationControlPlane::executeLocalCommand,
+            DikcizMcpResources(assets),
         )
         DikcizAutomationEventBus.setHtmlDomPatchListener(applicationContext, ::patchRenderedHtmlDom)
+        DikcizDeviceAccessActivity.attachHost(automationInstanceID, ::publishAutomationUIRendered)
         dikcizLogger.info(EVENT_ACTIVITY_CREATED)
     }
 
@@ -331,6 +332,7 @@ class DikcizHomeActivity : Activity() {
             dikcizLogger.warn(EVENT_STORAGE_ACCESS_UNAVAILABLE)
             showStorageAccessRequirement()
             startControlPlanesIfNeeded()
+            openRequestedDeviceAccessSetup()
             return
         }
         if (homeConfiguration == null && isLauncherHomeIntent()) {
@@ -338,7 +340,7 @@ class DikcizHomeActivity : Activity() {
         }
         reloadConfiguration(true)
         startLauncherServicesIfReady()
-        resumeFullDeviceAccessSetupIfNeeded()
+        openRequestedDeviceAccessSetup()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -353,10 +355,20 @@ class DikcizHomeActivity : Activity() {
         if (!homeConfigStore.hasSharedStorageAccess()) {
             showStorageAccessRequirement()
             startControlPlanesIfNeeded()
+            openRequestedDeviceAccessSetup()
             return
         }
         reloadConfiguration(true)
         startLauncherServicesIfReady()
+        openRequestedDeviceAccessSetup()
+    }
+
+    private fun openRequestedDeviceAccessSetup() {
+        if (!intent.getBooleanExtra(DikcizDeviceAccessActivity.EXTRA_OPEN_SETUP, false)) return
+        intent.removeExtra(DikcizDeviceAccessActivity.EXTRA_OPEN_SETUP)
+        mainHandler.post {
+            if (!isFinishing && !isDestroyed) showFullDeviceAccessSetup()
+        }
     }
 
     override fun onStop() {
@@ -372,6 +384,7 @@ class DikcizHomeActivity : Activity() {
     }
 
     override fun onDestroy() {
+        DikcizDeviceAccessActivity.detachHost(automationInstanceID)
         DikcizLocalCommands.detach(automationInstanceID)
         dismissStartupBrand()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -411,7 +424,6 @@ class DikcizHomeActivity : Activity() {
         if (requestCode == FULL_DEVICE_ACCESS_PERMISSION_REQUEST_CODE) {
             reloadConfiguration(false)
             homeConfiguration?.let(::syncAutomationService)
-            resumeFullDeviceAccessSetupIfNeeded()
         }
     }
 
@@ -427,9 +439,6 @@ class DikcizHomeActivity : Activity() {
                 healthConnectPermissionContract.parseResult(resultCode, data)
                 reloadConfiguration(false)
             }
-        }
-        if (requestCode == AUTOMATION_DEVICE_ADMINISTRATION_REQUEST_CODE) {
-            resumeFullDeviceAccessSetupIfNeeded()
         }
     }
 
@@ -3632,6 +3641,21 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun automationSnapshot(): JSONObject {
+        DikcizDeviceAccessActivity.current()?.let { setup ->
+            val configuration = homeConfiguration
+            val nodes = JSONArray().apply {
+                setup.semanticViews().toSortedMap().forEach { (semanticID, view) ->
+                    put(describeAutomationView(semanticID, view))
+                }
+            }
+            return JSONObject()
+                .put(KEY_SCREEN, DikcizDeviceAccessActivity.SCREEN)
+                .put(KEY_SELECTED_PAGE_ID, configuration?.selectedPageID ?: JSONObject.NULL)
+                .put(KEY_PAGES, configuration?.let(::automationPages) ?: JSONArray())
+                .put(KEY_WIDGET_REFERENCES, configuration?.let(::automationWidgetReferences) ?: JSONArray())
+                .put(KEY_SCROLL, setup.scrollState())
+                .put(KEY_NODES, nodes)
+        }
         if (isConfigurationErrorVisible) {
             return configurationErrorAutomationSnapshot()
         }
@@ -3736,6 +3760,7 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun automationScrollState(): JSONObject {
+        DikcizDeviceAccessActivity.current()?.let { return it.scrollState() }
         return JSONObject()
             .put(KEY_Y, pageScrollView.scrollY)
             .put(KEY_RANGE, pageScrollView.verticalScrollRange())
@@ -4625,7 +4650,8 @@ class DikcizHomeActivity : Activity() {
 
     private fun scrollAutomationPage(command: DikcizAutomationCommand): JSONObject {
         val deltaY = command.request.getInt(DikcizAutomationControlPlane.KEY_DELTA_Y)
-        pageScrollView.scrollBy(SCROLL_X_ORIGIN, deltaY)
+        val setup = DikcizDeviceAccessActivity.current()
+        if (setup == null) pageScrollView.scrollBy(SCROLL_X_ORIGIN, deltaY) else setup.scrollBy(deltaY)
         dikcizLogger.debug(EVENT_AUTOMATION_SCROLLED, mapOf(FIELD_DELTA_Y to deltaY))
         return automationScrollState()
     }
@@ -4633,8 +4659,13 @@ class DikcizHomeActivity : Activity() {
     private fun scrollToAutomationView(command: DikcizAutomationCommand): JSONObject {
         val semanticID = command.request.getString(DikcizAutomationControlPlane.KEY_SEMANTIC_ID)
         val view = requireAutomationView(semanticID)
-        pageScrollTargetY(view)?.let { scrollY ->
-            pageScrollView.scrollTo(SCROLL_X_ORIGIN, scrollY)
+        val setup = DikcizDeviceAccessActivity.current()
+        if (setup != null) {
+            setup.scrollTo(view)
+        } else {
+            pageScrollTargetY(view)?.let { scrollY ->
+                pageScrollView.scrollTo(SCROLL_X_ORIGIN, scrollY)
+            }
         }
         dikcizLogger.debug(
             EVENT_AUTOMATION_SCROLLED_TO,
@@ -4926,7 +4957,7 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun captureAutomationScreenshot(): JSONObject {
-        val root = window.decorView
+        val root = DikcizDeviceAccessActivity.current()?.window?.decorView ?: window.decorView
         if (root.width <= SCROLL_X_ORIGIN || root.height <= SCROLL_Y_ORIGIN) {
             throw automationFailure(MESSAGE_SCREEN_UNAVAILABLE)
         }
@@ -4980,7 +5011,7 @@ class DikcizHomeActivity : Activity() {
             .put(KEY_WALLPAPER_DIRECTORY, homeConfigStore.wallpaperDirectory.absolutePath)
             .put(KEY_CONTROL_PORT, automationControlPlane.port)
             .put(KEY_MCP_CONTROL_PORT, mcpControlPlane.port)
-            .put(KEY_SCREEN, VALUE_HOME_SCREEN)
+            .put(KEY_SCREEN, DikcizDeviceAccessActivity.current()?.let { DikcizDeviceAccessActivity.SCREEN } ?: VALUE_HOME_SCREEN)
             .put(KEY_HTML_WIDGET_RESOURCES, htmlWidgetResourceDiagnostics())
             .put(DikcizDeviceInspection.KEY_APPLICATION, DikcizDeviceInspection.application(this, automationInstanceID))
     }
@@ -5012,6 +5043,7 @@ class DikcizHomeActivity : Activity() {
         semanticID: String,
         refreshProviderViews: Boolean = false,
     ): View? {
+        DikcizDeviceAccessActivity.current()?.let { return it.semanticViews()[semanticID] }
         if (refreshProviderViews) {
             refreshProviderAutomationViews()
         }
@@ -5155,12 +5187,6 @@ class DikcizHomeActivity : Activity() {
             .forEach(automationViews::remove)
     }
 
-    private fun clearDeviceAccessAutomationViews() {
-        automationViews.keys
-            .filter { semanticID -> semanticID.startsWith(SEMANTIC_SETTINGS_DEVICE_ACCESS_PREFIX) }
-            .forEach(automationViews::remove)
-    }
-
     private fun clearThemeAutomationViews() {
         automationViews.keys
             .filter { semanticID -> semanticID.startsWith(SEMANTIC_THEME_PREFIX) }
@@ -5217,7 +5243,9 @@ class DikcizHomeActivity : Activity() {
         automationControlPlane.publish(
             EVENT_AUTOMATION_UI_RENDERED,
             mapOf(
-                DikcizAutomationControlPlane.EVENT_FIELD_SCREEN to VALUE_HOME_SCREEN,
+                DikcizAutomationControlPlane.EVENT_FIELD_SCREEN to (
+                    DikcizDeviceAccessActivity.current()?.let { DikcizDeviceAccessActivity.SCREEN } ?: VALUE_HOME_SCREEN
+                ),
                 DikcizAutomationControlPlane.EVENT_FIELD_SELECTED_PAGE_ID to selectedPage.id,
             ),
         )
@@ -7447,77 +7475,9 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun showFullDeviceAccessSetup() {
-        shouldResumeFullDeviceAccessSetup = false
-        val entries = DikcizDeviceAccess.entries(this)
-        val actionableEntries = entries.filter { entry ->
-            entry.state != DikcizDeviceAccessState.Unavailable &&
-                entry.state != DikcizDeviceAccessState.OnDemand
-        }
-        val grantedCount = actionableEntries.count { entry ->
-            entry.state == DikcizDeviceAccessState.Granted
-        }
-        val nextRequirement = DikcizDeviceAccess.nextSetupRequirement(this)
-        val form = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(standardPadding(), NO_PADDING, standardPadding(), NO_PADDING)
-            addView(TextView(this@DikcizHomeActivity).apply {
-                text = getString(R.string.dikciz_device_access_message)
-                contentDescription = text
-            })
-            addView(TextView(this@DikcizHomeActivity).apply {
-                text = getString(
-                    R.string.dikciz_device_access_progress,
-                    grantedCount,
-                    actionableEntries.size,
-                )
-                contentDescription = text
-            })
-            entries.forEach { entry ->
-                addView(TextView(this@DikcizHomeActivity).apply {
-                    text = getString(
-                        R.string.dikciz_device_access_entry,
-                        getString(entry.requirement.titleResourceID),
-                        getString(deviceAccessStateResourceID(entry.state)),
-                    )
-                    contentDescription = text
-                })
-            }
-            if (nextRequirement == null) {
-                addView(TextView(this@DikcizHomeActivity).apply {
-                    text = getString(R.string.dikciz_device_access_complete)
-                    contentDescription = text
-                })
-            } else {
-                addView(Button(this@DikcizHomeActivity).apply {
-                    text = getString(
-                        R.string.dikciz_device_access_grant_next,
-                        getString(nextRequirement.titleResourceID),
-                    )
-                    contentDescription = text
-                    setOnClickListener { requestFullDeviceAccess(nextRequirement) }
-                    registerAutomationView(SEMANTIC_SETTINGS_DEVICE_ACCESS_NEXT, this)
-                })
-            }
-        }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(R.string.dikciz_device_access_title)
-            .setView(ScrollView(this).apply { addView(form) })
-            .setNegativeButton(R.string.dikciz_dialog_close, null)
-            .create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.let { closeButton ->
-                registerAutomationView(SEMANTIC_SETTINGS_DEVICE_ACCESS_CLOSE, closeButton)
-            }
-            publishAutomationUIRendered()
-        }
-        dikcizLogger.info(
-            EVENT_DEVICE_ACCESS_SETUP_OPENED,
-            mapOf(
-                FIELD_DEVICE_ACCESS_GRANTED_COUNT to grantedCount,
-                FIELD_DEVICE_ACCESS_REQUIREMENT_COUNT to actionableEntries.size,
-            ),
-        )
-        showActiveDialog(dialog, onDismiss = ::clearDeviceAccessAutomationViews)
+        dismissStartupBrand()
+        activeDialog?.dismiss()
+        startTrackedActivity(DikcizDeviceAccessActivity.intent(this))
     }
 
     private fun showPendingPermissionRequest() {
@@ -7533,7 +7493,7 @@ class DikcizHomeActivity : Activity() {
             .setMessage(getString(R.string.dikciz_permission_message, getString(requirement.titleResourceID)))
             .setPositiveButton(R.string.dikciz_permission_allow) { _, _ ->
                 if (DikcizDeviceAccess.state(this, requirement) == DikcizDeviceAccessState.NeedsSetup) {
-                    requestFullDeviceAccess(requirement, resumeSetup = false)
+                    requestFullDeviceAccess(requirement)
                 }
             }
             .setNegativeButton(R.string.dikciz_dialog_close, null)
@@ -7559,8 +7519,7 @@ class DikcizHomeActivity : Activity() {
         dikcizLogger.info("remote_permission_review_opened", mapOf("requirement_id" to requirement.persistedValue))
     }
 
-    private fun requestFullDeviceAccess(requirement: DikcizDeviceAccessRequirement, resumeSetup: Boolean = true) {
-        shouldResumeFullDeviceAccessSetup = resumeSetup
+    private fun requestFullDeviceAccess(requirement: DikcizDeviceAccessRequirement) {
         activeDialog?.dismiss()
         dikcizLogger.info(
             EVENT_DEVICE_ACCESS_REQUEST_STARTED,
@@ -7604,7 +7563,6 @@ class DikcizHomeActivity : Activity() {
         requirement: DikcizDeviceAccessRequirement,
         exception: ActivityNotFoundException? = null,
     ) {
-        shouldResumeFullDeviceAccessSetup = false
         dikcizLogger.warn(
             EVENT_DEVICE_ACCESS_REQUEST_UNAVAILABLE,
             buildMap {
@@ -7614,23 +7572,6 @@ class DikcizHomeActivity : Activity() {
         )
         Toast.makeText(this, R.string.dikciz_device_access_request_unavailable, Toast.LENGTH_LONG).show()
         showFullDeviceAccessSetup()
-    }
-
-    private fun resumeFullDeviceAccessSetupIfNeeded() {
-        if (!shouldResumeFullDeviceAccessSetup || isFinishing) {
-            return
-        }
-        shouldResumeFullDeviceAccessSetup = false
-        mainHandler.post(::showFullDeviceAccessSetup)
-    }
-
-    private fun deviceAccessStateResourceID(state: DikcizDeviceAccessState): Int {
-        return when (state) {
-            DikcizDeviceAccessState.Granted -> R.string.dikciz_device_access_state_granted
-            DikcizDeviceAccessState.NeedsSetup -> R.string.dikciz_device_access_state_needs_setup
-            DikcizDeviceAccessState.Unavailable -> R.string.dikciz_device_access_state_unavailable
-            DikcizDeviceAccessState.OnDemand -> R.string.dikciz_device_access_state_on_demand
-        }
     }
 
     private fun requestHealthConnectStepsPermission() {
@@ -12358,11 +12299,6 @@ class DikcizHomeActivity : Activity() {
         const val SEMANTIC_REMOTE_AUTH_SET_PASSWORD = "${SEMANTIC_REMOTE_AUTH_PREFIX}set-password"
         const val REMOTE_AUTH_PASSWORD_CLEAR_BYTE: Byte = 0
         const val REMOTE_AUTH_PASSWORD_CLEAR_CHARACTER = '\u0000'
-        const val SEMANTIC_SETTINGS_DEVICE_ACCESS_PREFIX = "settings:device-access:"
-        const val SEMANTIC_SETTINGS_DEVICE_ACCESS_CLOSE =
-            "${SEMANTIC_SETTINGS_DEVICE_ACCESS_PREFIX}close"
-        const val SEMANTIC_SETTINGS_DEVICE_ACCESS_NEXT =
-            "${SEMANTIC_SETTINGS_DEVICE_ACCESS_PREFIX}next"
         const val SEMANTIC_SETTINGS_LOGGING = "settings:logging"
         const val SEMANTIC_LOGGING_PREFIX = "logging:"
         const val SEMANTIC_LOGGING_LEVEL_PREFIX = "${SEMANTIC_LOGGING_PREFIX}level:"

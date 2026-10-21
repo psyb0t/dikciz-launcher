@@ -173,7 +173,7 @@ Open the bundled `hourly-clock` script to view its source, policy, state, and en
 
 ### Grant the Android access an automation needs
 
-Open **Settings**, then **Automation**, then **Set up full device access**. The access sheet tells you which Android permissions and special accesses are active, then opens the matching Android panels when you choose an access. Android makes the final decision. SMS automation uses read, receive and send SMS permissions. Setup does not request replacing your default messaging app.
+Open **Settings**, then **Automation**, then **Set up full device access**. The dedicated setup screen shows active and missing Android permissions and special accesses. Tap the next setup button or choose an individual missing access to open its Android panel. Return with Back to refresh the checklist. If another app takes the foreground, reopen **Full device access** from Recents to continue. Android can recreate the screen without losing the setup route. Android makes the final decision. SMS automation uses read, receive and send SMS permissions. Setup does not request replacing your default messaging app.
 
 ![Automation access](images/user-guide/31-automation-access.png)
 

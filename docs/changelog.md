@@ -2,6 +2,20 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.19.0] - 2026-10-21
+
+### Added
+
+- MCP documentation resources provide 26 short guides and recipes, an index, paginated discovery and one-section reads. Each section is limited to 4096 UTF-8 bytes. The client adds `mcp-resources` and `mcp-read` commands.
+
+### Fixed
+
+- Full-device permission setup uses a dedicated Android task that remains in Recents after Settings or another app takes the foreground. Returning refreshes actual grants and the next setup action, including after activity or process recreation. The same setup controls and screenshots are available through WebSocket, MCP and HTTP.
+
+### Migration
+
+- UI clients must accept `snapshot.screen: "deviceAccess"` while full-device setup is open. Existing setup control IDs remain available.
+
 ## [0.18.0] - 2026-10-21
 
 ### Added
