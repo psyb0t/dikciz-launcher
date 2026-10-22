@@ -362,13 +362,14 @@ def test_html_item_targeting_button_long_press_does_not_activate_button(
     assert configuration_widget(configured, ITEM_WIDGET_ID)["state"]["clicks"] == 1
 
 
-@pytest.mark.parametrize("removed", [".card.blue", ".card.feed", "#clock"])
+@pytest.mark.parametrize("removed", ['[data-dikciz-preset="quick-apps"]', '[data-dikciz-preset="quick-note"]', '[data-role="clock"]'])
 def test_html_item_targeting_bundled_controls_survive_removed_card(
     websocket_control: socket.socket,
     removed: str,
 ) -> None:
     configured = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_RESET))
-    widget = configuration_widget(configured, "command-deck")
+    configured["limits"]["maxTextCharacters"] = 65536
+    widget = configuration_widget(configured, "home-dashboard")
     original_javascript = widget["javascript"]
     widget["javascript"] = """let starterErrors = 0;
 window.addEventListener("error", () => starterErrors++);
@@ -377,7 +378,7 @@ document.querySelector(%s).remove();
 """ % json.dumps(removed) + original_javascript + """
 window.addEventListener("dikciz-ready", () => {
   setTimeout(() => selfWidget.patchState({ ...selfWidget.state, starterReady: true,
-    starterErrors, starterClock: document.getElementById("clock")?.textContent || "",
+    starterErrors, starterClock: document.querySelector('[data-role="clock"]')?.textContent || "",
   }).catch(error => document.body.setAttribute("data-probe-error", error.code || "probe_failed")), 100);
 });"""
     AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured)
@@ -385,13 +386,13 @@ window.addEventListener("dikciz-ready", () => {
     observed = {}
     while time.monotonic() < deadline:
         current = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET))
-        observed = configuration_widget(current, "command-deck")["state"]
+        observed = configuration_widget(current, "home-dashboard")["state"]
         if observed.get("starterReady"):
             break
         time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
     assert observed.get("starterReady"), observed
     assert observed["starterErrors"] == 0, observed
-    if removed != "#clock":
+    if removed != '[data-role="clock"]':
         assert observed["starterClock"] not in {"", "--:--"}, observed
 
 
@@ -416,3 +417,27 @@ def test_html_item_targeting_stale_menu_cannot_overwrite_changed_source(
         AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
     )
     assert without_item_observation(saved) == without_item_observation(expected)
+
+
+def test_html_item_targeting_single_main_card_is_editable(
+    websocket_control: socket.socket,
+) -> None:
+    original = AUTOMATION.require_configuration(
+        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
+    )
+    configured = item_configuration(original)
+    configuration_widget(configured, ITEM_WIDGET_ID)["html"] = (
+        '<main class="card" id="first"><h2>First HTML card</h2>'
+        '<p><span>Nested first label</span></p></main>'
+    )
+    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured)
+    press_html_item(websocket_control)
+    wait_for_snapshot_node(websocket_control, f"{ITEM_PREFIX}:edit")
+    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId=f"{ITEM_PREFIX}:delete")
+    saved = AUTOMATION.require_configuration(
+        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
+    )
+    widget = configuration_widget(saved, ITEM_WIDGET_ID)
+    assert ITEM_FIRST_TITLE not in widget["html"]
+    assert widget["state"]["preserved"] == "owner state"
+    assert len(configuration_page(saved, FIXTURE_HOME_PAGE_ID)["widgets"]) == 1

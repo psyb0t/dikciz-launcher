@@ -18,6 +18,11 @@
     const eventListeners = new Set();
     const selfWidgetDocument = window.dikcizSelfWidget ?? {};
     const pages = Object.freeze(selfWidgetDocument.pages ?? {});
+    let currentItemStates = selfWidgetDocument.itemStates ?? {};
+    let itemWriteQueue = Promise.resolve();
+    const ITEM_STATE_EVENT = "dikciz-item-state";
+    const ITEM_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$/;
+    const ITEM_FILE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/;
     let currentState = selfWidgetDocument.state ??
         window.dikcizWidgetState?.[selfWidgetDocument.id] ?? {};
 
@@ -145,14 +150,55 @@
         };
         window.dispatchEvent(new CustomEvent(STATE_EVENT, { detail: currentState }));
     };
+    const receiveItemStates = serializedStates => {
+        currentItemStates = JSON.parse(serializedStates);
+        window.dispatchEvent(new CustomEvent(ITEM_STATE_EVENT, {detail:currentItemStates}));
+    };
+    const item = id => {
+        if (typeof id !== "string" || !ITEM_ID_PATTERN.test(id)) throw failure("validation_failed", "Invalid HTML item instance ID");
+        const storagePath = `${selfWidgetDocument.storagePath}/items/${id}`;
+        const filePath = name => {
+            if (typeof name !== "string" || !ITEM_FILE_PATTERN.test(name)) throw failure("validation_failed", "Item file name must be a basename");
+            return `${storagePath}/${name}`;
+        };
+        return Object.freeze(Object.defineProperties({
+            id,
+            storagePath,
+            getState: async () => (await selfWidgetApi.get()).itemStates?.[id] ?? {},
+            patchState: values => {
+                const update = async () => {
+                    const saved = await selfWidgetApi.get();
+                    return selfWidgetApi.patch({itemStates:{...saved.itemStates, [id]:values}});
+                };
+                const pendingWrite = itemWriteQueue.then(update, update);
+                itemWriteQueue = pendingWrite;
+                return pendingWrite;
+            },
+            readFile: (name, options = {}) => command("fileRead", {...options, path:filePath(name)}),
+            writeFile: async (name, dataBase64, options = {}) => {
+                if (name === "state.json") throw failure("validation_failed", "Use patchState for state.json");
+                const path = filePath(name);
+                const saved = await selfWidgetApi.get();
+                if (!Object.prototype.hasOwnProperty.call(saved.itemStates ?? {}, id)) await item(id).patchState({});
+                await command("fileMkdir", {path:storagePath, parents:true});
+                return command("fileWrite", {overwrite:true, ...options, path, dataBase64});
+            },
+        }, {state:{enumerable:true, get:() => currentItemStates[id] ?? {}}}));
+    };
     const selfWidgetApi = Object.freeze(Object.defineProperties({
         ...selfWidgetDocument,
         get: () => widget(selfWidgetDocument.address),
+        item,
+        itemFor: element => {
+            const id = element?.closest?.("[data-dikciz-item-id]")?.getAttribute("data-dikciz-item-id");
+            return item(id);
+        },
         patch: values => patchWidget(selfWidgetDocument.address, values),
         patchDom: (selector, values) => patchDom(selfWidgetDocument.address, selector, values),
         patchState: values => dispatch({ actions: [{ type: "patchState", values }] }),
     }, {
         state: { enumerable: true, get: () => currentState },
+        itemStates: { enumerable: true, get: () => currentItemStates },
     }));
 
     window.selfWidget = selfWidgetApi;
@@ -174,6 +220,7 @@
         pages: () => pages,
         receiveEvent,
         receiveState,
+        receiveItemStates,
         selfWidget: selfWidgetApi,
         widget,
     });

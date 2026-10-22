@@ -34,7 +34,7 @@ For arbitrary file browsing, binary upload/download, APK installation and shell 
 
 Start with `snapshot`, `homeGet`, `configGet`, or the matching discovered MCP read tool. Use returned semantic IDs and page/widget addresses for actions. Read a fresh snapshot after an action to verify the change. Android accessibility actions require the phone owner to enable Dikciz's Accessibility service; ordinary launcher controls do not require it.
 
-The bundled home has pages, HTML widgets, a native shortcut, and a script dashboard. The native picker can add third-party provider widgets. Lua runs as automation scripts, not as a widget type. Android permissions, special access and root remain device-controlled.
+The bundled home has a full-page Home HTML dashboard and an Insights page. Hold a saved HTML card for Edit, Delete or Save as preset; use the document's top handle for Add preset or block. Whole-document packages remain in the HTML widget library. Three Lua utilities start disabled; a script dashboard can be added through the picker. The native picker can add third-party provider widgets. Lua runs as automation scripts, not as a widget type. Android permissions, special access and root remain device-controlled.
 
 ## Boundaries and completion
 

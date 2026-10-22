@@ -2,6 +2,25 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.21.0] - 2026-10-22
+
+### Fixed
+
+- Browser search passes its URL through the shared native intent command. The optional data URI is validated and available through every entrypoint.
+- Saved single-card HTML documents using `main.card` support item editing while document containers and empty padding remain protected.
+- Concurrent native edits and automation state patches preserve unrelated state and cannot restore a deleted wrapper from an older configuration.
+
+### Changed
+
+- HTML state belongs to page/widget directories. Wrapper state uses `state.json`; card instances use `items/<instance-id>/state.json` and can keep custom files beside it. Legacy embedded state migrates, file edits refresh the owning view, and deleting an instance or wrapper removes its owned files.
+- The starter Home is one full-page WebView with three editable cards. Existing homes retain their layout.
+- Clock, installed-app search and notes are working card presets and standalone HTML widget packages. The complete dashboard is also a package.
+- Saved cards offer Save as preset. Presets retain HTML, CSS and JavaScript and can be inserted without reloading the document. Repeated built-in notes keep separate saved state. Saving refuses duplicate IDs and excludes personal widget state.
+
+### Migration
+
+HTML widget state now lives in page/widget directories instead of the widget JSON record. Existing embedded state migrates automatically. File-based integrations must write the new state files. Reset the home or add the Home dashboard preset to use the combined starter on an existing installation.
+
 ## [0.20.0] - 2026-10-22
 
 ### Added

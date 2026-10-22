@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "home-dashboard",
+  "title": "Home dashboard",
+  "description": "Full-page clock, app search and saved note. Cards can be edited or reused separately.",
+  "span": {
+    "columnSpan": 4,
+    "rowSpan": 6
+  }
+}

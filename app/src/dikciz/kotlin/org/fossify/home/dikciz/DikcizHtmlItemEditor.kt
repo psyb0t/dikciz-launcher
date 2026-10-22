@@ -31,7 +31,7 @@ internal object DikcizHtmlItemEditor {
             const selections = new Map();
             const itemSelector = "[data-dikciz-item],[data-dikciz-widget],article,.card,.dikciz-block,section,li";
             const cardSelector = "[data-dikciz-item],[data-dikciz-widget],article,.card,.dikciz-block,li";
-            const forbiddenSelector = "html,body,main,script,style,link,meta";
+            const forbiddenSelector = "html,body,script,style,link,meta";
             const executableSelector = "script,style,link,meta";
             const maximumLabelLength = 120;
             let nextSelection = 0;
@@ -74,12 +74,12 @@ internal object DikcizHtmlItemEditor {
                     if (!(hit instanceof Element) || !hit.isConnected || hit.closest(executableSelector)) {
                         return reject("$REASON_NO_TARGET");
                     }
-                    const item = hit.closest(itemSelector) || hit;
+                    const item = hit.closest("[data-dikciz-item-id]") || hit.closest(itemSelector) || hit;
                     const path = paths.get(item);
                     if (!path) return reject("$REASON_UNMAPPED");
-                    if (item.matches(forbiddenSelector)) return reject("$REASON_CONTAINER");
+                    if (item.matches(forbiddenSelector) || (item.matches("main") && !item.matches(cardSelector))) return reject("$REASON_CONTAINER");
                     // Empty grid padding must not select every card in that grid.
-                    if (!item.matches(cardSelector) && item.querySelector(itemSelector)) return reject("$REASON_CONTAINER");
+                    if ((!item.matches(cardSelector) || item.matches("main")) && item.querySelector(itemSelector)) return reject("$REASON_CONTAINER");
                     const original = document.createElement("template");
                     original.innerHTML = source;
                     const saved = atPath(original.content, path);
@@ -93,7 +93,9 @@ internal object DikcizHtmlItemEditor {
                     const heading = item.querySelector("h1,h2,h3,h4,h5,h6");
                     const label = (heading?.textContent || item.getAttribute("aria-label") ||
                         item.textContent || item.tagName).trim().replace(/\s+/g, " ").slice(0, maximumLabelLength);
-                    return JSON.stringify({ id, label, html: saved.outerHTML, reason: "$REASON_SELECTED" });
+                    const itemIds = [saved, ...saved.querySelectorAll("[data-dikciz-item-id]")]
+                        .map(node => node.getAttribute("data-dikciz-item-id")).filter(Boolean);
+                    return JSON.stringify({ id, label, itemIds, html: saved.outerHTML, reason: "$REASON_SELECTED" });
                 },
                 replace(id, replacement) {
                     const selection = selections.get(id);
@@ -110,7 +112,8 @@ internal object DikcizHtmlItemEditor {
                         target.replaceWith(fragment.content);
                     }
                     selections.delete(id);
-                    return JSON.stringify({ html: copy.innerHTML });
+                    const html = copy.innerHTML;
+                    return JSON.stringify({ html: html.trim() ? html : "<!-- Empty HTML widget -->" });
                 },
             });
         }

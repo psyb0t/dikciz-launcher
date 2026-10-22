@@ -462,6 +462,10 @@ internal class DikcizHtmlWidgetLibrary(
         const val STAGING_SUFFIX = ".staging"
         val BUNDLED_PACKAGE_IDS = listOf(
             "app-launcher",
+            "home-dashboard",
+            "command-deck",
+            "quick-apps",
+            "quick-note",
             "brightness",
             "lock-screen",
             "notifications",

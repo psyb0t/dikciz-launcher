@@ -1005,6 +1005,7 @@ class DikcizHomeActivity : Activity() {
                 val previous = checkNotNull(previousConfiguration)
                 homeConfiguration = configuration
                 deliverHtmlWidgetStateUpdates(previous, configuration)
+                replaceConfigurationObservers(configuration)
                 refreshRenderedScriptDashboardStatuses(configuration)
                 if (shouldRefreshRenderingAssets) {
                     refreshRenderingAssets()
@@ -1296,6 +1297,7 @@ class DikcizHomeActivity : Activity() {
         pageCanvas.collectHtmlWidgetViews().forEach { widgetView ->
             val widget = widgets[widgetView.widgetID()] ?: return@forEach
             widgetView.deliverState(widget.state)
+            widgetView.deliverItemStates(widget.itemStates)
             if (widget.heightMode == HtmlWidgetHeightMode.Content) {
                 widgetView.requestContentHeight()
             }
@@ -2637,6 +2639,14 @@ class DikcizHomeActivity : Activity() {
             registerAutomationView("$prefix:edit", this)
         })
         actions.addView(Button(this).apply {
+            text = getString(R.string.dikciz_html_item_save_preset)
+            setOnClickListener {
+                dialog.dismiss()
+                showSaveHtmlItemPreset(widget, selection)
+            }
+            registerAutomationView("$prefix:save-preset", this)
+        })
+        actions.addView(Button(this).apply {
             text = getString(R.string.dikciz_widget_delete)
             setOnClickListener { saveHtmlItem(pageID, widget, view, selection, null, dialog) }
             registerAutomationView("$prefix:delete", this)
@@ -2644,6 +2654,60 @@ class DikcizHomeActivity : Activity() {
         showActiveDialog(dialog, onDismiss = {
             automationViews.remove("$prefix:edit")
             automationViews.remove("$prefix:delete")
+            automationViews.remove("$prefix:save-preset")
+        })
+    }
+
+    private fun showSaveHtmlItemPreset(widget: HtmlHomeWidget, selection: HtmlItemSelection) {
+        val prefix = "widget:${widget.id}:html-item:preset"
+        val title = EditText(this).apply {
+            setText(selection.label)
+            contentDescription = getString(R.string.dikciz_dialog_title_hint)
+        }
+        val identifier = EditText(this).apply {
+            hint = getString(R.string.dikciz_html_widget_package_id_input)
+            contentDescription = hint
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        }
+        val form = createPanelColumn().apply {
+            addView(createPanelSubtitle(getString(R.string.dikciz_html_item_preset_explanation)))
+            addView(title)
+            addView(identifier)
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.dikciz_html_item_save_preset)
+            .setView(ScrollView(this).apply { addView(form) })
+            .setNegativeButton(R.string.dikciz_dialog_cancel, null)
+            .setPositiveButton(R.string.dikciz_dialog_save, null)
+            .create()
+        showActiveDialog(dialog, onShown = {
+            registerAutomationView("$prefix:title", title)
+            registerAutomationView("$prefix:id", identifier)
+            val save = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            registerAutomationView("$prefix:save", save)
+            save.setOnClickListener {
+                val page = homeConfiguration?.selectedPage()
+                val current = page?.findWidget(widget.id) as? HtmlHomeWidget
+                if (page == null || page.locked || current == null || current.locked || current.html != widget.html) {
+                    Toast.makeText(this, R.string.dikciz_html_item_unavailable, Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                try {
+                    homeConfigStore.saveHtmlBlock(
+                        current.copy(html = selection.html),
+                        title.text.toString(),
+                        identifier.text.toString(),
+                    )
+                    dikcizLogger.info(EVENT_HTML_WIDGET_LIBRARY_SAVED, mapOf(FIELD_WIDGET_ID to widget.id))
+                    Toast.makeText(this, R.string.dikciz_html_item_preset_saved, Toast.LENGTH_SHORT).show()
+                    dialog.dismiss()
+                } catch (exception: HomeConfigException) {
+                    dikcizLogger.warn(EVENT_HTML_WIDGET_LIBRARY_SAVE_REJECTED, mapOf(FIELD_REASON to exception.message.orEmpty()))
+                    identifier.error = exception.message
+                }
+            }
+        }, onDismiss = {
+            listOf("title", "id", "save").forEach { action -> automationViews.remove("$prefix:$action") }
         })
     }
 
@@ -2667,7 +2731,10 @@ class DikcizHomeActivity : Activity() {
             }
             if (updateSelectedPage { selected ->
                     selected.replaceWidget(widget.id) { existing ->
-                        (existing as HtmlHomeWidget).copy(html = html)
+                        val currentHtml = existing as HtmlHomeWidget
+                        val itemStates = JSONObject(currentHtml.itemStates.toString())
+                        if (replacement == null) selection.itemIDs.forEach(itemStates::remove)
+                        currentHtml.copy(html = html, itemStates = DikcizHtmlWidgetStateStore.initialStates(html, itemStates))
                     }
                 }
             ) {
@@ -2774,10 +2841,12 @@ class DikcizHomeActivity : Activity() {
         widgetContainer.collectHtmlWidgetViews().forEach { widgetView ->
             val currentWidget = currentWidgets[widgetView.widgetID()] ?: return@forEach
             val previousWidget = previousWidgets[currentWidget.id]
-            if (previousWidget?.serializedState == currentWidget.serializedState) {
-                return@forEach
+            if (previousWidget?.serializedState != currentWidget.serializedState) {
+                widgetView.deliverState(currentWidget.state)
             }
-            widgetView.deliverState(currentWidget.state)
+            if (previousWidget?.serializedItemStates != currentWidget.serializedItemStates) {
+                widgetView.deliverItemStates(currentWidget.itemStates)
+            }
         }
     }
 
@@ -4837,10 +4906,14 @@ class DikcizHomeActivity : Activity() {
     private fun dispatchAutomationIntent(command: DikcizAutomationCommand): JSONObject {
         val intentType = command.request.getString(DikcizAutomationControlPlane.KEY_INTENT_TYPE)
         val action = command.request.getString(DikcizAutomationControlPlane.KEY_ACTION)
+        val intent = Intent(action)
+        if (command.request.has(DikcizAutomationControlPlane.KEY_INTENT_DATA)) {
+            intent.data = Uri.parse(command.request.getString(DikcizAutomationControlPlane.KEY_INTENT_DATA))
+        }
         try {
             when (intentType) {
-                DikcizAutomationControlPlane.INTENT_TYPE_ACTIVITY -> startTrackedActivity(Intent(action))
-                DikcizAutomationControlPlane.INTENT_TYPE_BROADCAST -> sendBroadcast(Intent(action))
+                DikcizAutomationControlPlane.INTENT_TYPE_ACTIVITY -> startTrackedActivity(intent)
+                DikcizAutomationControlPlane.INTENT_TYPE_BROADCAST -> sendBroadcast(intent)
                 else -> throw automationFailure(MESSAGE_UNSUPPORTED_INTENT_TYPE)
             }
         } catch (exception: ActivityNotFoundException) {
@@ -9531,7 +9604,7 @@ class DikcizHomeActivity : Activity() {
      * one Add action that appends to that widget's document only.
      */
     private fun showHtmlBlockPreview(widget: HtmlHomeWidget, block: DikcizHtmlBlock) {
-        val previewWidget = widget.copy(html = block.fragment)
+        val previewWidget = widget.copy(html = block.fragment, css = widget.css + "\n" + block.css)
         val preview = WebView(this).apply {
             settings.javaScriptEnabled = false
             settings.blockNetworkLoads = true
@@ -9604,7 +9677,12 @@ class DikcizHomeActivity : Activity() {
         if (!updateSelectedPage(shouldRender = false) { page ->
                 page.replaceWidget(currentWidget.id) { current ->
                     if (current is HtmlHomeWidget) {
-                        current.copy(html = appended)
+                        current.copy(
+                            html = appended,
+                            itemStates = DikcizHtmlWidgetStateStore.initialStates(appended, current.itemStates),
+                            css = appendHtmlPresetSource(current.css, block.css),
+                            javascript = appendHtmlPresetSource(current.javascript, block.javascript),
+                        )
                     } else {
                         current
                     }
@@ -9636,7 +9714,7 @@ class DikcizHomeActivity : Activity() {
             )
             return
         }
-        widgetView.appendBlock(updatedWidget, instanceID, fragment) { outcome ->
+        widgetView.appendBlock(updatedWidget, instanceID, fragment, block.css, block.javascript) { outcome ->
             if (outcome != DikcizHtmlDomPatchOutcome.Executed) {
                 dikcizLogger.warn(
                     EVENT_HTML_BLOCK_APPEND_DEFERRED,
@@ -9663,6 +9741,11 @@ class DikcizHomeActivity : Activity() {
                 Toast.LENGTH_SHORT,
             ).show()
         }
+    }
+
+    private fun appendHtmlPresetSource(current: String, extra: String): String {
+        if (extra.isBlank() || current.contains(extra.trim())) return current
+        return current + HTML_BLOCK_SEPARATOR + extra
     }
 
     private fun currentSelectedHtmlWidget(widgetID: String): HtmlHomeWidget? {
@@ -9719,7 +9802,7 @@ class DikcizHomeActivity : Activity() {
         }
         dialog = AlertDialog.Builder(this)
             .setTitle(R.string.dikciz_html_widget_library_title)
-            .setView(content)
+            .setView(ScrollView(this).apply { addView(content) })
             .setNegativeButton(R.string.dikciz_dialog_cancel, null)
             .create()
         dikcizLogger.info(EVENT_HTML_WIDGET_LIBRARY_OPENED, mapOf(FIELD_PAGE_ID to target.pageID))
@@ -9972,6 +10055,7 @@ class DikcizHomeActivity : Activity() {
             return currentWidget.copy(
                 title = titleInput.text.toString(),
                 html = htmlInput.text.toString(),
+                itemStates = DikcizHtmlWidgetStateStore.initialStates(htmlInput.text.toString(), currentWidget.itemStates),
                 css = cssInput.text.toString(),
                 javascript = javascriptInput.text.toString(),
                 state = state,
@@ -11023,14 +11107,18 @@ class DikcizHomeActivity : Activity() {
             Toast.makeText(this, R.string.dikciz_safe_mode_message, Toast.LENGTH_LONG).show()
             return false
         }
-        val currentConfiguration = homeConfiguration ?: return false
-        val updatedConfiguration = transform(currentConfiguration)
-        dikcizLogger.debug(
-            EVENT_CONFIGURATION_SAVE_STARTED,
-            mapOf(FIELD_PAGE_COUNT to updatedConfiguration.pages.size),
-        )
-        try {
-            homeConfigStore.save(updatedConfiguration)
+        var currentConfiguration = homeConfiguration ?: return false
+        val updatedConfiguration = try {
+            homeConfigStore.withConfigurationLock {
+                currentConfiguration = homeConfigStore.loadOrCreate()
+                val updated = transform(currentConfiguration)
+                dikcizLogger.debug(
+                    EVENT_CONFIGURATION_SAVE_STARTED,
+                    mapOf(FIELD_PAGE_COUNT to updated.pages.size),
+                )
+                homeConfigStore.save(updated)
+                updated
+            }
         } catch (exception: HomeConfigException) {
             dikcizLogger.error(
                 EVENT_CONFIGURATION_SAVE_FAILED,

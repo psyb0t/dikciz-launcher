@@ -20,6 +20,8 @@ internal data class DikcizHtmlBlock(
     val description: String,
     val previewLabel: String,
     val fragment: String,
+    val css: String = "",
+    val javascript: String = "",
 )
 
 /**
@@ -43,7 +45,8 @@ internal class DikcizHtmlBlockLibrary(
             if (!target.mkdirs() && !target.isDirectory) {
                 throw HomeConfigException("could not create block directory $blockID")
             }
-            BLOCK_FILE_NAMES.forEach { name ->
+            val assets = context.assets.list("$ASSET_DIRECTORY/$blockID").orEmpty()
+            BLOCK_FILE_NAMES.filter { name -> name in assets }.forEach { name ->
                 writeAtomicFile(
                     File(target, name),
                     context.assets.open("$ASSET_DIRECTORY/$blockID/$name")
@@ -77,12 +80,75 @@ internal class DikcizHtmlBlockLibrary(
             append(instanceID)
             append(MARKER_SUFFIX)
             append(LINE_BREAK)
-            append(block.fragment.trim())
+            var itemIndex = 0
+            val fragment = block.fragment.trim()
+            val marked = ITEM_ID_ATTRIBUTE.replace(fragment) {
+                val id = if (itemIndex++ == 0) instanceID else "$instanceID-$itemIndex"
+                "data-dikciz-item-id=\"$id\""
+            }
+            append(if (itemIndex == 0) {
+                "<section data-dikciz-item data-dikciz-item-id=\"$instanceID\">$marked</section>"
+            } else {
+                marked
+            })
             append(LINE_BREAK)
             append(MARKER_CLOSE_PREFIX)
             append(instanceID)
             append(MARKER_SUFFIX)
         }
+    }
+
+    fun saveBlock(widget: HtmlHomeWidget, title: String, blockID: String): DikcizHtmlBlock {
+        return try {
+            saveNewBlock(widget, title, blockID)
+        } catch (exception: java.io.IOException) {
+            throw HomeConfigException("could not save the HTML preset", exception)
+        } catch (exception: SecurityException) {
+            throw HomeConfigException("HTML preset storage access was denied", exception)
+        }
+    }
+
+    private fun saveNewBlock(widget: HtmlHomeWidget, title: String, blockID: String): DikcizHtmlBlock {
+        val target = blockDirectory(blockID)
+        ensureDirectory()
+        if (target.exists()) throw HomeConfigException("choose a new preset ID; this ID already exists")
+        val manifest = JSONObject()
+            .put(KEY_VERSION, CURRENT_VERSION)
+            .put(KEY_ID, blockID)
+            .put(KEY_TITLE, title)
+            .put(KEY_DESCRIPTION, title)
+            .put(KEY_PREVIEW_LABEL, title)
+        manifest.requireText(KEY_TITLE, MAXIMUM_TITLE_CHARACTERS)
+        listOf(widget.html, widget.css, widget.javascript).forEach { source ->
+            if (source.toByteArray(StandardCharsets.UTF_8).size > MAXIMUM_SOURCE_BYTES || source.contains(NUL_CHARACTER)) {
+                throw HomeConfigException("preset source exceeds the limit or contains an invalid character")
+            }
+        }
+        if (widget.html.isBlank()) throw HomeConfigException("preset HTML must not be blank")
+        val staging = File(directory, ".${blockID}.${java.util.UUID.randomUUID()}")
+        if (!staging.mkdir()) throw HomeConfigException("could not stage the preset")
+        writeAtomicFile(File(staging, MANIFEST_FILE_NAME), manifest.toString())
+        writeAtomicFile(File(staging, FRAGMENT_FILE_NAME), widget.html)
+        writeAtomicFile(File(staging, CSS_FILE_NAME), widget.css)
+        writeAtomicFile(File(staging, JAVASCRIPT_FILE_NAME), widget.javascript)
+        val value = readBlock(staging, blockID)
+        if (target.exists() || !staging.renameTo(target)) throw HomeConfigException("could not publish the preset")
+        return value
+    }
+
+    private fun blockDirectory(blockID: String): File {
+        if (!BLOCK_ID_PATTERN.matches(blockID) || blockID.length > MAXIMUM_ID_CHARACTERS) {
+            throw HomeConfigException("preset ID must be a lowercase slug of at most $MAXIMUM_ID_CHARACTERS characters")
+        }
+        val root = directory.canonicalFile
+        val target = File(root, blockID).canonicalFile
+        if (target.parentFile != root) throw HomeConfigException("preset path escapes the library")
+        return target
+    }
+
+    private fun optionalSource(directory: File, name: String): String {
+        val file = File(directory, name)
+        return if (file.exists()) readSourceFile(file) else ""
     }
 
     private fun loadBlockOrNull(blockID: String): DikcizHtmlBlock? {
@@ -94,7 +160,17 @@ internal class DikcizHtmlBlockLibrary(
     }
 
     private fun loadBlock(blockID: String): DikcizHtmlBlock {
-        val blockDirectory = File(directory, blockID)
+        val blockDirectory = blockDirectory(blockID)
+        return try {
+            readBlock(blockDirectory, blockID)
+        } catch (exception: java.io.IOException) {
+            throw HomeConfigException("could not read the HTML preset", exception)
+        } catch (exception: SecurityException) {
+            throw HomeConfigException("HTML preset storage access was denied", exception)
+        }
+    }
+
+    private fun readBlock(blockDirectory: File, blockID: String): DikcizHtmlBlock {
         val manifest = readManifest(File(blockDirectory, MANIFEST_FILE_NAME))
         requireOnlyKeys(manifest, MANIFEST_KEYS)
         if (manifest.requireBoundedInt(KEY_VERSION, MINIMUM_VERSION, CURRENT_VERSION) !=
@@ -115,11 +191,13 @@ internal class DikcizHtmlBlockLibrary(
             description = manifest.requireText(KEY_DESCRIPTION, MAXIMUM_DESCRIPTION_CHARACTERS),
             previewLabel = manifest.requireText(KEY_PREVIEW_LABEL, MAXIMUM_TITLE_CHARACTERS),
             fragment = fragment,
+            css = optionalSource(blockDirectory, CSS_FILE_NAME),
+            javascript = optionalSource(blockDirectory, JAVASCRIPT_FILE_NAME),
         )
     }
 
     private fun readManifest(file: File): JSONObject {
-        if (!file.isFile || file.length() > MAXIMUM_SOURCE_BYTES) {
+        if (file.canonicalFile.parentFile != file.parentFile?.canonicalFile || !file.isFile || file.length() > MAXIMUM_SOURCE_BYTES) {
             throw HomeConfigException("${file.name} is missing or too large")
         }
         return try {
@@ -130,10 +208,12 @@ internal class DikcizHtmlBlockLibrary(
     }
 
     private fun readSourceFile(file: File): String {
-        if (!file.isFile || file.length() > MAXIMUM_SOURCE_BYTES) {
+        if (file.canonicalFile.parentFile != file.parentFile?.canonicalFile || !file.isFile || file.length() > MAXIMUM_SOURCE_BYTES) {
             throw HomeConfigException("${file.name} is missing or too large")
         }
-        return file.readText(StandardCharsets.UTF_8)
+        return file.readText(StandardCharsets.UTF_8).also { source ->
+            if (source.contains(NUL_CHARACTER)) throw HomeConfigException("block source contains an invalid character")
+        }
     }
 
     private fun ensureDirectory() {
@@ -168,8 +248,8 @@ internal class DikcizHtmlBlockLibrary(
     }
 
     private fun JSONObject.requireText(key: String, maximumLength: Int): String {
-        val value = optString(key)
-        if (value.isBlank() || value.length > maximumLength || value.contains(NUL_CHARACTER)) {
+        val value = opt(key)
+        if (value !is String || value.isBlank() || value.length > maximumLength || value.contains(NUL_CHARACTER)) {
             throw HomeConfigException("block manifest $key is invalid")
         }
         return value
@@ -179,11 +259,11 @@ internal class DikcizHtmlBlockLibrary(
         if (!has(key)) {
             throw HomeConfigException("block manifest is missing $key")
         }
-        val value = optInt(key, minimum - OUT_OF_RANGE_OFFSET)
-        if (value < minimum || value > maximum) {
+        val value = opt(key)
+        if (value !is Number || value.toDouble() != value.toLong().toDouble() || value.toLong() !in minimum.toLong()..maximum.toLong()) {
             throw HomeConfigException("block manifest $key is out of range")
         }
-        return value
+        return value.toInt()
     }
 
     companion object {
@@ -212,15 +292,20 @@ internal class DikcizHtmlBlockLibrary(
         private const val MAXIMUM_TITLE_CHARACTERS = 120
         private const val MINIMUM_VERSION = 1
         private const val NUL_CHARACTER = '\u0000'
-        private const val OUT_OF_RANGE_OFFSET = 1
 
-        private val BLOCK_FILE_NAMES = listOf(MANIFEST_FILE_NAME, FRAGMENT_FILE_NAME)
+        private const val CSS_FILE_NAME = "style.css"
+        private const val JAVASCRIPT_FILE_NAME = "script.js"
+        private val ITEM_ID_ATTRIBUTE = Regex("data-dikciz-item-id=\"[^\"]*\"")
+        private val BLOCK_FILE_NAMES = listOf(MANIFEST_FILE_NAME, FRAGMENT_FILE_NAME, CSS_FILE_NAME, JAVASCRIPT_FILE_NAME)
         private val BLOCK_ID_PATTERN = Regex("^[a-z][a-z0-9-]*$")
         private val BUNDLED_BLOCK_IDS = listOf(
             "heading",
             "status-row",
             "action-button",
             "divider",
+            "command-deck",
+            "quick-apps",
+            "quick-note",
         )
         private val MANIFEST_KEYS = setOf(
             KEY_VERSION,

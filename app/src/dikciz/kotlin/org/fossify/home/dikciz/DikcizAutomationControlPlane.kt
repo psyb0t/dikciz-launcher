@@ -602,6 +602,12 @@ internal class DikcizAutomationControlPlane(
                 MAXIMUM_SEMANTIC_ID_CHARACTERS,
             )
             TYPE_INTENT -> {
+                if (request.has(KEY_INTENT_DATA)) {
+                    val data = request.requireBoundedString(KEY_INTENT_DATA, MAXIMUM_INTENT_ACTION_CHARACTERS)
+                    if (data.any { character -> character.isISOControl() } || android.net.Uri.parse(data).scheme.isNullOrBlank()) {
+                        throw DikcizAutomationRequestException(ERROR_VALIDATION_FAILED, "intent data must be an absolute URI without control characters")
+                    }
+                }
                 request.requireBoundedString(KEY_ACTION, MAXIMUM_INTENT_ACTION_CHARACTERS)
                 val intentType = request.requireBoundedString(KEY_INTENT_TYPE, MAXIMUM_INTENT_TYPE_CHARACTERS)
                 if (intentType !in SUPPORTED_INTENT_TYPES) {
@@ -1237,6 +1243,7 @@ internal class DikcizAutomationControlPlane(
         const val TYPE_HTML_WIDGET_RENDERER_CRASH = "htmlWidgetRendererCrash"
         const val TYPE_HOME_GET = "homeGet"
         const val TYPE_HELLO = "hello"
+        const val KEY_INTENT_DATA = "data"
         const val TYPE_INTENT = "intent"
         const val TYPE_LAUNCH_APP = "launchApp"
         const val TYPE_LONG_PRESS = "longPress"
@@ -1329,7 +1336,7 @@ internal class DikcizAutomationControlPlane(
                 KEY_REQUEST_ID, KEY_TYPE, KEY_COMMAND, KEY_ROOT, KEY_TIMEOUT_MILLISECONDS,
                 DikcizPrivilegedShell.KEY_MAX_OUTPUT_BYTES,
             ),
-            TYPE_INTENT to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_INTENT_TYPE, KEY_ACTION),
+            TYPE_INTENT to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_INTENT_TYPE, KEY_ACTION, KEY_INTENT_DATA),
             TYPE_SCREENSHOT to setOf(KEY_REQUEST_ID, KEY_TYPE),
             TYPE_UI_DUMP to setOf(KEY_REQUEST_ID, KEY_TYPE),
             TYPE_DIAGNOSTICS to setOf(KEY_REQUEST_ID, KEY_TYPE),

@@ -73,6 +73,7 @@ internal class HomeConfigStore(
         sharedStorageRoot(),
         "$CONFIGURATION_DIRECTORY_NAME/$PAGES_DIRECTORY_NAME",
     )
+    private val htmlWidgetStates by lazy { DikcizHtmlWidgetStateStore(pagesDirectory) }
     private val starterIdentityFile = File(
         sharedStorageRoot(),
         "$CONFIGURATION_DIRECTORY_NAME/$STARTER_IDENTITY_FILE_NAME",
@@ -86,7 +87,11 @@ internal class HomeConfigStore(
         return Environment.isExternalStorageManager()
     }
 
-    fun loadOrCreate(): HomeConfiguration {
+    fun <T> withConfigurationLock(operation: () -> T): T = synchronized(CONFIGURATION_LOCK, operation)
+
+    fun loadOrCreate(): HomeConfiguration = withConfigurationLock { loadStoredConfiguration() }
+
+    private fun loadStoredConfiguration(): HomeConfiguration {
         requireSharedStorageAccess()
         ensureConfigurationDirectory()
         ensurePublicDirectory(pagesDirectory, "pages")
@@ -122,6 +127,12 @@ internal class HomeConfigStore(
             throw HomeConfigException(
                 "${CONFIGURATION_FILE_NAME} exceeds its configured maxConfigBytes limit",
             )
+        }
+        if (configuration.pages.any { page -> page.widgets.filterIsInstance<HtmlHomeWidget>().any { widget ->
+                htmlWidgetStates.needsMigration(page.id, widget.id)
+            } }
+        ) {
+            save(configuration)
         }
         return configuration
     }
@@ -245,6 +256,11 @@ internal class HomeConfigStore(
         return htmlBlockLibrary.listBlocks()
     }
 
+    fun saveHtmlBlock(widget: HtmlHomeWidget, title: String, blockID: String): DikcizHtmlBlock {
+        requireSharedStorageAccess()
+        return htmlBlockLibrary.saveBlock(widget, title, blockID)
+    }
+
     fun markedHtmlBlockFragment(block: DikcizHtmlBlock, instanceID: String): String {
         return htmlBlockLibrary.markedFragment(block, instanceID)
     }
@@ -291,7 +307,9 @@ internal class HomeConfigStore(
         )
     }
 
-    fun save(configuration: HomeConfiguration) {
+    fun save(configuration: HomeConfiguration) = withConfigurationLock { saveStoredConfiguration(configuration) }
+
+    private fun saveStoredConfiguration(configuration: HomeConfiguration) {
         requireSharedStorageAccess()
         validateConfiguration(configuration)
         val serializedConfiguration = serializeConfiguration(configuration)
@@ -310,7 +328,12 @@ internal class HomeConfigStore(
      * A selection changes only the root manifest, so it must not rewrite every public
      * page, widget, script, and automation document before the destination renders.
      */
-    fun saveSelectedPage(configuration: HomeConfiguration) {
+    fun saveSelectedPage(configuration: HomeConfiguration) = withConfigurationLock {
+        val latest = loadOrCreate()
+        saveSelectedPageManifest(latest.copy(selectedPageID = configuration.selectedPageID))
+    }
+
+    private fun saveSelectedPageManifest(configuration: HomeConfiguration) {
         requireSharedStorageAccess()
         if (configuration.pages.none { page -> page.id == configuration.selectedPageID }) {
             throw HomeConfigException(SELECTED_PAGE_ID_MISSING_MESSAGE)
@@ -635,6 +658,9 @@ internal class HomeConfigStore(
                 val pageDirectory = pageDirectory(page.id)
                 add(pageDirectory)
                 add(widgetDirectory(page.id))
+                page.widgets.filterIsInstance<HtmlHomeWidget>().forEach { widget ->
+                    addAll(htmlWidgetStates.watchDirectories(page.id, widget.id))
+                }
             }
             configuration.scripts.forEach { script -> add(scriptDirectory(script.id)) }
         }.distinctBy(File::getAbsolutePath)
@@ -846,6 +872,9 @@ internal class HomeConfigStore(
                     "widget reference $widgetID does not match widget id $persistedWidgetID",
                 )
             }
+            if (widget.optString(TYPE_KEY) == HTML_WIDGET_TYPE) {
+                htmlWidgetStates.expand(pageID, widgetID, widget)
+            }
             expandedWidgets.put(widget)
         }
         return JSONObject(page.toString()).put(WIDGETS_KEY, expandedWidgets)
@@ -994,9 +1023,11 @@ internal class HomeConfigStore(
         }
         configuration.pages.forEach { page ->
             page.widgets.forEach { widget ->
+                val document = widget.toJson()
+                if (widget is HtmlHomeWidget) htmlWidgetStates.save(page.id, widget, document)
                 writeAtomicFileIfChanged(
                     File(widgetDirectory(page.id), "${widget.id}.$JSON_FILE_EXTENSION"),
-                    widget.toJson().toString(JSON_INDENTATION_SPACES),
+                    document.toString(JSON_INDENTATION_SPACES),
                 )
             }
             writeAtomicFileIfChanged(
@@ -1029,12 +1060,14 @@ internal class HomeConfigStore(
             val keptWidgetFiles = page.widgets.mapTo(mutableSetOf()) { widget ->
                 "${widget.id}.$JSON_FILE_EXTENSION"
             }
+            htmlWidgetStates.prune(page.id, page.widgets.filterIsInstance<HtmlHomeWidget>().map { widget -> widget.id }.toSet())
             deleteOwnedJsonFiles(widgetDirectory(page.id), keptWidgetFiles)
         }
         pagesDirectory.listFiles().orEmpty().forEach { directory ->
             if (!directory.isDirectory || directory.name in pageIDs) {
                 return@forEach
             }
+            htmlWidgetStates.prune(directory.name, emptySet())
             deleteOwnedJsonFiles(File(directory, WIDGETS_DIRECTORY_NAME), emptySet())
             File(directory, WIDGETS_DIRECTORY_NAME).takeIf(::isEmptyDirectory)?.delete()
             File(directory, PAGE_FILE_NAME).delete()
@@ -1817,6 +1850,10 @@ internal class HomeConfigStore(
             css = optionalText(CSS_KEY, context, limits),
             javascript = optionalText(JAVASCRIPT_KEY, context, limits),
             state = parseHtmlWidgetState(context, limits),
+            itemStates = DikcizHtmlWidgetStateStore.initialStates(
+                html,
+                if (has(ITEM_STATES_KEY)) requireObject(ITEM_STATES_KEY, context) else JSONObject(),
+            ),
             heightMode = optionalHtmlWidgetHeightMode(context),
             eventSubscriptions = parseHtmlWidgetEventSubscriptions(context, limits),
             enabled = requireBoolean(ENABLED_KEY, context),
@@ -2433,6 +2470,15 @@ internal class HomeConfigStore(
         validateText(widget.css, limits)
         validateText(widget.javascript, limits)
         validateHtmlWidgetState(widget.state, "widget ${widget.id} state", limits)
+        if (widget.itemStates.length() > DikcizHtmlWidgetStateStore.MAXIMUM_ITEMS) {
+            throw HomeConfigException("HTML widget has too many item states")
+        }
+        widget.itemStates.keys().forEach { itemID ->
+            if (!DikcizHtmlWidgetStateStore.ID_PATTERN.matches(itemID)) throw HomeConfigException("HTML item state ID is invalid")
+            val itemState = widget.itemStates.opt(itemID) as? JSONObject
+                ?: throw HomeConfigException("HTML item state must be an object")
+            validateHtmlWidgetState(itemState, "widget ${widget.id} item state", limits)
+        }
         validateHtmlWidgetEventSubscriptions(widget, limits)
     }
 
@@ -2546,7 +2592,7 @@ internal class HomeConfigStore(
                 page.copy(
                     widgets = page.widgets.map { widget ->
                         if (widget is HtmlHomeWidget) {
-                            widget.copy(state = JSONObject())
+                            widget.copy(state = JSONObject(), itemStates = JSONObject())
                         } else {
                             widget
                         }
@@ -2775,6 +2821,7 @@ internal class HomeConfigStore(
                 json.put(CSS_KEY, css)
                 json.put(JAVASCRIPT_KEY, javascript)
                 json.put(STATE_KEY, JSONObject(state.toString()))
+                json.put(ITEM_STATES_KEY, JSONObject(itemStates.toString()))
                 json.put(HTML_HEIGHT_MODE_KEY, heightMode.persistedValue)
                 json.put(HTML_EVENT_SUBSCRIPTIONS_KEY, JSONArray().apply {
                     eventSubscriptions.forEach { subscription -> put(subscription.toJson()) }
@@ -3140,6 +3187,7 @@ internal class HomeConfigStore(
     }
 
     companion object {
+        private val CONFIGURATION_LOCK = Any()
         const val CONFIGURATION_DIRECTORY_NAME = "Dikciz"
         const val STARTER_IDENTITY_FILE_NAME = ".bundled-starter"
         const val CONFIGURATION_FILE_NAME = "config.json"
@@ -3316,6 +3364,7 @@ internal class HomeConfigStore(
         private const val SCRIPT_IMPORT_DIRECTORY_NAME = "imports"
         private const val SCRIPTS_NAMESPACE_KEY = "scripts"
         private const val STATE_KEY = "state"
+        private const val ITEM_STATES_KEY = DikcizHtmlWidgetStateStore.ITEM_STATES_FIELD
         private const val TITLE_KEY = "title"
         private const val TYPE_KEY = "type"
         private const val PROVIDER_KEY = "provider"
@@ -3453,6 +3502,7 @@ internal class HomeConfigStore(
             STATE_KEY,
             HTML_HEIGHT_MODE_KEY,
             HTML_EVENT_SUBSCRIPTIONS_KEY,
+            ITEM_STATES_KEY,
             ENABLED_KEY,
             CELL_KEY,
             DikcizStyleCodec.STYLE_KEY,

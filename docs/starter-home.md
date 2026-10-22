@@ -8,7 +8,9 @@ New installations start with two pages. Existing edited homes keep their pages, 
 - **Find an app** filters the real installed-app catalogue by name or package and launches a selected result. Up to six matches appear. Open the bottom app drawer to see all apps and add native shortcuts.
 - **Quick note** saves up to 2,000 characters on this phone when you tap **Save note**. Unsaved edits are marked. Saved text survives switching pages and reopening Dikciz.
 
-Each card is its own HTML widget. Move, resize or remove it using its top handle. Long press a content item to edit that item. Nothing requires a bundled background script. Save any card as a library package to reuse it on another page.
+Home is one full-page HTML widget containing three saved cards in one WebView. Long press a card for **Edit**, **Delete**, or **Save as preset**. Deleting a card keeps its containing document and siblings. Use the top move handle for whole-document controls, **Add preset or block**, or the full HTML/CSS/JavaScript editor. Nothing requires a bundled background script.
+
+The clock, app search and note are also ready-made presets. Add them inside another HTML widget through **Add preset or block**, or create separate native grid widgets through the HTML widget library. The **Home dashboard** library preset recreates the combined document. Repeated notes keep independent instance IDs and state files under their page and WebView wrapper. Deleting one removes only its state and custom files. Custom card presets copy source and behavior, never saved note text or other state. Existing homes keep their layout on update; reset the home or add the dashboard preset to use the combined starter.
 
 <img src="images/user-guide/01-first-launch.png" alt="Starter Home with clock, app search and quick note" width="280">
 

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "quick-apps",
+  "title": "Find an app",
+  "description": "Ready-made find an app HTML widget.",
+  "span": {
+    "columnSpan": 4,
+    "rowSpan": 2
+  }
+}

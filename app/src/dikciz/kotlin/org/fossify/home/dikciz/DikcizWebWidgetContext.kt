@@ -38,7 +38,10 @@ internal object DikcizWebWidgetContext {
             .put(FIELD_TYPE, widget.typeReferenceValue())
             .also { document ->
                 when (widget) {
-                    is HtmlHomeWidget -> document.put(FIELD_STATE, JSONObject(widget.state.toString()))
+                    is HtmlHomeWidget -> document
+                        .put(FIELD_STATE, JSONObject(widget.state.toString()))
+                        .put(FIELD_ITEM_STATES, JSONObject(widget.itemStates.toString()))
+                        .put(FIELD_STORAGE_PATH, "/sdcard/Dikciz/pages/${page.id}/widgets/${widget.id}")
                     is AppHomeWidget,
                     is AppGroupHomeWidget,
                     is ProviderHomeWidget,
@@ -98,6 +101,8 @@ internal object DikcizWebWidgetContext {
     private const val FIELD_ROW = "row"
     private const val FIELD_ROW_SPAN = "rowSpan"
     private const val FIELD_STATE = "state"
+    private const val FIELD_ITEM_STATES = DikcizHtmlWidgetStateStore.ITEM_STATES_FIELD
+    private const val FIELD_STORAGE_PATH = "storagePath"
     private const val FIELD_TITLE = "title"
     private const val FIELD_TYPE = "type"
     private const val FIELD_VERTICAL = "vertical"

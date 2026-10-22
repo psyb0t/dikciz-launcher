@@ -128,11 +128,7 @@ def wait_for_widget_state_value(
     )
 
 
-def default_command_deck(configuration: dict[str, Any]) -> dict[str, Any]:
-    return configuration_widget(configuration, "command-deck")
-
-
-def test_html_lua_and_notification_events_flow_through_the_live_event_bus(
+def test_html_lua_events_flow_through_the_live_bus_and_starter_stays_quiet(
     websocket_control: socket.socket,
 ) -> None:
     original = AUTOMATION.require_configuration(
@@ -180,55 +176,27 @@ def test_html_lua_and_notification_events_flow_through_the_live_event_bus(
             AUTOMATION.TYPE_CONFIG_REPLACE,
             config=original,
         )
-    assert_default_notification_deck_tracks_real_events(websocket_control)
+    assert_starter_has_no_automatic_notification_deck(websocket_control)
 
 
-def assert_default_notification_deck_tracks_real_events(
+def assert_starter_has_no_automatic_notification_deck(
     websocket_control: socket.socket,
 ) -> None:
     original = AUTOMATION.require_configuration(
         AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
     )
     try:
-        default = AUTOMATION.require_configuration(
+        starter = AUTOMATION.require_configuration(
             AUTOMATION.request(websocket_control, AUTOMATION.TYPE_RESET),
         )
-        subscriptions = default_command_deck(default)["eventSubscriptions"]
-        assert {subscription["event"] for subscription in subscriptions} >= {
-            "notificationPosted",
-            "notificationRemoved",
-            "notification.digest.updated",
-        }
-        device_command(f"cmd notification allow_listener {AUTOMATION_NOTIFICATION_COMPONENT}")
-        deadline = time.monotonic() + CONFIGURATION_SAVE_TIMEOUT_SECONDS
-        while time.monotonic() < deadline:
-            status = AUTOMATION.request(websocket_control, AUTOMATION.TYPE_AUTOMATION_STATUS)
-            if status["androidAccess"]["notificationListener"] is True:
-                break
-            time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
-        else:
-            raise AssertionError("notification listener did not become active")
-        device_command(
-            "cmd notification post "
-            f"-t '{CUSTOM_EVENT_NOTIFICATION_TITLE}' {CUSTOM_EVENT_NOTIFICATION_TAG} "
-            f"'{CUSTOM_EVENT_NOTIFICATION_TEXT}'",
-        )
-        updated = wait_for_widget_state_value(
-            websocket_control,
-            "command-deck",
-            "notificationCount",
-            1,
-        )
-        state = default_command_deck(updated)["state"]
-        assert CUSTOM_EVENT_NOTIFICATION_TITLE in state["body"]
-        run_device_operation("screenshot")
-        assert (ARTIFACT_DIRECTORY / "screenshot.png").stat().st_size > 0
+        assert all(not script["enabled"] for script in starter["scripts"])
+        for page in starter["launcher"]["home"]["pages"]:
+            for widget in page["widgets"]:
+                subscriptions = widget.get("eventSubscriptions", [])
+                assert not any(subscription["event"].startswith("notification") for subscription in subscriptions)
     finally:
-        try:
-            device_command(f"cmd notification disallow_listener {AUTOMATION_NOTIFICATION_COMPONENT}")
-        finally:
-            AUTOMATION.request(
-                websocket_control,
-                AUTOMATION.TYPE_CONFIG_REPLACE,
-                config=original,
-            )
+        AUTOMATION.request(
+            websocket_control,
+            AUTOMATION.TYPE_CONFIG_REPLACE,
+            config=original,
+        )

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "quick-note",
+  "title": "Quick note",
+  "description": "Ready-made quick note HTML widget.",
+  "span": {
+    "columnSpan": 4,
+    "rowSpan": 2
+  }
+}

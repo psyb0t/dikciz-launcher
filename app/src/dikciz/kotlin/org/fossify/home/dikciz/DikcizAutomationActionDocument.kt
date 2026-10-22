@@ -290,6 +290,15 @@ internal object DikcizAutomationActionDocument {
                 -> requireString(values, key, limits.maxTextCharacters)
 
                 FIELD_STATE -> validateStateValue(values.opt(key), limits, ROOT_STATE_DEPTH)
+                FIELD_ITEM_STATES -> {
+                    val states = values.optJSONObject(key) ?: throw IllegalArgumentException(MESSAGE_INVALID_WIDGET_PATCH)
+                    require(states.length() <= DikcizHtmlWidgetStateStore.MAXIMUM_ITEMS) { MESSAGE_INVALID_WIDGET_PATCH }
+                    states.keys().forEach { itemID ->
+                        require(DikcizHtmlWidgetStateStore.ID_PATTERN.matches(itemID)) { MESSAGE_INVALID_WIDGET_PATCH }
+                        val state = states.optJSONObject(itemID) ?: throw IllegalArgumentException(MESSAGE_INVALID_WIDGET_PATCH)
+                        validateStateValue(state, limits, ROOT_STATE_DEPTH)
+                    }
+                }
                 else -> throw IllegalArgumentException(MESSAGE_INVALID_WIDGET_PATCH)
             }
         }
@@ -515,6 +524,7 @@ internal object DikcizAutomationActionDocument {
     private const val FIELD_PAGE_ID = "pageId"
     private const val FIELD_POSITION_MILLISECONDS = "positionMilliseconds"
     private const val FIELD_STATE = "state"
+    private const val FIELD_ITEM_STATES = DikcizHtmlWidgetStateStore.ITEM_STATES_FIELD
     private const val FIELD_START_X = "startX"
     private const val FIELD_START_Y = "startY"
     private const val FIELD_SNAPSHOT_ID = "snapshotId"
@@ -551,7 +561,7 @@ internal object DikcizAutomationActionDocument {
     private const val MAXIMUM_STATE_DEPTH = 8
     private const val MAXIMUM_STATE_ENTRIES = 128
     private const val MAXIMUM_WIDGET_ADDRESS_OVERHEAD_CHARACTERS = 16
-    private const val MAXIMUM_WIDGET_PATCH_FIELDS = 5
+    private const val MAXIMUM_WIDGET_PATCH_FIELDS = 6
     private const val MAXIMUM_VOLUME_PERCENT = 100.0
     private const val MAXIMUM_RECIPIENT_CHARACTERS = 20
     private val RECIPIENT_PATTERN = Regex("^\\+?[0-9][0-9 ()#*-]{1,19}$")

@@ -1294,6 +1294,7 @@ internal class DikcizMcpControlPlane(
             DikcizAutomationControlPlane.TYPE_INTENT to setOf(
                 DikcizAutomationControlPlane.KEY_INTENT_TYPE,
                 DikcizAutomationControlPlane.KEY_ACTION,
+                DikcizAutomationControlPlane.KEY_INTENT_DATA,
             ),
             DikcizAutomationControlPlane.TYPE_SCREENSHOT to emptySet(),
             DikcizAutomationControlPlane.TYPE_UI_DUMP to emptySet(),
@@ -1430,7 +1431,7 @@ internal class DikcizMcpControlPlane(
             ToolDefinition(TOOL_SHELL_STREAM, "Stream shell output", "Stream command output through SSE log notifications. Opt in with params._meta io.modelcontextprotocol/logLevel=info. timeoutMilliseconds=0 runs until cancellation. Root defaults to true; set false for app permissions.", listOf(shellCommandArgument(), rootArgument(), streamTimeoutArgument(), streamChunkArgument()), false),
             ToolDefinition(TOOL_SHELL_STREAM_STOP, "Stop shell stream", "Stop a stream owned by the same MCP session.", listOf(ToolArgument(DikcizShellStreams.KEY_STREAM_ID, "Stream UUID from the started notification.", SCHEMA_TYPE_STRING, true, maximumLength = 36)), false),
             ToolDefinition("dikciz_shell", "Run Dikciz shell command", "Run a command through su by default, or as the launcher app user when root is false.", listOf(shellCommandArgument(), rootArgument(), shellTimeoutArgument(), shellOutputArgument()), false),
-            ToolDefinition("dikciz_intent", "Dispatch Dikciz device intent", "Dispatch an Android activity or broadcast intent using the launcher app's permissions.", listOf(intentTypeArgument(), actionArgument()), false),
+            ToolDefinition("dikciz_intent", "Dispatch Dikciz device intent", "Dispatch an Android activity or broadcast intent using the launcher app's permissions.", listOf(intentTypeArgument(), actionArgument(), intentDataArgument()), false),
             ToolDefinition("dikciz_screenshot", "Capture Dikciz screenshot", "Capture a bounded PNG of the launcher.", emptyList(), true),
             ToolDefinition("dikciz_ui_dump", "Dump Dikciz UI", "Read the current semantic launcher UI tree.", emptyList(), true),
             ToolDefinition("dikciz_diagnostics", "Read Dikciz diagnostics", "Read local control-plane diagnostics.", emptyList(), true),
@@ -1747,6 +1748,14 @@ internal class DikcizMcpControlPlane(
             SCHEMA_TYPE_STRING,
             true,
             maximum = DikcizAutomationControlPlane.MAXIMUM_INTENT_TYPE_CHARACTERS,
+        )
+
+        private fun intentDataArgument(): ToolArgument = ToolArgument(
+            DikcizAutomationControlPlane.KEY_INTENT_DATA,
+            "Optional absolute Android intent data URI, such as an HTTPS browser destination.",
+            SCHEMA_TYPE_STRING,
+            false,
+            maximum = DikcizAutomationControlPlane.MAXIMUM_INTENT_ACTION_CHARACTERS,
         )
 
         private fun actionArgument(): ToolArgument = ToolArgument(

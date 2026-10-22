@@ -9,7 +9,7 @@ Use this catalog to choose the right feature. Use the running build's `controlSt
 - Search installed launchable apps by label or package. Launch them, add shortcuts, open Android app info, request uninstall, or force stop with device-granted root.
 - Create native app groups by dropping one shortcut onto another; manage group members.
 - Host real third-party Android AppWidgets, including their Android configuration flow.
-- Create HTML widgets, install library packages, append source blocks, edit HTML/CSS/JavaScript/state, fit content within assigned cells, and change native widget appearance.
+- Create HTML widgets, install library packages, append working card presets or source blocks, save custom cards as presets, edit HTML/CSS/JavaScript/state, fit content within assigned cells, and change native widget appearance.
 - Select themes, custom or system fonts, wallpapers and widget-style overrides. Locks prevent edits without blocking normal interaction.
 - Manage Lua scripts through the native dashboard: create, edit, enable, disable, run, import/export, inspect status and logs.
 
@@ -41,7 +41,9 @@ HTML widgets receive `window.dikciz`, `window.selfWidget` and `dikciz-ready`. St
 | `selfWidget.get()`, `selfWidget.patch(values)` | Read or patch this widget without hardcoding its address. |
 | `selfWidget.patchState(values)`, `selfWidget.patchDom(selector, values)` | Change this widget's saved state or rendered DOM. |
 
-Browser events include `dikciz-ready`, `dikciz-state`, `dikciz-event` and `dikciz-block-appended`. HTML receives subscribed events only while its page is selected and its WebView exists. Use background Lua for durable event processing. Read the [HTML bridge reference](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/scripting-tutorial.md#html-bridge-reference) for signatures and examples.
+Card instances use `selfWidget.itemFor(element)` or `selfWidget.item(id)` for independent state and files under the owning page/widget directory. Their methods include `getState`, `patchState`, `readFile` and `writeFile`. Deleting a card removes its owned files; deleting a wrapper removes all its instance files.
+
+Browser events include `dikciz-ready`, `dikciz-state`, `dikciz-event`, `dikciz-item-state` and `dikciz-block-appended`. HTML receives subscribed events only while its page is selected and its WebView exists. Use background Lua for durable event processing. Read the [HTML bridge reference](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/scripting-tutorial.md#html-bridge-reference) for signatures and examples.
 
 ## Lua and event sources
 

@@ -711,8 +711,8 @@ APP_DRAWER_TITLE = "Apps"
 AUTOMATION_SETTINGS_CLOSE_SEMANTIC_ID = "settings:automation:close"
 STARTER_NOTES_PAGE_ID = "notes"
 STARTER_HOME_PAGE_ID = "home"
-STARTER_HOME_WIDGET_ID = "command-deck"
-STARTER_HOME_WIDGET_TITLE = "Clock and search"
+STARTER_HOME_WIDGET_ID = "home-dashboard"
+STARTER_HOME_WIDGET_TITLE = "Home dashboard"
 FIXTURE_WIDGET_IDS = ("welcome", "focus", "fixture-detail")
 FIXTURE_WIDGET_TITLES = {
     "welcome": "Dikciz",

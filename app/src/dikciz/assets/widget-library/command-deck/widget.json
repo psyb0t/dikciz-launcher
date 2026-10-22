@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "command-deck",
+  "title": "Clock and search",
+  "description": "Ready-made clock and search HTML widget.",
+  "span": {
+    "columnSpan": 4,
+    "rowSpan": 2
+  }
+}

@@ -400,13 +400,27 @@ Long press a saved HTML card to open its native Edit/Delete menu. Dikciz targets
 | `dikciz.pages()` | Read the current page map by ID, address, and `home`. |
 | `dikciz.home()` | Read the current saved home document. |
 | `dikciz.widget(address)` | Read one current saved widget record. |
-| `dikciz.patchWidget(address, values)` | Persist a full allowed widget-field patch. HTML widgets accept `title`, `html`, `css`, `javascript`, and `state`. Replacing source can destroy the calling WebView. |
+| `dikciz.patchWidget(address, values)` | Persist a full allowed widget-field patch. HTML widgets accept `title`, `html`, `css`, `javascript`, `state`, and `itemStates`. Replacing source can destroy the calling WebView. |
 | `dikciz.patchWidgetState(address, values)` | Persist only another HTML widget's `state`. |
 | `dikciz.patchDom(address, selector, values)` | Change a rendered HTML target without saving it. |
 | `selfWidget.get()` | Read this widget's current saved record. |
 | `selfWidget.patch(values)` | Persist an allowed patch to this widget. |
 | `selfWidget.patchState(values)` | Persist this widget's state and receive `dikciz-state`. |
 | `selfWidget.patchDom(selector, values)` | Change a selected, rendered element inside this widget. |
+| `selfWidget.itemFor(element)`, `selfWidget.item(id)` | Resolve a card instance with independent state and an owned storage directory. |
+| `item.getState()`, `item.patchState(values)` | Read or replace one card's state while preserving its siblings. `item.state` reads the current live value. |
+| `item.readFile(name, options)`, `item.writeFile(name, dataBase64, options)` | Use file commands inside the instance directory. File contents use base64; `state.json` is reserved for `patchState`. |
+
+Wrapper state lives in `pages/<page-id>/widgets/<webview-id>/state.json`. Card state lives in that directory's `items/<instance-id>/state.json`. Use a stable `data-dikciz-item-id` on each authored card and scope DOM queries to its root. Preset insertion assigns fresh IDs. For example, inside a `dikciz-ready` handler:
+
+```javascript
+const root = document.querySelector("[data-dikciz-item-id]");
+const item = selfWidget.itemFor(root);
+const previous = await item.getState();
+await item.patchState({...previous, text:"Saved for this instance"});
+```
+
+`selfWidget.itemStates` is the current map of card states. `dikciz-item-state` delivers its replacement without recreating the document. Wrapper state continues to use `selfWidget.state` and `dikciz-state`. Native card deletion removes its owned state and custom files. Removing the wrapper removes all its owned instance files. Do not use a shared preset catalog directory for live state.
 
 The browser also receives these events:
 

@@ -5,7 +5,7 @@ import base64
 from . import *
 
 
-STARTER_WIDGET_IDS = ["command-deck", "quick-apps", "quick-note"]
+STARTER_WIDGET_IDS = ["home-dashboard"]
 STARTER_SCRIPT_IDS = {"low-battery", "charge-ready", "screen-lock"}
 NOTE_TEXT = "remember_milk"
 
@@ -29,7 +29,8 @@ def starter_wait_state(connection, widget_id, key, expected):
         configured = AUTOMATION.require_configuration(
             AUTOMATION.request(connection, AUTOMATION.TYPE_CONFIG_GET),
         )
-        observed = configuration_widget(configured, widget_id).get("state", {})
+        widget = configuration_widget(configured, widget_id)
+        observed = widget.get("itemStates", {}) if key == "quick-note" else widget.get("state", {})
         if observed.get(key) == expected:
             return observed
         time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
@@ -60,10 +61,11 @@ def test_bundled_starter_home_is_quiet_and_notes_persist(websocket_control):
     assert all(entry["enabled"] for entry in restored["automation"]["scripts"])
     restore_system_home()
     wait_for_physical_text_bounds("Quick note")
-    direct_enter_text(wait_for_physical_description_bounds("Quick note"), NOTE_TEXT)
+    note_bounds = physical_bounds_from_nodes(list(reversed(physical_nodes())), lambda node: node.get("class") == "android.widget.EditText" and node.get("hint") == "Quick note")
+    direct_enter_text(note_bounds, NOTE_TEXT)
     direct_hide_keyboard()
     direct_tap(wait_for_physical_button_bounds("Save note"))
-    starter_wait_state(websocket_control, "quick-note", "text", NOTE_TEXT)
+    starter_wait_state(websocket_control, "home-dashboard", "quick-note", {"text": NOTE_TEXT})
     wait_for_physical_text_bounds("Note saved on this phone.")
     run_device_operation("screenshot")
     shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "starter-home.png")

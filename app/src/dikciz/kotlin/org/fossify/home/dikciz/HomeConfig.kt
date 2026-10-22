@@ -175,8 +175,10 @@ internal data class HtmlHomeWidget(
     override val cell: DikcizGridRectangle,
     override val style: DikcizStyle? = null,
     override val locked: Boolean = false,
+    val itemStates: JSONObject = DikcizHtmlWidgetStateStore.initialStates(html),
 ) : HomeWidget {
     val serializedState: String = state.toString()
+    val serializedItemStates: String = itemStates.toString()
 }
 
 internal enum class HtmlWidgetHeightMode(

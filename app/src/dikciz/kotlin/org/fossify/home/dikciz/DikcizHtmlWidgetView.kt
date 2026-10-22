@@ -236,6 +236,16 @@ internal class DikcizHtmlWidgetView(
         return true
     }
 
+    fun deliverItemStates(states: JSONObject): Boolean {
+        widgetContext.put(DikcizHtmlWidgetStateStore.ITEM_STATES_FIELD, JSONObject(states.toString()))
+        if (isReleased || messagePort == null) return false
+        webView.evaluateJavascript(
+            "window.dikciz?.receiveItemStates(" + JSONObject.quote(states.toString()) + ")",
+            null,
+        )
+        return true
+    }
+
     fun patchDom(
         selector: String,
         values: JSONObject,
@@ -259,6 +269,8 @@ internal class DikcizHtmlWidgetView(
         updatedWidget: HtmlHomeWidget,
         blockInstanceID: String,
         markedFragment: String,
+        css: String,
+        javascript: String,
         onComplete: (String) -> Unit,
     ) {
         if (isReleased || messagePort == null) {
@@ -266,7 +278,7 @@ internal class DikcizHtmlWidgetView(
             return
         }
         webView.evaluateJavascript(
-            blockAppendJavaScript(blockInstanceID, markedFragment, updatedWidget.html),
+            blockAppendJavaScript(blockInstanceID, markedFragment, updatedWidget.html, css, javascript),
         ) { result ->
             val outcome = parseDomPatchOutcome(result)
             if (outcome == DikcizHtmlDomPatchOutcome.Executed) {
@@ -311,7 +323,14 @@ internal class DikcizHtmlWidgetView(
                 if (id <= INVALID_ITEM_ID || label == null || html == null) {
                     null
                 } else {
-                    HtmlItemSelection(id, label, html, documentGeneration)
+                    HtmlItemSelection(
+                        id, label, html, documentGeneration,
+                        value.optJSONArray("itemIds")?.let { ids ->
+                            (0 until ids.length()).mapNotNull { index ->
+                                (ids.opt(index) as? String)?.takeIf(DikcizHtmlWidgetStateStore.ID_PATTERN::matches)
+                            }
+                        }.orEmpty(),
+                    )
                 }
             }
             onItemLongClick(this, selected)
@@ -414,10 +433,14 @@ internal class DikcizHtmlWidgetView(
         blockInstanceID: String,
         markedFragment: String,
         source: String,
+        css: String,
+        javascript: String,
     ): String {
         val block = JSONObject()
             .put(BLOCK_INSTANCE_ID_KEY, blockInstanceID)
             .put(BLOCK_FRAGMENT_KEY, markedFragment)
+            .put("css", css)
+            .put("javascript", javascript)
             .put(ITEM_HTML_KEY, source)
         return """
             (function(serializedBlock) {
@@ -427,6 +450,18 @@ internal class DikcizHtmlWidgetView(
                     range.selectNode(document.body);
                     document.body.append(range.createContextualFragment(block.fragment));
                     window.dikcizHtmlItems?.refresh(block.html);
+                    if (block.css) {
+                        const style = document.createElement("style");
+                        style.setAttribute("data-dikciz-internal", "");
+                        style.textContent = block.css;
+                        document.head.append(style);
+                    }
+                    if (block.javascript) {
+                        const script = document.createElement("script");
+                        script.setAttribute("data-dikciz-internal", "");
+                        script.textContent = block.javascript;
+                        document.body.append(script);
+                    }
                     window.dispatchEvent(new CustomEvent("$BLOCK_APPEND_EVENT", {
                         detail: { instanceId: block.instanceId },
                     }));
@@ -585,6 +620,7 @@ internal data class HtmlItemSelection(
     val label: String,
     val html: String,
     val generation: Long,
+    val itemIDs: List<String> = emptyList(),
 )
 
 internal object DikcizHtmlDomPatchOutcome {

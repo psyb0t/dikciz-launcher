@@ -809,6 +809,13 @@ internal class DikcizAutomationRuntime(
     private fun selectPage(
         configuration: HomeConfiguration,
         pageID: String,
+    ): AutomationActionExecution = homeConfigStore.withConfigurationLock {
+        selectPageFromStoredConfiguration(loadConfiguration() ?: configuration, pageID)
+    }
+
+    private fun selectPageFromStoredConfiguration(
+        configuration: HomeConfiguration,
+        pageID: String,
     ): AutomationActionExecution {
         if (configuration.pages.none { it.id == pageID }) {
             return AutomationActionExecution(configuration, REASON_TARGET_UNAVAILABLE)
@@ -817,6 +824,14 @@ internal class DikcizAutomationRuntime(
     }
 
     private fun patchWidget(
+        configuration: HomeConfiguration,
+        widgetAddress: String,
+        values: JSONObject,
+    ): AutomationActionExecution = homeConfigStore.withConfigurationLock {
+        patchWidgetFromStoredConfiguration(loadConfiguration() ?: configuration, widgetAddress, values)
+    }
+
+    private fun patchWidgetFromStoredConfiguration(
         configuration: HomeConfiguration,
         widgetAddress: String,
         values: JSONObject,
@@ -876,6 +891,10 @@ internal class DikcizAutomationRuntime(
                     css = values.optStringOrCurrent(FIELD_CSS, widget.css),
                     javascript = values.optStringOrCurrent(FIELD_JAVASCRIPT, widget.javascript),
                     state = state?.let { JSONObject(it.toString()) } ?: widget.state,
+                    itemStates = DikcizHtmlWidgetStateStore.initialStates(
+                        values.optStringOrCurrent(FIELD_HTML, widget.html),
+                        values.optJSONObject(FIELD_ITEM_STATES) ?: widget.itemStates,
+                    ),
                 )
             }
 
@@ -906,6 +925,14 @@ internal class DikcizAutomationRuntime(
     }
 
     private fun patchState(
+        configuration: HomeConfiguration,
+        scriptID: String,
+        patch: JSONObject,
+    ): AutomationActionExecution = homeConfigStore.withConfigurationLock {
+        patchStateFromStoredConfiguration(loadConfiguration() ?: configuration, scriptID, patch)
+    }
+
+    private fun patchStateFromStoredConfiguration(
         configuration: HomeConfiguration,
         scriptID: String,
         patch: JSONObject,
@@ -1353,6 +1380,7 @@ internal class DikcizAutomationRuntime(
         const val FIELD_HTML = "html"
         const val FIELD_JAVASCRIPT = "javascript"
         const val FIELD_STATE = "state"
+        const val FIELD_ITEM_STATES = DikcizHtmlWidgetStateStore.ITEM_STATES_FIELD
         const val FIELD_TITLE = "title"
         const val INVALID_SENSOR_TYPE = -1
         const val LOG_TAG = "DikcizAutomation"
@@ -1393,6 +1421,7 @@ internal class DikcizAutomationRuntime(
             FIELD_CSS,
             FIELD_JAVASCRIPT,
             FIELD_STATE,
+            FIELD_ITEM_STATES,
         )
     }
 }
