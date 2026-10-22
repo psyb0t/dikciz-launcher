@@ -46,7 +46,7 @@ def test_targeted_run_cleanup_restores_the_bundled_starter_home(websocket_contro
     ]
     restored = starter_reset(websocket_control)
     home = restored["launcher"]["home"]
-    assert [page["id"] for page in home["pages"]] == ["home", "insights"]
+    assert [page["id"] for page in home["pages"]] == ["home", "insights", "sensors"]
     assert [widget["id"] for widget in configuration_page(restored, "home")["widgets"]] == STARTER_WIDGET_IDS
     restore_system_home()
     wait_for_physical_description_bounds(STARTER_HOME_WIDGET_TITLE)
@@ -71,7 +71,7 @@ def test_bundled_starter_home_is_quiet_and_notes_persist(websocket_control):
     shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "starter-home.png")
     AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SELECT_PAGE, pageId="insights")
     wait_for_physical_text_bounds("Your phone")
-    wait_for_physical_text_bounds("Nothing is fetched until you choose a city.")
+    wait_for_physical_text_bounds("Use my location")
     device_state = AUTOMATION.request(websocket_control, "deviceState")
     assert isinstance(device_state["internetValidated"], bool)
     AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SELECT_PAGE, pageId="home")
@@ -85,10 +85,34 @@ WEATHER_FIXTURE = {
 WEATHER_CITY = {"name": "Fixture City", "latitude": 50, "longitude": 10}
 
 
+@pytest.fixture
+def weather_render_observer():
+    with connected_websocket_control() as observer:
+        yield observer
+
+
+def wait_for_weather_render(observer, expected_status, expected_temperature, scenario):
+    deadline = time.monotonic() + CONFIGURATION_SAVE_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        event = AUTOMATION.receive_event(observer,"automation_event")["fields"]["event"]
+        if event.get("type") != "fixture.weather.render":
+            continue
+        payload = event["payload"]
+        if payload["status"] == expected_status and payload["temperature"] == expected_temperature:
+            return payload
+    run_device_operation("screenshot")
+    shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / ("weather-failure-" + scenario + ".png"))
+    raise AssertionError("Weather DOM did not report expected status and temperature")
+
+
 @pytest.mark.parametrize("scenario", ["success", "air-offline", "invalid", "offline", "empty", "oversized", "coordinates"])
-def test_bundled_starter_weather_handles_provider_results(websocket_control, scenario):
+def test_bundled_starter_weather_handles_provider_results(websocket_control, weather_render_observer, scenario):
     configured = starter_reset(websocket_control)
     weather = configuration_widget(configured, "weather-air")
+    weather["state"] = {
+        "city":{"name":"Previous city","latitude":40,"longitude":20},
+        "weather":{"fetchedAt":int(time.time()*1000)},
+    }
     # Only the external HTTP boundary is substituted. Rendering, the bridge,
     # state storage and page navigation use the installed launcher.
     mock = """
@@ -110,26 +134,29 @@ window.fetch = async url => {
 """.replace("SCENARIO", json.dumps(scenario)).replace("CITY", json.dumps(WEATHER_CITY)).replace("WEATHER", json.dumps(WEATHER_FIXTURE))
     exercise = """
 window.addEventListener("dikciz-ready", () => {
-    const status = document.getElementById("status");
-    const observer = new MutationObserver(() => {
-        const message = status.textContent;
-        if (!message.startsWith("Saved latest readings")
-            && !message.startsWith("Air quality unavailable")
-            && !message.startsWith("Weather unavailable")
-            && !message.startsWith("City search unavailable")
-            && !message.startsWith("No matching cities")) return;
-        observer.disconnect();
+    const sent = new Set();
+    const publish = () => requestAnimationFrame(() => {
+        const status = document.getElementById("status").textContent;
         const temperature = document.getElementById("temperature").textContent;
-        selfWidget.get().then(widget => selfWidget.patchState({
-            ...widget.state,
-            fixtureStatus:message,
-            fixtureTemperature:temperature
-        })).catch(error => console.error("starter_status_capture_failed", error.name));
+        if (!["Saved latest readings", "Air quality unavailable", "Weather unavailable", "City search unavailable", "No matching cities"].some(prefix => status.startsWith(prefix))) return;
+        const key = status + "|" + temperature;
+        if (sent.has(key)) return;
+        sent.add(key);
+        dikciz.emitEvent("fixture.weather.render", {status, temperature})
+            .catch(error => console.error("weather_render_report_failed",error.name));
     });
-    observer.observe(status, {childList:true, characterData:true, subtree:true});
+    const observer = new MutationObserver(publish);
+    for (const id of ["status","temperature"]) {
+        observer.observe(document.getElementById(id), {childList:true,characterData:true,subtree:true});
+    }
     const city = document.getElementById("city");
     city.value = "fixture";
-    document.getElementById("city-search").requestSubmit();
+    const submit = setInterval(() => {
+        if (document.getElementById("find").disabled) return;
+        clearInterval(submit);
+        document.getElementById("city-search").requestSubmit();
+    }, 50);
+    setTimeout(() => clearInterval(submit), 15000);
     const interval = setInterval(() => {
         const choice = document.querySelector("#choices button");
         if (!choice || choice.disabled) return;
@@ -151,9 +178,9 @@ window.addEventListener("dikciz-ready", () => {
             if scenario in ("offline", "oversized")
             else "No matching cities. Try another name."
         )
-        state = starter_wait_state(websocket_control, "weather-air", "fixtureStatus", expected_status)
-        assert "city" not in state, state
-        assert state["fixtureTemperature"] == "Unavailable", state
+        wait_for_weather_render(weather_render_observer, expected_status, "Unavailable", scenario)
+        state = configuration_widget(AUTOMATION.require_configuration(AUTOMATION.request(websocket_control,"configGet")),"weather-air")["state"]
+        assert state["city"] == weather["state"]["city"],state
         run_device_operation("screenshot")
         shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / ("starter-insights-" + scenario + ".png"))
         return
@@ -181,9 +208,7 @@ window.addEventListener("dikciz-ready", () => {
         expected + ". Saved readings are shown when available. Try Refresh weather."
         if expected else "Saved latest readings. Refresh when needed."
     )
-    state = starter_wait_state(websocket_control, "weather-air", "fixtureStatus", expected_status)
-    if scenario != "invalid":
-        assert state["fixtureTemperature"] == "18°C", state
+    wait_for_weather_render(weather_render_observer, expected_status, "Unavailable" if scenario == "invalid" else "18°C", scenario)
     run_device_operation("screenshot")
     shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / ("starter-insights-" + scenario + ".png"))
 

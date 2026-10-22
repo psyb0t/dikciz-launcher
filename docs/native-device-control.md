@@ -81,12 +81,31 @@ Read permitted SMS history through `contentQuery` resource `sms`. Android can sa
 | `callControl` | `dikciz_call_control` | `action` is `state`, `place`, `answer` or `end`. Place requires `recipient` and reports acceptance, not connection. Android may restrict call control by role. |
 | `clipboardGet` | `dikciz_clipboard_get` | Plain text and availability. Android can restrict background reads. |
 | `clipboardSet` | `dikciz_clipboard_set` | Required plain `text`, including an empty string. |
-| `locationGet` | `dikciz_location_get` | Newest permitted last-known position, accuracy and age. `maxAgeMilliseconds` defaults to 300000. Missing/stale data returns `available: false`. This is not a fresh fix. |
+| `locationGet` | `dikciz_location_get` | Recent permitted position, accuracy, age, source and optional place name. `maxAgeMilliseconds` defaults to 300000. If needed, waits for a new fix for `timeoutMilliseconds` (default 10000, range 0 through 120000). Zero reads cache only. Disabled location, no cached fix and timeout return `available: false` with a reason. |
 | `notificationsList` | `dikciz_notifications_list` | Current notification text and short-lived action tokens through the connected listener. |
 | `mediaSessionsList` | `dikciz_media_sessions_list` | Active packages, playback state, position and bounded track metadata. |
 | `deviceState` | `dikciz_device_state` | Screen/keyguard, battery/charging, power save, volume, ringer and connectivity state. |
 
 SIM, notification and media lists accept page fields. Existing typed actions control notifications, media, volume, intents and locking. Existing subscriptions provide sensors, live location, Health Connect, Bluetooth and other events programmatically.
+
+## Sensors, camera, microphone and speech
+
+All commands below share the same schemas, execution and permission recovery in WebSocket, HTTP, MCP, HTML `dikciz.command` and Lua `context.request` or `context.requestJson`.
+
+| Command | MCP tool | Behavior |
+| --- | --- | --- |
+| `sensorReadings` | `dikciz_sensor_readings` | Sample all sensors or one `sensorId` from the current device inventory. Accepts `limit` and `offset`; follow `hasMore`. `timeoutMilliseconds` defaults to 1000 and accepts 1 through 5000. |
+| `cameraList` | `dikciz_camera_list` | Camera IDs, front/back/external facing and flash availability. Does not start capture. |
+| `cameraCapture` | `dikciz_camera_capture` | Save an actual JPEG. Optional `cameraId` defaults to the first camera. `maxDimension` defaults to 1280 and accepts 320 through 4096; no fitting camera size returns an explicit error. |
+| `microphoneRecord` | `dikciz_microphone_record` | Save AAC audio in an M4A container. `durationMilliseconds` defaults to 3000 and accepts 1000 through 120000. |
+| `speechSpeak` | `dikciz_speech_speak` | Speak required `text` through Android device output, at most 2000 characters. Reports completion or failure. |
+| `callAudio` | `dikciz_call_audio` | `action: status` reports cellular audio capture and injection support. `record` and `speak` return `call_audio_unsupported` without privileged system integration. |
+
+Sensor discovery includes static and connected dynamic sensors. Records include ID, type, name, vendor, dynamic status, reporting mode, range, resolution and power. Actual samples contain `values`, Android accuracy, monotonic `timestampNanoseconds` and sample age. Unavailable samples contain a reason. All-sensor pages report permission failures per sensor, so one restricted sensor does not hide others. Targeting a restricted sensor by ID uses the shared permission error and optional owner-review flow. Trigger-only sensors can remain `waiting_for_trigger`. IDs address the current device inventory; rediscover after hardware changes. Every request releases its listeners. Poll only while data is needed; background Lua subscriptions remain available for event-driven use.
+
+Camera and microphone require their Android grants and foreground eligibility. Open Dikciz before capture. Concurrent requests for the same capture resource return `hardware_busy`. Successful capture returns `state: saved`, `path`, `mimeType` and byte count. Paths are generated under app-specific external `captures` storage. Read or download them through the existing file APIs. Incomplete files are removed. Android microphone silencing returns an explicit failure when reported by the recorder.
+
+Camera and speech accept `timeoutMilliseconds`, default 30000, range 1 through 120000. The supplied client adjusts HTTP, WebSocket and MCP response waits to cover requested hardware durations. Other clients must allow the same time. Timeouts and interruption release capture resources. Speech uses the configured Android engine and fails explicitly if unavailable. Device speaker output is not cellular audio injection. Stock Android reserves call-stream capture for privileged components; granting microphone permission does not grant call-stream access.
 
 ## Permissions and limits
 
@@ -101,9 +120,11 @@ Malformed fields, columns, types, ranges, authorities and references return `val
 | Contact/calendar data, SMS/history, call history, SIMs and system snapshots | Direct commands above. |
 | Apps, packages, files, APK installation, shell, screenshots and restart | Existing direct commands. |
 | Notifications/media control, volume, intents and lock | Existing typed actions. |
-| Sensors, live location, Health Connect and background sources | Existing event subscriptions. |
+| Hardware sensor snapshots and current location | Shared direct commands and existing background subscriptions. |
+| Camera, microphone and device speech | Shared direct commands above, subject to Android foreground access. |
+| Health Connect and other background sources | Existing event subscriptions. |
 | Proprietary app features without a public API | Accessibility/UI automation or an API supplied by that app. |
 | Silent permission grants, arbitrary private app databases, unrestricted clipboard and protected settings | Android privilege and foreground restrictions apply. |
 | Fastboot and bootloader | Outside the running Android app. |
 
-Camera/microphone recording, arbitrary third-party databases, account management and privileged system settings are not implemented by these commands. Permission declarations are not a promise that every possible feature exists. Discover the running build's commands.
+Arbitrary third-party databases, account management and privileged system settings are not implemented by these commands. Permission declarations are not a promise that every possible feature exists. Discover the running build's commands.

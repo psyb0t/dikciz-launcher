@@ -9,6 +9,7 @@ HTML_WIDGET_LIBRARY_BUNDLED_PACKAGES = {
     "notifications": "Post a notification",
     "system-status": "Dikciz diagnostics",
     "system-dashboard": "System dashboard",
+    "sensors-dashboard": "Live sensors",
     "markets-news": "BTC and economic news",
 }
 HTML_WIDGET_LIBRARY_DEVICE_DIRECTORY = "/sdcard/Dikciz/widget-library"

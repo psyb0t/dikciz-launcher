@@ -115,6 +115,10 @@ For exact commands and MCP tools, read [automation control](https://github.com/p
 
 Use `nativeDataStatus` or `dikciz_native_data_status` before navigating Contacts, Messages or Settings. Direct commands query contact, SMS, calendar, call-log and media providers, write contact/calendar rows atomically, list SIMs and inspect calls, clipboard, location, notifications, media sessions and device state. `smsSend` requires an idempotency key; `smsStatus` distinguishes submission, sent callbacks and carrier delivery. Read [native device control](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/native-device-control.md) or the MCP native-data and contact-SMS resources. Prefer these commands when they cover the task.
 
+## Hardware capture and live samples
+
+Use `sensorReadings` for paginated live hardware samples and per-sensor unavailable reasons. `cameraList` discovers camera IDs; `cameraCapture` saves a JPEG. `microphoneRecord` saves AAC audio in M4A. `speechSpeak` speaks through device output. These use the same command executor through every ordinary network, HTML and Lua binding. Camera and microphone need Android foreground eligibility and grants. Read capture paths through file APIs. `locationGet` can wait for a bounded fresh fix when cache is unavailable. `callAudio` reports unsupported cellular capture and injection on ordinary Android installations. Read [hardware commands](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/native-device-control.md#sensors-camera-microphone-and-speech) or `dikciz://docs/guides/hardware` for fields and limits.
+
 ## Access, logs and verification
 
 Android owns runtime permissions, special access, roles and root approval. Notification listening, Do Not Disturb control, Accessibility, Health Connect, exact alarms, battery exemptions, file access and Device Administration have separate setup requirements. Use `automationStatus` and the phone's Automation access screen to distinguish unsupported, unavailable and not-yet-granted access. A broad manifest declaration is not permission to grant everything.

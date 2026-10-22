@@ -435,3 +435,9 @@ HTML widget `state` and `itemStates` are assembled from page/widget-owned state 
 `appIcon` accepts a launchable `component` from `appCatalogue` and optional `sizePixels` from 16 through 128, default 64. It returns `component`, `mimeType: "image/png"`, `width`, `height` and `pngBase64`. Missing launchable activities return `native_record_not_found`; malformed components and sizes fail validation. Icons come from Android package resources. No APK extraction or storage permission is needed.
 
 HTML uses `await dikciz.command("appIcon", {component: app.component})`, then sets an image's `src` to `"data:image/png;base64," + result.pngBase64`. Request only visible app icons and cache them within the document. WebSocket and HTTP use the same command; MCP exposes `dikciz_app_icon`.
+
+### Hardware capture and live readings
+
+Hardware sensor snapshots, current location, camera capture, microphone recording and speech are shared native commands across network, HTML and Lua bindings. See [hardware commands](native-device-control.md#sensors-camera-microphone-and-speech) for schemas, capture paths and Android restrictions.
+
+HTML receives `dikciz-visibility` with `{visible}` when its native page or window visibility changes. `selfWidget.visible` exposes the current value. Use this for foreground work because neighboring pages can be preloaded before selection.

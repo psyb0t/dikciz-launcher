@@ -20,6 +20,8 @@ Read only the sections needed for the current task. Each resource is at most 4 K
 
 - [Native data](dikciz://docs/guides/native-data): contacts, SMS, calendars, calls and system state.
 
+- [Hardware](dikciz://docs/guides/hardware): live sensors, location, camera, microphone and speech.
+
 ## Recipes
 
 - [Contact and tracked SMS](dikciz://docs/recipes/contact-sms).

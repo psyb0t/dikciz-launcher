@@ -445,13 +445,20 @@ NATIVE_COMMAND_FIELDS = {
     "smsStatus": ("idempotencyKey",),
     "simList": ("limit", "offset"), "callControl": ("action", "recipient"),
     "clipboardGet": (), "clipboardSet": ("text",),
-    "locationGet": ("maxAgeMilliseconds",),
+    "locationGet": ("maxAgeMilliseconds", "timeoutMilliseconds"),
+    "sensorReadings": ("sensorId", "timeoutMilliseconds", "limit", "offset"),
+    "cameraList": (),
+    "cameraCapture": ("cameraId", "maxDimension", "timeoutMilliseconds"),
+    "microphoneRecord": ("durationMilliseconds",),
+    "speechSpeak": ("text", "timeoutMilliseconds"),
+    "callAudio": ("action", "text"),
     "notificationsList": ("limit", "offset"), "mediaSessionsList": ("limit", "offset"),
     "deviceState": (),
     "appIcon": ("component", "sizePixels"),
 }
 NATIVE_READ_COMMANDS = {
     "nativeDataStatus", "contentQuery", "smsStatus", "simList", "clipboardGet",
+    "sensorReadings", "cameraList",
     "locationGet", "notificationsList", "mediaSessionsList", "deviceState", "appIcon",
 }
 NATIVE_MCP_TOOLS = {
@@ -461,6 +468,9 @@ NATIVE_MCP_TOOLS = {
     "smsStatus": "dikciz_sms_status", "simList": "dikciz_sim_list",
     "callControl": "dikciz_call_control", "clipboardGet": "dikciz_clipboard_get",
     "clipboardSet": "dikciz_clipboard_set", "locationGet": "dikciz_location_get",
+    "sensorReadings": "dikciz_sensor_readings", "cameraList": "dikciz_camera_list",
+    "cameraCapture": "dikciz_camera_capture", "microphoneRecord": "dikciz_microphone_record",
+    "speechSpeak": "dikciz_speech_speak", "callAudio": "dikciz_call_audio",
     "notificationsList": "dikciz_notifications_list", "mediaSessionsList": "dikciz_media_sessions_list",
     "deviceState": "dikciz_device_state",
     "appIcon": "dikciz_app_icon",

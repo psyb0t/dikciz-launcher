@@ -387,11 +387,13 @@ Lua returns the same action:
 
 The native bridge creates `window.dikciz`, `window.selfWidget`, and a `dikciz-ready` event. Start bridge work from that event. Do not call the transport-only `receiveEvent` or `receiveState` functions yourself.
 
+`selfWidget.visible` reports whether the owning WebView is visible in the launcher window. Listen for `dikciz-visibility` and inspect `event.detail.visible` to start or stop foreground polling. A preloaded neighboring page can receive `dikciz-ready` while invisible; readiness alone does not mean the user opened the page.
+
 Long press a saved HTML card to open its native Edit/Delete menu. Dikciz targets the touched DOM item and preserves the containing widget, page, CSS, JavaScript and state. Cards, articles, sections and list items are recognized automatically; add `data-dikciz-item` to another element to mark its boundary explicitly. Runtime-only elements without saved source cannot be edited this way. Use the top move handle for whole-widget controls.
 
 | API | Use it for |
 | --- | --- |
-| `dikciz.request(document, options)` | Return the complete canonical command response, including error and permission metadata. `options.responseTimeoutMilliseconds` defaults to at least 60 seconds or the command timeout plus five seconds; zero disables the response timer. A response timeout does not cancel dispatched work. |
+| `dikciz.request(document, options)` | Return the complete canonical command response, including error and permission metadata. `options.responseTimeoutMilliseconds` defaults to at least 60 seconds or the command timeout or duration plus five seconds; zero disables the response timer. A response timeout does not cancel dispatched work. |
 | `dikciz.command(type, fields, options)` | Run one launcher command and receive its result or rejected promise. Errors retain permission recovery and the raw response. Response timeout options match `dikciz.request`. Examples: `diagnostics`, `automationStatus`, `homeGet`, `widgetGet`, `scriptLogs`, `accessibilitySnapshot`, `shell`, and `intent`. The full command list is in [Automation control](automation-control.md). |
 | `dikciz.dispatch({ actions })` | Run one non-empty array of typed actions through the same executor Lua uses. Read `result.actions` for each outcome. |
 | `dikciz.emitEvent(name, payload, coalescingKey)` | Emit one custom event. This is shorthand for a one-action dispatch. |
@@ -427,6 +429,7 @@ The browser also receives these events:
 | Event | Meaning |
 | --- | --- |
 | `dikciz-ready` | The native bridge is ready. |
+| `dikciz-visibility` | Native page/window visibility changed; `event.detail.visible` is a Boolean. |
 | `dikciz-state` | This widget's saved state was replaced. Read `event.detail`. |
 | `dikciz-event` | A matching native or custom automation event arrived. Read `event.detail`. |
 

@@ -9,7 +9,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.location.LocationManager
 import android.media.AudioManager
 import android.media.MediaMetadata
 import android.media.session.MediaSessionManager
@@ -20,7 +19,6 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
-import android.os.SystemClock
 import android.telecom.TelecomManager
 import android.telephony.SubscriptionManager
 import org.json.JSONObject
@@ -30,6 +28,8 @@ internal class DikcizNativeData(
     private val logger: DikcizLogger,
 ) {
     private val content = DikcizContentData(context)
+    private val sensorReadings = DikcizSensorReadings(context)
+    private val mediaCapture = DikcizMediaCapture(context)
     private val systemMetrics = DikcizSystemMetrics(context)
 
     fun execute(command: DikcizAutomationCommand): JSONObject {
@@ -49,6 +49,12 @@ internal class DikcizNativeData(
                     context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Dikciz", command.request.getString(DikcizNativeCommands.KEY_TEXT)))
                     JSONObject().put("state", "written")
                 }
+                DikcizNativeCommands.TYPE_SENSOR_READINGS -> sensorReadings.read(command.request)
+                DikcizNativeCommands.TYPE_CAMERAS -> mediaCapture.cameras()
+                DikcizNativeCommands.TYPE_CAMERA_CAPTURE -> mediaCapture.photo(command.request)
+                DikcizNativeCommands.TYPE_MICROPHONE_RECORD -> mediaCapture.microphone(command.request)
+                DikcizNativeCommands.TYPE_SPEAK -> mediaCapture.speak(command.request)
+                DikcizNativeCommands.TYPE_CALL_AUDIO -> mediaCapture.callAudio(command.request)
                 DikcizNativeCommands.TYPE_LOCATION -> location(command.request)
                 DikcizNativeCommands.TYPE_NOTIFICATIONS -> notifications(command.request)
                 DikcizNativeCommands.TYPE_MEDIA -> media(command.request)
@@ -132,21 +138,7 @@ internal class DikcizNativeData(
             .put("truncated", (text?.length ?: 0) > DikcizNativeCommands.MAXIMUM_TEXT)
     }
 
-    private fun location(request: JSONObject): JSONObject {
-        val fine = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        if (!fine) DikcizNativeCommands.requirePermission(context, Manifest.permission.ACCESS_COARSE_LOCATION, "locationForeground")
-        val manager = context.getSystemService(LocationManager::class.java) ?: DikcizNativeCommands.failure(DikcizNativeCommands.ERROR_UNAVAILABLE, "Location service unavailable")
-        val candidates = manager.getProviders(true).filter { fine || it != LocationManager.GPS_PROVIDER }
-            .mapNotNull { manager.getLastKnownLocation(it) }
-        val newest = candidates.maxByOrNull { it.elapsedRealtimeNanos }
-            ?: return JSONObject().put("available", false).put("reason", "no_last_known_location")
-        val age = maxOf(0L, SystemClock.elapsedRealtimeNanos() - newest.elapsedRealtimeNanos) / NANOS_PER_MILLISECOND
-        val maximumAge = request.optLong("maxAgeMilliseconds", DEFAULT_LOCATION_AGE_MILLISECONDS)
-        if (age > maximumAge) return JSONObject().put("available", false).put("reason", "location_too_old").put("ageMilliseconds", age)
-        return JSONObject().put("available", true).put("source", "last_known").put("provider", newest.provider)
-            .put("latitude", newest.latitude).put("longitude", newest.longitude).put("accuracyMeters", newest.accuracy.toDouble())
-            .put("timestampMilliseconds", newest.time).put("ageMilliseconds", age).put("precision", if (fine) "precise" else "approximate")
-    }
+    private fun location(request: JSONObject): JSONObject = DikcizLocation.read(context, request, logger)
 
     private fun notifications(request: JSONObject): JSONObject {
         requireNotificationAccess()
@@ -205,8 +197,4 @@ internal class DikcizNativeData(
             .put("vpn", network?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) ?: false)
     }
 
-    companion object {
-        private const val NANOS_PER_MILLISECOND = 1_000_000L
-        private const val DEFAULT_LOCATION_AGE_MILLISECONDS = 300_000L
-    }
 }

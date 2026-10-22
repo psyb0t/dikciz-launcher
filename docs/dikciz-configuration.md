@@ -237,7 +237,7 @@ HTML packages are reusable starters under `widget-library/<package-id>/`. A pack
 
 ### Complete WebView templates
 
-The library contains whole documents: `home-dashboard`, `command-deck`, `quick-apps`, `quick-note`, `system-dashboard`, `markets-news`, `app-launcher`, `brightness`, `lock-screen`, `notifications` and `system-status`. Each placed widget owns its full HTML, CSS, JavaScript and state. Library source is copied at insertion; there are no native card preset objects or fragment picker. Ordinary DOM sections remain programmable through the document's own JavaScript.
+The library contains whole documents: `home-dashboard`, `command-deck`, `quick-apps`, `quick-note`, `system-dashboard`, `sensors-dashboard`, `markets-news`, `app-launcher`, `brightness`, `lock-screen`, `notifications` and `system-status`. Each placed widget owns its full HTML, CSS, JavaScript and state. Library source is copied at insertion; there are no native card preset objects or fragment picker. Ordinary DOM sections remain programmable through the document's own JavaScript.
 
 The system template reads `deviceState.system` for RAM, app-data filesystem capacity, CPU samples and a bounded sensor inventory. CPU availability and scope are explicit. Sensor inventory lists hardware, not live readings. The market template uses explicit Coinbase and GDELT requests and retains dated results in its widget state. See [starter templates](starter-home.md#complete-webview-templates) for sources and refresh behavior.
 
@@ -349,7 +349,7 @@ Fresh Dikciz includes three disabled utility scripts. Their enabled policies and
 | `charge-ready` | Notifies once at 80 percent or higher while charging. Unplugging or dropping below 75 percent resets it. |
 | `screen-lock` | Locks only when explicitly run, after checking Device Administration. It never runs when access changes. |
 
-No bundled script patches a particular widget or subscribes to Accessibility, notification contents, location or a periodic alarm. The [starter home guide](starter-home.md) covers the two pages and optional web data.
+No bundled script patches a particular widget or subscribes to Accessibility, notification contents, location or a periodic alarm. The [starter home guide](starter-home.md) covers the three pages, automatic weather location and live sensor sampling.
 
 Use the native Script dashboard or Settings to enable, disable, edit, import, export, delete, inspect status, and read logs. The dashboard, Settings, WebSocket `scriptLogs`, and MCP `dikciz_script_logs` read the same safe log projection. A failed Lua compile or handler run keeps `invalid_lua` as its stable run status. Its matching log record includes a bounded, sanitized `diagnostic` with the public `scripts/<script-id>/main.lua` location and line when LuaJ provides one. Credential-shaped values are redacted before the native viewer or either remote control plane receives the record.
 
@@ -403,7 +403,7 @@ Dikciz writes JSON Lines diagnostics under `/sdcard/Dikciz/logs/YYYY-MM-DD.log`,
 
 ## Recovery
 
-**Reset Dikciz home** restores the bundled home, its scripts, policies, and subscriptions. It keeps other root namespaces and unrelated Android launcher data. It removes obsolete Dikciz AppWidget allocations.
+**Reset Dikciz home** restores the bundled home, grid, validation limits, scripts, policies, and subscriptions. It keeps other root namespaces and unrelated Android launcher data. It removes obsolete Dikciz AppWidget allocations.
 
 **Safe mode** starts the bundled first page without writing the current public configuration. It keeps read-only file browsing and downloads, install-status queries, diagnostics, snapshots, logs, screenshot, UI dump, reset, and normal-restart recovery paths available while it blocks normal home edits and device mutation commands.
 

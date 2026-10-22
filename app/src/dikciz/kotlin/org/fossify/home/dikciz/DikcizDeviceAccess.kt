@@ -168,6 +168,11 @@ internal enum class DikcizDeviceAccessRequirement(
         DikcizDeviceAccessKind.OnDemand,
         R.string.dikciz_device_access_root_shell,
     ),
+    BodySensors(
+        "bodySensors",
+        DikcizDeviceAccessKind.RuntimePermission,
+        R.string.dikciz_automation_grant_heart_rate_sensor,
+    ),
 }
 
 internal data class DikcizDeviceAccessEntry(
@@ -369,6 +374,12 @@ internal object DikcizDeviceAccess {
             DikcizDeviceAccessRequirement.Notifications -> {
                 listOf(Manifest.permission.POST_NOTIFICATIONS)
             }
+
+            DikcizDeviceAccessRequirement.BodySensors -> listOf(
+                if (DikcizAutomationSensorPermission.usesGranularHealthPermissions())
+                    DikcizAutomationSensorPermission.HEALTH_READ_HEART_RATE_PERMISSION
+                else Manifest.permission.BODY_SENSORS,
+            )
 
             DikcizDeviceAccessRequirement.ActivityRecognition -> {
                 listOf(Manifest.permission.ACTIVITY_RECOGNITION)

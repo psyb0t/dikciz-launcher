@@ -70,7 +70,7 @@ def test_html_document_system_metrics_shared_and_bounded(websocket_control, prot
     assert second["sampledAtMilliseconds"] >= system["sampledAtMilliseconds"]
 
 
-@pytest.mark.parametrize("package_id", ["system-dashboard", "markets-news"])
+@pytest.mark.parametrize("package_id", ["system-dashboard", "sensors-dashboard", "markets-news"])
 def test_html_document_complete_templates_in_picker(websocket_control, package_id):
     snapshot = open_html_package_picker(websocket_control, package_id)
     AUTOMATION.require_node(snapshot, package_picker_entry_semantic_id(package_id))

@@ -130,6 +130,7 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
             "guides/shell" to "Shell and streaming",
             "guides/logging" to "Logs and diagnosis",
             "guides/security" to "Security boundaries",
+            "guides/hardware" to "Sensors, camera, microphone and speech",
             "guides/native-data" to "Direct Android data and system APIs",
             "recipes/inspect-ui" to "Inspect and act",
             "recipes/launch-app" to "Open an app reliably",

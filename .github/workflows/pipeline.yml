@@ -13,7 +13,9 @@ concurrency:
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 jobs:
   code:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    if: >-
+      (github.event_name != 'pull_request' || !github.event.pull_request.draft) &&
+      !startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: read
       security-events: write
@@ -24,14 +26,20 @@ jobs:
       test_command: "make test-tooling"
   badges:
     needs: [code]
-    if: github.ref_name == github.event.repository.default_branch || startsWith(github.ref, 'refs/tags/')
+    if: github.ref_name == github.event.repository.default_branch
     permissions:
       contents: write
     uses: psyb0t/reusable-github-workflows/.github/workflows/create-badges.yml@master
-  # Builds the signed dikcizRelease APK on tag pushes and publishes it as the
-  # GitHub Release asset that Obtainium installs. Notes come from the annotated tag.
+  wait-for-default-branch:
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      actions: read
+    uses: psyb0t/reusable-github-workflows/.github/workflows/wait-for-default-branch.yml@master
+    with:
+      timeout_minutes: 180
+  # Build the signed APK after this commit passes the default-branch pipeline.
   release:
-    needs: [code]
+    needs: [wait-for-default-branch]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
@@ -77,7 +85,7 @@ jobs:
             gh release create "$TAG" "${assets[@]}" --verify-tag --title "$TAG" --notes-from-tag "${prerelease[@]}"
           fi
   clawhub:
-    needs: [code]
+    needs: [wait-for-default-branch]
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: read
@@ -87,3 +95,9 @@ jobs:
       plugin_names: '[]'
     secrets:
       clawhub_token: ${{ secrets.CLAWHUB_TOKEN }}
+  release-badges:
+    needs: [release]
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    uses: psyb0t/reusable-github-workflows/.github/workflows/create-badges.yml@master

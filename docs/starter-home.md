@@ -1,8 +1,8 @@
 # Starter home
 
-New installations start with two pages. Existing edited homes keep their pages, widgets and scripts when the APK updates. **Reset Dikciz home** replaces saved pages with this starter and restores matching bundled scripts. Other saved scripts and policies remain; disable or delete unwanted older examples under Settings, Scripts.
+New installations start with three pages. Existing edited homes keep their pages, widgets and scripts when the APK updates. **Reset Dikciz home** replaces saved pages with this starter and restores matching bundled scripts. Other saved scripts and policies remain; disable or delete unwanted older examples under Settings, Scripts.
 
-The starter uses an 8-column, 6-row grid. Home fills all eight columns; the two Insights widgets also fill the page width. Updates preserve edited grids; resetting the home restores the bundled grid too.
+The starter uses an 8-column, 6-row grid. Home fills all eight columns; the two Insights widgets also fill the page width. Updates preserve edited grids; resetting the home restores the bundled grid and validation limits too.
 
 ## Home
 
@@ -18,9 +18,9 @@ Home is one full-page HTML document with clock, app search and note sections. Lo
 
 **Your phone** reads Android battery level, plugged-in state, battery saver, network transport and internet validation. It refreshes when the page opens or when you tap **Refresh phone**. Android reporting an active network does not always mean internet access works.
 
-**Weather and air** starts with no city and no network request. Enter a city, tap **Find city**, then choose the correct match. A city search is sent to Open-Meteo geocoding; selecting or refreshing sends the selected coordinates to its weather and air-quality APIs. The widget does not request GPS, discover your location or send contacts, notes or other phone data.
+**Weather and air** tries the phone location when no city is saved. Missing location access opens the owner-review flow. Grant access, then tap **Use my location** to retry. Android supplies a recent cached location or a bounded fresh fix; its place name is used when available. If location is disabled or unavailable, enter a city, tap **Find city**, then choose a match. A saved manual city takes precedence. Device-derived locations are checked again on page opening after five minutes. City search sends the name to Open-Meteo geocoding; weather and air-quality requests send coordinates to Open-Meteo. Contacts and notes are not sent.
 
-It displays temperature, feels-like temperature, wind in km/h, today's rain probability, low/high temperatures and European AQI. Weather and air quality load independently. Missing values appear as unavailable. Saved readings carry their fetch times and remain labeled as saved data until you explicitly refresh. There is no background polling, including after restarting or changing pages.
+It displays temperature, feels-like temperature, wind in km/h, today's rain probability, low/high temperatures and European AQI. Weather and air quality load independently. Missing values appear as unavailable. Saved readings carry their fetch times. Opening the page refreshes missing readings or data older than 15 minutes. There is no background polling. Refresh weather updates immediately; Use my location replaces the selected city only after a successful lookup.
 
 Requests time out after 15 seconds and each response is limited to 64 KiB. A failed city search leaves the selected city unchanged. Choosing another city clears the previous city's readings. Partial service failure retains available readings for the selected city and names the failed service. No matching city, offline service and malformed responses stay recoverable through Find city or Refresh weather.
 
@@ -28,9 +28,13 @@ Data attribution: [Open-Meteo weather](https://open-meteo.com/en/docs), [Open-Me
 
 <img src="images/user-guide/03-insights-page.png" alt="Insights with optional city weather and local phone status" width="280">
 
+## Sensors
+
+The third page lists static and connected dynamic Android sensors, including multiple sensors of the same type. Disconnected dynamic sensors disappear on refresh. It shows sampled values, accuracy, timestamp age, reporting mode, range and resolution. Sampling runs while visible, with a half-second sample window followed by a 1.5-second pause. Pause stops future requests. Each request unregisters its listeners when it finishes. Sensors without permission, rejected registrations and sensors waiting for a trigger show their actual status. Review sensor access requests the specific owner-controlled permission. Sensor values use Android units and array ordering.
+
 ## Complete WebView templates
 
-The HTML widget picker offers **Home dashboard**, the individual complete clock/search, app search and note documents, **System dashboard**, and **BTC and economic news**. Adding a template copies a full HTML/CSS/JavaScript document into an independent WebView with fresh state. **Save to library** reuses a complete customized document. Library changes do not silently update existing widgets.
+The HTML widget picker offers **Home dashboard**, the individual complete clock/search, app search and note documents, **System dashboard**, **Live sensors**, and **BTC and economic news**. Adding a template copies a full HTML/CSS/JavaScript document into an independent WebView with fresh state. **Save to library** reuses a complete customized document. Library changes do not silently update existing widgets.
 
 **System dashboard** reads local Android metrics on opening, every five seconds while visible and when Refresh is tapped. It displays RAM used and available, total RAM, free app-data filesystem capacity, battery and temperature, network state, logical processors and CPU samples. System CPU can be unavailable because Android restricts `/proc/stat`; Dikciz CPU is labeled separately as a percentage of one core and requires two samples. Expand Sensor inventory for the available sensor names and types. This inventory does not claim live sensor values or start listeners.
 

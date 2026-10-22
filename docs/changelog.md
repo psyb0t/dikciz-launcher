@@ -2,6 +2,27 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.24.0] - 2026-10-22
+
+### Added
+
+- Shared hardware sensor samples, camera discovery and JPEG capture, microphone recording, device speech and explicit cellular call-audio capability reporting through HTTP, WebSocket, MCP, HTML and Lua.
+- A bundled Sensors page and reusable complete Live sensors WebView template with live readings and per-sensor unavailable states.
+
+### Fixed
+
+- Home reset restores bundled validation limits so older text limits cannot reject bundled widget documents.
+- HTML exposes native page and window visibility so preloaded pages can defer permission requests and pause live work while hidden.
+- Weather uses permitted phone location when no city is saved, with bounded fresh-fix lookup and manual search fallback. Saved manual cities keep precedence.
+
+### Changed
+
+- Tag pipelines wait for the same commit's successful main push pipeline before publishing the signed APK and launcher skill. Build, lint and tooling tests run on main and ready pull requests without repeating on tags. Release badges update after APK publication.
+
+### Migration
+
+Updates preserve edited homes. Use Reset Dikciz home to load the three-page starter, or add the Live sensors template to an existing page. Camera and microphone capture require Android grants and foreground eligibility. Cellular call recording and audio injection remain unavailable without privileged system integration.
+
 ## [0.23.0] - 2026-10-22
 
 ### Fixed

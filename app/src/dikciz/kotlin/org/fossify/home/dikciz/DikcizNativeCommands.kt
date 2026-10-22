@@ -22,6 +22,12 @@ internal object DikcizNativeCommands {
     const val TYPE_CALL = "callControl"
     const val TYPE_CLIPBOARD_GET = "clipboardGet"
     const val TYPE_CLIPBOARD_SET = "clipboardSet"
+    const val TYPE_SENSOR_READINGS = "sensorReadings"
+    const val TYPE_CAMERAS = "cameraList"
+    const val TYPE_CAMERA_CAPTURE = "cameraCapture"
+    const val TYPE_MICROPHONE_RECORD = "microphoneRecord"
+    const val TYPE_SPEAK = "speechSpeak"
+    const val TYPE_CALL_AUDIO = "callAudio"
     const val TYPE_LOCATION = "locationGet"
     const val TYPE_NOTIFICATIONS = "notificationsList"
     const val TYPE_MEDIA = "mediaSessionsList"
@@ -115,7 +121,18 @@ internal object DikcizNativeCommands {
         Definition(TYPE_CALL, "dikciz_call_control", "Native phone operations: state, place, answer or end. Place requires recipient. Android may restrict operations by role or privilege. accepted never claims a connected call.", mapOf("action" to string("state, place, answer or end.", 16), KEY_RECIPIENT to string("Dialable number for place only. Common formatting separators are normalized.", 64)), setOf("action"), false),
         Definition(TYPE_CLIPBOARD_GET, "dikciz_clipboard_get", "Read clipboard text while Android permits the calling app to access it. Background restrictions return available=false.", emptyMap(), mainThread = true),
         Definition(TYPE_CLIPBOARD_SET, "dikciz_clipboard_set", "Set plain clipboard text through ClipboardManager.", mapOf(KEY_TEXT to string("Plain text, including an empty string.", MAXIMUM_TEXT)), setOf(KEY_TEXT), false, true),
-        Definition(TYPE_LOCATION, "dikciz_location_get", "Read the newest permitted last-known location with its age and accuracy. Never claims a fresh location fix. Returns available=false when missing or older than maxAgeMilliseconds.", mapOf("maxAgeMilliseconds" to integer(0, Int.MAX_VALUE, 300_000))),
+        Definition(TYPE_LOCATION, "dikciz_location_get", "Read a recent permitted location or wait for a bounded new fix. Returns age, accuracy and source. timeoutMilliseconds=0 reads cache only; unavailable is explicit.", mapOf("maxAgeMilliseconds" to integer(0, Int.MAX_VALUE, 300_000), "timeoutMilliseconds" to integer(0, 120_000, 10_000))),
+        Definition(TYPE_SENSOR_READINGS, "dikciz_sensor_readings", "Read a bounded sample window for all hardware sensors, including multiple sensors of one type. sensorId comes from this inventory. Follow hasMore. Each sensor reports actual values, accuracy, timestamp or an explicit unavailable reason. Registrations stop when the request ends.",
+            PAGE_FIELDS + mapOf("sensorId" to integer(0, Int.MAX_VALUE), "timeoutMilliseconds" to integer(1, 5000, 1000))),
+        Definition(TYPE_CAMERAS, "dikciz_camera_list", "List Android camera IDs and lens directions without starting capture.", emptyMap()),
+        Definition(TYPE_CAMERA_CAPTURE, "dikciz_camera_capture", "Capture a JPEG from a listed camera using granted camera access. Returns saved file path for fileRead/download, never success before image bytes exist. Android foreground and camera privacy restrictions apply.",
+            mapOf("cameraId" to string("Camera ID from cameraList; defaults to the first camera.", 128), "maxDimension" to integer(320, 4096, 1280), "timeoutMilliseconds" to integer(1, 120_000, 30_000)), readOnly = false),
+        Definition(TYPE_MICROPHONE_RECORD, "dikciz_microphone_record", "Record microphone audio to an AAC M4A file and return its path for fileRead/download. durationMilliseconds defaults to 3000. Requires microphone access and Android foreground eligibility. This is not cellular call capture.",
+            mapOf("durationMilliseconds" to integer(1000, 120_000, 3000)), readOnly = false),
+        Definition(TYPE_SPEAK, "dikciz_speech_speak", "Speak text through the Android text-to-speech engine and device audio output. Returns only after synthesis completes. Does not inject speech into cellular calls.",
+            mapOf(KEY_TEXT to string("Text spoken by the phone.", 2000), "timeoutMilliseconds" to integer(1, 120_000, 30_000)), setOf(KEY_TEXT), false),
+        Definition(TYPE_CALL_AUDIO, "dikciz_call_audio", "Read cellular call-audio capability status or request record/speak. Ordinary Android installations return call_audio_unsupported for capture and injection. Microphone and device speech are separate operations.",
+            mapOf("action" to string("status, record or speak.", 16), KEY_TEXT to string("Requested call speech.", 2000)), setOf("action"), false),
         Definition(TYPE_NOTIFICATIONS, "dikciz_notifications_list", "Read current notifications directly through the enabled notification listener, including bounded text and short-lived action tokens.", PAGE_FIELDS),
         Definition(TYPE_MEDIA, "dikciz_media_sessions_list", "Read current media sessions, playback state and bounded metadata through granted notification-listener access.", PAGE_FIELDS),
         Definition(TYPE_APP_ICON, "dikciz_app_icon", "Read a launchable activity icon as a bounded PNG. Use a component from appCatalogue. sizePixels defaults to 64 and accepts 16 through 128. Works through the shared HTML and network command API.",
@@ -132,6 +149,10 @@ internal object DikcizNativeCommands {
         val definition = DEFINITIONS.getValue(type)
         validateFields(request, definition.fields, definition.required, if (envelope) ENVELOPE else emptySet())
         when (type) {
+            TYPE_CALL_AUDIO -> {
+                if (request.getString("action") !in setOf("status", "record", "speak")) invalid("Unsupported call audio action")
+                if (request.getString("action") == "speak" && request.optString(KEY_TEXT).isBlank()) invalid("Call speech requires text")
+            }
             TYPE_APP_ICON -> if (android.content.ComponentName.unflattenFromString(request.getString(KEY_COMPONENT)) == null) invalid("Invalid app component")
             TYPE_QUERY -> DikcizContentData.validateQuery(request)
             TYPE_WRITE -> DikcizContentData.validateWrite(request, false)

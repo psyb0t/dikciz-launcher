@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "sensors-dashboard",
+  "title": "Live sensors",
+  "description": "Live readings from all accessible hardware sensors, with accuracy, timing and explicit unavailable states. Samples only while visible.",
+  "span": {
+    "columnSpan": 8,
+    "rowSpan": 6
+  }
+}

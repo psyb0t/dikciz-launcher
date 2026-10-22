@@ -216,6 +216,7 @@ internal class HomeConfigStore(
         requireSharedStorageAccess()
         val bundledConfiguration = loadBundledConfiguration()
         val configuration = currentConfiguration?.copy(
+            limits = bundledConfiguration.limits,
             launcherBackground = bundledConfiguration.launcherBackground,
             homePageID = bundledConfiguration.homePageID,
             selectedPageID = bundledConfiguration.selectedPageID,

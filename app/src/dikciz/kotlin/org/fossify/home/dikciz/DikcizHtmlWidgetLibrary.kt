@@ -471,6 +471,7 @@ internal class DikcizHtmlWidgetLibrary(
             "notifications",
             "system-status",
             "system-dashboard",
+            "sensors-dashboard",
             "markets-news",
         )
         val MANIFEST_KEYS = setOf(

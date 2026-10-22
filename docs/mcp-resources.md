@@ -6,7 +6,7 @@ Dikciz packages short operating guides and recipes in the APK. MCP clients can d
 
 Initialization advertises `capabilities.resources: {}` and instructions pointing to the index. `resources/list` returns at most eight descriptors, each with `uri`, `name`, `title`, `description`, `mimeType` and UTF-8 byte `size`. Follow the opaque `nextCursor` until it is absent. Do not synthesize or alter cursors.
 
-Call `resources/read` with one exact URI. It returns one `text/markdown` content record. Every section is at most 4096 UTF-8 bytes. A read does not bundle linked sections automatically. The 28 resources include connection, permissions, UI, apps, pages, HTML, Lua, events, files, shell, logs, security, native Android data and focused recipes. The contact/SMS recipe covers direct lookup, SIM selection, duplicate protection and receipts. The custom-event example splits setup, Lua source and HTML source into separate resources.
+Call `resources/read` with one exact URI. It returns one `text/markdown` content record. Every section is at most 4096 UTF-8 bytes. A read does not bundle linked sections automatically. The 29 resources include connection, permissions, UI, apps, pages, HTML, Lua, events, files, shell, logs, security, native Android data, sensors, location, camera, microphone, speech and focused recipes. The contact/SMS recipe covers direct lookup, SIM selection, duplicate protection and receipts. The custom-event example splits setup, Lua source and HTML source into separate resources.
 
 ```json
 {"method":"resources/read","params":{"uri":"dikciz://docs/recipes/event-setup"}}

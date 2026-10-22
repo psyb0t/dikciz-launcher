@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.view.GestureDetector
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.ConsoleMessage
 import android.webkit.RenderProcessGoneDetail
@@ -65,6 +66,25 @@ internal class DikcizHtmlWidgetView(
         )
         configureWebView()
         loadWidget()
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (isAttachedToWindow) publishVisibility()
+    }
+
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        if (isAttachedToWindow) publishVisibility()
+    }
+
+    private fun publishVisibility() {
+        if (isReleased || !isAttachedToWindow) return
+        val visible = isShown && windowVisibility == View.VISIBLE
+        webView.evaluateJavascript(
+            "window.dikcizWidgetVisible=$visible;window.dispatchEvent(new CustomEvent('dikciz-visibility',{detail:{visible:$visible}}));",
+            null,
+        )
     }
 
     override fun onDetachedFromWindow() {
@@ -192,6 +212,7 @@ internal class DikcizHtmlWidgetView(
         view.evaluateJavascript(api) {
             if (documentGeneration == generation) {
                 view.postWebMessage(WebMessage(BRIDGE_MESSAGE, arrayOf(channel[1])), Uri.parse(ORIGIN))
+                publishVisibility()
             }
         }
     }

@@ -20,7 +20,7 @@ Contact lookup:
 
 Other tools: `dikciz_sim_list`, `dikciz_call_control`, `dikciz_clipboard_get`, `dikciz_clipboard_set`, `dikciz_location_get`, `dikciz_notifications_list`, `dikciz_media_sessions_list`, `dikciz_device_state`. SIM, notification and media lists accept page fields.
 
-Location returns last-known data with age, not a fresh fix. Android can restrict background clipboard reads and call operations. Existing event subscriptions provide sensors and live location programmatically.
+Location returns recent cached data or waits for a bounded fresh fix, including source, age and optional place name. timeoutMilliseconds=0 reads cache only. Android can restrict background clipboard reads and call operations. Direct sensor samples and capture commands are described in [Hardware](dikciz://docs/guides/hardware). Background event subscriptions remain available.
 
 Missing grants use `native_permission_<requirementId>` and the shared `permissionRequest`. Set `autoRequestPermissions` for owner review, then explicitly retry after checking access. Role or foreground restrictions can produce `native_access_denied`. Do not fall back to root.
 

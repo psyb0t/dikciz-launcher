@@ -23,6 +23,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
+MAXIMUM_HARDWARE_TIMEOUT_MILLISECONDS = 120_000
+HARDWARE_COMMAND_TIMEOUTS = {
+    "sensorReadings": ("timeoutMilliseconds", 1000),
+    "locationGet": ("timeoutMilliseconds", 10000),
+    "cameraCapture": ("timeoutMilliseconds", 30000),
+    "microphoneRecord": ("durationMilliseconds", 3000),
+    "speechSpeak": ("timeoutMilliseconds", 30000),
+}
+HARDWARE_MCP_COMMANDS = {
+    "dikciz_sensor_readings": "sensorReadings",
+    "dikciz_location_get": "locationGet",
+    "dikciz_camera_capture": "cameraCapture",
+    "dikciz_microphone_record": "microphoneRecord",
+    "dikciz_speech_speak": "speechSpeak",
+}
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_EVENT_IDLE_TIMEOUT_SECONDS = 0.0
 DEFAULT_BEARER_TOKEN_ENV = "DIKCIZ_REMOTE_BEARER_TOKEN"
@@ -382,6 +397,13 @@ def command_response_timeout(
     fields: dict[str, Any],
 ) -> float:
     timeout = arguments.timeout_seconds
+    hardware = HARDWARE_COMMAND_TIMEOUTS.get(command_type)
+    if hardware is not None:
+        field, default = hardware
+        milliseconds = fields.get(field, default)
+        if type(milliseconds) is int and 0 <= milliseconds <= MAXIMUM_HARDWARE_TIMEOUT_MILLISECONDS:
+            return max(timeout, milliseconds / MILLISECONDS_PER_SECOND + SHELL_RESPONSE_MARGIN_SECONDS)
+        return timeout
     if command_type != TYPE_SHELL:
         return timeout
     milliseconds = fields.get(KEY_TIMEOUT_MILLISECONDS, DEFAULT_SHELL_TIMEOUT_MILLISECONDS)
@@ -683,7 +705,8 @@ def mcp_request(
     expected_status: int,
 ) -> tuple[dict[str, str], dict[str, Any] | None]:
     parameters = message.get(KEY_PARAMS, {})
-    command_type = TYPE_SHELL if parameters.get(KEY_NAME) == TOOL_SHELL else ""
+    tool = parameters.get(KEY_NAME)
+    command_type = TYPE_SHELL if tool == TOOL_SHELL else HARDWARE_MCP_COMMANDS.get(tool, "")
     fields = parameters.get(KEY_ARGUMENTS, {})
     connection = http.client.HTTPConnection(
         arguments.host,

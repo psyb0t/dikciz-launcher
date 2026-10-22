@@ -40,7 +40,7 @@ Release packages use `eu.psyb0t.dikciz.launcher`; debug packages use `eu.psyb0t.
 - Themes, fonts, wallpaper, widget appearance, editing locks and a chosen Android Home destination.
 - Semantic UI inspection, screenshots, logs, configuration editing and device actions through the remote APIs.
 
-The starter has two pages: **Home** with one full-page HTML document containing clock, installed-app search and saved-note sections; **Insights** with battery and connection status plus optional city-based weather and air quality. The HTML library offers complete editable WebView templates, including system metrics and BTC/USD with economic news. Save customized documents to reuse them. Three useful Lua examples start disabled. See the [starter home guide](docs/starter-home.md).
+The starter has three pages: **Home** with one full-page HTML document containing clock, installed-app search and saved-note sections; **Insights** with battery and connection status plus weather and air quality using phone location or a chosen city; **Sensors** with live hardware readings. The HTML library offers complete editable WebView templates, including system metrics and BTC/USD with economic news. Save customized documents to reuse them. Three useful Lua examples start disabled. See the [starter home guide](docs/starter-home.md).
 
 ## Navigate and manage the home
 
@@ -111,9 +111,9 @@ The complete Fossify source remains the maintained Android base. Dikciz code liv
 
 Use `make lint` for script checks and Android lint on minified Dikciz, `make gradle GRADLE_TASK=:app:assembleDikcizDebug` for a focused build and the relevant target from [the test guide](tests/README.md) for live behavior. `make dikciz-test` runs the broad shared-emulator suite. `make dikciz-test-minified-lua` verifies Lua execution and failure reporting with release shrinking enabled. Tests leave the shared emulator on the current bundled starter home.
 
-CI runs `make lint` as a required code job step. Android lint errors fail that job and block the dependent release job. The minified lint task checks the Dikciz source set. `make app-lint` separately checks the upstream-compatible core.
+Main pushes and ready pull requests run the build, Android lint and tooling tests. Version tags wait for the same commit's main push pipeline to succeed instead of repeating those checks. A failed or missing main run blocks publication. The minified lint task checks the Dikciz source set. `make app-lint` separately checks the upstream-compatible core.
 
-A version tag builds the signed APK and checksum in CI through `make release-apk`. That target verifies the published signing certificate and the version from `VERSION`. Its keystore and signing secrets stay outside tracked source. The [release history](docs/changelog.md) records user-visible changes.
+After that gate passes, a version tag builds the signed APK and checksum in CI through `make release-apk`. Manual runs on a tag use the same gate. That target verifies the published signing certificate and the version from `VERSION`. Its keystore and signing secrets stay outside tracked source. The [release history](docs/changelog.md) records user-visible changes.
 
 ## Source map
 

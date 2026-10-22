@@ -81,7 +81,10 @@
             reject(failure("validation_failed", "HTML command exceeds the control request size limit"));
             return;
         }
-        const operationTimeout = Number.isFinite(document.timeoutMilliseconds) ? document.timeoutMilliseconds : 0;
+        const operationTimeout = Math.max(
+            Number.isFinite(document.timeoutMilliseconds) ? document.timeoutMilliseconds : 0,
+            Number.isFinite(document.durationMilliseconds) ? document.durationMilliseconds : 0,
+        );
         const timeout = options.responseTimeoutMilliseconds ?? Math.max(TIMEOUT_MS, operationTimeout + RESPONSE_GRACE_MS);
         if (!Number.isSafeInteger(timeout) || timeout < 0 || timeout > MAX_RESPONSE_TIMEOUT_MS) {
             reject(failure("validation_failed", "Invalid responseTimeoutMilliseconds"));
@@ -197,6 +200,7 @@
         patchDom: (selector, values) => patchDom(selfWidgetDocument.address, selector, values),
         patchState: values => dispatch({ actions: [{ type: "patchState", values }] }),
     }, {
+        visible: { enumerable: true, get: () => window.dikcizWidgetVisible === true },
         state: { enumerable: true, get: () => currentState },
         itemStates: { enumerable: true, get: () => currentItemStates },
     }));

@@ -92,6 +92,9 @@ internal class DikcizPermissionRequests(
 
     fun forFailure(code: String, autoShow: Boolean): JSONObject? {
         val requirement = when (code) {
+            "native_permission_cameraAndMicrophone" -> DikcizDeviceAccessRequirement.CameraAndMicrophone
+            "native_permission_bodySensors" -> DikcizDeviceAccessRequirement.BodySensors
+            "native_permission_activityRecognition" -> DikcizDeviceAccessRequirement.ActivityRecognition
             "native_permission_contacts" -> DikcizDeviceAccessRequirement.Contacts
             "native_permission_sms" -> DikcizDeviceAccessRequirement.Sms
             "native_permission_calendar" -> DikcizDeviceAccessRequirement.Calendar
