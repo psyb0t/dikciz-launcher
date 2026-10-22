@@ -2,6 +2,12 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.22.1] - 2026-10-22
+
+### Fixed
+
+- The pipeline accepts manual runs on a selected branch or tag. Selecting a release tag runs its build checks and release jobs.
+
 ## [0.22.0] - 2026-10-22
 
 ### Fixed
