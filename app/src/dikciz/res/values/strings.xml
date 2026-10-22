@@ -55,18 +55,6 @@
     <string name="dikciz_app_group_default_title">App group</string>
     <string name="dikciz_app_group_remove_title">Remove %1$s?</string>
     <string name="dikciz_app_group_remove_message">It leaves %1$s. The app stays installed.</string>
-    <string name="dikciz_html_widget_add_block">Add preset or block</string>
-    <string name="dikciz_html_item_title">HTML item: %1$s</string>
-    <string name="dikciz_html_item_unavailable">No saved HTML item here. Use the widget move handle for whole-widget controls.</string>
-    <string name="dikciz_html_widget_add_block_description">Add a block to the %1$s HTML widget source</string>
-    <string name="dikciz_html_block_picker_title">Add preset to %1$s</string>
-    <string name="dikciz_html_block_picker_subtitle">Appends editable source to the %1$s widget only. It does not create another widget.</string>
-    <string name="dikciz_html_block_entry_description">Preview the %1$s block for the %2$s widget</string>
-    <string name="dikciz_html_block_preview_title">Block preview: %1$s</string>
-    <string name="dikciz_html_block_add_confirm">Add to this widget</string>
-    <string name="dikciz_html_block_add_confirm_description">Add the %1$s block to the %2$s widget source</string>
-    <string name="dikciz_html_block_added">Added %1$s to %2$s.</string>
-    <string name="dikciz_html_block_unavailable">No HTML blocks are available.</string>
     <string name="dikciz_settings_page_grid">Page grid</string>
     <string name="dikciz_settings_page_grid_hint">Every page uses this grid. A change applies to all pages at once and is refused if a placed widget would no longer fit.</string>
     <string name="dikciz_settings_grid_columns">Columns</string>
@@ -483,7 +471,4 @@
     <string name="dikciz_permission_allow">Allow access</string>
     <string name="dikciz_device_access_install_packages">Install unknown apps</string>
     <string name="dikciz_device_access_home_app">Default Home app</string>
-    <string name="dikciz_html_item_save_preset">Save as preset</string>
-    <string name="dikciz_html_item_preset_explanation">Saves this card with the containing widget’s CSS and JavaScript. Saved note text and other state are not copied. Reuse it from Add preset or block. Custom scripts must scope their controls to the card.</string>
-    <string name="dikciz_html_item_preset_saved">Card saved to presets.</string>
 </resources>

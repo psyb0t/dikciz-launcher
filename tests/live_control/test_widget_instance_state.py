@@ -23,6 +23,12 @@ window.addEventListener("dikciz-ready", () => {
     };
     render();
     window.addEventListener("dikciz-item-state", render);
+    window.addEventListener("dikciz-item-state", () => {
+        const renderedValues = Object.fromEntries([...document.querySelectorAll("[data-value]")]
+            .map(element => [element.getAttribute("data-value"), element.textContent]));
+        selfWidget.patchState({...selfWidget.state, renderedValues})
+            .catch(error => { document.body.dataset.probeError = error.code || "failed"; });
+    });
     const points = {};
     for (const card of document.querySelectorAll("[data-dikciz-item-id]")) {
         const rect = card.getBoundingClientRect();
@@ -94,22 +100,12 @@ def wait_instance(connection, identifier, expected, wrapper_id=INSTANCE_WRAPPER,
     raise AssertionError(f"Instance state did not arrive: {identifier}={observed!r}")
 
 
-def press_instance(connection, identifier):
-    widget = configuration_widget(saved_configuration(connection), INSTANCE_WRAPPER)
-    point = widget["state"]["probe"]["points"][identifier]
-    snapshot = AUTOMATION.request(connection, AUTOMATION.TYPE_SNAPSHOT)
-    bounds = bounds_for(snapshot, "widget:" + INSTANCE_WRAPPER)
-    scale = (bounds["right"] - bounds["left"]) / widget["state"]["probe"]["width"]
-    direct_long_press_at(round(bounds["left"] + point["x"] * scale), round(bounds["top"] + point["y"] * scale))
-    return wait_for_snapshot_node(connection, "widget:" + INSTANCE_WRAPPER + ":html-item:delete")
-
-
 def directory_names(connection, path):
     listing = AUTOMATION.request(connection, "fileList", path=path)
     return {entry["name"] for entry in listing["items"]}
 
 
-def test_widget_instance_state_is_scoped_watched_and_deleted(websocket_control):
+def test_html_document_dynamic_legacy_namespaces_are_scoped_watched_and_deleted(websocket_control):
     configured = instance_configuration(saved_configuration(websocket_control))
     AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured)
     widget = wait_instance(websocket_control, "second", {"text":"home-second"}, require_runtime=True)
@@ -125,12 +121,22 @@ def test_widget_instance_state_is_scoped_watched_and_deleted(websocket_control):
     write_json_file(websocket_control, root + "/items/second/state.json", {"text":"changed-on-disk"})
     updated = wait_instance(websocket_control, "second", {"text":"changed-on-disk"})
     assert updated["state"]["generation"] == generation
-    wait_for_physical_text_bounds("changed-on-disk")
-    AUTOMATION.request(websocket_control, "fileWrite", path=root + "/items/second/custom.txt", overwrite=True, dataBase64="Zml4dHVyZQ==")
-    press_instance(websocket_control, "second")
+    deadline = time.monotonic() + CONFIGURATION_SAVE_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        observed = configuration_widget(saved_configuration(websocket_control), INSTANCE_WRAPPER)
+        if observed["state"].get("renderedValues", {}).get("second") == "changed-on-disk": break
+        time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
+    else: raise AssertionError("The file watcher did not update the live DOM")
     run_device_operation("screenshot")
-    shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "widget-instance-delete-menu.png")
-    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId="widget:" + INSTANCE_WRAPPER + ":html-item:delete")
+    shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "html-legacy-state-rendered.png")
+    AUTOMATION.request(websocket_control, "fileWrite", path=root + "/items/second/custom.txt", overwrite=True, dataBase64="Zml4dHVyZQ==")
+    edited = saved_configuration(websocket_control)
+    edited_widget = configuration_widget(edited, INSTANCE_WRAPPER)
+    removed = '<article class="card" data-dikciz-item-id="second"><h2>second</h2><p data-value="second"></p></article>'
+    assert removed in edited_widget["html"]
+    edited_widget["html"] = edited_widget["html"].replace(removed, "")
+    edited_widget["itemStates"].pop("second")
+    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=edited)
     widget = configuration_widget(saved_configuration(websocket_control), INSTANCE_WRAPPER)
     assert set(widget["itemStates"]) == {"first", "third"}
     assert directory_names(websocket_control, root + "/items") == {"first", "third"}

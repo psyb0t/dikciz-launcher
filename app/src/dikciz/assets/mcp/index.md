@@ -25,7 +25,7 @@ Read only the sections needed for the current task. Each resource is at most 4 K
 - [Contact and tracked SMS](dikciz://docs/recipes/contact-sms).
 - [Inspect and act](dikciz://docs/recipes/inspect-ui).
 - [Launch an app](dikciz://docs/recipes/launch-app).
-- [Edit one HTML card](dikciz://docs/recipes/html-item).
+- [Edit part of an HTML document](dikciz://docs/recipes/html-item).
 - [Event pipeline setup](dikciz://docs/recipes/event-setup), [Lua source](dikciz://docs/recipes/event-lua), [HTML source](dikciz://docs/recipes/event-widget).
 - [Install a script](dikciz://docs/recipes/install-script).
 - [Install a widget](dikciz://docs/recipes/install-widget).

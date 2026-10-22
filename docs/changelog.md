@@ -2,6 +2,23 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.22.0] - 2026-10-22
+
+### Fixed
+
+- Intent dispatch accepts requests without the optional data URI, including broadcasts, through every entrypoint.
+
+### Changed
+
+- HTML widgets are complete programmable documents. Content and background long presses open the same whole-widget controls, and Edit exposes HTML, CSS, JavaScript and JSON state. Removed native card menus, card preset objects and fragment insertion. Existing documents and saved state remain intact.
+- The HTML library adds complete System dashboard and BTC and economic news templates. The system template labels Android-restricted CPU data and sensor inventory; the market template keeps dated results and refreshes external data explicitly.
+- The shared device-state command reports RAM, storage, CPU samples, battery temperature and voltage, and bounded sensor inventory through all entrypoints.
+- HTML app lists display Android icons through the shared `appIcon` command and MCP tool. The hint now distinguishes app launching from native drawer shortcuts.
+
+### Migration
+
+Automation using `html-item:*` or `add-block` UI controls must edit the containing document through its widget editor or saved source. Native Delete removes the whole WebView. Existing custom files and optional item-state APIs remain available. Old fragment-library directories are left on disk and are no longer loaded.
+
 ## [0.21.1] - 2026-10-22
 
 ### Fixed

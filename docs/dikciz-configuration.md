@@ -22,10 +22,6 @@ Dikciz keeps its editable home under `/sdcard/Dikciz/`. The directory is the sou
 ├── widget-library/<package-id>/index.html
 ├── widget-library/<package-id>/style.css
 ├── widget-library/<package-id>/script.js
-├── widget-blocks/<block-id>/block.json
-├── widget-blocks/<block-id>/fragment.html
-├── widget-blocks/<block-id>/style.css
-├── widget-blocks/<block-id>/script.js
 ├── automation/policies/<policy-id>.json
 ├── automation/scripts/<script-id>.json
 ├── control/remote-auth.json
@@ -223,7 +219,7 @@ The assembled HTML widget record returned by `configGet` is a normal, resizable 
 }
 ```
 
-`heightMode` is `fixed` when omitted. `content` fits the rendered document inside the widget's assigned row span. It never expands the widget past its cells and never grows the page, so it changes nothing in the saved document. Long press the top move handle for whole-widget edit, appearance, resize, fit-content, add block, lock, and delete actions. A long press inside the HTML content selects the pressed source-backed card or block for a native item editor and scoped deletion. A long press on the document background or empty container padding opens the existing whole-widget controls. Runtime-only or stale card targets remain rejected; locks protect both menus. See [HTML item controls](user-guide.md#edit-an-html-widget) for recognized elements and custom item markers. Dikciz consumes these long presses, so the WebView does not start browser text selection or browser controls.
+`heightMode` is `fixed` when omitted. `content` fits the rendered document inside the widget's assigned row span without expanding its cells or the page. Long press the move handle, content or background for the same whole-widget edit, appearance, resize, fit-content, lock and delete actions. Edit exposes HTML, CSS, JavaScript and JSON state together. HTML elements and `data-*` attributes are document content, not native preset objects. Page and widget locks protect editing. Dikciz consumes long presses so the WebView does not start browser text selection or browser controls.
 
 HTML widgets hide native and CSS scrollbars, including those in nested scroll containers. Touch, keyboard and programmatic scrolling still work. In **Appearance**, set **Border / Widths / All sides** to `0` to remove the native outline (`style.border.widths.all: 0`). Set individual side widths to `0` too if the widget or theme supplies them; individual widths take precedence over `all`. Borders drawn by the HTML itself are controlled by its CSS.
 
@@ -233,33 +229,15 @@ The public widget descriptor `<widget-id>.json` stores source and layout. Wrappe
 
 State changes do not reload the WebView. The document receives `dikciz-state`, and `selfWidget.state` becomes the full replacement state. Update only the DOM nodes that changed.
 
-The native editor is a source editor, not an HTML preview. Its labeled `HTML`, `CSS`, and `JavaScript` fields use code text and a boxed editor frame. They show literal source, including tags, comments, and entities. For example, a divider is shown as `<hr class="dikciz-block dikciz-block-divider" />`, not as a rendered rule. Opening **Edit HTML widget** always reads the current saved widget record, including blocks added after the long-press menu opened.
+The native editor is a source editor, not an HTML preview. Its labeled `HTML`, `CSS`, and `JavaScript` fields use code text and a boxed editor frame. They show literal source, including tags, comments, and entities. For example, a divider is shown as `<hr class="dikciz-block dikciz-block-divider" />`, not as a rendered rule. Opening **Edit HTML widget** always reads the current saved widget record, including source changed after the long-press menu opened.
 
 HTML packages are reusable starters under `widget-library/<package-id>/`. A package has strict metadata in `widget.json`, `index.html`, and optional `style.css` and `script.js`. `widget.json` is at version 2 and declares a `span` with `columnSpan` and `rowSpan` instead of a pixel `size`. The picker previews a package, then copies its source into a new sibling widget placed on the grid. Choosing a package never edits an existing widget's source. Later package changes do not silently modify placed widgets. Save an edited widget to make or replace a package. Dikciz stages and validates a complete replacement before it publishes it. If a save is interrupted, the next library read either completes a valid retained stage or restores the last valid package. The picker never shows a partial package.
 
-### HTML blocks
+### Complete WebView templates
 
-Blocks are widget-local authoring material under `widget-blocks/<block-id>/`, alongside the package library. A block has `block.json` with `version`, `id`, `title`, `description`, and `previewLabel`, plus a `fragment.html` source fragment and optional `style.css` and `script.js`. Version 1 manifests remain compatible. Each source is limited to 65,536 UTF-8 bytes; NUL characters and library path escapes are rejected.
+The library contains whole documents: `home-dashboard`, `command-deck`, `quick-apps`, `quick-note`, `system-dashboard`, `markets-news`, `app-launcher`, `brightness`, `lock-screen`, `notifications` and `system-status`. Each placed widget owns its full HTML, CSS, JavaScript and state. Library source is copied at insertion; there are no native card preset objects or fragment picker. Ordinary DOM sections remain programmable through the document's own JavaScript.
 
-Open **Add preset or block** from an HTML widget's top-handle long press. The picker previews the block in that widget's theme and cell bounds, then one Add action appends the fragment to that single widget's document. A block consumes no grid cell and creates no second widget.
-
-Dikciz saves the marked HTML, CSS and JavaScript first, then inserts that fragment into the already-live target document. It installs the stylesheet, runs its initializer and publishes `dikciz-block-appended`. Initializers must scope controls to their card and avoid initializing existing instances twice. The target stays in place, keeps its JavaScript runtime and state, and scrolls to the new block. It does not rebuild the native page or reload the WebView.
-
-Long press a saved card and choose **Save as preset** to create a custom entry. Saving validates a complete staged directory before publishing it, refuses existing IDs and excludes widget state. CSS and JavaScript come from the containing document. New insertions assign fresh `data-dikciz-item-id` attributes. The same preset can appear several times in one wrapper or on different pages; each instance has independent state and custom files. Card IDs are scoped by page ID and WebView widget ID, rather than the preset catalog ID.
-
-Inserted source is wrapped in a stable marker so it stays editable:
-
-```html
-<!-- dikciz:block heading block-<instance-id> -->
-<section class="dikciz-block dikciz-block-heading">...</section>
-<!-- /dikciz:block block-<instance-id> -->
-```
-
-Edit or delete that exact markup in the normal HTML source editor afterwards.
-
-A fresh public tree contains four editable starter blocks: `heading`, `status-row`, `action-button`, and `divider`.
-
-A fresh public tree contains five editable starter packages: `app-launcher`, `brightness`, `lock-screen`, `notifications`, and `system-status`. They show the package ID in their visible header. The lock and notification packages call the direct typed Android action path, not a bundled Lua script. Every starter package also has **Latest log**, which reads the same bounded safe log projection available through the script dashboard, WebSocket, and MCP.
+The system template reads `deviceState.system` for RAM, app-data filesystem capacity, CPU samples and a bounded sensor inventory. CPU availability and scope are explicit. Sensor inventory lists hardware, not live readings. The market template uses explicit Coinbase and GDELT requests and retains dated results in its widget state. See [starter templates](starter-home.md#complete-webview-templates) for sources and refresh behavior.
 
 Dikciz installs a bundled package only when that package ID has no public directory yet. It never overwrites an existing package during an app update, so a user-edited starter remains the user's version. Save an edited widget to replace that package deliberately, or delete that one package directory before the next fresh installation if the bundled version is wanted again.
 
@@ -437,4 +415,4 @@ The complete ownership path is `/sdcard/Dikciz/pages/<page-id>/widgets/<webview-
 
 Card state changes deliver `dikciz-item-state`, whose detail is the wrapper's current item-state map. `selfWidget.itemStates` and each instance's `state` getter update without reloading the WebView. Valid external edits to a wrapper or card state file use the same watcher. Malformed state retains the last valid running home. Instance IDs use 1 to 80 ASCII letters, digits, underscores, dots or hyphens, starting with a letter or digit. A wrapper accepts at most 1024 instance states; normal configuration size and state-value limits also apply.
 
-Deleting a card through its native item action removes its instance directory, including custom files, while preserving sibling instances. Deleting a wrapper removes its descriptor and owned state directory. Moving the same wrapper ID to another page moves its owned files with it. Adding a preset creates fresh state; saving a preset never includes live state. The `.dikciz-widget` marker identifies wrapper directories owned by Dikciz for cleanup. Files outside those owned directories remain untouched.
+Optional item-state namespaces remain available to document scripts. Removing their HTML marker and state entry removes their owned files on save. Deleting a wrapper removes its descriptor and owned state directory. Moving the same wrapper ID to another page moves its owned files with it. Adding a complete template creates fresh state; saving a library package excludes live state. The `.dikciz-widget` marker identifies wrapper directories owned by Dikciz for cleanup. Files outside those owned directories remain untouched.

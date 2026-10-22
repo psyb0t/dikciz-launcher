@@ -9,3 +9,5 @@ The native recent-app strip tracks resumable tasks. Pressing Home should leave a
 An ordinary Dikciz process cannot silently force-stop every app or inspect another app's private data. Optional root shell execution has a separate access boundary. A reachable socket is not evidence that Accessibility, overlay or usage access is enabled.
 
 [Launch recipe](dikciz://docs/recipes/launch-app). [Permission review](dikciz://docs/guides/permissions).
+
+Use `appIcon` or `dikciz_app_icon` with a launchable `component` from `appCatalogue`. Optional `sizePixels` defaults to 64 and accepts 16 through 128. The shared result includes PNG base64 in `pngBase64`, width, height and MIME type. HTML can use `dikciz.command("appIcon", {component})` and a `data:image/png;base64,` image URL. Cache only the icons needed by the visible list. Android supplies icons from installed package resources.

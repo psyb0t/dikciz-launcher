@@ -448,10 +448,11 @@ NATIVE_COMMAND_FIELDS = {
     "locationGet": ("maxAgeMilliseconds",),
     "notificationsList": ("limit", "offset"), "mediaSessionsList": ("limit", "offset"),
     "deviceState": (),
+    "appIcon": ("component", "sizePixels"),
 }
 NATIVE_READ_COMMANDS = {
     "nativeDataStatus", "contentQuery", "smsStatus", "simList", "clipboardGet",
-    "locationGet", "notificationsList", "mediaSessionsList", "deviceState",
+    "locationGet", "notificationsList", "mediaSessionsList", "deviceState", "appIcon",
 }
 NATIVE_MCP_TOOLS = {
     "nativeDataStatus": "dikciz_native_data_status",
@@ -462,6 +463,7 @@ NATIVE_MCP_TOOLS = {
     "clipboardSet": "dikciz_clipboard_set", "locationGet": "dikciz_location_get",
     "notificationsList": "dikciz_notifications_list", "mediaSessionsList": "dikciz_media_sessions_list",
     "deviceState": "dikciz_device_state",
+    "appIcon": "dikciz_app_icon",
 }
 CONTROL_STATUS_COMMAND_FIELDS = {
     "shellStream": ("chunkBytes", "command", "root", "timeoutMilliseconds"),
@@ -489,7 +491,7 @@ CONTROL_STATUS_COMMAND_FIELDS = {
     TYPE_GRID_SET: (KEY_COLUMNS, KEY_GAP_DP, KEY_OUTER_PADDING_DP, KEY_ROWS),
     TYPE_HOME_GET: (),
     TYPE_HTML_WIDGET_RENDERER_CRASH: (KEY_WIDGET_ADDRESS,),
-    TYPE_INTENT: (KEY_ACTION, KEY_INTENT_TYPE),
+    TYPE_INTENT: (KEY_ACTION, "data", KEY_INTENT_TYPE),
     TYPE_LAUNCH_APP: (KEY_SEMANTIC_ID,),
     TYPE_LONG_PRESS: (KEY_SEMANTIC_ID,),
     "requestDeviceAccess": ("requirementId",),

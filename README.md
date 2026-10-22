@@ -40,7 +40,7 @@ Release packages use `eu.psyb0t.dikciz.launcher`; debug packages use `eu.psyb0t.
 - Themes, fonts, wallpaper, widget appearance, editing locks and a chosen Android Home destination.
 - Semantic UI inspection, screenshots, logs, configuration editing and device actions through the remote APIs.
 
-The starter has two pages: **Home** with one full-page HTML document containing editable clock, installed-app search and saved-note cards; **Insights** with battery and connection status plus optional city-based weather and air quality. The cards are reusable presets, and custom cards or whole documents can be saved to the libraries. Three useful Lua examples start disabled. See the [starter home guide](docs/starter-home.md).
+The starter has two pages: **Home** with one full-page HTML document containing clock, installed-app search and saved-note sections; **Insights** with battery and connection status plus optional city-based weather and air quality. The HTML library offers complete editable WebView templates, including system metrics and BTC/USD with economic news. Save customized documents to reuse them. Three useful Lua examples start disabled. See the [starter home guide](docs/starter-home.md).
 
 ## Navigate and manage the home
 

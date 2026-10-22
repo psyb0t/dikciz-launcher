@@ -1,16 +1,12 @@
-# Edit or delete one HTML card
+# Edit part of an HTML document
 
-Read the current widget and its saved HTML before editing. A page-sized HTML widget can contain many cards. The widget's top move handle controls the entire widget; a long press inside content targets a source-backed HTML item.
+An HTML widget is one WebView with its own HTML, CSS, JavaScript and state. Sections and `data-*` attributes are ordinary document content. Long press anywhere for whole-widget controls. Edit exposes the complete source. Delete removes the entire widget, so do not use it to remove one section.
 
-1. Inspect the current page and locate the intended card. Long press inside that card rather than its top-level widget handle.
-2. Read the native **HTML item** menu. Confirm its title identifies the intended item before choosing **Edit** or **Delete**.
-3. Edit only that item's fragment or confirm scoped deletion. Page and widget locks still protect the change.
-4. Read the saved widget again. Verify the containing widget, page and sibling items remain. Inspect the rendered result too.
+1. Read the saved widget and identify the intended section and the JavaScript that renders it.
+2. Change the relevant saved markup, CSS, JavaScript or state. Preserve sibling content and unrelated widget fields.
+3. Submit the change through the shared widget patch action or a preserved complete configuration replacement. Page and widget locks apply.
+4. Read back the widget and inspect its rendered result. Live DOM patches alone do not persist source edits.
 
-Source-backed `article`, `section`, `li`, `.card`, `.dikciz-block` and elements with `data-dikciz-item` or `data-dikciz-widget` can persist changes. A standalone `main.card` is editable too. A nested press first selects its nearest `data-dikciz-item-id` owner, otherwise its nearest saved item. Script-generated DOM without a saved source target is refused rather than silently deleting its container. For dynamic content, edit the render source or data that creates the card. Mark a custom saved card with `data-dikciz-item`.
-
-If item selection is ambiguous, stop before deleting. Download the saved widget record and make a scoped source edit, preserving siblings. Do not call whole-widget or whole-page delete to remove a card.
-
-Give each reusable card a unique `data-dikciz-item-id`. Use `selfWidget.itemFor(element)` to read its state, call `patchState(values)`, or read and write its own files. The path includes the page ID, wrapper ID and card instance ID: `/sdcard/Dikciz/pages/<page-id>/widgets/<wrapper-id>/items/<instance-id>/`. Adding the same preset again creates another instance. Deleting a card removes only its owned state and files. **Save as preset** copies its source and behavior without its state.
+Optional `selfWidget.item(id)` namespaces remain available for a document's own state and files. They do not create native child widgets. Complete reusable documents belong in the HTML widget library.
 
 [HTML guide](dikciz://docs/guides/html).

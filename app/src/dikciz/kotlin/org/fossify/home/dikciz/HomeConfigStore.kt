@@ -59,15 +59,8 @@ internal class HomeConfigStore(
         sharedStorageRoot(),
         "$CONFIGURATION_DIRECTORY_NAME/$WIDGET_LIBRARY_DIRECTORY_NAME",
     )
-    val widgetBlockDirectory: File = File(
-        sharedStorageRoot(),
-        "$CONFIGURATION_DIRECTORY_NAME/${DikcizHtmlBlockLibrary.DIRECTORY_NAME}",
-    )
     private val htmlWidgetLibrary by lazy {
         DikcizHtmlWidgetLibrary(context, widgetLibraryDirectory)
-    }
-    private val htmlBlockLibrary by lazy {
-        DikcizHtmlBlockLibrary(context, widgetBlockDirectory)
     }
     private val pagesDirectory = File(
         sharedStorageRoot(),
@@ -102,10 +95,8 @@ internal class HomeConfigStore(
         ensurePublicDirectory(automationScriptDirectory, AUTOMATION_SCRIPTS_DIRECTORY_NAME)
         ensurePublicDirectory(themeDirectory, "themes")
         ensurePublicDirectory(widgetLibraryDirectory, WIDGET_LIBRARY_DIRECTORY_NAME)
-        ensurePublicDirectory(widgetBlockDirectory, DikcizHtmlBlockLibrary.DIRECTORY_NAME)
         ensureWallpaperDirectory()
         htmlWidgetLibrary.installBundledPackages()
-        htmlBlockLibrary.installBundledBlocks()
         if (!configurationFile.exists()) {
             saveBundledStarter()
         } else {
@@ -248,21 +239,6 @@ internal class HomeConfigStore(
     fun htmlWidgetPackages(): List<DikcizHtmlWidgetPackage> {
         requireSharedStorageAccess()
         return htmlWidgetLibrary.listPackages()
-    }
-
-    fun htmlBlocks(): List<DikcizHtmlBlock> {
-        requireSharedStorageAccess()
-        htmlBlockLibrary.installBundledBlocks()
-        return htmlBlockLibrary.listBlocks()
-    }
-
-    fun saveHtmlBlock(widget: HtmlHomeWidget, title: String, blockID: String): DikcizHtmlBlock {
-        requireSharedStorageAccess()
-        return htmlBlockLibrary.saveBlock(widget, title, blockID)
-    }
-
-    fun markedHtmlBlockFragment(block: DikcizHtmlBlock, instanceID: String): String {
-        return htmlBlockLibrary.markedFragment(block, instanceID)
     }
 
     fun loadHtmlWidgetPackage(packageID: String): DikcizHtmlWidgetPackage {

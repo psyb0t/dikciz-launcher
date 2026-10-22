@@ -10,7 +10,7 @@ This source set adds the Dikciz home, public configuration, scripting and local 
 | `AndroidManifest.xml` | Registers the Dikciz Home activity, permissions, services and receivers, and replaces the inherited Main activity declaration. |
 | `kotlin/org/fossify/home/dikciz/` | Dikciz implementation, retaining the Fossify Kotlin namespace. |
 | `res/` | Native home layout, controls, labels, appearance and Android service metadata. |
-| `assets/` | [Bundled starter, web API, widget packages, blocks, themes and fonts](assets/README.md). |
+| `assets/` | [Bundled starter, web API, complete widget templates, themes and fonts](assets/README.md). |
 
 ## Main classes
 
@@ -29,7 +29,7 @@ All Kotlin files below live in `kotlin/org/fossify/home/dikciz/`.
 | `DikcizTheme.kt`, `DikcizLauncherBackground.kt` | Load and validate themes and the shared launcher background. |
 | `DikcizHtmlWidgetView.kt`, `DikcizWebCommandBridge.kt`, `DikcizWebWidgetContext.kt` | Render widget documents and connect JavaScript calls and widget context to native commands. |
 | `DikcizHtmlWidgetStateStore.kt` | Stores wrapper and instance state under their page/widget directory, migrates embedded state, and cleans up owned files. |
-| `DikcizHtmlWidgetLibrary.kt`, `DikcizHtmlBlockLibrary.kt` | Validate and install complete widget packages and reusable fragments. |
+| `DikcizHtmlWidgetLibrary.kt` | Validates and installs complete WebView templates. |
 | `DikcizAutomationControlPlane.kt`, `DikcizMcpControlPlane.kt` | Serve WebSocket, Streamable HTTP MCP and HTTP JSON commands through one `DikcizAutomationTarget`. |
 | `DikcizControlStatus.kt`, `DikcizAutomationStatus.kt` | Describe the command protocol and Android capabilities for discovery. |
 | `DikcizMcpResources.kt` | Maps exact documentation URIs to packaged Markdown, validates resource parameters and paginates the fixed catalog. |
@@ -42,6 +42,7 @@ All Kotlin files below live in `kotlin/org/fossify/home/dikciz/`.
 | `DikcizDeviceAccess.kt`, `DikcizPrivilegedShell.kt`, `DikcizAccessibilityAutomationService.kt` | Report Android access, run bounded shell commands and implement cross-app Accessibility inspection and actions. |
 | `DikcizDeviceInspection.kt` | Reports actual package versions, Android information and launcher instance identity through native PackageManager APIs. |
 | `DikcizNativeCommands.kt`, `DikcizNativeData.kt`, `DikcizContentData.kt` | Define direct Android schemas, permission checks, bounded provider reads and atomic writes shared by every binding. |
+| `DikcizAppIcon.kt`, `DikcizSystemMetrics.kt` | Read bounded Android app icons and local RAM, storage, CPU and sensor inventory through the shared native executor. |
 | `DikcizSmsStatus.kt` | Reserves durable idempotency keys and records per-part sent/delivery callbacks through a private receiver. |
 | `DikcizDeviceFiles.kt` | Validate absolute paths, paginate directories and transfer bounded base64 file chunks using Android app permissions. |
 | `DikcizApkInstaller.kt` | Stage standalone APKs asynchronously, verify checksums and persist Android installer callback outcomes through its private receiver. |

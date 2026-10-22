@@ -5,12 +5,10 @@ New installations start with two pages. Existing edited homes keep their pages, 
 ## Home
 
 - **Clock and search** shows local time and date. Search opens the browser only after submitting a query.
-- **Find an app** filters the real installed-app catalogue by name or package and launches a selected result. Up to six matches appear. Open the bottom app drawer to see all apps and add native shortcuts.
+- **Find an app** shows Android app icons and filters the real installed-app catalogue by name or package and launches a selected result. Up to six matches appear. Tap a result to launch it. The bottom app drawer shows all apps and adds separate native screen shortcuts; those are not inserted into this HTML document.
 - **Quick note** saves up to 2,000 characters on this phone when you tap **Save note**. Unsaved edits are marked. Saved text survives switching pages and reopening Dikciz.
 
-Home is one full-page HTML widget containing three saved cards in one WebView. Long press a card for **Edit**, **Delete**, or **Save as preset**. Deleting a card keeps its containing document and siblings. Use the top move handle for whole-document controls, **Add preset or block**, or the full HTML/CSS/JavaScript editor. Nothing requires a bundled background script.
-
-The clock, app search and note are also ready-made presets. Add them inside another HTML widget through **Add preset or block**, or create separate native grid widgets through the HTML widget library. The **Home dashboard** library preset recreates the combined document. Repeated notes keep independent instance IDs and state files under their page and WebView wrapper. Deleting one removes only its state and custom files. Custom card presets copy source and behavior, never saved note text or other state. Existing homes keep their layout on update; reset the home or add the dashboard preset to use the combined starter.
+Home is one full-page HTML document with clock, app search and note sections. Long press anywhere for the whole WebView's controls. Edit shows its HTML, CSS, JavaScript and JSON state. The document's JavaScript controls its sections; they are not native preset objects. Existing homes and note state remain unchanged on update.
 
 <img src="images/user-guide/01-first-launch.png" alt="Starter Home with clock, app search and quick note" width="280">
 
@@ -27,6 +25,16 @@ Requests time out after 15 seconds and each response is limited to 64 KiB. A fai
 Data attribution: [Open-Meteo weather](https://open-meteo.com/en/docs), [Open-Meteo geocoding](https://open-meteo.com/en/docs/geocoding-api), and [CAMS ENSEMBLE air-quality data through Open-Meteo](https://open-meteo.com/en/docs/air-quality-api). The public endpoints are for personal, non-commercial use under the provider's terms. A commercial deployment must arrange appropriate service access.
 
 <img src="images/user-guide/03-insights-page.png" alt="Insights with optional city weather and local phone status" width="280">
+
+## Complete WebView templates
+
+The HTML widget picker offers **Home dashboard**, the individual complete clock/search, app search and note documents, **System dashboard**, and **BTC and economic news**. Adding a template copies a full HTML/CSS/JavaScript document into an independent WebView with fresh state. **Save to library** reuses a complete customized document. Library changes do not silently update existing widgets.
+
+**System dashboard** reads local Android metrics on opening, every five seconds while visible and when Refresh is tapped. It displays RAM used and available, total RAM, free app-data filesystem capacity, battery and temperature, network state, logical processors and CPU samples. System CPU can be unavailable because Android restricts `/proc/stat`; Dikciz CPU is labeled separately as a percentage of one core and requires two samples. Expand Sensor inventory for the available sensor names and types. This inventory does not claim live sensor values or start listeners.
+
+**BTC and economic news** starts with no external requests. Refresh fetches [Coinbase BTC/USD spot price](https://docs.cdp.coinbase.com/coinbase-app/track-apis/prices) and [GDELT economic coverage](https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/) from the preceding 24 hours. It lists up to eight English-language headlines matching economy, inflation or monetary coverage, with publisher links and GDELT discovery times. Discovery time is not publication time. No API keys are required. These public services can rate-limit or fail independently.
+
+Each request times out after 15 seconds and accepts at most 64 KiB. Text is rendered as text, and publisher links accept only HTTP or HTTPS. The widget saves successful results with their fetch times and keeps them dated if another request fails. It never polls in the background. No phone metrics, contacts or notes are sent with the requests.
 
 ## Optional Lua utilities
 

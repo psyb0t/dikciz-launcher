@@ -8,4 +8,4 @@ For another Android app, use `accessibilitySnapshot` and `accessibilityAction`. 
 
 The supplied client supports `--png-file ./screen.png`; it refuses an existing file unless `--overwrite` is passed. UI dumps and screenshots can contain private information. Fetch only what the authorized task needs.
 
-Do not treat a successful input request as proof the destination appeared. Inspect the new window, visible package, UI nodes or saved state. Prefer semantic controls to coordinates. The [inspect recipe](dikciz://docs/recipes/inspect-ui) describes that loop. The [HTML card recipe](dikciz://docs/recipes/html-item) distinguishes a DOM item from its containing widget.
+Do not treat a successful input request as proof the destination appeared. Inspect the new window, visible package, UI nodes or saved state. Prefer semantic controls to coordinates. The [inspect recipe](dikciz://docs/recipes/inspect-ui) describes that loop. The [HTML document recipe](dikciz://docs/recipes/html-item) explains scoped source edits inside one WebView.

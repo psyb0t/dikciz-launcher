@@ -123,11 +123,7 @@ Drop one app shortcut on another to make an app group. Open the group to launch 
 
 Long press the move handle at the top of an HTML widget, choose **Edit**, then change its title, HTML, CSS, JavaScript, or JSON state. The editor contains the source that widget runs.
 
-Long press a card or block inside the HTML content to open its native **HTML item** menu. The title names the selected item. **Edit** changes that item's HTML; **Save as preset** stores its saved HTML with the containing widget's CSS and JavaScript; **Delete** removes that item from the saved source while keeping its containing widget, page and sibling items. Page and widget locks protect these edits too. Use the top move handle for controls that affect the entire HTML widget.
-
-Item edits preserve the widget's CSS, JavaScript and state. Custom JavaScript must tolerate missing elements when its cards can be deleted.
-
-Dikciz recognizes a saved `<main class="card">` when it contains no other editable cards, `article`, `section`, `li`, `.card`, `.dikciz-block`, and elements marked with `data-dikciz-item` or `data-dikciz-widget`. A nested press selects the nearest item. Long press the document background or empty container padding to open the whole widget's controls, including Appearance and Add preset or block. This opens a menu without deleting anything. Elements created only at runtime still cannot act as saved cards. To make a custom card editable, include its element in the saved HTML and mark it with `data-dikciz-item`.
+An HTML widget is one programmable document. Long press anywhere in its content or background to open the same whole-widget controls. **Edit** exposes all HTML, CSS, JavaScript and JSON state. To change one section, edit its markup and the code that renders it. **Delete** removes the entire WebView widget; it never means delete the section under your finger. Page and widget locks protect editing.
 
 ![HTML editor](images/user-guide/16-widget-editor.png)
 
@@ -139,19 +135,11 @@ Use **Appearance** to set its background, border, corner radius, spacing, and fo
 
 ![Appearance editor](images/user-guide/17-appearance-editor.png)
 
-### Add a ready-made block to one HTML widget
+### Reuse a complete WebView template
 
-Long press the top move handle of the HTML widget you want to change, select **Add preset or block**, choose a ready-made card or block, then confirm. Dikciz appends marked HTML source to that widget. It does not use another native grid cell or reload the page.
+Add an HTML widget from the page's widget picker and choose a complete library template. **Home dashboard** contains the clock, app search and note in one WebView. **System dashboard** displays local RAM, storage, battery, CPU samples and sensor inventory. **BTC and economic news** fetches price and headlines when you tap Refresh. Each template supplies the entire HTML, CSS and JavaScript document; the placed widget owns its state.
 
-![HTML block picker](images/user-guide/18-html-block-picker.png)
-
-The new section appears at the bottom of the widget that owns it. Clock and search, Find an app and Quick note include their working controls. Repeated notes keep separate saved text in page/widget/instance directories. Deleting a card removes its own state and custom files; deleting the whole HTML widget removes every instance it owns.
-
-To reuse a custom card, long press it, choose **Save as preset**, enter a title and a new lowercase slug ID, then save. It appears in the same picker. Existing IDs are refused. The preset includes the parent document's CSS and JavaScript, so custom scripts must scope their controls to the card and tolerate removed siblings. Saved state is not copied.
-
-To save an entire document, open its top-handle **Edit** action and use **Save to library**. Add that document through the page's HTML widget picker. Both libraries live in editable public files.
-
-![Appended HTML block](images/user-guide/34-html-block-appended.png)
+To reuse your own document, open **Edit**, enter a package ID, and use **Save to library**. Adding that package creates another independent WebView. Edit the new widget's complete source to customize it. Live state is not copied into the library.
 
 Inside an HTML widget, use `selfWidget` to refer to the widget itself even after you move it. Use `dikciz.pages()` when you need the page map or another widget. The [scripting tutorial](scripting-tutorial.md) explains bridge APIs, state, events, and cross-widget work. [Automation control](automation-control.md) is the protocol reference.
 

@@ -25,3 +25,5 @@ Location returns last-known data with age, not a fresh fix. Android can restrict
 Missing grants use `native_permission_<requirementId>` and the shared `permissionRequest`. Set `autoRequestPermissions` for owner review, then explicitly retry after checking access. Role or foreground restrictions can produce `native_access_denied`. Do not fall back to root.
 
 [Tracked SMS workflow](dikciz://docs/recipes/contact-sms).
+
+`deviceState.system` reports RAM, app-data filesystem capacity, uptime, logical processors and CPU samples. System CPU may be unavailable under Android restrictions; Dikciz CPU is a separate percentage of one core. Samples need two calls. Sensor records are a bounded hardware inventory, not live readings. Battery temperature is in tenths Celsius and voltage is in millivolts. All transports and HTML use the same executor.

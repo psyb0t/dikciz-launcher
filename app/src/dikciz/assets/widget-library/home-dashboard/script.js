@@ -61,6 +61,7 @@
     const MAX_VISIBLE = 6;
     const status = root.querySelector('[data-role="status"]');
     const list = root.querySelector('[data-role="apps"]');
+    const iconCache = new Map();
     let apps = [];
     let launching = false;
     function render() {
@@ -72,7 +73,25 @@
             const button = document.createElement("button");
             button.type = "button";
             button.className = "secondary";
-            button.textContent = app.label;
+            const label = document.createElement("span");
+            label.textContent = app.label;
+            const icon = document.createElement("img");
+            icon.width = 40;
+            icon.height = 40;
+            icon.alt = "";
+            icon.hidden = true;
+            button.append(icon, label);
+            if (!iconCache.has(app.component)) {
+                iconCache.set(app.component, dikciz.command("appIcon", {component:app.component, sizePixels:64}));
+            }
+            iconCache.get(app.component).then(result => {
+                if (!button.isConnected) return;
+                icon.src = "data:image/png;base64," + result.pngBase64;
+                icon.hidden = false;
+            }).catch(error => {
+                iconCache.delete(app.component);
+                button.title = "Icon unavailable: " + error.message;
+            });
             button.addEventListener("click", async () => {
                 if (launching) return;
                 launching = true;
@@ -87,7 +106,7 @@
             });
             list.append(button);
         });
-        status.textContent = matches.length ? "Showing " + Math.min(matches.length, MAX_VISIBLE) + " of " + matches.length + ". Use the drawer to add shortcuts." : "No matching installed apps.";
+        status.textContent = matches.length ? "Showing " + Math.min(matches.length, MAX_VISIBLE) + " of " + matches.length + ". Tap an app to launch it. Drawer shortcuts are separate home-screen widgets." : "No matching installed apps.";
     }
     root.querySelector('[data-role="app-query"]')?.addEventListener("input", render);
     onReady( async () => {

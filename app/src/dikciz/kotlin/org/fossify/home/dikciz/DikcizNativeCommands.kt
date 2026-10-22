@@ -26,6 +26,12 @@ internal object DikcizNativeCommands {
     const val TYPE_NOTIFICATIONS = "notificationsList"
     const val TYPE_MEDIA = "mediaSessionsList"
     const val TYPE_DEVICE_STATE = "deviceState"
+    const val TYPE_APP_ICON = "appIcon"
+    const val KEY_COMPONENT = "component"
+    const val KEY_ICON_SIZE = "sizePixels"
+    const val DEFAULT_ICON_SIZE = 64
+    const val MINIMUM_ICON_SIZE = 16
+    const val MAXIMUM_ICON_SIZE = 128
     const val ERROR_UNAVAILABLE = "native_unavailable"
     const val ERROR_FAILED = "native_operation_failed"
     const val ERROR_NOT_FOUND = "native_record_not_found"
@@ -112,7 +118,9 @@ internal object DikcizNativeCommands {
         Definition(TYPE_LOCATION, "dikciz_location_get", "Read the newest permitted last-known location with its age and accuracy. Never claims a fresh location fix. Returns available=false when missing or older than maxAgeMilliseconds.", mapOf("maxAgeMilliseconds" to integer(0, Int.MAX_VALUE, 300_000))),
         Definition(TYPE_NOTIFICATIONS, "dikciz_notifications_list", "Read current notifications directly through the enabled notification listener, including bounded text and short-lived action tokens.", PAGE_FIELDS),
         Definition(TYPE_MEDIA, "dikciz_media_sessions_list", "Read current media sessions, playback state and bounded metadata through granted notification-listener access.", PAGE_FIELDS),
-        Definition(TYPE_DEVICE_STATE, "dikciz_device_state", "Read screen, keyguard, battery and charging state, power save, audio levels and network connectivity without navigating Settings.", emptyMap()),
+        Definition(TYPE_APP_ICON, "dikciz_app_icon", "Read a launchable activity icon as a bounded PNG. Use a component from appCatalogue. sizePixels defaults to 64 and accepts 16 through 128. Works through the shared HTML and network command API.",
+            mapOf(KEY_COMPONENT to string("Exact launchable component from appCatalogue.", 512), KEY_ICON_SIZE to integer(MINIMUM_ICON_SIZE, MAXIMUM_ICON_SIZE, DEFAULT_ICON_SIZE)), setOf(KEY_COMPONENT)),
+        Definition(TYPE_DEVICE_STATE, "dikciz_device_state", "Read screen, battery, charging, audio, network, RAM, storage, CPU samples and bounded sensor inventory. System CPU may be unavailable under Android restrictions; sensor inventory does not claim live readings.", emptyMap()),
     ).associateBy(Definition::type)
     val FIELDS = DEFINITIONS.mapValues { (_, definition) -> definition.fields.keys }
     val REQUIRED_FIELDS = DEFINITIONS.mapValues { (_, definition) -> definition.required }
@@ -124,6 +132,7 @@ internal object DikcizNativeCommands {
         val definition = DEFINITIONS.getValue(type)
         validateFields(request, definition.fields, definition.required, if (envelope) ENVELOPE else emptySet())
         when (type) {
+            TYPE_APP_ICON -> if (android.content.ComponentName.unflattenFromString(request.getString(KEY_COMPONENT)) == null) invalid("Invalid app component")
             TYPE_QUERY -> DikcizContentData.validateQuery(request)
             TYPE_WRITE -> DikcizContentData.validateWrite(request, false)
             TYPE_BATCH -> {

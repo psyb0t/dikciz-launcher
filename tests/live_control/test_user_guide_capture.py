@@ -46,7 +46,6 @@ STARTER_WORKBENCH_PAGE_ID = "activity"
 DECK_EDIT_ACTION_SEMANTIC_ID = f"widget:{STARTER_HOME_WIDGET_ID}:edit"
 DECK_APPEARANCE_ACTION_SEMANTIC_ID = f"widget:{STARTER_HOME_WIDGET_ID}:appearance"
 WIDGET_PICKER_DIKCIZ_CATEGORY_LABEL = "Dikciz"
-WIDGET_ADD_BLOCK_LABEL = "Add block"
 WIDGET_APPEARANCE_LABEL = "Appearance"
 WIDGET_EDIT_LABEL = "Edit"
 PAGE_RENAME_LABEL = "Rename this page"
@@ -65,7 +64,6 @@ GUIDE_CLOCK_NOTIFICATION_TIMEOUT_SECONDS = 20
 GUIDE_CLOCK_SCRIPT_ID = "low-battery"
 GUIDE_COMMAND_DECK_EDITOR_HTML_SEMANTIC_ID = "widget:home-dashboard:editor:html"
 GUIDE_COMMAND_DECK_EDITOR_SAVE_SEMANTIC_ID = "widget:home-dashboard:editor:save"
-GUIDE_HTML_BLOCK_CONFIRM_SEMANTIC_ID = "html-block:confirm"
 GUIDE_HTML_RESULT_TEXT = "Guide HTML change saved"
 GUIDE_HTML_RESULT_SOURCE = f"<main><h1>{GUIDE_HTML_RESULT_TEXT}</h1></main>"
 GUIDE_NOTIFICATION_EVENT_TAG = "dikciz-guide-event"
@@ -77,7 +75,6 @@ GUIDE_PAGE_RENAME_TITLE_SUFFIX = ":title"
 GUIDE_WORKSPACE_PAGE_TITLE = "Guide workspace"
 GUIDE_WORKSPACE_SEARCH_SCREENSHOT = "32-page-search-by-name.png"
 GUIDE_HTML_SAVE_SCREENSHOT = "33-html-saved.png"
-GUIDE_HTML_BLOCK_SCREENSHOT = "34-html-block-appended.png"
 GUIDE_CLOCK_NOTIFICATION_SCREENSHOT = "35-script-notification.png"
 GUIDE_CLOCK_LOG_SCREENSHOT = "36-script-log.png"
 GUIDE_NOTIFICATION_DIGEST_SCREENSHOT = "37-notification-digest.png"
@@ -194,9 +191,7 @@ def test_capture_user_guide_screenshots(websocket_control: socket.socket) -> Non
     capture_widget_delete(websocket_control)
     capture_widget_editor(websocket_control)
     capture_widget_appearance(websocket_control)
-    capture_html_block_picker(websocket_control)
     capture_html_edit_result(websocket_control)
-    capture_html_block_result(websocket_control)
     capture_page_menu(websocket_control)
     capture_page_rename(websocket_control)
     capture_widget_picker(websocket_control)
@@ -445,15 +440,6 @@ def capture_widget_appearance(connection: socket.socket) -> None:
     reset_to_starter_home()
 
 
-def capture_html_block_picker(connection: socket.socket) -> None:
-    """Add block appends source inside one widget instead of creating a new one."""
-    open_widget_action_sheet()
-    direct_tap(scroll_dialog_to_text(WIDGET_ADD_BLOCK_LABEL))
-    wait_for_physical_text_absent(WIDGET_MOVE_ACTION_LABEL)
-    capture("18-html-block-picker.png")
-    reset_to_starter_home()
-
-
 def capture_html_edit_result(connection: socket.socket) -> None:
     """Save a visible HTML edit and photograph the rendered document."""
     open_widget_action_sheet()
@@ -487,22 +473,6 @@ def capture_html_edit_result(connection: socket.socket) -> None:
 def test_capture_html_edit_result_in_isolation(websocket_control: socket.socket) -> None:
     """Keep the saved-HTML evidence scene independently runnable on failure."""
     capture_html_edit_result(websocket_control)
-
-
-def capture_html_block_result(connection: socket.socket) -> None:
-    """Append a real block and photograph the owning document after insertion."""
-    open_widget_action_sheet()
-    direct_tap(scroll_dialog_to_text(WIDGET_ADD_BLOCK_LABEL))
-    direct_tap(wait_for_physical_text_bounds("Section heading"))
-    wait_for_snapshot_node(connection, GUIDE_HTML_BLOCK_CONFIRM_SEMANTIC_ID)
-    AUTOMATION.request(
-        connection,
-        AUTOMATION.TYPE_TAP,
-        semanticId=GUIDE_HTML_BLOCK_CONFIRM_SEMANTIC_ID,
-    )
-    wait_for_physical_text_bounds("Section title")
-    capture(GUIDE_HTML_BLOCK_SCREENSHOT)
-    reset_to_starter_home()
 
 
 def capture_page_rename(connection: socket.socket) -> None:
@@ -673,13 +643,6 @@ def capture_script_editor(connection: socket.socket) -> None:
     )
     capture("26-script-editor.png")
     reset_to_starter_home()
-
-
-def test_capture_remaining_result_scenes_in_isolation(
-    websocket_control: socket.socket,
-) -> None:
-    """Run the remaining new outcome scenes without repeating the guide walk."""
-    capture_html_block_result(websocket_control)
 
 
 def capture_grid_settings(connection: socket.socket) -> None:

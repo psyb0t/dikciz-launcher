@@ -1788,22 +1788,7 @@ class DikcizHomeActivity : Activity() {
                     setOnClickListener { requestHtmlWidgetContentFit(widget, widgetView) }
                     registerAutomationView(htmlWidgetFitContentSemanticID(widget.id), this)
                 }
-                // A block is widget-local authoring. It is reachable only from the widget
-                // that will receive it, never from the page-level add flow.
-                val addBlockAction = Button(this@DikcizHomeActivity).apply {
-                    isAllCaps = false
-                    text = getString(R.string.dikciz_html_widget_add_block)
-                    contentDescription = getString(
-                        R.string.dikciz_html_widget_add_block_description,
-                        widget.title,
-                    )
-                    setOnClickListener {
-                        dismissWidgetEditActions()
-                        showHtmlBlockPicker(widget)
-                    }
-                    registerAutomationView(htmlWidgetAddBlockSemanticID(widget.id), this)
-                }
-                addView(createWidgetActionRow(listOf(fitContentAction, addBlockAction)))
+                addView(createWidgetActionRow(listOf(fitContentAction)))
             }
             val moveAction = Button(this@DikcizHomeActivity).apply {
                 isAllCaps = false
@@ -1916,7 +1901,6 @@ class DikcizHomeActivity : Activity() {
             moveSemanticID(widgetID),
             resizeSemanticID(widgetID),
             htmlWidgetFitContentSemanticID(widgetID),
-            htmlWidgetAddBlockSemanticID(widgetID),
             appearanceActionSemanticID(widgetID),
             editSemanticID(widgetID),
             deleteSemanticID(widgetID),
@@ -2570,9 +2554,7 @@ class DikcizHomeActivity : Activity() {
                         contentHeightPixels,
                     )
                 },
-                { view, selection, isBackground ->
-                    showHtmlItemActions(page.id, widget.id, view, selection, isBackground)
-                },
+                { showHtmlWidgetActions(page.id, widget.id) },
                 { recoverHtmlWidgetRenderer(widget.id, container, widgetFrame) },
             ),
             LinearLayout.LayoutParams(
@@ -2582,174 +2564,12 @@ class DikcizHomeActivity : Activity() {
         )
     }
 
-    private fun showHtmlItemActions(
-        pageID: String,
-        widgetID: String,
-        view: DikcizHtmlWidgetView,
-        selection: HtmlItemSelection?,
-        isBackground: Boolean,
-    ) {
+    private fun showHtmlWidgetActions(pageID: String, widgetID: String) {
         val page = homeConfiguration?.selectedPage() ?: return
         val widget = page.findWidget(widgetID) as? HtmlHomeWidget ?: return
-        if (page.id != pageID || selectedPageOrWidgetIsLocked(widget.id)) {
-            return
-        }
-        if (isBackground) {
-            val frame = automationViews[widgetSemanticID(widget.id)] ?: return
-            showWidgetEditActions(widget, frame)
-            return
-        }
-        if (selection == null) {
-            Toast.makeText(this, R.string.dikciz_html_item_unavailable, Toast.LENGTH_SHORT).show()
-            return
-        }
-        dismissWidgetEditActions()
-        val prefix = "widget:${widget.id}:html-item"
-        val actions = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(standardPadding(), NO_PADDING, standardPadding(), NO_PADDING)
-        }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(getString(R.string.dikciz_html_item_title, selection.label))
-            .setView(actions)
-            .setNegativeButton(R.string.dikciz_dialog_cancel, null)
-            .create()
-        actions.addView(Button(this).apply {
-            text = getString(R.string.dikciz_widget_edit)
-            setOnClickListener {
-                val input = EditText(this@DikcizHomeActivity).apply {
-                    setText(selection.html)
-                    minLines = HTML_ITEM_EDITOR_MIN_LINES
-                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
-                }
-                val editor = AlertDialog.Builder(this@DikcizHomeActivity)
-                    .setTitle(getString(R.string.dikciz_html_item_title, selection.label))
-                    .setView(input)
-                    .setNegativeButton(R.string.dikciz_dialog_cancel, null)
-                    .setPositiveButton(R.string.dikciz_dialog_save, null)
-                    .create()
-                showActiveDialog(
-                    editor,
-                    onShown = {
-                        registerAutomationView("$prefix:source", input)
-                        val save = editor.getButton(AlertDialog.BUTTON_POSITIVE)
-                        registerAutomationView("$prefix:save", save)
-                        save.setOnClickListener {
-                            saveHtmlItem(pageID, widget, view, selection, input.text.toString(), editor)
-                        }
-                    },
-                    onDismiss = {
-                        automationViews.remove("$prefix:source")
-                        automationViews.remove("$prefix:save")
-                    },
-                )
-            }
-            registerAutomationView("$prefix:edit", this)
-        })
-        actions.addView(Button(this).apply {
-            text = getString(R.string.dikciz_html_item_save_preset)
-            setOnClickListener {
-                dialog.dismiss()
-                showSaveHtmlItemPreset(widget, selection)
-            }
-            registerAutomationView("$prefix:save-preset", this)
-        })
-        actions.addView(Button(this).apply {
-            text = getString(R.string.dikciz_widget_delete)
-            setOnClickListener { saveHtmlItem(pageID, widget, view, selection, null, dialog) }
-            registerAutomationView("$prefix:delete", this)
-        })
-        showActiveDialog(dialog, onDismiss = {
-            automationViews.remove("$prefix:edit")
-            automationViews.remove("$prefix:delete")
-            automationViews.remove("$prefix:save-preset")
-        })
-    }
-
-    private fun showSaveHtmlItemPreset(widget: HtmlHomeWidget, selection: HtmlItemSelection) {
-        val prefix = "widget:${widget.id}:html-item:preset"
-        val title = EditText(this).apply {
-            setText(selection.label)
-            contentDescription = getString(R.string.dikciz_dialog_title_hint)
-        }
-        val identifier = EditText(this).apply {
-            hint = getString(R.string.dikciz_html_widget_package_id_input)
-            contentDescription = hint
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-        }
-        val form = createPanelColumn().apply {
-            addView(createPanelSubtitle(getString(R.string.dikciz_html_item_preset_explanation)))
-            addView(title)
-            addView(identifier)
-        }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(R.string.dikciz_html_item_save_preset)
-            .setView(ScrollView(this).apply { addView(form) })
-            .setNegativeButton(R.string.dikciz_dialog_cancel, null)
-            .setPositiveButton(R.string.dikciz_dialog_save, null)
-            .create()
-        showActiveDialog(dialog, onShown = {
-            registerAutomationView("$prefix:title", title)
-            registerAutomationView("$prefix:id", identifier)
-            val save = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            registerAutomationView("$prefix:save", save)
-            save.setOnClickListener {
-                val page = homeConfiguration?.selectedPage()
-                val current = page?.findWidget(widget.id) as? HtmlHomeWidget
-                if (page == null || page.locked || current == null || current.locked || current.html != widget.html) {
-                    Toast.makeText(this, R.string.dikciz_html_item_unavailable, Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                try {
-                    homeConfigStore.saveHtmlBlock(
-                        current.copy(html = selection.html),
-                        title.text.toString(),
-                        identifier.text.toString(),
-                    )
-                    dikcizLogger.info(EVENT_HTML_WIDGET_LIBRARY_SAVED, mapOf(FIELD_WIDGET_ID to widget.id))
-                    Toast.makeText(this, R.string.dikciz_html_item_preset_saved, Toast.LENGTH_SHORT).show()
-                    dialog.dismiss()
-                } catch (exception: HomeConfigException) {
-                    dikcizLogger.warn(EVENT_HTML_WIDGET_LIBRARY_SAVE_REJECTED, mapOf(FIELD_REASON to exception.message.orEmpty()))
-                    identifier.error = exception.message
-                }
-            }
-        }, onDismiss = {
-            listOf("title", "id", "save").forEach { action -> automationViews.remove("$prefix:$action") }
-        })
-    }
-
-    private fun saveHtmlItem(
-        pageID: String,
-        widget: HtmlHomeWidget,
-        view: DikcizHtmlWidgetView,
-        selection: HtmlItemSelection,
-        replacement: String?,
-        dialog: AlertDialog,
-    ) {
-        view.replaceHtmlItem(selection, replacement) { html ->
-            val page = homeConfiguration?.selectedPage()
-            val current = page?.findWidget(widget.id) as? HtmlHomeWidget
-            if (html == null || page == null || page.id != pageID || page.locked || current == null ||
-                current.locked || current.html != widget.html
-            ) {
-                dikcizLogger.warn(EVENT_HTML_ITEM_EDIT_REJECTED, mapOf(FIELD_WIDGET_ID to widget.id))
-                Toast.makeText(this, R.string.dikciz_html_item_unavailable, Toast.LENGTH_SHORT).show()
-                return@replaceHtmlItem
-            }
-            if (updateSelectedPage { selected ->
-                    selected.replaceWidget(widget.id) { existing ->
-                        val currentHtml = existing as HtmlHomeWidget
-                        val itemStates = JSONObject(currentHtml.itemStates.toString())
-                        if (replacement == null) selection.itemIDs.forEach(itemStates::remove)
-                        currentHtml.copy(html = html, itemStates = DikcizHtmlWidgetStateStore.initialStates(html, itemStates))
-                    }
-                }
-            ) {
-                dialog.dismiss()
-                dikcizLogger.info(EVENT_HTML_ITEM_EDITED, mapOf(FIELD_WIDGET_ID to widget.id))
-            }
-        }
+        if (page.id != pageID || selectedPageOrWidgetIsLocked(widget.id)) return
+        val frame = automationViews[widgetSemanticID(widget.id)] ?: return
+        showWidgetEditActions(widget, frame)
     }
 
     private fun executeHtmlWidgetCommand(
@@ -5375,12 +5195,6 @@ class DikcizHomeActivity : Activity() {
 
     private fun htmlWidgetFitContentSemanticID(widgetID: String): String =
         "${widgetSemanticID(widgetID)}$SEMANTIC_WIDGET_ACTION_SEPARATOR$SEMANTIC_ACTION_FIT_CONTENT"
-
-    private fun htmlWidgetAddBlockSemanticID(widgetID: String): String =
-        "${widgetSemanticID(widgetID)}$SEMANTIC_WIDGET_ACTION_SEPARATOR$SEMANTIC_ACTION_ADD_BLOCK"
-
-    private fun htmlBlockEntrySemanticID(widgetID: String, blockID: String): String =
-        "${htmlWidgetAddBlockSemanticID(widgetID)}$SEMANTIC_WIDGET_ACTION_SEPARATOR$blockID"
 
     private fun editSemanticID(widgetID: String): String =
         "${widgetSemanticID(widgetID)}$SEMANTIC_WIDGET_ACTION_SEPARATOR$SEMANTIC_ACTION_EDIT"
@@ -9546,231 +9360,6 @@ class DikcizHomeActivity : Activity() {
         }
     }
 
-    /**
-     * The widget-local block picker.
-     *
-     * This changes the source of one existing HTML widget. It creates no native rectangle,
-     * which is what separates it from the page-level package flow that creates a sibling
-     * widget. The distinction is stated in the title and the confirmation.
-     */
-    private fun showHtmlBlockPicker(widget: HtmlHomeWidget) {
-        val blocks = try {
-            homeConfigStore.htmlBlocks()
-        } catch (exception: HomeConfigException) {
-            dikcizLogger.warn(
-                EVENT_HTML_BLOCK_LIBRARY_UNAVAILABLE,
-                mapOf(FIELD_REASON to exception.message.orEmpty()),
-            )
-            Toast.makeText(this, R.string.dikciz_html_block_unavailable, Toast.LENGTH_LONG).show()
-            return
-        }
-        if (blocks.isEmpty()) {
-            Toast.makeText(this, R.string.dikciz_html_block_unavailable, Toast.LENGTH_LONG).show()
-            return
-        }
-        lateinit var dialog: AlertDialog
-        val list = createPanelColumn().apply {
-            addView(
-                createPanelSubtitle(
-                    getString(R.string.dikciz_html_block_picker_subtitle, widget.title),
-                ),
-            )
-            blocks.forEach { block ->
-                val entry = Button(this@DikcizHomeActivity).apply {
-                    isAllCaps = false
-                    text = block.title
-                    contentDescription = getString(
-                        R.string.dikciz_html_block_entry_description,
-                        block.title,
-                        widget.title,
-                    )
-                    setOnClickListener {
-                        dialog.dismiss()
-                        showHtmlBlockPreview(widget, block)
-                    }
-                    registerAutomationView(htmlBlockEntrySemanticID(widget.id, block.id), this)
-                }
-                addView(
-                    entry,
-                    LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ),
-                )
-            }
-        }
-        dialog = AlertDialog.Builder(this)
-            .setTitle(getString(R.string.dikciz_html_block_picker_title, widget.title))
-            .setView(ScrollView(this).apply { addView(list) })
-            .setNegativeButton(R.string.dikciz_dialog_cancel, null)
-            .create()
-        showActiveDialog(dialog, onDismiss = { clearHtmlBlockAutomationViews(widget.id, blocks) })
-    }
-
-    /**
-     * Previews one block inside the target widget's own theme and cell bounds, then offers
-     * one Add action that appends to that widget's document only.
-     */
-    private fun showHtmlBlockPreview(widget: HtmlHomeWidget, block: DikcizHtmlBlock) {
-        val previewWidget = widget.copy(html = block.fragment, css = widget.css + "\n" + block.css)
-        val preview = WebView(this).apply {
-            settings.javaScriptEnabled = false
-            settings.blockNetworkLoads = true
-            setBackgroundColor(getColor(R.color.dikciz_widget_background))
-            val bounds = widgetContainer.cellBounds(widget.cell)
-            minimumHeight = bounds.height.coerceAtMost(densityPixels(HTML_BLOCK_PREVIEW_MAXIMUM_DP))
-            loadDataWithBaseURL(
-                null,
-                DikcizHtmlWidgetDocument.create(
-                    previewWidget,
-                    DikcizWebWidgetContext.selfWidget(
-                        homeConfiguration ?: return,
-                        homeConfiguration?.selectedPage() ?: return,
-                        previewWidget,
-                    ),
-                ),
-                HTML_WIDGET_PREVIEW_MIME,
-                HTML_WIDGET_PREVIEW_CHARSET,
-                null,
-            )
-        }
-        val body = createPanelColumn().apply {
-            addView(createPanelSubtitle(block.description))
-            addView(
-                preview,
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                ),
-            )
-        }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(getString(R.string.dikciz_html_block_preview_title, block.title))
-            .setView(ScrollView(this).apply { addView(body) })
-            .setNegativeButton(R.string.dikciz_dialog_cancel, null)
-            .setPositiveButton(R.string.dikciz_html_block_add_confirm) { _, _ ->
-                appendHtmlBlock(widget, block)
-            }
-            .create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.let { confirm ->
-                confirm.contentDescription = getString(
-                    R.string.dikciz_html_block_add_confirm_description,
-                    block.title,
-                    widget.title,
-                )
-                registerAutomationView(SEMANTIC_HTML_BLOCK_CONFIRM, confirm)
-            }
-            publishAutomationUIRendered()
-        }
-        showActiveDialog(dialog) {
-            automationViews.remove(SEMANTIC_HTML_BLOCK_CONFIRM)
-            publishAutomationUIRendered()
-        }
-    }
-
-    /**
-     * Appends the marked block source to one widget's document. No other widget, and no
-     * grid rectangle, changes.
-     */
-    private fun appendHtmlBlock(widget: HtmlHomeWidget, block: DikcizHtmlBlock) {
-        val currentWidget = currentSelectedHtmlWidget(widget.id) ?: return
-        val instanceID = newHtmlBlockInstanceID()
-        val fragment = homeConfigStore.markedHtmlBlockFragment(block, instanceID)
-        val appended = buildString {
-            append(currentWidget.html.trimEnd())
-            append(HTML_BLOCK_SEPARATOR)
-            append(fragment)
-        }
-        if (!updateSelectedPage(shouldRender = false) { page ->
-                page.replaceWidget(currentWidget.id) { current ->
-                    if (current is HtmlHomeWidget) {
-                        current.copy(
-                            html = appended,
-                            itemStates = DikcizHtmlWidgetStateStore.initialStates(appended, current.itemStates),
-                            css = appendHtmlPresetSource(current.css, block.css),
-                            javascript = appendHtmlPresetSource(current.javascript, block.javascript),
-                        )
-                    } else {
-                        current
-                    }
-                }
-            }
-        ) {
-            dikcizLogger.warn(
-                EVENT_HTML_BLOCK_APPEND_REJECTED,
-                mapOf(FIELD_WIDGET_ID to currentWidget.id),
-            )
-            return
-        }
-        val updatedWidget = homeConfiguration
-            ?.selectedPage()
-            ?.widgets
-            ?.filterIsInstance<HtmlHomeWidget>()
-            ?.firstOrNull { candidate -> candidate.id == currentWidget.id }
-        val widgetView = widgetContainer.collectHtmlWidgetViews()
-            .firstOrNull { candidate -> candidate.widgetID() == currentWidget.id }
-        if (updatedWidget == null || widgetView == null) {
-            dikcizLogger.warn(
-                EVENT_HTML_BLOCK_APPEND_DEFERRED,
-                mapOf(
-                    FIELD_BLOCK_ID to block.id,
-                    FIELD_BLOCK_INSTANCE_ID to instanceID,
-                    FIELD_REASON to REASON_HTML_BLOCK_TARGET_NOT_RENDERED,
-                    FIELD_WIDGET_ID to currentWidget.id,
-                ),
-            )
-            return
-        }
-        widgetView.appendBlock(updatedWidget, instanceID, fragment, block.css, block.javascript) { outcome ->
-            if (outcome != DikcizHtmlDomPatchOutcome.Executed) {
-                dikcizLogger.warn(
-                    EVENT_HTML_BLOCK_APPEND_DEFERRED,
-                    mapOf(
-                        FIELD_BLOCK_ID to block.id,
-                        FIELD_BLOCK_INSTANCE_ID to instanceID,
-                        FIELD_REASON to outcome,
-                        FIELD_WIDGET_ID to currentWidget.id,
-                    ),
-                )
-                return@appendBlock
-            }
-            dikcizLogger.info(
-                EVENT_HTML_BLOCK_APPENDED,
-                mapOf(
-                    FIELD_BLOCK_ID to block.id,
-                    FIELD_BLOCK_INSTANCE_ID to instanceID,
-                    FIELD_WIDGET_ID to currentWidget.id,
-                ),
-            )
-            Toast.makeText(
-                this,
-                getString(R.string.dikciz_html_block_added, block.title, currentWidget.title),
-                Toast.LENGTH_SHORT,
-            ).show()
-        }
-    }
-
-    private fun appendHtmlPresetSource(current: String, extra: String): String {
-        if (extra.isBlank() || current.contains(extra.trim())) return current
-        return current + HTML_BLOCK_SEPARATOR + extra
-    }
-
-    private fun currentSelectedHtmlWidget(widgetID: String): HtmlHomeWidget? {
-        return homeConfiguration?.selectedPage()?.findWidget(widgetID) as? HtmlHomeWidget
-    }
-
-    private fun newHtmlBlockInstanceID(): String {
-        return "$HTML_BLOCK_INSTANCE_PREFIX${UUID.randomUUID()}"
-    }
-
-    private fun clearHtmlBlockAutomationViews(widgetID: String, blocks: List<DikcizHtmlBlock>) {
-        blocks.forEach { block ->
-            automationViews.remove(htmlBlockEntrySemanticID(widgetID, block.id))
-        }
-        publishAutomationUIRendered()
-    }
-
     private fun showHtmlWidgetPackagePicker(target: WidgetInsertionTarget) {
         val packages = try {
             homeConfigStore.htmlWidgetPackages()
@@ -11808,16 +11397,9 @@ class DikcizHomeActivity : Activity() {
         const val EVENT_WIDGET_CONFIGURATION_REJECTED = "widget_configuration_rejected"
         const val EVENT_WIDGET_CONFIGURATION_REQUESTED = "widget_configuration_requested"
         const val EVENT_WIDGET_DELETED = "widget_deleted"
-        const val EVENT_HTML_ITEM_EDITED = "html_item_edited"
-        const val EVENT_HTML_ITEM_EDIT_REJECTED = "html_item_edit_rejected"
-        const val HTML_ITEM_EDITOR_MIN_LINES = 4
         const val LOCAL_HTML_COMMAND_OWNER_PREFIX = "html:"
         const val EVENT_WIDGET_DELETION_REJECTED = "widget_deletion_rejected"
         const val EVENT_WIDGET_ID_GENERATION_REJECTED = "widget_id_generation_rejected"
-        const val EVENT_HTML_BLOCK_APPENDED = "html_block_appended"
-        const val EVENT_HTML_BLOCK_APPEND_DEFERRED = "html_block_append_deferred"
-        const val EVENT_HTML_BLOCK_APPEND_REJECTED = "html_block_append_rejected"
-        const val EVENT_HTML_BLOCK_LIBRARY_UNAVAILABLE = "html_block_library_unavailable"
         const val EVENT_PAGE_GRID_REJECTED = "page_grid_rejected"
         const val EVENT_PAGE_GRID_SAVED = "page_grid_saved"
         const val EVENT_WIDGET_INSERTED = "widget_inserted"
@@ -11854,8 +11436,6 @@ class DikcizHomeActivity : Activity() {
         const val FIELD_OUTCOME = "outcome"
         const val FIELD_COMMAND_LENGTH = "command_length"
         const val FIELD_COMPONENT_COUNT = "component_count"
-        const val FIELD_BLOCK_ID = "block_id"
-        const val FIELD_BLOCK_INSTANCE_ID = "block_instance_id"
         const val FIELD_COLUMN = "column"
         const val FIELD_COLUMN_SPAN = "column_span"
         const val FIELD_COMPONENT_PACKAGE = "component_package"
@@ -11973,9 +11553,6 @@ class DikcizHomeActivity : Activity() {
         const val NO_TRANSLATION_Y = 0F
         const val EMPTY_PAGE_INSERTION_INDEX = 0
         const val FIRST_CELL_ADDRESS = 1
-        const val HTML_BLOCK_INSTANCE_PREFIX = "block-"
-        const val HTML_BLOCK_PREVIEW_MAXIMUM_DP = 240
-        const val HTML_BLOCK_SEPARATOR = "\n"
         const val HTML_WIDGET_EDITOR_BORDER_WIDTH_DP = 1
         const val HTML_WIDGET_EDITOR_CORNER_RADIUS_DP = 8
         const val HTML_WIDGET_EDITOR_HORIZONTAL_PADDING_DP = 12
@@ -12019,7 +11596,6 @@ class DikcizHomeActivity : Activity() {
         const val SEMANTIC_ACTION_MOVE = "move"
         const val SEMANTIC_APP_ACTION_PREFIX = "app-action:"
         const val SEMANTIC_APP_ACTION_CONFIRM = "app-action:confirm"
-        const val SEMANTIC_HTML_BLOCK_CONFIRM = "html-block:confirm"
         const val SEMANTIC_APP_ACTION_ROOT_APP_INFO = "app-action:root-app-info"
         const val SEMANTIC_DRAWER = "drawer"
         const val SEMANTIC_DRAWER_APP_PREFIX = "drawer:app:"
@@ -12060,7 +11636,6 @@ class DikcizHomeActivity : Activity() {
         const val REASON_ACTIVITY_UNAVAILABLE = "activity_unavailable"
         const val REASON_COMPONENT_TOO_LONG = "component_too_long"
         const val REASON_EMPTY_APP_LABEL = "empty_app_label"
-        const val REASON_HTML_BLOCK_TARGET_NOT_RENDERED = "target_not_rendered"
         const val REASON_LAST_PAGE = "last_page"
         const val REASON_SCRIPT_ID_CONFLICT = "script_id_conflict"
         const val REASON_SCRIPT_ID_CAPACITY = "script_id_capacity"
@@ -12257,7 +11832,6 @@ class DikcizHomeActivity : Activity() {
         const val SEMANTIC_ACTION_APPEARANCE = "appearance"
         const val SEMANTIC_ACTION_DELETE = "delete"
         const val SEMANTIC_ACTION_EDIT = "edit"
-        const val SEMANTIC_ACTION_ADD_BLOCK = "add-block"
         const val SEMANTIC_ACTION_FIT_CONTENT = "fit-content"
         const val SEMANTIC_ACTION_LOCK = "lock"
         const val SEMANTIC_ACTION_MOVE_HANDLE = "move-handle"

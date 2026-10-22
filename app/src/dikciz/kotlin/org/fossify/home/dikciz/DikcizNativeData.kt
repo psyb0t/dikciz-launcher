@@ -30,6 +30,7 @@ internal class DikcizNativeData(
     private val logger: DikcizLogger,
 ) {
     private val content = DikcizContentData(context)
+    private val systemMetrics = DikcizSystemMetrics(context)
 
     fun execute(command: DikcizAutomationCommand): JSONObject {
         DikcizNativeCommands.validate(command.type, command.request, true)
@@ -52,6 +53,7 @@ internal class DikcizNativeData(
                 DikcizNativeCommands.TYPE_NOTIFICATIONS -> notifications(command.request)
                 DikcizNativeCommands.TYPE_MEDIA -> media(command.request)
                 DikcizNativeCommands.TYPE_DEVICE_STATE -> deviceState()
+                DikcizNativeCommands.TYPE_APP_ICON -> DikcizAppIcon.read(context, command.request)
                 else -> DikcizNativeCommands.invalid()
             }
             val fields = mapOf("command_type" to command.type)
@@ -188,10 +190,12 @@ internal class DikcizNativeData(
         val audio = context.getSystemService(AudioManager::class.java)
         val connectivity = context.getSystemService(ConnectivityManager::class.java)
         val network = connectivity.getNetworkCapabilities(connectivity.activeNetwork)
-        return JSONObject().put("screenInteractive", power.isInteractive).put("keyguardLocked", keyguard.isKeyguardLocked)
+        return JSONObject().put("system", systemMetrics.read()).put("screenInteractive", power.isInteractive).put("keyguardLocked", keyguard.isKeyguardLocked)
             .put("deviceLocked", keyguard.isDeviceLocked).put("powerSaveMode", power.isPowerSaveMode)
             .put("batteryLevel", battery?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: JSONObject.NULL)
             .put("batteryScale", battery?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: JSONObject.NULL)
+            .put("batteryTemperatureTenthsCelsius", battery?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1) ?: JSONObject.NULL)
+            .put("batteryVoltageMillivolts", battery?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1) ?: JSONObject.NULL)
             .put("chargingSource", battery?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: JSONObject.NULL)
             .put("ringerMode", audio.ringerMode).put("mediaVolume", audio.getStreamVolume(AudioManager.STREAM_MUSIC))
             .put("mediaVolumeMaximum", audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC))

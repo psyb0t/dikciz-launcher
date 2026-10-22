@@ -133,7 +133,7 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
             "guides/native-data" to "Direct Android data and system APIs",
             "recipes/inspect-ui" to "Inspect and act",
             "recipes/launch-app" to "Open an app reliably",
-            "recipes/html-item" to "Edit one HTML card",
+            "recipes/html-item" to "Edit part of an HTML document",
             "recipes/event-setup" to "Custom-event pipeline setup",
             "recipes/event-lua" to "Custom-event Lua source",
             "recipes/event-widget" to "Custom-event HTML source",

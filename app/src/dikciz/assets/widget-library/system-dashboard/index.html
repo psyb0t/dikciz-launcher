@@ -1,0 +1,16 @@
+<main class="card">
+<h1>Your system</h1><p id="status" role="status">Waiting for Dikciz.</p>
+<dl class="metrics">
+<div><dt>RAM used / total</dt><dd id="ram">Unavailable</dd></div>
+<div><dt>RAM available</dt><dd id="available">Unavailable</dd></div>
+<div><dt>Storage available / total</dt><dd id="storage">Unavailable</dd></div>
+<div><dt>Battery</dt><dd id="battery">Unavailable</dd></div>
+<div><dt>Battery temperature</dt><dd id="temperature">Unavailable</dd></div>
+<div><dt>System CPU</dt><dd id="cpu">Unavailable</dd></div>
+<div><dt>Dikciz CPU, one core</dt><dd id="app-cpu">Sampling</dd></div>
+<div><dt>Logical processors</dt><dd id="cores">Unavailable</dd></div>
+</dl><p id="power"></p><p id="network"></p>
+<button id="refresh" type="button">Refresh system</button>
+<details><summary id="sensor-count">Sensor inventory</summary><p class="muted">Available Android sensors. This lists hardware, not live readings.</p><ul id="sensors"></ul></details>
+<p class="muted">Storage describes the filesystem holding Dikciz app data. CPU samples are measured between refreshes. No root or sensor listeners are required.</p>
+</main>

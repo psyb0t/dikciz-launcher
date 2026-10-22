@@ -356,14 +356,6 @@ window.addEventListener("dikciz-state", event => {
 });
 ```
 
-When the launcher adds a block through that widget's native Add block action, the same live document receives `dikciz-block-appended`. Its `detail.instanceId` is the stable instance ID used in the source markers. The event occurs after the marked source has been saved and inserted, and the widget then scrolls to that new block without a document reload.
-
-```javascript
-window.addEventListener("dikciz-block-appended", event => {
-    console.log(`Added block ${event.detail.instanceId}`);
-});
-```
-
 `dikciz.onEvent(listener)` receives matching native and custom events while the widget is rendered. It returns an unsubscribe function. The same document is sent as a `dikciz-event` window event. Select events in the widget's `eventSubscriptions` JSON field.
 
 Publish a custom event with:
@@ -426,12 +418,20 @@ Tell the owner to check the phone and review the named access. **Allow access** 
 
 Consent controls expose `permission:allow` and `permission:dismiss`. A notification is not proof of a grant. Shell permission failures remain ordinary exit status and output; clients can identify the needed capability and call `requestDeviceAccess` explicitly.
 
-### HTML card presets
+### HTML document controls
 
-Home uses one full-page `home-dashboard` HTML widget containing saved cards. Content long presses select saved cards. Pressing the document background or empty container padding opens whole-widget actions, as does `widget:<widget-id>:move-handle`. The background menu uses the existing widget action IDs and respects page and widget locks. Card controls include `widget:<widget-id>:html-item:edit`, `:delete` and `:save-preset`. The save form exposes `widget:<widget-id>:html-item:preset:title`, `:id` and `:save`. Invalid or existing IDs leave the form open with a field error.
+An HTML widget is one programmable WebView document. Long press its content, background or `widget:<widget-id>:move-handle` to open the same whole-widget menu. Edit opens the saved HTML, CSS, JavaScript and state using `widget:<widget-id>:editor:<field>` controls. Page and widget locks apply. There are no `html-item:*`, `add-block` or card-preset controls. Whole-widget Delete removes the complete document and its owned files.
 
-The `widget:<widget-id>:add-block` action opens **Add preset or block**. Entries use `widget:<widget-id>:add-block:<preset-id>` and confirmation uses `html-block:confirm`. Built-in card IDs are `command-deck`, `quick-apps` and `quick-note`; custom saved cards join them. These semantic actions share execution and Android permissions across WebSocket, MCP and HTTP. Insertion changes only the containing widget and retains its live runtime and state while saving the HTML, CSS and JavaScript.
+To edit only part of a document programmatically, read its saved source, change the intended markup or rendering code, and submit the widget update through the shared command path. Preserve unrelated source and state. DOM patch actions remain available for live changes; durable changes belong in saved source or state.
+
+`deviceState` also returns battery temperature in tenths Celsius, voltage in millivolts and a `system` object. `memory` contains total, available and used bytes and low-memory state. `storage` identifies the app-data filesystem and reports total, free and available bytes. `cpu` reports logical processors, system percentage when readable and a separately labeled Dikciz percentage of one core. CPU percentages require two samples; unavailable system samples include a reason. `sensors` contains total count, at most 64 hardware records and a truncation flag. It explicitly identifies this as inventory without live readings. All entrypoints use the same native executor.
 
 The `intent` command also accepts optional `data`, an absolute Android intent URI of at most 2048 characters without control characters. Browser search cards use `intentType: "activity"`, `action: "android.intent.action.VIEW"` and an encoded HTTPS search URL in `data`. URI dispatch uses the same activity-launch observer and Android permissions across all entrypoints. An installed app must handle the action and URI; dispatch acceptance is separate from verified foreground launch.
 
-HTML widget `state` and `itemStates` are assembled from page/widget-owned state files. `automationDispatch` with `patchWidget` accepts `values.itemStates`, a map of instance ID to state object; merge the current map when updating just one instance. `widgetGet` returns `itemStates` and the wrapper `storagePath`. HTML offers `selfWidget.itemFor(element).patchState(values)` for a queued update that preserves siblings. The same validator and state store serve Lua, HTML, WebSocket, MCP and HTTP. Native card deletion removes the selected saved instance IDs and their owned files; wrapper deletion removes all its state files. See [instance ownership](dikciz-configuration.md#html-instance-state-and-files).
+HTML widget `state` and `itemStates` are assembled from page/widget-owned state files. `automationDispatch` with `patchWidget` accepts `values.itemStates`, a map of instance ID to state object; merge the current map when updating just one instance. `widgetGet` returns `itemStates` and the wrapper `storagePath`. HTML offers `selfWidget.itemFor(element).patchState(values)` for a queued update that preserves siblings. The same validator and state store serve Lua, HTML, WebSocket, MCP and HTTP. Removing an optional namespace marker and state entry in a source update removes its owned files; native widget deletion removes the complete document and all its state files. See [instance ownership](dikciz-configuration.md#html-instance-state-and-files).
+
+### App icons
+
+`appIcon` accepts a launchable `component` from `appCatalogue` and optional `sizePixels` from 16 through 128, default 64. It returns `component`, `mimeType: "image/png"`, `width`, `height` and `pngBase64`. Missing launchable activities return `native_record_not_found`; malformed components and sizes fail validation. Icons come from Android package resources. No APK extraction or storage permission is needed.
+
+HTML uses `await dikciz.command("appIcon", {component: app.component})`, then sets an image's `src` to `"data:image/png;base64," + result.pngBase64`. Request only visible app icons and cache them within the document. WebSocket and HTTP use the same command; MCP exposes `dikciz_app_icon`.

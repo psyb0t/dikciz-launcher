@@ -1,4 +1,4 @@
-"""Exercise HTML item targeting through real touch and native controls."""
+"""Whole-document HTML editing through real touch and native controls."""
 
 from . import *
 
@@ -45,7 +45,7 @@ ITEM_PROBE_JAVASCRIPT = """window.addEventListener("dikciz-ready", () => {
   const texts = {};
   for (const [name, selector] of Object.entries(selectors)) {
     const element = document.querySelector(selector);
-    texts[name] = element?.textContent.trim() || "";
+    texts[name] = name === "background" ? "" : (element?.textContent.trim() || "");
     if (!element) continue;
     const rect = element.getBoundingClientRect();
     targets[name] = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
@@ -98,394 +98,56 @@ def without_item_observation(configuration: dict[str, Any]) -> dict[str, Any]:
     return configured
 
 
-@pytest.fixture(autouse=True)
-def close_item_dialog_after_test(
-    websocket_control: socket.socket,
-    isolated_launcher_fixture: None,
-    request: pytest.FixtureRequest,
-) -> Generator[None, None, None]:
-    yield
-    snapshot = AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SNAPSHOT)
-    artifact = "html-item-" + request.node.name.replace("[", "-").replace("]", "")
-    run_device_operation("screenshot")
-    (ARTIFACT_DIRECTORY / f"{artifact}.png").write_bytes(
-        (ARTIFACT_DIRECTORY / "screenshot.png").read_bytes(),
-    )
-    (ARTIFACT_DIRECTORY / f"{artifact}.json").write_text(
-        json.dumps({
-            "snapshot": snapshot,
-            "configuration": AUTOMATION.require_configuration(
-                AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
-            ),
-        }),
-        encoding="utf-8",
-    )
-    if any(node.get("semanticId") == "dialog:close" for node in snapshot["nodes"]):
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId="dialog:close")
 
-
-def test_html_item_targeting_delete_preserves_page_widget_and_sibling(
-    websocket_control: socket.socket,
-) -> None:
-    original = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
-    )
-    configured = item_configuration(original)
-    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured)
-    press_html_item(websocket_control)
-    wait_for_snapshot_node(websocket_control, f"{ITEM_PREFIX}:delete")
-    run_device_operation("screenshot")
-    (ARTIFACT_DIRECTORY / "html-item-menu.png").write_bytes(
-        (ARTIFACT_DIRECTORY / "screenshot.png").read_bytes(),
-    )
-    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId=f"{ITEM_PREFIX}:delete")
-    item_observation(websocket_control, first_text="")
-    saved = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
-    )
-    widget = configuration_widget(saved, ITEM_WIDGET_ID)
-    assert ITEM_FIRST_TITLE not in widget["html"]
-    assert ITEM_SECOND_TITLE in widget["html"]
-    assert widget["state"]["preserved"] == "owner state"
-    assert len(saved["launcher"]["home"]["pages"]) == len(configured["launcher"]["home"]["pages"])
-    assert len(configuration_page(saved, FIXTURE_HOME_PAGE_ID)["widgets"]) == 1
-    run_device_operation("screenshot")
-    press_html_item(websocket_control, "second")
-    wait_for_snapshot_node(websocket_control, f"{ITEM_PREFIX}:delete")
-    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId=f"{ITEM_PREFIX}:delete")
-    item_observation(websocket_control, first_text="", second_text="")
-    empty = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
-    )
-    empty_widget = configuration_widget(empty, ITEM_WIDGET_ID)
-    assert ITEM_FIRST_TITLE not in empty_widget["html"]
-    assert ITEM_SECOND_TITLE not in empty_widget["html"]
-    assert len(configuration_page(empty, FIXTURE_HOME_PAGE_ID)["widgets"]) == 1
-
-
-@pytest.mark.parametrize("operation", ["edit", "empty", "cancel"])
-def test_html_item_targeting_edit_and_cancel_are_scoped(
-    websocket_control: socket.socket,
-    operation: str,
-) -> None:
-    original = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
-    )
-    configured = item_configuration(original)
-    before = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured),
-    )
-    press_html_item(websocket_control)
-    wait_for_snapshot_node(websocket_control, f"{ITEM_PREFIX}:edit")
-    if operation == "cancel":
-        direct_tap(wait_for_physical_button_bounds("Cancel"))
-    else:
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId=f"{ITEM_PREFIX}:edit")
-        wait_for_snapshot_node(websocket_control, f"{ITEM_PREFIX}:source")
-        AUTOMATION.request(
-            websocket_control,
-            AUTOMATION.TYPE_SET_TEXT,
-            semanticId=f"{ITEM_PREFIX}:source",
-            text="" if operation == "empty" else '<article class="card" id="first"><h2>Edited α card</h2></article>',
-        )
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId=f"{ITEM_PREFIX}:save")
-        item_observation(websocket_control, first_text="" if operation == "empty" else "Edited α card")
-    after = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
-    )
-    if operation == "cancel":
-        assert without_item_observation(after) == without_item_observation(before)
-    else:
-        saved_widget = configuration_widget(after, ITEM_WIDGET_ID)
-        assert ("Edited α card" in saved_widget["html"]) == (operation == "edit")
-        assert ITEM_SECOND_TITLE in saved_widget["html"]
-        assert "Nested first label" not in saved_widget["html"]
-        configuration_widget(before, ITEM_WIDGET_ID)["html"] = saved_widget["html"]
-        assert without_item_observation(after) == without_item_observation(before)
-
-
-@pytest.mark.parametrize("blocked_by", ["widget", "page", "runtime", "padding"])
-def test_html_item_targeting_refuses_locked_and_runtime_only_items(
-    websocket_control: socket.socket,
-    blocked_by: str,
-) -> None:
-    original = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
-    )
-    configured = item_configuration(original)
-    page = configuration_page(configured, FIXTURE_HOME_PAGE_ID)
-    widget = page["widgets"][0]
-    target = "nested"
-    if blocked_by == "widget":
-        widget["locked"] = True
-    elif blocked_by == "page":
-        page["locked"] = True
-        target = "second"
-    elif blocked_by == "padding":
-        widget["style"]["padding"]["all"] = 24
-    else:
-        widget["javascript"] = (
-            "const runtime=document.createElement('article');runtime.className='card';runtime.id='runtime-only';"
-            "runtime.textContent='Runtime-only card';document.querySelector('main').prepend(runtime);"
-        ) + ITEM_PROBE_JAVASCRIPT
-        target = "runtime"
-    before = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured),
-    )
-    if blocked_by == "padding":
-        item_observation(websocket_control)
-        bounds = bounds_for(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SNAPSHOT), f"widget:{ITEM_WIDGET_ID}")
-        direct_long_press_at(bounds["left"] + 5, (bounds["top"] + bounds["bottom"]) // 2)
-    else:
-        press_html_item(websocket_control, target)
-    snapshot = AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SNAPSHOT)
-    assert not any(node.get("semanticId") == f"{ITEM_PREFIX}:delete" for node in snapshot["nodes"])
-    assert not any(node.get("semanticId") == f"widget:{ITEM_WIDGET_ID}:delete" for node in snapshot["nodes"])
-    after = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
-    )
-    assert without_item_observation(after) == without_item_observation(before)
-
-
-def test_html_item_targeting_whole_widget_controls_remain_on_move_handle(
-    websocket_control: socket.socket,
-) -> None:
-    original = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
-    )
-    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=item_configuration(original))
-    wait_for_snapshot_node(websocket_control, f"widget:{ITEM_WIDGET_ID}:move-handle")
-    AUTOMATION.request(
-        websocket_control,
-        AUTOMATION.TYPE_LONG_PRESS,
-        semanticId=f"widget:{ITEM_WIDGET_ID}:move-handle",
-    )
-    wait_for_snapshot_node(websocket_control, f"widget:{ITEM_WIDGET_ID}:delete")
-    wait_for_snapshot_node(websocket_control, f"widget:{ITEM_WIDGET_ID}:resize")
-
-
-def test_html_item_targeting_appended_block_is_editable_without_reload(
-    websocket_control: socket.socket,
-) -> None:
-    from .test_html_block_in_place_append import (
-        append_configuration,
-        open_block_picker,
-        wait_for_live_generation,
-    )
-
-    original = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
-    )
-    configured = append_configuration(original)
-    target_widget = configuration_widget(configured, "live-block")
-    target_widget["style"] = {"padding": {"all": 0}}
-    target_widget["javascript"] += """
-let scrollTimer;
-window.addEventListener("scroll", () => {
-  clearTimeout(scrollTimer);
-  scrollTimer = setTimeout(() => {
-    const heading = document.querySelector(".dikciz-block-heading h2");
-    if (!heading) return;
-    const rect = heading.getBoundingClientRect();
-    selfWidget.patchState({ ...selfWidget.state, appendedHit: {
-      x: rect.x + rect.width / 2,
-      y: rect.y + rect.height / 2,
-      viewportWidth: innerWidth,
-      viewportHeight: innerHeight,
-    }}).catch(error => document.body.setAttribute("data-probe-error", error.code || "probe_failed"));
-  }, 100);
-});
-"""
-    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured)
-    generation = wait_for_live_generation(websocket_control)
-    open_block_picker(websocket_control)
-    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId="html-block:confirm")
-    deadline = time.monotonic() + CONFIGURATION_SAVE_TIMEOUT_SECONDS
-    hit = None
-    while time.monotonic() < deadline:
-        current = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET))
-        hit = configuration_widget(current, "live-block")["state"].get("appendedHit")
-        if isinstance(hit, dict) and 0 <= hit["y"] < hit["viewportHeight"]:
-            break
-        time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
-    assert isinstance(hit, dict), "appended heading did not finish scrolling into view"
-    physical_nodes()
-    current = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET))
-    hit = configuration_widget(current, "live-block")["state"]["appendedHit"]
-    assert 0 <= hit["y"] < hit["viewportHeight"], hit
-    snapshot = AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SNAPSHOT)
-    bounds = bounds_for(snapshot, "widget:live-block")
-    scale = (bounds["right"] - bounds["left"]) / hit["viewportWidth"]
-    direct_long_press_at(round(bounds["left"] + hit["x"] * scale), round(bounds["top"] + hit["y"] * scale))
-    delete_id = "widget:live-block:html-item:delete"
-    try:
-        wait_for_snapshot_node(websocket_control, delete_id)
-    except AssertionError as exception:
-        (ARTIFACT_DIRECTORY / "html-item-touch-windows.txt").write_text(device_command("dumpsys window windows"), encoding="utf-8")
-        (ARTIFACT_DIRECTORY / "html-item-touch-logcat.txt").write_text(device_command("logcat -d -v brief -s DikcizHome:D InputDispatcher:V"), encoding="utf-8")
-        records = device_log_records()
-        hits = [record for record in records if record.get("event") == "html_item_hit_test"][-10:]
-        observed = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET))
-        state = configuration_widget(observed, "live-block")["state"]
-        raise AssertionError(f"HTML item menu did not open; hit tests: {hits!r}; state: {state!r}; bounds: {bounds!r}") from exception
-    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId=delete_id)
-    saved = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
-    )
-    widget = configuration_widget(saved, "live-block")
-    assert "Section title" not in widget["html"]
-    assert "Short caption describing this section." not in widget["html"]
-    assert 'id="runtime"' in widget["html"]
-    assert widget["state"]["generation"] == generation
-
-
-def test_html_item_targeting_button_long_press_does_not_activate_button(
-    websocket_control: socket.socket,
-) -> None:
-    original = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET))
-    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=item_configuration(original))
-    _, observation = item_observation(websocket_control)
-    bounds = bounds_for(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SNAPSHOT), f"widget:{ITEM_WIDGET_ID}")
-    point = observation["targets"]["action"]
-    scale = (bounds["right"] - bounds["left"]) / observation["viewportWidth"]
-    device_command(f"input tap {round(bounds['left'] + point['x'] * scale)} {round(bounds['top'] + point['y'] * scale)}")
-    deadline = time.monotonic() + CONFIGURATION_SAVE_TIMEOUT_SECONDS
-    while time.monotonic() < deadline:
-        configured = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET))
-        if configuration_widget(configured, ITEM_WIDGET_ID)["state"].get("clicks") == 1:
-            break
-        time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
-    assert configuration_widget(configured, ITEM_WIDGET_ID)["state"].get("clicks") == 1
-    press_html_item(websocket_control, "action")
-    wait_for_snapshot_node(websocket_control, f"{ITEM_PREFIX}:delete")
-    configured = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET))
-    assert configuration_widget(configured, ITEM_WIDGET_ID)["state"]["clicks"] == 1
-
-
-@pytest.mark.parametrize("removed", ['[data-dikciz-preset="quick-apps"]', '[data-dikciz-preset="quick-note"]', '[data-role="clock"]'])
-def test_html_item_targeting_bundled_controls_survive_removed_card(
-    websocket_control: socket.socket,
-    removed: str,
-) -> None:
-    configured = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_RESET))
-    configured["limits"]["maxTextCharacters"] = 65536
-    widget = configuration_widget(configured, "home-dashboard")
-    original_javascript = widget["javascript"]
-    widget["javascript"] = """let starterErrors = 0;
-window.addEventListener("error", () => starterErrors++);
-window.addEventListener("unhandledrejection", () => starterErrors++);
-document.querySelector(%s).remove();
-""" % json.dumps(removed) + original_javascript + """
-window.addEventListener("dikciz-ready", () => {
-  setTimeout(() => selfWidget.patchState({ ...selfWidget.state, starterReady: true,
-    starterErrors, starterClock: document.querySelector('[data-role="clock"]')?.textContent || "",
-  }).catch(error => document.body.setAttribute("data-probe-error", error.code || "probe_failed")), 100);
-});"""
-    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured)
-    deadline = time.monotonic() + CONFIGURATION_SAVE_TIMEOUT_SECONDS
-    observed = {}
-    while time.monotonic() < deadline:
-        current = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET))
-        observed = configuration_widget(current, "home-dashboard")["state"]
-        if observed.get("starterReady"):
-            break
-        time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
-    assert observed.get("starterReady"), observed
-    assert observed["starterErrors"] == 0, observed
-    if removed != '[data-role="clock"]':
-        assert observed["starterClock"] not in {"", "--:--"}, observed
-
-
-def test_html_item_targeting_stale_menu_cannot_overwrite_changed_source(
-    websocket_control: socket.socket,
-) -> None:
-    original = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
-    )
-    configured = item_configuration(original)
-    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured)
-    press_html_item(websocket_control)
-    wait_for_snapshot_node(websocket_control, f"{ITEM_PREFIX}:delete")
-    configuration_widget(configured, ITEM_WIDGET_ID)["html"] = '<article class="card">New owner source</article>'
-    expected = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured),
-    )
-    snapshot = AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SNAPSHOT)
-    if any(node.get("semanticId") == f"{ITEM_PREFIX}:delete" for node in snapshot["nodes"]):
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId=f"{ITEM_PREFIX}:delete")
-    saved = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
-    )
-    assert without_item_observation(saved) == without_item_observation(expected)
-
-
-def test_html_item_targeting_single_main_card_is_editable(
-    websocket_control: socket.socket,
-) -> None:
-    original = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
-    )
-    configured = item_configuration(original)
-    configuration_widget(configured, ITEM_WIDGET_ID)["html"] = (
-        '<main class="card" id="first"><h2>First HTML card</h2>'
-        '<p><span>Nested first label</span></p></main>'
-    )
-    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured)
-    press_html_item(websocket_control)
-    wait_for_snapshot_node(websocket_control, f"{ITEM_PREFIX}:edit")
-    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId=f"{ITEM_PREFIX}:delete")
-    saved = AUTOMATION.require_configuration(
-        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
-    )
-    widget = configuration_widget(saved, ITEM_WIDGET_ID)
-    assert ITEM_FIRST_TITLE not in widget["html"]
-    assert widget["state"]["preserved"] == "owner state"
-    assert len(configuration_page(saved, FIXTURE_HOME_PAGE_ID)["widgets"]) == 1
-
-
-@pytest.mark.parametrize("background,locked", [
-    ("body", None), ("main", None), ("grid", None), ("main-card", None),
-    ("empty", None), ("body", "widget"), ("body", "page"),
-])
-def test_html_item_targeting_background_opens_widget_controls(
-    websocket_control: socket.socket,
-    background: str,
-    locked: str | None,
-) -> None:
-    original = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET))
-    configured = item_configuration(original)
-    page = configuration_page(configured, FIXTURE_HOME_PAGE_ID)
+@pytest.mark.parametrize("target", ["nested", "first", "second", "action", "background", "runtime"])
+def test_html_document_content_opens_whole_widget_controls(websocket_control, target):
+    configured = item_configuration(AUTOMATION.require_configuration(
+        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET)))
     widget = configuration_widget(configured, ITEM_WIDGET_ID)
-    tags = {"main": "main", "main-card": 'main class="card"', "grid": 'div class="grid"'}
-    if background in tags:
-        opening = '<' + tags[background] + ' id="background">'
-        closing = "</div>" if background == "grid" else "</main>"
-        widget["html"] = ITEM_SOURCE.replace("<main>", opening).replace("</main>", closing)
-    elif background == "empty":
-        widget["html"] = "<!-- Empty HTML widget -->"
-    widget["css"] += "body{padding:8px;box-sizing:border-box}main,#background{margin:24px;padding:24px}"
-    widget["javascript"] = ITEM_PROBE_JAVASCRIPT.replace("const targets = {};", """
-  const background = document.querySelector("#background") || document.body;
-  const bounds = background.getBoundingClientRect();
-  const targets = { background: {
-    x:bounds.left + 16,
-    y:background === document.body ? innerHeight - 64 : bounds.top + 16
-  } };
-""")
-    if locked == "widget":
-        widget["locked"] = True
-    elif locked == "page":
-        page["locked"] = True
+    widget["javascript"] = (
+        'const runtime = document.createElement("div"); runtime.id = "runtime-only"; runtime.textContent = "Runtime content"; document.body.append(runtime);'
+        + ITEM_PROBE_JAVASCRIPT.replace('const selectors = {', 'const selectors = { background:"body",')
+    )
+    widget["css"] += "#runtime-only{height:70px}body{min-height:450px}"
+    # A point in the document background avoids the native move handle.
+    widget["javascript"] = widget["javascript"].replace(
+        'const rect = element.getBoundingClientRect();',
+        'const rect = element.getBoundingClientRect(); if(name === "background") { targets[name] = {x:20,y:innerHeight-64}; continue; }')
     AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured)
     before, _ = item_observation(websocket_control)
-    press_html_item(websocket_control, "background")
-    if locked is None:
-        snapshot = wait_for_snapshot_node(websocket_control, f"widget:{ITEM_WIDGET_ID}:appearance")
-        for action in ("edit", "resize", "add-block"):
-            assert any(node.get("semanticId") == f"widget:{ITEM_WIDGET_ID}:{action}" for node in snapshot["nodes"])
-    else:
-        snapshot = AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SNAPSHOT)
-        assert not any(node.get("semanticId") == f"widget:{ITEM_WIDGET_ID}:delete" for node in snapshot["nodes"])
-    assert not any(node.get("semanticId") == f"{ITEM_PREFIX}:delete" for node in snapshot["nodes"])
+    press_html_item(websocket_control, target)
+    snapshot = wait_for_snapshot_node(websocket_control, f"widget:{ITEM_WIDGET_ID}:edit")
+    ids = {node.get("semanticId", "") for node in snapshot["nodes"]}
+    assert f"widget:{ITEM_WIDGET_ID}:appearance" in ids
+    assert f"widget:{ITEM_WIDGET_ID}:delete" in ids
+    assert not any(":html-item:" in value or ":add-block" in value for value in ids)
     after = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET))
     assert after == before
+    assert "clicks" not in configuration_widget(after, ITEM_WIDGET_ID)["state"]
+    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId=f"widget:{ITEM_WIDGET_ID}:edit")
+    prefix = f"widget:{ITEM_WIDGET_ID}:editor"
+    editor = wait_for_snapshot_node(websocket_control, prefix + ":html")
+    for field in ("html", "css", "javascript", "state"):
+        node = AUTOMATION.require_node(editor, prefix + ":" + field)
+        expected = configuration_widget(before, ITEM_WIDGET_ID)[field]
+        text = node[AUTOMATION.KEY_TEXT]
+        if field == "state":
+            assert json.loads(text) == expected
+        else:
+            assert text == expected
+    run_device_operation("screenshot")
+    shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / ("html-document-editor-" + target + ".png"))
+
+
+@pytest.mark.parametrize("locked", ["widget", "page"])
+def test_html_document_locks_prevent_content_editing(websocket_control, locked):
+    configured = item_configuration(AUTOMATION.require_configuration(
+        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET)))
+    target = configuration_page(configured, FIXTURE_HOME_PAGE_ID) if locked == "page" else configuration_widget(configured, ITEM_WIDGET_ID)
+    target["locked"] = True
+    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured)
+    before, _ = item_observation(websocket_control)
+    press_html_item(websocket_control)
+    snapshot = AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SNAPSHOT)
+    assert not any(node.get("semanticId") == f"widget:{ITEM_WIDGET_ID}:edit" for node in snapshot["nodes"])
+    assert AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET)) == before

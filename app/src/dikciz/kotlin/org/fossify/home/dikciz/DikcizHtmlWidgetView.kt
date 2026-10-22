@@ -30,7 +30,7 @@ internal class DikcizHtmlWidgetView(
     private val logger: DikcizLogger,
     private val executeCommand: (JSONObject) -> DikcizLocalCommands.Reply,
     private val onContentHeightChanged: (Int) -> Unit,
-    private val onItemLongClick: (DikcizHtmlWidgetView, HtmlItemSelection?, Boolean) -> Unit,
+    private val onLongClick: () -> Unit,
     private val onRendererGone: () -> Unit,
 ) : FrameLayout(context) {
     private val webView = WebView(context)
@@ -40,15 +40,14 @@ internal class DikcizHtmlWidgetView(
     private var generation = INITIAL_GENERATION
     private var isReleased = false
     private var loadedDocumentBytes = EMPTY_DOCUMENT_BYTES
-    private var hasTouchGesture = false
     private var pageScale = context.resources.displayMetrics.density
-    private val itemGestures = GestureDetector(
+    private val documentGestures = GestureDetector(
         context,
         object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(event: MotionEvent): Boolean = true
 
             override fun onLongPress(event: MotionEvent) {
-                selectHtmlItem()
+                onLongClick()
             }
         },
     )
@@ -84,12 +83,7 @@ internal class DikcizHtmlWidgetView(
             isHorizontalScrollBarEnabled = false
             isLongClickable = true
             setOnTouchListener { _, event ->
-                if (event.actionMasked == MotionEvent.ACTION_DOWN) {
-                    hasTouchGesture = true
-                } else if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
-                    hasTouchGesture = false
-                }
-                itemGestures.onTouchEvent(event)
+                documentGestures.onTouchEvent(event)
                 false
             }
             setOnLongClickListener { true }
@@ -262,35 +256,6 @@ internal class DikcizHtmlWidgetView(
         }
     }
 
-    /**
-     * Adds one saved block to this already-connected document without navigation.
-     * The caller persists [updatedWidget] before this method runs, so a later full
-     * configuration render reconstructs the same source.
-     */
-    fun appendBlock(
-        updatedWidget: HtmlHomeWidget,
-        blockInstanceID: String,
-        markedFragment: String,
-        css: String,
-        javascript: String,
-        onComplete: (String) -> Unit,
-    ) {
-        if (isReleased || messagePort == null) {
-            onComplete(DikcizHtmlDomPatchOutcome.TargetNotRendered)
-            return
-        }
-        webView.evaluateJavascript(
-            blockAppendJavaScript(blockInstanceID, markedFragment, updatedWidget.html, css, javascript),
-        ) { result ->
-            val outcome = parseDomPatchOutcome(result)
-            if (outcome == DikcizHtmlDomPatchOutcome.Executed) {
-                widget = updatedWidget
-                loadedDocumentBytes = DikcizHtmlWidgetDocument.byteCount(updatedWidget, widgetContext)
-            }
-            onComplete(outcome)
-        }
-    }
-
     fun requestRendererCrash(): Boolean {
         if (isReleased) {
             return false
@@ -300,79 +265,6 @@ internal class DikcizHtmlWidgetView(
     }
 
     fun widgetID(): String = widget.id
-
-    private fun selectHtmlItem() {
-        if (!hasTouchGesture) {
-            logger.debug(EVENT_ITEM_HIT_TEST, htmlDiagnosticFields(DikcizHtmlItemEditor.REASON_NO_TOUCH))
-            onItemLongClick(this, null, false)
-            return
-        }
-        val documentGeneration = generation
-        val source = JSONObject.quote(widget.html)
-        webView.evaluateJavascript("window.dikcizHtmlItems?.select($source)") { result ->
-            if (isReleased || documentGeneration != generation) {
-                return@evaluateJavascript
-            }
-            val itemResult = parseItemResult(result)
-            val reason = itemResult?.optString(FIELD_REASON)
-                ?.takeIf { it in DikcizHtmlItemEditor.selectionReasons }
-                ?: DikcizHtmlItemEditor.REASON_INVALID
-            logger.debug(EVENT_ITEM_HIT_TEST, htmlDiagnosticFields(reason))
-            val selected = itemResult?.let { value ->
-                val id = value.optInt(ITEM_ID_KEY, INVALID_ITEM_ID)
-                val label = value.opt(ITEM_LABEL_KEY) as? String
-                val html = value.opt(ITEM_HTML_KEY) as? String
-                if (id <= INVALID_ITEM_ID || label == null || html == null) {
-                    null
-                } else {
-                    HtmlItemSelection(
-                        id, label, html, documentGeneration,
-                        value.optJSONArray("itemIds")?.let { ids ->
-                            (0 until ids.length()).mapNotNull { index ->
-                                (ids.opt(index) as? String)?.takeIf(DikcizHtmlWidgetStateStore.ID_PATTERN::matches)
-                            }
-                        }.orEmpty(),
-                    )
-                }
-            }
-            onItemLongClick(this, selected, reason == DikcizHtmlItemEditor.REASON_BACKGROUND)
-        }
-    }
-
-    fun replaceHtmlItem(
-        selection: HtmlItemSelection,
-        replacement: String?,
-        onComplete: (String?) -> Unit,
-    ) {
-        if (isReleased || selection.generation != generation) {
-            onComplete(null)
-            return
-        }
-        val serializedReplacement = replacement?.let(JSONObject::quote) ?: "null"
-        webView.evaluateJavascript(
-            "window.dikcizHtmlItems?.replace(${selection.id},$serializedReplacement)",
-        ) { result ->
-            val html = if (!isReleased && selection.generation == generation) {
-                parseItemResult(result)?.opt(ITEM_HTML_KEY) as? String
-            } else {
-                null
-            }
-            onComplete(html)
-        }
-    }
-
-    private fun parseItemResult(result: String?): JSONObject? {
-        if (result == null) {
-            return null
-        }
-        return try {
-            val serialized = JSONTokener(result).nextValue() as? String ?: return null
-            JSONObject(serialized)
-        } catch (exception: JSONException) {
-            logger.warn(EVENT_ITEM_RESULT_INVALID, mapOf(FIELD_WIDGET_ID to widget.id))
-            null
-        }
-    }
 
     fun documentByteCount(): Int = loadedDocumentBytes
 
@@ -431,57 +323,6 @@ internal class DikcizHtmlWidgetView(
         """.trimIndent()
     }
 
-    private fun blockAppendJavaScript(
-        blockInstanceID: String,
-        markedFragment: String,
-        source: String,
-        css: String,
-        javascript: String,
-    ): String {
-        val block = JSONObject()
-            .put(BLOCK_INSTANCE_ID_KEY, blockInstanceID)
-            .put(BLOCK_FRAGMENT_KEY, markedFragment)
-            .put("css", css)
-            .put("javascript", javascript)
-            .put(ITEM_HTML_KEY, source)
-        return """
-            (function(serializedBlock) {
-                const block = JSON.parse(serializedBlock);
-                try {
-                    const range = document.createRange();
-                    range.selectNode(document.body);
-                    document.body.append(range.createContextualFragment(block.fragment));
-                    window.dikcizHtmlItems?.refresh(block.html);
-                    if (block.css) {
-                        const style = document.createElement("style");
-                        style.setAttribute("data-dikciz-internal", "");
-                        style.textContent = block.css;
-                        document.head.append(style);
-                    }
-                    if (block.javascript) {
-                        const script = document.createElement("script");
-                        script.setAttribute("data-dikciz-internal", "");
-                        script.textContent = block.javascript;
-                        document.body.append(script);
-                    }
-                    window.dispatchEvent(new CustomEvent("$BLOCK_APPEND_EVENT", {
-                        detail: { instanceId: block.instanceId },
-                    }));
-                    requestAnimationFrame(() => requestAnimationFrame(() => {
-                        const bottom = Math.max(
-                            document.body.scrollHeight,
-                            document.documentElement.scrollHeight,
-                        );
-                        window.scrollTo({ top: bottom, behavior: "$SCROLL_BEHAVIOR_SMOOTH" });
-                    }));
-                    return JSON.stringify({ outcome: "${DikcizHtmlDomPatchOutcome.Executed}" });
-                } catch (error) {
-                    return JSON.stringify({ outcome: "${DikcizHtmlDomPatchOutcome.OperationFailed}" });
-                }
-            })(${JSONObject.quote(block.toString())});
-        """.trimIndent()
-    }
-
     private fun parseDomPatchOutcome(result: String?): String {
         if (result == null) {
             return DikcizHtmlDomPatchOutcome.OperationFailed
@@ -527,9 +368,6 @@ internal class DikcizHtmlWidgetView(
 
     private companion object {
         const val API_ASSET = "web/page-api.js"
-        const val BLOCK_APPEND_EVENT = "dikciz-block-appended"
-        const val BLOCK_FRAGMENT_KEY = "fragment"
-        const val BLOCK_INSTANCE_ID_KEY = "instanceId"
         const val BRIDGE_MESSAGE = "dikciz-slots"
         const val CHARSET = "UTF-8"
         const val CONTENT_HEIGHT_MESSAGE_TYPE = "htmlContentHeight"
@@ -552,12 +390,6 @@ internal class DikcizHtmlWidgetView(
         const val HTML_MIME = "text/html"
         const val HTTPS = "https"
         const val INITIAL_GENERATION = 0L
-        const val ITEM_ID_KEY = "id"
-        const val INVALID_ITEM_ID = 0
-        const val ITEM_LABEL_KEY = "label"
-        const val ITEM_HTML_KEY = "html"
-        const val EVENT_ITEM_RESULT_INVALID = "html_item_result_invalid"
-        const val EVENT_ITEM_HIT_TEST = "html_item_hit_test"
         const val LOCAL_HOST = "appassets.androidplatform.net"
         const val MINIMUM_CONTENT_HEIGHT_CSS_PIXELS = 0.0
         const val ORIGIN = "https://appassets.androidplatform.net"
@@ -603,7 +435,6 @@ internal object DikcizHtmlWidgetDocument {
               </head>
               <body>
                 ${widget.html}
-                <script data-dikciz-internal>${DikcizHtmlItemEditor.install()}</script>
                 <script data-dikciz-internal>window.dikcizWidgetState={"${widget.id}":$serializedState};window.dikcizSelfWidget=$context;</script>
                 <script data-dikciz-internal>document.addEventListener("selectstart",event=>event.preventDefault(),true);document.addEventListener("contextmenu",event=>event.preventDefault(),true);</script>
                 <script data-dikciz-internal>${widget.javascript}</script>
@@ -617,14 +448,6 @@ internal object DikcizHtmlWidgetDocument {
     private const val DOCUMENT_FIXED_HEIGHT_STYLE = "min-height:100%;"
     private const val ESCAPED_LESS_THAN = "\\u003c"
 }
-
-internal data class HtmlItemSelection(
-    val id: Int,
-    val label: String,
-    val html: String,
-    val generation: Long,
-    val itemIDs: List<String> = emptyList(),
-)
 
 internal object DikcizHtmlDomPatchOutcome {
     const val Executed = "executed"

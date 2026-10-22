@@ -8,4 +8,4 @@ Configuration lives under `/sdcard/Dikciz/`: `config.json` references pages; `pa
 
 `configReplace` and `configSeed` require the complete assembled document, not a partial patch. Preserve unrelated pages, scripts, automation and root namespaces. Read first, change only the intended object, then submit once and inspect the normalized configuration. `reset` restores the bundled home and can replace user work; use it only when explicitly authorized.
 
-HTML item deletion and native widget deletion have different scopes. Read [edit one HTML card](dikciz://docs/recipes/html-item) before acting inside a page-sized HTML widget.
+Native Delete removes the whole HTML widget. To remove one section, edit the document source as described in [document editing](dikciz://docs/recipes/html-item).

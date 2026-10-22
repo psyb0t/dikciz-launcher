@@ -14,8 +14,8 @@ These pytest scenarios exercise real Android UI and forwarded WebSocket, MCP and
 | `fixtures.py` | Per-test isolation, connection restoration, and provider installation lifecycle. |
 | `__init__.py` | Shared harness exports consumed by tests. |
 | Domain support modules | Accessibility, media sessions, notifications, alarms, and script-status helpers. |
-| `test_widget_instance_state.py` | Per-page/wrapper/card ownership, distinct copies, file watcher updates, native deletion, validation and legacy state migration. |
-| `test_html_card_presets.py` | Combined starter document, custom save validation, live preset insertion and independent persistent notes. |
+| `test_widget_instance_state.py` | Per-page/wrapper/card ownership, distinct copies, file watcher updates, source-driven cleanup, validation and legacy state migration. |
+| `test_html_card_presets.py` | Native intent URI validation through all transports. |
 | `test_shared_vm_starter.py` | First-use pages, disabled Lua defaults, saved notes and external weather success/failure in the real WebView. |
 | `test_native_data.py` | Native provider CRUD, pagination, rollback, validation, permission recovery, SIM/state access, SMS duplicate protection and Lua/HTML commands. |
 | `test_device_files.py` | Filesystem pagination, binary transfers, HTTP security, CLI results and actual Android APK install/cancel outcomes. |

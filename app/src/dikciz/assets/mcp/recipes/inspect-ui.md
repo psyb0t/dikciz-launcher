@@ -10,4 +10,4 @@ Use `waitFor` for a launcher node when rendering is asynchronous. A coordinate f
 
 For screenshots, `dikciz_display_screenshot` returns the visible display with Accessibility access. `dikciz_screenshot` returns the launcher window. An image error is not evidence of the screen state.
 
-If a click returns success but the screen does not change, inspect logs and the target's actual enabled/actionable state. Do not repeat a potentially destructive click blindly. For content inside an HTML widget, use [item controls](dikciz://docs/recipes/html-item) rather than deleting the containing widget.
+If a click returns success but the screen does not change, inspect logs and the target's actual enabled/actionable state. Do not repeat a potentially destructive click blindly. For content inside an HTML widget, use [document source editing](dikciz://docs/recipes/html-item) rather than deleting the containing widget.

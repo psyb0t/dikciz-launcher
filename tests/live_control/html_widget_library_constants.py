@@ -8,6 +8,8 @@ HTML_WIDGET_LIBRARY_BUNDLED_PACKAGES = {
     "lock-screen": "Lock screen",
     "notifications": "Post a notification",
     "system-status": "Dikciz diagnostics",
+    "system-dashboard": "System dashboard",
+    "markets-news": "BTC and economic news",
 }
 HTML_WIDGET_LIBRARY_DEVICE_DIRECTORY = "/sdcard/Dikciz/widget-library"
 HTML_WIDGET_LIBRARY_FIRST_HTML = "<main>First package body</main>"

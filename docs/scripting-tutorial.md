@@ -420,7 +420,7 @@ const previous = await item.getState();
 await item.patchState({...previous, text:"Saved for this instance"});
 ```
 
-`selfWidget.itemStates` is the current map of card states. `dikciz-item-state` delivers its replacement without recreating the document. Wrapper state continues to use `selfWidget.state` and `dikciz-state`. Native card deletion removes its owned state and custom files. Removing the wrapper removes all its owned instance files. Do not use a shared preset catalog directory for live state.
+`selfWidget.itemStates` is the current map of card states. `dikciz-item-state` delivers its replacement without recreating the document. Wrapper state continues to use `selfWidget.state` and `dikciz-state`. A source edit that removes a namespace marker and state entry removes its owned files on save. Native Delete removes the entire WebView. Removing the wrapper removes all its owned instance files. Do not use a shared preset catalog directory for live state.
 
 The browser also receives these events:
 
@@ -429,7 +429,6 @@ The browser also receives these events:
 | `dikciz-ready` | The native bridge is ready. |
 | `dikciz-state` | This widget's saved state was replaced. Read `event.detail`. |
 | `dikciz-event` | A matching native or custom automation event arrived. Read `event.detail`. |
-| `dikciz-block-appended` | Native **Add block** saved and inserted a source block. `event.detail.instanceId` identifies it. |
 
 ## Return device and launcher actions from Lua
 
