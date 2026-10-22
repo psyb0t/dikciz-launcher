@@ -2109,6 +2109,7 @@ class DikcizHomeActivity : Activity() {
                 setWidgetTouchInterceptionBlocked(widgetView, false)
                 activeWidgetMove?.let { activeMove ->
                     if (activeMove.widgetView === widgetView) {
+                        updateWidgetMove(activeMove, event)
                         finishWidgetMove(activeMove)
                         return true
                     }
@@ -10198,7 +10199,9 @@ class DikcizHomeActivity : Activity() {
                 FIELD_WIDGET_ID to placedWidget.id,
             ),
         )
-        selectInsertedWidget(pageID, placedWidget.id)
+        if (placedWidget !is AppHomeWidget) {
+            selectInsertedWidget(pageID, placedWidget.id)
+        }
         return true
     }
 

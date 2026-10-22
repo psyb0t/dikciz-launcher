@@ -170,12 +170,17 @@ internal class DikcizPageGridLayout @JvmOverloads constructor(
     }
 
     private fun contentWidth(size: Int): Int {
-        return (size - paddingLeft - paddingRight).coerceAtLeast(NO_SIZE)
+        return (size - paddingLeft - paddingRight).coerceAtLeast(NO_SIZE) + pagerOuterPaddingPixels()
     }
 
     private fun contentHeight(size: Int): Int {
-        return (size - paddingTop - paddingBottom).coerceAtLeast(NO_SIZE)
+        return (size - paddingTop - paddingBottom).coerceAtLeast(NO_SIZE) + pagerOuterPaddingPixels()
     }
+
+    // The right and bottom rails already supply outer spacing. Credit their inset
+    // to the engine's symmetric viewport so cells and hit testing share one geometry.
+    private fun pagerOuterPaddingPixels(): Int =
+        (grid.outerPaddingDP * resources.displayMetrics.density).toInt()
 
     private inline fun forEachVisibleChild(action: (View, LayoutParams) -> Unit) {
         for (index in 0 until childCount) {

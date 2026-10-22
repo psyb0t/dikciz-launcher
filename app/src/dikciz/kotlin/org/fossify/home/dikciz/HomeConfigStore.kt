@@ -221,6 +221,7 @@ internal class HomeConfigStore(
             selectedPageID = bundledConfiguration.selectedPageID,
             selectedThemeID = bundledConfiguration.selectedThemeID,
             styleDefaults = bundledConfiguration.styleDefaults,
+            nativeGrid = bundledConfiguration.nativeGrid,
             pages = bundledConfiguration.pages,
             scripts = resetScripts(
                 currentScripts = currentConfiguration.scripts,

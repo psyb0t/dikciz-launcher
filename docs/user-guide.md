@@ -57,7 +57,7 @@ Open page search, type the name, then tap the matching row to return to it.
 
 ### Set the grid to fit your layout
 
-Open **Settings**, then change grid columns, rows, gap, or outer padding. Dikciz validates the whole change before saving. If a widget would collide or leave its page, it rejects the edit and names the affected page and widget. The old layout stays in place.
+New and reset homes start with 8 columns and 6 rows. Open **Settings**, then change grid columns, rows, gap, or outer padding. Dikciz validates the whole change before saving. If a widget would collide or leave its page, it rejects the edit and names the affected page and widget. The old layout stays in place. The right and bottom pager rails provide their own outer spacing, so grid padding is not added twice beside them. Widget appearance margins still apply.
 
 ![Grid settings](images/user-guide/28-grid-settings.png)
 
@@ -79,7 +79,7 @@ Tap an app to open it. Successful launches do not show a popup; their action, ta
 
 ### Add an app shortcut, Dikciz widget, or provider widget
 
-Tap the Dikciz mark and choose **Add to this page**. New items use the next free grid rectangle, from left to right and then top to bottom. Move the item after it appears if you want another position.
+Tap the Dikciz mark and choose **Add to this page**. New items use the next free grid rectangle, from left to right and then top to bottom. Move the item after it appears if you want another position. New app shortcuts appear without a selection outline. Long press one to open its editing controls.
 
 ![Launcher controls](images/user-guide/06-launcher-controls.png)
 

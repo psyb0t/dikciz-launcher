@@ -2,6 +2,8 @@
 
 New installations start with two pages. Existing edited homes keep their pages, widgets and scripts when the APK updates. **Reset Dikciz home** replaces saved pages with this starter and restores matching bundled scripts. Other saved scripts and policies remain; disable or delete unwanted older examples under Settings, Scripts.
 
+The starter uses an 8-column, 6-row grid. Home fills all eight columns; the two Insights widgets also fill the page width. Updates preserve edited grids; resetting the home restores the bundled grid too.
+
 ## Home
 
 - **Clock and search** shows local time and date. Search opens the browser only after submitting a query.

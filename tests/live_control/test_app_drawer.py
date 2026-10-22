@@ -1,5 +1,7 @@
 """Native app drawer entry, search, launch, and per-app actions."""
 
+import base64
+
 from . import *
 
 
@@ -189,8 +191,23 @@ def open_app_actions_sheet(overflow_description: str) -> None:
                 raise
 
 
+def stable_shortcut_screenshot(connection: socket.socket) -> bytes:
+    deadline = time.monotonic() + CONFIGURATION_SAVE_TIMEOUT_SECONDS
+    previous = None
+    while time.monotonic() < deadline:
+        result = AUTOMATION.request(connection, AUTOMATION.TYPE_SCREENSHOT)
+        image = base64.b64decode(result["pngBase64"], validate=True)
+        if image == previous:
+            return image
+        previous = image
+        time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
+    raise AssertionError("Shortcut screen did not settle")
+
+
+@pytest.mark.parametrize("insertion_route", ["drawer", "command"])
 def test_app_action_add_shortcut_persists_a_native_app_widget(
     websocket_control: socket.socket,
+    insertion_route: str,
 ) -> None:
     AUTOMATION.require_configuration(
         AUTOMATION.request(websocket_control, AUTOMATION.TYPE_RESET),
@@ -213,11 +230,19 @@ def test_app_action_add_shortcut_persists_a_native_app_widget(
     )
     wait_for_selected_page(websocket_control, SHORTCUT_PAGE_ID)
 
-    open_drawer_through_control()
-    filter_drawer_to_settings()
-    open_app_actions_sheet(APP_DRAWER_SETTINGS_ACTIONS_DESCRIPTION)
-    direct_tap(wait_for_physical_button_bounds(APP_ACTION_ADD_SHORTCUT_LABEL))
-    wait_for_snapshot_node(websocket_control, APP_DRAWER_SEARCH_SEMANTIC_ID, should_exist=False)
+    if insertion_route == "drawer":
+        open_drawer_through_control()
+        filter_drawer_to_settings()
+        open_app_actions_sheet(APP_DRAWER_SETTINGS_ACTIONS_DESCRIPTION)
+        direct_tap(wait_for_physical_button_bounds(APP_ACTION_ADD_SHORTCUT_LABEL))
+        wait_for_snapshot_node(websocket_control, APP_DRAWER_SEARCH_SEMANTIC_ID, should_exist=False)
+    else:
+        AUTOMATION.request(
+            websocket_control,
+            APP_ACTION_COMMAND,
+            action=APP_ACTION_TYPE_ADD_SHORTCUT,
+            component=ANDROID_SETTINGS_COMPONENT,
+        )
 
     saved = AUTOMATION.require_configuration(
         AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET),
@@ -234,6 +259,16 @@ def test_app_action_add_shortcut_persists_a_native_app_widget(
     assert shortcut["cell"]["columnSpan"] == APP_SHORTCUT_DEFAULT_COLUMN_SPAN
     assert shortcut["cell"]["rowSpan"] == APP_SHORTCUT_DEFAULT_ROW_SPAN
     initial_cell = dict(shortcut["cell"])
+    wait_for_snapshot_node(websocket_control, "widget:" + shortcut["id"])
+    inserted_screen = stable_shortcut_screenshot(websocket_control)
+    (ARTIFACT_DIRECTORY / "shortcut-after-insertion.png").write_bytes(inserted_screen)
+    AUTOMATION.require_configuration(
+        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=saved),
+    )
+    wait_for_snapshot_node(websocket_control, "widget:" + shortcut["id"])
+    idle_screen = stable_shortcut_screenshot(websocket_control)
+    (ARTIFACT_DIRECTORY / "shortcut-after-rerender.png").write_bytes(idle_screen)
+    assert inserted_screen == idle_screen, "Adding a shortcut left transient selection styling on its idle screen"
     shortcut_bounds = wait_for_physical_description_bounds(
         app_shortcut_content_description(
             ANDROID_SETTINGS_LABEL_QUERY,

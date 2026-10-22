@@ -133,12 +133,14 @@ A native page is one fixed viewport. It never gains canvas height, and adding a 
 `launcher.home.nativeGrid` describes the grid every page is laid out on:
 
 ```json
-"nativeGrid": { "columns": 4, "rows": 6, "gapDp": 8, "outerPaddingDp": 12 }
+"nativeGrid": { "columns": 8, "rows": 6, "gapDp": 8, "outerPaddingDp": 12 }
 ```
 
 `columns` and `rows` accept 1 to 12. `gapDp` and `outerPaddingDp` accept 0 to
-64. The bundled default is 4 columns by 6 rows. The record is optional; a
+64. The bundled default is 8 columns by 6 rows. The record is optional; a
 document without it uses that default.
+
+The right and bottom pager rails provide the trailing outer spacing. The page renderer applies `outerPaddingDp` at the left and top without adding it again beside those rails. Widget style margins remain additional spacing. Explicit saved grid dimensions remain unchanged on update.
 
 Every top-level widget owns whole grid cells through one `cell` record:
 

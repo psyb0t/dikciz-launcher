@@ -2,6 +2,22 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.23.0] - 2026-10-22
+
+### Fixed
+
+- New app shortcuts finish insertion without a stuck selection outline. Move and explicit resize controls remain available.
+- Widget drops use the finger position at release, so delayed move events cannot leave a shortcut in the preceding cell.
+- Page content no longer adds a second grid outer inset beside the right and bottom pager rails. Widget style margins remain configurable.
+
+### Changed
+
+- New and reset homes use an 8-column, 6-row grid with full-width Home and Insights widgets. Complete dashboard templates also span eight columns. Existing explicit grid dimensions remain unchanged on update.
+
+### Migration
+
+Updates preserve edited homes and their saved grid sizes. Choose 8 columns and 6 rows in grid settings to change an existing layout, or use Reset Dikciz home to replace its pages and grid with the bundled starter.
+
 ## [0.22.1] - 2026-10-22
 
 ### Fixed

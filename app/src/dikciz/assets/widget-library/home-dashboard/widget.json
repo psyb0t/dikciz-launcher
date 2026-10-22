@@ -2,9 +2,9 @@
   "version": 2,
   "id": "home-dashboard",
   "title": "Home dashboard",
-  "description": "Full-page clock, app search and saved note. Cards can be edited or reused separately.",
+  "description": "Complete full-page clock, app search with icons and saved note. Edit its HTML, CSS and JavaScript or save the document to reuse it.",
   "span": {
-    "columnSpan": 4,
+    "columnSpan": 8,
     "rowSpan": 6
   }
 }

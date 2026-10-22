@@ -22,7 +22,7 @@
       "selectedPageId": "home",
       "selectedThemeId": "dikciz-dark",
       "nativeGrid": {
-        "columns": 4,
+        "columns": 8,
         "rows": 6,
         "gapDp": 8,
         "outerPaddingDp": 12
@@ -52,7 +52,7 @@
               "cell": {
                 "column": 0,
                 "row": 0,
-                "columnSpan": 4,
+                "columnSpan": 8,
                 "rowSpan": 6
               }
             }
@@ -79,7 +79,7 @@
               "cell": {
                 "column": 0,
                 "row": 0,
-                "columnSpan": 4,
+                "columnSpan": 8,
                 "rowSpan": 4
               }
             },
@@ -96,7 +96,7 @@
               "cell": {
                 "column": 0,
                 "row": 4,
-                "columnSpan": 4,
+                "columnSpan": 8,
                 "rowSpan": 2
               }
             }

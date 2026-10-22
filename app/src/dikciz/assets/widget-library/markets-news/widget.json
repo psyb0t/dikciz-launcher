@@ -4,7 +4,7 @@
   "title": "BTC and economic news",
   "description": "Complete BTC/USD and economic headlines dashboard. Refresh explicitly contacts Coinbase and GDELT without API keys. Retains dated saved results.",
   "span": {
-    "columnSpan": 4,
+    "columnSpan": 8,
     "rowSpan": 6
   }
 }

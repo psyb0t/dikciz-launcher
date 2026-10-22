@@ -4,7 +4,7 @@
   "title": "System dashboard",
   "description": "Local RAM, storage, battery, CPU samples and sensor inventory. Refreshes every five seconds while visible. Android may restrict system CPU data.",
   "span": {
-    "columnSpan": 4,
+    "columnSpan": 8,
     "rowSpan": 6
   }
 }

@@ -21,7 +21,7 @@ internal data class DikcizNativeGrid(
         get() = columns * rows
 
     companion object {
-        const val DEFAULT_COLUMNS = 4
+        const val DEFAULT_COLUMNS = 8
         const val DEFAULT_GAP_DP = 8
         const val DEFAULT_OUTER_PADDING_DP = 12
         const val DEFAULT_ROWS = 6
