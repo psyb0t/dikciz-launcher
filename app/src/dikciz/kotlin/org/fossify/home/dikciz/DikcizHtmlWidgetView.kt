@@ -30,7 +30,7 @@ internal class DikcizHtmlWidgetView(
     private val logger: DikcizLogger,
     private val executeCommand: (JSONObject) -> DikcizLocalCommands.Reply,
     private val onContentHeightChanged: (Int) -> Unit,
-    private val onItemLongClick: (DikcizHtmlWidgetView, HtmlItemSelection?) -> Unit,
+    private val onItemLongClick: (DikcizHtmlWidgetView, HtmlItemSelection?, Boolean) -> Unit,
     private val onRendererGone: () -> Unit,
 ) : FrameLayout(context) {
     private val webView = WebView(context)
@@ -80,6 +80,8 @@ internal class DikcizHtmlWidgetView(
             settings.domStorageEnabled = true
             settings.allowFileAccess = false
             settings.allowContentAccess = false
+            isVerticalScrollBarEnabled = false
+            isHorizontalScrollBarEnabled = false
             isLongClickable = true
             setOnTouchListener { _, event ->
                 if (event.actionMasked == MotionEvent.ACTION_DOWN) {
@@ -302,7 +304,7 @@ internal class DikcizHtmlWidgetView(
     private fun selectHtmlItem() {
         if (!hasTouchGesture) {
             logger.debug(EVENT_ITEM_HIT_TEST, htmlDiagnosticFields(DikcizHtmlItemEditor.REASON_NO_TOUCH))
-            onItemLongClick(this, null)
+            onItemLongClick(this, null, false)
             return
         }
         val documentGeneration = generation
@@ -333,7 +335,7 @@ internal class DikcizHtmlWidgetView(
                     )
                 }
             }
-            onItemLongClick(this, selected)
+            onItemLongClick(this, selected, reason == DikcizHtmlItemEditor.REASON_BACKGROUND)
         }
     }
 
@@ -597,7 +599,7 @@ internal object DikcizHtmlWidgetDocument {
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <style>html,body{margin:0;width:100%;$heightStyle;background:transparent;color:#e8eaed;font-family:sans-serif}</style>
                 <style>${widget.css}</style>
-                <style>*{-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important}</style>
+                <style>$DOCUMENT_SCROLLBAR_STYLE*{-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important}</style>
               </head>
               <body>
                 ${widget.html}
@@ -610,6 +612,7 @@ internal object DikcizHtmlWidgetDocument {
         """.trimIndent()
     }
 
+    private const val DOCUMENT_SCROLLBAR_STYLE = "*{scrollbar-width:none!important}*::-webkit-scrollbar{display:none!important}"
     private const val DOCUMENT_CONTENT_HEIGHT_STYLE = "min-height:0;"
     private const val DOCUMENT_FIXED_HEIGHT_STYLE = "min-height:100%;"
     private const val ESCAPED_LESS_THAN = "\\u003c"

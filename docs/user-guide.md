@@ -127,7 +127,7 @@ Long press a card or block inside the HTML content to open its native **HTML ite
 
 Item edits preserve the widget's CSS, JavaScript and state. Custom JavaScript must tolerate missing elements when its cards can be deleted.
 
-Dikciz recognizes a saved `<main class="card">` when it contains no other editable cards, `article`, `section`, `li`, `.card`, `.dikciz-block`, and elements marked with `data-dikciz-item` or `data-dikciz-widget`. A nested press selects the nearest item. Empty container padding and elements created only at runtime do not fall back to deleting the containing widget. To make a custom card editable, include its element in the saved HTML and mark it with `data-dikciz-item`.
+Dikciz recognizes a saved `<main class="card">` when it contains no other editable cards, `article`, `section`, `li`, `.card`, `.dikciz-block`, and elements marked with `data-dikciz-item` or `data-dikciz-widget`. A nested press selects the nearest item. Long press the document background or empty container padding to open the whole widget's controls, including Appearance and Add preset or block. This opens a menu without deleting anything. Elements created only at runtime still cannot act as saved cards. To make a custom card editable, include its element in the saved HTML and mark it with `data-dikciz-item`.
 
 ![HTML editor](images/user-guide/16-widget-editor.png)
 
@@ -135,7 +135,7 @@ Save the change. Dikciz validates it and updates the running widget in place.
 
 ![Saved HTML rendered in the widget](images/user-guide/33-html-saved.png)
 
-Use **Appearance** to set its background, border, corner radius, spacing, and font. An inherited field continues to follow the active theme.
+Use **Appearance** to set its background, border, corner radius, spacing, and font. Under **Border**, set **Widths / All sides** to `0` to remove the outer widget border. If the widget or theme sets individual widths, enable **Set individual edges** and set all four sides to `0` too. Borders inside the HTML are part of its CSS. HTML widgets hide scrollbars while keeping their content scrollable. An inherited field continues to follow the active theme.
 
 ![Appearance editor](images/user-guide/17-appearance-editor.png)
 

@@ -441,3 +441,51 @@ def test_html_item_targeting_single_main_card_is_editable(
     assert ITEM_FIRST_TITLE not in widget["html"]
     assert widget["state"]["preserved"] == "owner state"
     assert len(configuration_page(saved, FIXTURE_HOME_PAGE_ID)["widgets"]) == 1
+
+
+@pytest.mark.parametrize("background,locked", [
+    ("body", None), ("main", None), ("grid", None), ("main-card", None),
+    ("empty", None), ("body", "widget"), ("body", "page"),
+])
+def test_html_item_targeting_background_opens_widget_controls(
+    websocket_control: socket.socket,
+    background: str,
+    locked: str | None,
+) -> None:
+    original = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET))
+    configured = item_configuration(original)
+    page = configuration_page(configured, FIXTURE_HOME_PAGE_ID)
+    widget = configuration_widget(configured, ITEM_WIDGET_ID)
+    tags = {"main": "main", "main-card": 'main class="card"', "grid": 'div class="grid"'}
+    if background in tags:
+        opening = '<' + tags[background] + ' id="background">'
+        closing = "</div>" if background == "grid" else "</main>"
+        widget["html"] = ITEM_SOURCE.replace("<main>", opening).replace("</main>", closing)
+    elif background == "empty":
+        widget["html"] = "<!-- Empty HTML widget -->"
+    widget["css"] += "body{padding:8px;box-sizing:border-box}main,#background{margin:24px;padding:24px}"
+    widget["javascript"] = ITEM_PROBE_JAVASCRIPT.replace("const targets = {};", """
+  const background = document.querySelector("#background") || document.body;
+  const bounds = background.getBoundingClientRect();
+  const targets = { background: {
+    x:bounds.left + 16,
+    y:background === document.body ? innerHeight - 64 : bounds.top + 16
+  } };
+""")
+    if locked == "widget":
+        widget["locked"] = True
+    elif locked == "page":
+        page["locked"] = True
+    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured)
+    before, _ = item_observation(websocket_control)
+    press_html_item(websocket_control, "background")
+    if locked is None:
+        snapshot = wait_for_snapshot_node(websocket_control, f"widget:{ITEM_WIDGET_ID}:appearance")
+        for action in ("edit", "resize", "add-block"):
+            assert any(node.get("semanticId") == f"widget:{ITEM_WIDGET_ID}:{action}" for node in snapshot["nodes"])
+    else:
+        snapshot = AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SNAPSHOT)
+        assert not any(node.get("semanticId") == f"widget:{ITEM_WIDGET_ID}:delete" for node in snapshot["nodes"])
+    assert not any(node.get("semanticId") == f"{ITEM_PREFIX}:delete" for node in snapshot["nodes"])
+    after = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET))
+    assert after == before

@@ -2570,7 +2570,9 @@ class DikcizHomeActivity : Activity() {
                         contentHeightPixels,
                     )
                 },
-                { view, selection -> showHtmlItemActions(page.id, widget.id, view, selection) },
+                { view, selection, isBackground ->
+                    showHtmlItemActions(page.id, widget.id, view, selection, isBackground)
+                },
                 { recoverHtmlWidgetRenderer(widget.id, container, widgetFrame) },
             ),
             LinearLayout.LayoutParams(
@@ -2585,10 +2587,16 @@ class DikcizHomeActivity : Activity() {
         widgetID: String,
         view: DikcizHtmlWidgetView,
         selection: HtmlItemSelection?,
+        isBackground: Boolean,
     ) {
         val page = homeConfiguration?.selectedPage() ?: return
         val widget = page.findWidget(widgetID) as? HtmlHomeWidget ?: return
         if (page.id != pageID || selectedPageOrWidgetIsLocked(widget.id)) {
+            return
+        }
+        if (isBackground) {
+            val frame = automationViews[widgetSemanticID(widget.id)] ?: return
+            showWidgetEditActions(widget, frame)
             return
         }
         if (selection == null) {

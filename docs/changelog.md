@@ -2,6 +2,16 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.21.1] - 2026-10-22
+
+### Fixed
+
+- Long pressing an HTML document background or empty container padding opens its widget controls instead of a missing-item message. Saved cards retain their scoped controls; runtime-only targets remain protected.
+
+### Changed
+
+- HTML widgets hide native and nested HTML scrollbars while preserving scrolling.
+
 ## [0.21.0] - 2026-10-22
 
 ### Fixed

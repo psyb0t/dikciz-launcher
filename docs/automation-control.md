@@ -428,7 +428,7 @@ Consent controls expose `permission:allow` and `permission:dismiss`. A notificat
 
 ### HTML card presets
 
-Home uses one full-page `home-dashboard` HTML widget containing saved cards. Content long presses select cards; `widget:<widget-id>:move-handle` opens whole-widget actions. Card controls include `widget:<widget-id>:html-item:edit`, `:delete` and `:save-preset`. The save form exposes `widget:<widget-id>:html-item:preset:title`, `:id` and `:save`. Invalid or existing IDs leave the form open with a field error.
+Home uses one full-page `home-dashboard` HTML widget containing saved cards. Content long presses select saved cards. Pressing the document background or empty container padding opens whole-widget actions, as does `widget:<widget-id>:move-handle`. The background menu uses the existing widget action IDs and respects page and widget locks. Card controls include `widget:<widget-id>:html-item:edit`, `:delete` and `:save-preset`. The save form exposes `widget:<widget-id>:html-item:preset:title`, `:id` and `:save`. Invalid or existing IDs leave the form open with a field error.
 
 The `widget:<widget-id>:add-block` action opens **Add preset or block**. Entries use `widget:<widget-id>:add-block:<preset-id>` and confirmation uses `html-block:confirm`. Built-in card IDs are `command-deck`, `quick-apps` and `quick-note`; custom saved cards join them. These semantic actions share execution and Android permissions across WebSocket, MCP and HTTP. Insertion changes only the containing widget and retains its live runtime and state while saving the HTML, CSS and JavaScript.
 

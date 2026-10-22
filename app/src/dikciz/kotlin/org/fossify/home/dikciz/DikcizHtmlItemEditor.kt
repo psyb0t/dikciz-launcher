@@ -6,6 +6,7 @@ internal object DikcizHtmlItemEditor {
     const val REASON_NO_TARGET = "no_target"
     const val REASON_UNMAPPED = "unmapped"
     const val REASON_CONTAINER = "container"
+    const val REASON_BACKGROUND = "background"
     const val REASON_STALE_SOURCE = "stale_source"
     const val REASON_SELECTED = "selected"
     const val REASON_INVALID = "invalid_result"
@@ -13,6 +14,7 @@ internal object DikcizHtmlItemEditor {
         REASON_NO_TARGET,
         REASON_UNMAPPED,
         REASON_CONTAINER,
+        REASON_BACKGROUND,
         REASON_STALE_SOURCE,
         REASON_SELECTED,
     )
@@ -74,18 +76,21 @@ internal object DikcizHtmlItemEditor {
                     if (!(hit instanceof Element) || !hit.isConnected || hit.closest(executableSelector)) {
                         return reject("$REASON_NO_TARGET");
                     }
+                    if (hit.matches("html,body")) return reject("$REASON_BACKGROUND");
                     const item = hit.closest("[data-dikciz-item-id]") || hit.closest(itemSelector) || hit;
                     const path = paths.get(item);
                     if (!path) return reject("$REASON_UNMAPPED");
-                    if (item.matches(forbiddenSelector) || (item.matches("main") && !item.matches(cardSelector))) return reject("$REASON_CONTAINER");
-                    // Empty grid padding must not select every card in that grid.
-                    if ((!item.matches(cardSelector) || item.matches("main")) && item.querySelector(itemSelector)) return reject("$REASON_CONTAINER");
+                    if (item.matches(forbiddenSelector)) return reject("$REASON_CONTAINER");
                     const original = document.createElement("template");
                     original.innerHTML = source;
                     const saved = atPath(original.content, path);
                     const initial = atPath(template.content, path);
                     if (!saved || !initial || saved.outerHTML !== initial.outerHTML || !item.isConnected) {
                         return reject("$REASON_STALE_SOURCE");
+                    }
+                    if ((item.matches("main") && !item.matches(cardSelector)) ||
+                        ((!item.matches(cardSelector) || item.matches("main")) && item.querySelector(itemSelector))) {
+                        return reject("$REASON_BACKGROUND");
                     }
                     selections.clear();
                     const id = ++nextSelection;
