@@ -15,16 +15,19 @@ internal class DikcizNotificationListenerService : NotificationListenerService()
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        connected = this
         mediaSessionMonitor.start()
     }
 
     override fun onListenerDisconnected() {
+        if (connected === this) connected = null
         mediaSessionMonitor.stop()
         DikcizNotificationActionRegistry.clear()
         super.onListenerDisconnected()
     }
 
     override fun onDestroy() {
+        if (connected === this) connected = null
         mediaSessionMonitor.stop()
         DikcizNotificationActionRegistry.clear()
         super.onDestroy()
@@ -96,7 +99,12 @@ internal class DikcizNotificationListenerService : NotificationListenerService()
         )
     }
 
-    private companion object {
+    companion object {
+        @Volatile
+        private var connected: DikcizNotificationListenerService? = null
+
+        fun currentNotifications(): Array<StatusBarNotification>? = connected?.activeNotifications
+
         const val COALESCING_NOTIFICATION_PREFIX = "notification:"
         const val PAYLOAD_CATEGORY = "category"
         const val PAYLOAD_NOTIFICATION_ACTION_TOKENS = "actionTokens"

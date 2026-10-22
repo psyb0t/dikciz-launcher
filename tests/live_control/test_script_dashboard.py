@@ -48,32 +48,10 @@ def test_script_dashboard_runs_page_addressed_patch_and_exposes_controls(
     bundled = AUTOMATION.require_configuration(
         AUTOMATION.request(websocket_control, AUTOMATION.TYPE_RESET),
     )
-    assert SCRIPT_DASHBOARD_DEFAULT_SCRIPT_IDS <= {
+    assert {"low-battery", "charge-ready", "screen-lock"} == {
         script["id"] for script in bundled["scripts"]
     }
-    notes_page = configuration_page(bundled, "notes")
-    assert any(
-        widget.get("id") == SCRIPT_DASHBOARD_DEFAULT_WIDGET_ID
-        and widget.get("type") == "scriptDashboard"
-        for widget in notes_page["widgets"]
-    )
-    AUTOMATION.request(
-        websocket_control,
-        AUTOMATION.TYPE_SELECT_PAGE,
-        pageId="notes",
-    )
-    for script_id in SCRIPT_DASHBOARD_DEFAULT_SCRIPT_IDS:
-        wait_for_snapshot_node(
-            websocket_control,
-            default_script_dashboard_semantic_id(script_id, SCRIPT_DASHBOARD_ACTION_LOGS),
-        )
-    wait_for_physical_text_bounds("Lock screen")
-    wait_for_physical_text_bounds("Current hour notification")
-    wait_for_physical_text_bounds("Active notification digest")
-    run_device_operation("screenshot")
-    default_screenshot_artifact = ARTIFACT_DIRECTORY / SCRIPT_DASHBOARD_DEFAULT_ARTIFACT_NAME
-    shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", default_screenshot_artifact)
-    assert default_screenshot_artifact.stat().st_size > 0
+    assert all(script["enabled"] is False for script in bundled["scripts"])
 
     initial = fixture_document()
     configured = copy.deepcopy(initial)

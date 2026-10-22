@@ -16,7 +16,6 @@ import shutil
 
 from . import *
 from .script_status import wait_script_result
-from .test_alarm_cadence import CLOCK_TITLE, clock_notification
 
 
 # The forward container mounts the workspace read-only, so the walk writes into
@@ -63,7 +62,7 @@ RAIL_LONG_PRESS_INSET_PIXELS = 60
 APP_DRAWER_SEARCH_TERM = "Settings"
 GUIDE_CLOCK_NOTIFICATION_POLL_SECONDS = 1
 GUIDE_CLOCK_NOTIFICATION_TIMEOUT_SECONDS = 20
-GUIDE_CLOCK_SCRIPT_ID = "hourly-clock"
+GUIDE_CLOCK_SCRIPT_ID = "low-battery"
 GUIDE_COMMAND_DECK_EDITOR_HTML_SEMANTIC_ID = "widget:command-deck:editor:html"
 GUIDE_COMMAND_DECK_EDITOR_SAVE_SEMANTIC_ID = "widget:command-deck:editor:save"
 GUIDE_HTML_BLOCK_CONFIRM_SEMANTIC_ID = "html-block:confirm"
@@ -184,7 +183,6 @@ def test_capture_user_guide_screenshots(websocket_control: socket.socket) -> Non
     capture_first_launch()
     capture_page_search(websocket_control)
     capture_second_page(websocket_control)
-    capture_workbench_page(websocket_control)
     capture_page_creation(websocket_control)
     capture_named_page_search(websocket_control)
     capture_launcher_controls(websocket_control)
@@ -206,13 +204,11 @@ def test_capture_user_guide_screenshots(websocket_control: socket.socket) -> Non
     capture_provider_widgets(websocket_control)
     capture_page_full(websocket_control)
     capture_script_manager(websocket_control)
-    capture_script_notification_and_log(websocket_control)
     capture_settings(websocket_control)
     capture_grid_settings(websocket_control)
     capture_themes(websocket_control)
     capture_safe_mode(websocket_control)
     capture_automation_access(websocket_control)
-    capture_notification_digest(websocket_control)
 
 
 
@@ -228,9 +224,9 @@ def capture_page_search(connection: socket.socket) -> None:
 
 
 def capture_second_page(connection: socket.socket) -> None:
-    """Jump to Notes, which carries an app shortcut tile and the script dashboard."""
-    go_to_page(connection, STARTER_NOTES_PAGE_ID)
-    capture("03-notes-page.png")
+    """Show the second bundled page with optional web data and local status."""
+    go_to_page(connection, "insights")
+    capture("03-insights-page.png")
     go_to_page(connection, STARTER_HOME_PAGE_ID)
 
 
@@ -249,13 +245,7 @@ def capture_app_drawer(connection: socket.socket) -> None:
 
 
 def capture_widget_actions_and_grid_guides(connection: socket.socket) -> None:
-    """Photograph the widget sheet, then the grid the move and resize gestures draw.
-
-    Every bundled page fills all of its cells, and the guides are drawn behind
-    the page content, so on a full page there is nothing to see. The gesture
-    scenes therefore clear the Notes page's script dashboard first, which is
-    also the state an owner is in when they are arranging a page.
-    """
+    """Use a separate demonstration page so move and resize guides stay visible."""
     open_widget_action_sheet()
     capture("11-widget-actions.png")
     reset_to_starter_home()
@@ -271,8 +261,31 @@ def capture_widget_actions_and_grid_guides(connection: socket.socket) -> None:
     reset_to_starter_home()
 
 
+def ensure_guide_notes_page(connection: socket.socket) -> None:
+    """Create a separate demonstration page for arranging native items."""
+    document = current_configuration(connection)
+    home = document["launcher"]["home"]
+    if any(page["id"] == STARTER_NOTES_PAGE_ID for page in home["pages"]):
+        return
+    home["pages"].append({
+        "id": STARTER_NOTES_PAGE_ID, "title": "Guide workspace",
+        "position": {"column": 2, "row": 0},
+        "widgets": [{
+            "id": NOTES_APP_TILE_WIDGET_ID, "type": "app", "enabled": True,
+            "title": STARTER_ANDROID_SETTINGS_TITLE,
+            "component": "com.android.settings/com.android.settings.Settings",
+            "displayStyle": "iconLabel",
+            "cell": {"column": 0, "row": 0, "columnSpan": 1, "rowSpan": 1},
+        }],
+    })
+    AUTOMATION.require_configuration(
+        AUTOMATION.request(connection, AUTOMATION.TYPE_CONFIG_REPLACE, config=document),
+    )
+
+
 def open_notes_page_with_free_cells(connection: socket.socket) -> None:
-    """Select Notes with its script dashboard removed, leaving five rows free."""
+    """Select the demonstration page with free cells for widget placement."""
+    ensure_guide_notes_page(connection)
     document = json.loads(json.dumps(current_configuration(connection)))
     home = document["launcher"]["home"]
     for page in home["pages"]:
@@ -373,13 +386,6 @@ def scroll_settings_along_left_edge(text: str) -> None:
             DIALOG_SCROLL_DURATION_MILLISECONDS,
         )
     raise AssertionError(f"settings never scrolled to {text!r}")
-
-
-def capture_workbench_page(connection: socket.socket) -> None:
-    """The third bundled page, which points at the public files and scripts."""
-    go_to_page(connection, STARTER_WORKBENCH_PAGE_ID)
-    capture("04-workbench-page.png")
-    go_to_page(connection, STARTER_HOME_PAGE_ID)
 
 
 def capture_app_drawer_search(connection: socket.socket) -> None:
@@ -584,6 +590,7 @@ def capture_named_page_search(connection: socket.socket) -> None:
 
 def capture_app_group(connection: socket.socket) -> None:
     """Build a group the way an owner does, by dropping one app tile on another."""
+    ensure_guide_notes_page(connection)
     document = json.loads(json.dumps(current_configuration(connection)))
     home = document["launcher"]["home"]
     for page in home["pages"]:
@@ -630,7 +637,7 @@ def capture_app_group(connection: socket.socket) -> None:
 
 
 def capture_widget_delete(connection: socket.socket) -> None:
-    """Delete the bundled deck and photograph the resulting empty page."""
+    """Delete the clock widget and capture the remaining Home widgets."""
     open_widget_action_sheet()
     direct_tap(scroll_dialog_to_text(WIDGET_DELETE_LABEL))
     capture("15-widget-delete.png")
@@ -658,7 +665,7 @@ def capture_script_manager(connection: socket.socket) -> None:
 
 
 def capture_script_editor(connection: socket.socket) -> None:
-    """The saved clock script's real source, state, and enable switch."""
+    """The saved battery reminder's source, state, and enable switch."""
     AUTOMATION.request(
         connection,
         AUTOMATION.TYPE_TAP,
@@ -668,86 +675,11 @@ def capture_script_editor(connection: socket.socket) -> None:
     reset_to_starter_home()
 
 
-def wait_for_clock_notification() -> dict[str, Any]:
-    deadline = time.monotonic() + GUIDE_CLOCK_NOTIFICATION_TIMEOUT_SECONDS
-    notification = clock_notification()
-    while notification is None and time.monotonic() < deadline:
-        time.sleep(GUIDE_CLOCK_NOTIFICATION_POLL_SECONDS)
-        notification = clock_notification()
-    if notification is None:
-        raise AssertionError("the guide clock script did not post a notification")
-    return notification
-
-
-def capture_script_notification_and_log(connection: socket.socket) -> None:
-    """Trigger a bundled script, then show its Android effect and native log."""
-    device_command(f"pm grant {DIKCIZ_DEBUG_PACKAGE} android.permission.POST_NOTIFICATIONS")
-    device_command("cmd statusbar collapse")
-    AUTOMATION.request(
-        connection,
-        AUTOMATION.TYPE_AUTOMATION_TRIGGER,
-        scriptId=GUIDE_CLOCK_SCRIPT_ID,
-    )
-    assert wait_script_result(GUIDE_CLOCK_SCRIPT_ID, "completed")
-    assert wait_for_clock_notification()["body"]
-    device_command("cmd statusbar expand-notifications")
-    wait_for_physical_text_bounds(CLOCK_TITLE)
-    capture(GUIDE_CLOCK_NOTIFICATION_SCREENSHOT)
-    device_command("cmd statusbar collapse")
-
-    go_to_page(connection, STARTER_NOTES_PAGE_ID)
-    log_action = default_script_dashboard_semantic_id(
-        GUIDE_CLOCK_SCRIPT_ID,
-        SCRIPT_DASHBOARD_ACTION_LOGS,
-    )
-    wait_for_snapshot_node(connection, log_action)
-    AUTOMATION.request(connection, AUTOMATION.TYPE_TAP, semanticId=log_action)
-    wait_for_physical_text_bounds("Script logs")
-    capture(GUIDE_CLOCK_LOG_SCREENSHOT)
-    close_active_dialog(connection)
-    reset_to_starter_home()
-
-
-def capture_notification_digest(connection: socket.socket) -> None:
-    """Deliver a real notification event and show the starter digest changing."""
-    device_command(f"cmd notification allow_listener {AUTOMATION_NOTIFICATION_COMPONENT}")
-    try:
-        deadline = time.monotonic() + CONFIGURATION_SAVE_TIMEOUT_SECONDS
-        while time.monotonic() < deadline:
-            status = AUTOMATION.request(connection, AUTOMATION.TYPE_AUTOMATION_STATUS)
-            if status["androidAccess"]["notificationListener"] is True:
-                break
-            time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
-        else:
-            raise AssertionError("the guide notification listener did not become active")
-
-        device_command(
-            "cmd notification post "
-            f"-t '{GUIDE_NOTIFICATION_EVENT_TITLE}' {GUIDE_NOTIFICATION_EVENT_TAG} "
-            f"'{GUIDE_NOTIFICATION_EVENT_TEXT}'",
-        )
-        deadline = time.monotonic() + CONFIGURATION_SAVE_TIMEOUT_SECONDS
-        while time.monotonic() < deadline:
-            configuration = current_configuration(connection)
-            state = configuration_widget(configuration, STARTER_HOME_WIDGET_ID).get("state")
-            if isinstance(state, dict) and state.get("notificationCount") == 1:
-                break
-            time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
-        else:
-            raise AssertionError("the starter notification digest did not update")
-        capture(GUIDE_NOTIFICATION_DIGEST_SCREENSHOT)
-    finally:
-        device_command(f"cmd notification disallow_listener {AUTOMATION_NOTIFICATION_COMPONENT}")
-        reset_to_starter_home()
-
-
 def test_capture_remaining_result_scenes_in_isolation(
     websocket_control: socket.socket,
 ) -> None:
     """Run the remaining new outcome scenes without repeating the guide walk."""
     capture_html_block_result(websocket_control)
-    capture_script_notification_and_log(websocket_control)
-    capture_notification_digest(websocket_control)
 
 
 def capture_grid_settings(connection: socket.socket) -> None:

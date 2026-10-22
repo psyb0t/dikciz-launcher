@@ -118,6 +118,7 @@ class DikcizHomeActivity : Activity() {
     private lateinit var automationControlPlane: DikcizAutomationControlPlane
     private lateinit var mcpControlPlane: DikcizMcpControlPlane
     private val deviceFiles by lazy { DikcizDeviceFiles(this, dikcizLogger) }
+    private val nativeData by lazy { DikcizNativeData(this, dikcizLogger) }
     private lateinit var dikcizLogger: DikcizLogger
     private lateinit var remoteAccessAuth: DikcizRemoteAccessAuth
     private lateinit var controlPorts: DikcizControlPorts
@@ -3943,6 +3944,7 @@ class DikcizHomeActivity : Activity() {
             throw automationFailure(MESSAGE_CONFIGURATION_UNAVAILABLE)
         }
         if (command.type in DikcizFileCommands.FIELDS) return deviceFiles.execute(command)
+        if (command.type in DikcizNativeCommands.FIELDS) return nativeData.execute(command)
         return when (command.type) {
             DikcizDeviceInspection.TYPE_DISPLAY_SCREENSHOT -> {
                 try {
@@ -12365,7 +12367,7 @@ class DikcizHomeActivity : Activity() {
             DikcizAutomationControlPlane.TYPE_AUTOMATION_DISPATCH,
             DikcizAutomationControlPlane.TYPE_SHELL,
             DikcizAutomationControlPlane.TYPE_SCRIPT_LOGS,
-        ) + DikcizFileCommands.FIELDS.keys
+        ) + DikcizFileCommands.FIELDS.keys + DikcizNativeCommands.BACKGROUND_TYPES
         val STORAGE_ACCESS_COMMAND_TYPES = setOf(
             DikcizPermissionRequests.TYPE_REQUEST,
             DikcizDeviceInspection.TYPE_LAUNCHER_HANDOFF,
@@ -12381,7 +12383,7 @@ class DikcizHomeActivity : Activity() {
             DikcizAutomationControlPlane.TYPE_SNAPSHOT,
             DikcizAutomationControlPlane.TYPE_TAP,
             DikcizAutomationControlPlane.TYPE_UI_DUMP,
-        ) + DikcizFileCommands.FIELDS.keys
+        ) + DikcizFileCommands.FIELDS.keys + DikcizNativeCommands.FIELDS.keys
         val SAFE_MODE_READ_ONLY_COMMAND_TYPES = setOf(
             DikcizDeviceInspection.TYPE_LAUNCHER_HANDOFF,
             DikcizDeviceInspection.TYPE_DISPLAY_SCREENSHOT,
@@ -12401,6 +12403,6 @@ class DikcizHomeActivity : Activity() {
             DikcizAutomationControlPlane.TYPE_UI_DUMP,
             DikcizAutomationControlPlane.TYPE_WIDGET_GET,
             DikcizAutomationControlPlane.TYPE_RESET,
-        ) + DikcizFileCommands.READ_ONLY_TYPES
+        ) + DikcizFileCommands.READ_ONLY_TYPES + DikcizNativeCommands.READ_ONLY_TYPES
     }
 }

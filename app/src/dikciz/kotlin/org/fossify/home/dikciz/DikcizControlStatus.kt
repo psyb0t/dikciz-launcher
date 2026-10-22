@@ -170,6 +170,8 @@ internal object DikcizControlStatus {
     }
 
     private fun sideEffect(commandType: String): String {
+        if (commandType in DikcizNativeCommands.READ_ONLY_TYPES) return SIDE_EFFECT_READ
+        if (commandType in DikcizNativeCommands.FIELDS) return SIDE_EFFECT_DEVICE
         if (commandType in DikcizFileCommands.READ_ONLY_TYPES) return SIDE_EFFECT_READ
         if (commandType in DikcizFileCommands.FIELDS) return SIDE_EFFECT_DEVICE
         return when (commandType) {

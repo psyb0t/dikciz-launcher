@@ -399,13 +399,7 @@ internal sealed interface DikcizLuaAutomationAction {
         val text: String,
     ) : DikcizLuaAutomationAction
 
-    /**
-     * Sends one SMS to a dialable recipient.
-     *
-     * Dikciz is not the default SMS app, so the message leaves the device but
-     * is not written to the Android SMS provider and does not appear in the
-     * owner's messaging history.
-     */
+    /** Submits one SMS. Android may persist it for a non-default messaging app. */
     data class SendSms(
         val recipient: String,
         val body: String,

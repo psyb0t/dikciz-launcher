@@ -1,12 +1,13 @@
-# Dikciz grid unit tests
+# Dikciz unit tests
 
-This flavour-specific JVM test source set exercises the pure grid rules in [`DikcizNativeGrid.kt`](../dikciz/kotlin/org/fossify/home/dikciz/DikcizNativeGrid.kt). It uses JUnit through the `testDikcizImplementation` dependency in [the app build](../../build.gradle.kts).
+This flavour-specific JVM test source set covers SMS receipt aggregation and the pure grid rules in [`DikcizNativeGrid.kt`](../dikciz/kotlin/org/fossify/home/dikciz/DikcizNativeGrid.kt). It uses JUnit through the `testDikcizImplementation` dependency in [the app build](../../build.gradle.kts).
 
-Both test files live in `kotlin/org/fossify/home/dikciz/`:
+The test files live in `kotlin/org/fossify/home/dikciz/`:
 
 | File | Coverage |
 | --- | --- |
 | `DikcizNativeGridTest.kt` | Bounds, overlap, row-major free-cell search, preferred-span fallback, full pages, moves, resizes and pixel/cell conversion. |
+| `DikcizSmsReceiptTest.kt` | Multipart sent/delivery callbacks, uncertain and failed reports, duplicate parts and invalid segment counts. |
 | `DikcizGridSettingsTest.kt` | Conflicts after grid changes, the first offending widget, and persisted grid-setting names and values. |
 
 Run these tests from the repository root with `make gradle GRADLE_TASK=:app:testDikcizDebugUnitTest`. `make app-test` selects the Fossify-compatible core tests instead.

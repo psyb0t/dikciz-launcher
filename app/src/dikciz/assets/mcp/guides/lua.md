@@ -11,3 +11,5 @@ Use `automationStatus` for configured scripts and Android access, `automationTri
 File observers reload valid source, metadata and automation changes. Preserve the existing manifest and other scripts when installing. The native source editor does not invent an automation policy for a new script.
 
 [Install a script](dikciz://docs/recipes/install-script). [Two-event Lua source](dikciz://docs/recipes/event-lua). [Logs](dikciz://docs/guides/logging).
+
+Owner command requests also accept bounded Lua object tables. The runtime safely encodes dynamic values; consecutive integer keys form arrays, empty tables form objects, and nil fields are omitted. Explicit null/empty arrays still use JSON strings. Preflight limits are eight nesting levels, 2048 expanded fields and a conservative one-MiB encoded-size estimate. Cyclic or repeated graphs cannot expand without bounds.

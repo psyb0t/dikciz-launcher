@@ -92,6 +92,15 @@ internal class DikcizPermissionRequests(
 
     fun forFailure(code: String, autoShow: Boolean): JSONObject? {
         val requirement = when (code) {
+            "native_permission_contacts" -> DikcizDeviceAccessRequirement.Contacts
+            "native_permission_sms" -> DikcizDeviceAccessRequirement.Sms
+            "native_permission_calendar" -> DikcizDeviceAccessRequirement.Calendar
+            "native_permission_telephony" -> DikcizDeviceAccessRequirement.Telephony
+            "native_permission_callHistory" -> DikcizDeviceAccessRequirement.CallHistory
+            "native_permission_mediaLibrary" -> DikcizDeviceAccessRequirement.MediaLibrary
+            "native_permission_locationForeground" -> DikcizDeviceAccessRequirement.LocationForeground
+            "native_permission_locationBackground" -> DikcizDeviceAccessRequirement.LocationBackground
+            "native_permission_notificationListener" -> DikcizDeviceAccessRequirement.NotificationListener
             "accessibility_not_enabled" -> DikcizDeviceAccessRequirement.Accessibility
             DikcizFileCommands.ERROR_ACCESS_DENIED -> DikcizDeviceAccessRequirement.SharedStorage
             "device_admin_inactive" -> DikcizDeviceAccessRequirement.DeviceAdministration

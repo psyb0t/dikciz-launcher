@@ -14,6 +14,8 @@ These pytest scenarios exercise real Android UI and forwarded WebSocket, MCP and
 | `fixtures.py` | Per-test isolation, connection restoration, and provider installation lifecycle. |
 | `__init__.py` | Shared harness exports consumed by tests. |
 | Domain support modules | Accessibility, media sessions, notifications, alarms, and script-status helpers. |
+| `test_shared_vm_starter.py` | First-use pages, disabled Lua defaults, saved notes and external weather success/failure in the real WebView. |
+| `test_native_data.py` | Native provider CRUD, pagination, rollback, validation, permission recovery, SIM/state access, SMS duplicate protection and Lua/HTML commands. |
 | `test_device_files.py` | Filesystem pagination, binary transfers, HTTP security, CLI results and actual Android APK install/cancel outcomes. |
 | `test_mcp_resources.py` | Resource discovery, every section read, bounded pagination, protocol errors, authentication/session gates, CLI reads and execution of the packaged event recipe. |
 | `test_remote_device_control.py` | Production-client restart, instance/version inspection, external-display capture, validation and delayed port-conflict recovery. |
@@ -27,7 +29,7 @@ The harness imports helpers in layers: constants, device, UI, configuration, int
 
 ## Test contracts
 
-The autouse fixture replaces configuration with the [checked-in home](../fixtures/README.md), reads it back, and waits for the visible fixture card before yielding. Cleanup resets to the bundled starter home, restores Android Home, and waits for its control deck. A separate WebSocket fixture restores the configuration captured when it opened.
+The autouse fixture replaces configuration with the [checked-in home](../fixtures/README.md), reads it back, and waits for the visible fixture card before yielding. Cleanup resets to the bundled starter home, restores Android Home, and waits for its clock and search card. A separate WebSocket fixture restores the configuration captured when it opened.
 
 Use semantic IDs to inspect launcher state and raw Android accessibility data or real input to prove visible controls work. Verify saved configuration when an action should persist. Protocol-only success does not establish that a visible control is reachable.
 

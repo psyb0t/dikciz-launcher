@@ -18,8 +18,11 @@ Read only the sections needed for the current task. Each resource is at most 4 K
 - [Logs](dikciz://docs/guides/logging): diagnosis and retention.
 - [Security](dikciz://docs/guides/security): access boundaries and credentials.
 
+- [Native data](dikciz://docs/guides/native-data): contacts, SMS, calendars, calls and system state.
+
 ## Recipes
 
+- [Contact and tracked SMS](dikciz://docs/recipes/contact-sms).
 - [Inspect and act](dikciz://docs/recipes/inspect-ui).
 - [Launch an app](dikciz://docs/recipes/launch-app).
 - [Edit one HTML card](dikciz://docs/recipes/html-item).

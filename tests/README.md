@@ -1,6 +1,6 @@
 # Test layout
 
-This directory contains live Android acceptance tests, their data, and external-app fixtures. Local Kotlin tests live separately in the [Dikciz grid test source set](../app/src/testDikciz/README.md). The [contribution guide](../CONTRIBUTING.md) explains how to choose verification.
+This directory contains live Android acceptance tests, their data, and external-app fixtures. Local Kotlin tests live separately in the [Dikciz unit test source set](../app/src/testDikciz/README.md). The [contribution guide](../CONTRIBUTING.md) explains how to choose verification.
 
 ## File map
 
@@ -81,6 +81,12 @@ The full-access setup scenarios cover the separate Android task, actual permissi
 
 ```bash
 make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_device_access_screen_
+```
+
+Native data checks cover contacts and calendar CRUD, atomic rollback, multi-page queries, validation, shared permission recovery, system reads and Lua/HTML binding. SMS checks exercise no-SIM rejection on the lab image; real carrier callbacks need a separately authorized phone run. JVM tests cover receipt-state aggregation.
+
+```bash
+make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_native_data
 ```
 
 ## Isolation

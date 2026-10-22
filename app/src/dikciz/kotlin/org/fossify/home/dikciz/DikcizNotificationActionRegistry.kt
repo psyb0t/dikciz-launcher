@@ -33,6 +33,13 @@ internal object DikcizNotificationActionRegistry {
         return@synchronized tokens.filter(entries::containsKey)
     }
 
+    fun tokens(notification: StatusBarNotification): List<String> = synchronized(this) {
+        removeExpiredEntries(SystemClock.elapsedRealtime())
+        val current = tokensByNotificationKey[notification.key].orEmpty().filter(entries::containsKey)
+        if (current.isNotEmpty()) return@synchronized current
+        replace(notification)
+    }
+
     fun consume(token: String): DikcizNotificationActionResult {
         val pendingIntent = synchronized(this) {
             removeExpiredEntries(SystemClock.elapsedRealtime())

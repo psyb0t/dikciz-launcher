@@ -2,6 +2,23 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.20.0] - 2026-10-22
+
+### Added
+
+- A two-page starter home with clock and web search, installed-app search, saved quick notes, local phone status and optional city-based weather and air quality. Three utility Lua examples start disabled.
+- Direct Android commands shared by WebSocket, MCP, HTTP, HTML and Lua. Discover provider resources, read bounded pages, edit contacts and calendars atomically, inspect SIMs, calls, clipboard, last-known location, notifications, media sessions and device state.
+- Tracked SMS submission with durable duplicate protection, SIM selection and separate sent/delivery receipts. Packaged MCP guides document native data and the contact/SMS workflow.
+
+### Fixed
+
+- SMS documentation describes Android provider persistence for messages sent by non-default apps and distinguishes submission from sending or delivery.
+
+### Changed
+
+- Fresh homes use Home and Insights instead of the previous demonstration pages. Edited homes keep their saved content on update. Reset Dikciz home installs the new pages and restores the three disabled utility scripts; other saved scripts and policies remain. Disable or delete unwanted older examples in Settings, Scripts.
+- Lua owner-command requests accept object tables as well as JSON strings, with bounded encoding for nested values.
+
 ## [0.19.0] - 2026-10-21
 
 ### Added

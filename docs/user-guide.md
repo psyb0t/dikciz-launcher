@@ -28,17 +28,9 @@ Apps opened from the drawer or a native shortcut run in their own Android task. 
 
 ### Switch pages or search by name
 
-Swipe across a page or tap a rail dot to move one page. Tap the magnifier beside the horizontal rail to search all pages. Search matches the page name and its stable address. The bundled pages include `Home (1H1V)`, `Notes (2H1V)`, and `Workbench (1H2V)`.
+Swipe across a page or tap a rail dot to move one page. Tap the magnifier beside the horizontal rail to search all pages. Search matches the page name and its stable address. The bundled pages are `Home (1H1V)` and `Insights (2H1V)`. Home has a clock, installed-app search and a quick note with an explicit Save button. Insights reads local battery and connection data and offers city-based weather and air quality. Choose a city before any web data is fetched. Read the [starter home guide](starter-home.md) for details.
 
-![Page search](images/user-guide/02-page-search.png)
-
-`Notes` combines an Android Settings shortcut, an HTML card, and the script dashboard.
-
-![Notes page](images/user-guide/03-notes-page.png)
-
-`Workbench` is the bundled starting point for public files, automation access, and the local control interfaces.
-
-![Workbench page](images/user-guide/04-workbench-page.png)
+![Insights page](images/user-guide/03-insights-page.png)
 
 ### Create, name, reorder, or lock a page
 
@@ -167,9 +159,9 @@ Lua scripts are background automation, not widgets. Open **Settings**, then **Sc
 
 ![Script manager](images/user-guide/25-script-manager.png)
 
-Open the bundled `hourly-clock` script to view its source, policy, state, and enable control. A policy blocks an action that is missing from its capability list. Dikciz records `capability_denied` in the script log rather than silently ignoring it.
+Open the bundled `low-battery` script to view its source, policy, state, and enable control. A policy blocks an action that is missing from its capability list. Dikciz records `capability_denied` in the script log rather than silently ignoring it.
 
-![Bundled clock script](images/user-guide/26-script-editor.png)
+![Bundled battery reminder](images/user-guide/26-script-editor.png)
 
 ### Grant the Android access an automation needs
 
@@ -177,21 +169,13 @@ Open **Settings**, then **Automation**, then **Set up full device access**. The 
 
 ![Automation access](images/user-guide/31-automation-access.png)
 
-The bundled clock script posts an Android notification after notification access is granted. Pull down the notification shade to see it.
-
-![Clock script notification](images/user-guide/35-script-notification.png)
-
-Open the dashboard on Notes and select the script logs to see its outcome, time, details, and failures.
-
-![Clock script log](images/user-guide/36-script-log.png)
+The battery reminders start disabled. Enable one after granting notification-posting access. It reacts to Android battery changes and records its result. Open **Settings**, **Script logs** to inspect outcomes and failures.
 
 The [scripting tutorial](scripting-tutorial.md) walks through subscriptions, policies, custom events, HTML bridge use, typed actions, and logs.
 
-### React to a notification event
+### React to a battery event
 
-The bundled notification digest listens for unread-notification events and updates the command deck. It is event driven, not a timer that polls the widget's text.
-
-![Notification event updated the command deck](images/user-guide/37-notification-digest.png)
+The bundled battery reminders are event driven and start disabled. They listen to Android battery changes only after you enable them. They do not depend on a widget remaining on your home.
 
 ## Change themes, recover, and connect another machine
 

@@ -456,6 +456,7 @@ internal class DikcizMcpControlPlane(
     private fun toolsListResult(): JSONObject {
         val tools = JSONArray()
         TOOL_DEFINITIONS.forEach { definition -> tools.put(definition.toJson()) }
+        DikcizNativeCommands.DEFINITIONS.values.forEach { definition -> tools.put(definition.toolDocument()) }
         return JSONObject().put(KEY_RESULT_TYPE, RESULT_TYPE_COMPLETE).put(KEY_TOOLS, tools)
     }
 
@@ -1320,7 +1321,7 @@ internal class DikcizMcpControlPlane(
             DikcizAutomationControlPlane.TYPE_HTML_WIDGET_RENDERER_CRASH to setOf(
                 DikcizAutomationControlPlane.KEY_WIDGET_ADDRESS,
             ),
-        ) + DikcizFileCommands.FIELDS
+        ) + DikcizFileCommands.FIELDS + DikcizNativeCommands.FIELDS
         val TOOL_COMMANDS = mapOf(
             DikcizPermissionRequests.TOOL_REQUEST to DikcizPermissionRequests.TYPE_REQUEST,
             "dikciz_device_info" to DikcizDeviceInspection.TYPE_DEVICE_INFO,
@@ -1370,7 +1371,7 @@ internal class DikcizMcpControlPlane(
             TOOL_WIDGET_MOVE to DikcizAutomationControlPlane.TYPE_WIDGET_MOVE,
             TOOL_WIDGET_RESIZE to DikcizAutomationControlPlane.TYPE_WIDGET_RESIZE,
             TOOL_HTML_WIDGET_RENDERER_CRASH to DikcizAutomationControlPlane.TYPE_HTML_WIDGET_RENDERER_CRASH,
-        ) + DikcizFileCommands.TOOLS
+        ) + DikcizFileCommands.TOOLS + DikcizNativeCommands.TOOLS
         private val FILE_FIELD_DESCRIPTIONS = mapOf(
             DikcizFileCommands.KEY_PATH to "Absolute filesystem path, using Android permissions granted to Dikciz.",
             DikcizFileCommands.KEY_OFFSET to "Nonnegative byte offset, or directory entry offset. Defaults to zero.",

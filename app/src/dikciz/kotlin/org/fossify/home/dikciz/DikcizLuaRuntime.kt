@@ -45,6 +45,7 @@ internal class DikcizLuaRuntime {
             }
             val executionGlobals = createExecutionGlobals(
                 script,
+                limits,
                 widgets,
                 accessibility,
                 androidAccess,
@@ -99,6 +100,7 @@ internal class DikcizLuaRuntime {
 
     private fun createExecutionGlobals(
         script: DikcizLuaScript,
+        limits: DikcizLimits,
         widgets: JSONObject = JSONObject(),
         accessibility: JSONObject? = null,
         androidAccess: JSONObject = JSONObject(),
@@ -109,6 +111,7 @@ internal class DikcizLuaRuntime {
             CONTEXT_GLOBAL_NAME,
             createExecutionContext(
                 script,
+                limits,
                 widgets,
                 accessibility,
                 androidAccess,
@@ -128,6 +131,7 @@ internal class DikcizLuaRuntime {
 
     private fun createExecutionContext(
         script: DikcizLuaScript,
+        limits: DikcizLimits,
         widgets: JSONObject,
         accessibility: JSONObject?,
         androidAccess: JSONObject,
@@ -138,8 +142,8 @@ internal class DikcizLuaRuntime {
             putInitial(CONTEXT_STATE_FIELD, scriptStateToLuaTable(script.state))
             putInitial(CONTEXT_WIDGETS_FIELD, scriptStateToLuaTable(widgets))
             putInitial(CONTEXT_ANDROID_ACCESS_FIELD, scriptStateToLuaTable(androidAccess))
-            putInitial(CONTEXT_REQUEST_FIELD, commandFunction(executeCommand, rawJson = false))
-            putInitial(CONTEXT_REQUEST_JSON_FIELD, commandFunction(executeCommand, rawJson = true))
+            putInitial(CONTEXT_REQUEST_FIELD, commandFunction(executeCommand, rawJson = false, limits))
+            putInitial(CONTEXT_REQUEST_JSON_FIELD, commandFunction(executeCommand, rawJson = true, limits))
             if (accessibility != null) {
                 putInitial(CONTEXT_ACCESSIBILITY_FIELD, scriptStateToLuaTable(accessibility))
             }
@@ -157,19 +161,57 @@ internal class DikcizLuaRuntime {
         }
     }
 
-    private fun commandFunction(execute: ((String) -> String)?, rawJson: Boolean): LuaValue {
+    private fun commandFunction(
+        execute: ((String) -> String)?,
+        rawJson: Boolean,
+        limits: DikcizLimits,
+    ): LuaValue {
         return object : OneArgFunction() {
             override fun call(argument: LuaValue): LuaValue {
-                if (argument.type() != LuaValue.TSTRING) {
-                    throw LuaError(MESSAGE_COMMAND_JSON_REQUIRED)
+                val serialized = when (argument.type()) {
+                    LuaValue.TSTRING -> argument.tojstring()
+                    LuaValue.TTABLE -> {
+                        val table = argument.checktable()
+                        validateCommandTableInput(table)
+                        luaTableToJson(table, limits, 0, allowProviderKeys = true).toString()
+                    }
+                    else -> throw LuaError(MESSAGE_COMMAND_JSON_REQUIRED)
                 }
                 val command = execute ?: throw LuaError(MESSAGE_COMMAND_UNAVAILABLE)
-                val response = command(argument.tojstring())
+                val response = command(serialized)
                 return if (rawJson) {
                     LuaValue.valueOf(response)
                 } else {
                     scriptStateToLuaTable(JSONObject(response))
                 }
+            }
+        }
+    }
+
+    private fun validateCommandTableInput(table: LuaTable) {
+        val pending = java.util.ArrayDeque<Pair<LuaTable, Int>>()
+        pending.add(table to 0)
+        var fields = 0
+        var estimatedBytes = 0L
+        while (pending.isNotEmpty()) {
+            val (current, depth) = pending.removeLast()
+            if (depth > MAXIMUM_STATE_PATCH_DEPTH) throw LuaError(STATE_PATCH_DEPTH_MESSAGE)
+            estimatedBytes += COMMAND_TABLE_CONTAINER_BYTES
+            var key = LuaValue.NIL
+            while (true) {
+                val entry = current.next(key)
+                key = entry.arg1()
+                if (key.isnil()) break
+                fields++
+                if (fields > MAXIMUM_COMMAND_TABLE_FIELDS) throw LuaError(MESSAGE_COMMAND_TABLE_LIMIT)
+                estimatedBytes += key.tojstring().length.toLong() * MAXIMUM_JSON_CHARACTER_BYTES + COMMAND_TABLE_FIELD_BYTES
+                val value = entry.arg(SECOND_RESULT_INDEX)
+                if (value.istable()) {
+                    pending.add(value.checktable() to depth + ONE_STATE_LEVEL)
+                } else {
+                    estimatedBytes += value.tojstring().length.toLong() * MAXIMUM_JSON_CHARACTER_BYTES
+                }
+                if (estimatedBytes > DikcizLocalCommands.MAXIMUM_REQUEST_BYTES) throw LuaError(MESSAGE_COMMAND_TABLE_LIMIT)
             }
         }
     }
@@ -769,6 +811,7 @@ internal class DikcizLuaRuntime {
         table: LuaTable,
         limits: DikcizLimits,
         depth: Int,
+        allowProviderKeys: Boolean = false,
     ): JSONObject {
         if (depth > MAXIMUM_STATE_PATCH_DEPTH) {
             throw IllegalArgumentException(STATE_PATCH_DEPTH_MESSAGE)
@@ -783,14 +826,19 @@ internal class DikcizLuaRuntime {
                 return result
             }
             fieldsSeen += ONE_FIELD
-            if (fieldsSeen > MAXIMUM_STATE_PATCH_ENTRIES || !key.isstring()) {
+            if (fieldsSeen > MAXIMUM_STATE_PATCH_ENTRIES || key.type() != LuaValue.TSTRING) {
                 throw IllegalArgumentException(INVALID_STATE_PATCH_MESSAGE)
             }
             val name = key.tojstring()
-            if (!IDENTIFIER_PATTERN.matches(name)) {
+            val invalidName = if (allowProviderKeys) {
+                name.isEmpty() || name.length > limits.maxIdentifierCharacters || NUL_CHARACTER in name
+            } else {
+                !IDENTIFIER_PATTERN.matches(name)
+            }
+            if (invalidName) {
                 throw IllegalArgumentException(INVALID_STATE_PATCH_MESSAGE)
             }
-            result.put(name, luaValueToJson(entry.arg(SECOND_RESULT_INDEX), limits, depth + ONE_STATE_LEVEL))
+            result.put(name, luaValueToJson(entry.arg(SECOND_RESULT_INDEX), limits, depth + ONE_STATE_LEVEL, allowProviderKeys))
         }
     }
 
@@ -798,6 +846,7 @@ internal class DikcizLuaRuntime {
         table: LuaTable,
         limits: DikcizLimits,
         depth: Int,
+        allowProviderKeys: Boolean = false,
     ): JSONArray {
         if (depth > MAXIMUM_STATE_PATCH_DEPTH) {
             throw IllegalArgumentException(STATE_PATCH_DEPTH_MESSAGE)
@@ -808,7 +857,7 @@ internal class DikcizLuaRuntime {
             if (result.length() >= MAXIMUM_STATE_PATCH_ENTRIES) {
                 throw IllegalArgumentException(INVALID_STATE_PATCH_MESSAGE)
             }
-            result.put(luaValueToJson(table.get(index), limits, depth + ONE_STATE_LEVEL))
+            result.put(luaValueToJson(table.get(index), limits, depth + ONE_STATE_LEVEL, allowProviderKeys))
             index += FIRST_LUA_ARRAY_INDEX
         }
         var key = LuaValue.NIL
@@ -824,7 +873,12 @@ internal class DikcizLuaRuntime {
         }
     }
 
-    private fun luaValueToJson(value: LuaValue, limits: DikcizLimits, depth: Int): Any {
+    private fun luaValueToJson(
+        value: LuaValue,
+        limits: DikcizLimits,
+        depth: Int,
+        allowProviderKeys: Boolean = false,
+    ): Any {
         return when {
             value.isboolean() -> value.toboolean()
             value.type() == LuaValue.TSTRING -> value.tojstring().also { text ->
@@ -842,9 +896,9 @@ internal class DikcizLuaRuntime {
             value.istable() -> {
                 val table = value.checktable()
                 if (table.get(FIRST_LUA_ARRAY_INDEX).isnil()) {
-                    luaTableToJson(table, limits, depth)
+                    luaTableToJson(table, limits, depth, allowProviderKeys)
                 } else {
-                    luaArrayToJson(table, limits, depth)
+                    luaArrayToJson(table, limits, depth, allowProviderKeys)
                 }
             }
 
@@ -1065,7 +1119,12 @@ internal class DikcizLuaRuntime {
         const val CONTEXT_ANDROID_ACCESS_FIELD = "androidAccess"
         const val CONTEXT_REQUEST_FIELD = "request"
         const val CONTEXT_REQUEST_JSON_FIELD = "requestJson"
-        const val MESSAGE_COMMAND_JSON_REQUIRED = "Control request must be a JSON string"
+        private const val MAXIMUM_COMMAND_TABLE_FIELDS = 2048
+        private const val MAXIMUM_JSON_CHARACTER_BYTES = 6L
+        private const val COMMAND_TABLE_CONTAINER_BYTES = 2L
+        private const val COMMAND_TABLE_FIELD_BYTES = 32L
+        private const val MESSAGE_COMMAND_TABLE_LIMIT = "Control request table exceeds the encoding budget"
+        const val MESSAGE_COMMAND_JSON_REQUIRED = "Control request must be a JSON string or an object table"
         const val MESSAGE_COMMAND_UNAVAILABLE = "Control commands are unavailable in this Lua execution"
         const val CONTEXT_SCRIPT_ID_FIELD = "scriptId"
         const val CONTEXT_STATE_FIELD = "state"

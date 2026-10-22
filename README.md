@@ -40,7 +40,7 @@ Release packages use `eu.psyb0t.dikciz.launcher`; debug packages use `eu.psyb0t.
 - Themes, fonts, wallpaper, widget appearance, editing locks and a chosen Android Home destination.
 - Semantic UI inspection, screenshots, logs, configuration editing and device actions through the remote APIs.
 
-The starter home includes a control deck, notes, an Android Settings shortcut, a Lua script dashboard and a workbench. Lua runs as automation scripts, not as a widget type.
+The starter has two pages: **Home** with a clock, installed-app search and a saved quick note; **Insights** with battery and connection status plus optional city-based weather and air quality. Three useful Lua examples start disabled. See the [starter home guide](docs/starter-home.md).
 
 ## Navigate and manage the home
 
@@ -83,6 +83,8 @@ The [connection walkthrough](docs/automation-control.md#connect-without-usb) cov
 Browse and transfer any files Android lets Dikciz access, upload standalone APKs and request installation, or run Android shell commands and read their output and exit status. Shell commands default to a 30-second timeout and accept per-request timeout and output-size options. Android controls installation permission and confirmation. The [files, APKs and shell guide](docs/files-and-apks.md) covers commands, binary transfers and final installation status.
 
 Inspect the actual serving package and version with `deviceInfo`, inspect another installed package with `packageInfo`, and use `restart` for an acknowledged launcher restart that preserves configuration and reconnects without killing the process. `launcherHandoff` switches between installed release and debug controllers after checking target access. `displayScreenshot` captures other apps through enabled Accessibility on Android 11+. The [remote device guide](docs/remote-device-control.md) covers these controls, port-conflict recovery and which operations require Android access or root.
+
+Use [direct Android data commands](docs/native-device-control.md) for contact lookup and edits, SMS history and tracked sends, calendars, call history, SIM selection, clipboard, last-known location, notifications, media sessions and device state. They call Android APIs without navigating other apps. Discover resources and grants with `nativeDataStatus`; Android still enforces permissions and app roles.
 
 ## Logs and failure reporting
 

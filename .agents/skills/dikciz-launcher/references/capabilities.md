@@ -109,6 +109,10 @@ WebSocket, Streamable HTTP MCP and plain HTTP expose the same launcher command t
 
 For exact commands and MCP tools, read [automation control](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/automation-control.md) and query the live contract. Do not manufacture a remote command by copying a Lua action name. Match WebSocket replies by request ID while handling interleaved events. For MCP, honor initialization and session headers.
 
+## Direct Android data
+
+Use `nativeDataStatus` or `dikciz_native_data_status` before navigating Contacts, Messages or Settings. Direct commands query contact, SMS, calendar, call-log and media providers, write contact/calendar rows atomically, list SIMs and inspect calls, clipboard, location, notifications, media sessions and device state. `smsSend` requires an idempotency key; `smsStatus` distinguishes submission, sent callbacks and carrier delivery. Read [native device control](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/native-device-control.md) or the MCP native-data and contact-SMS resources. Prefer these commands when they cover the task.
+
 ## Access, logs and verification
 
 Android owns runtime permissions, special access, roles and root approval. Notification listening, Do Not Disturb control, Accessibility, Health Connect, exact alarms, battery exemptions, file access and Device Administration have separate setup requirements. Use `automationStatus` and the phone's Automation access screen to distinguish unsupported, unavailable and not-yet-granted access. A broad manifest declaration is not permission to grant everything.

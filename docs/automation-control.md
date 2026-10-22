@@ -12,6 +12,10 @@ Ordinary MCP, WebSocket, HTTP, HTML and enabled Lua command calls share validati
 
 Both listeners default to device loopback. Set their listen address and ports through `control/ports.json` or Settings as described in [Control ports](dikciz-configuration.md#control-ports). Use ADB forwarding with loopback binding, or configure a network address for direct private-network access without USB. `make forward` creates generic host-loopback forwards on `19001` and `19002`. `make dikciz-run` owns its separate `19101` and `19102` forwards.
 
+## Direct Android data
+
+Use [native device control](native-device-control.md) for contacts, tracked SMS, calendars, call history, SIMs, clipboard, location, notifications, media sessions and device state. Commands call Android APIs through the shared target. Start with `nativeDataStatus` for resources and grants. MCP resources `dikciz://docs/guides/native-data` and `dikciz://docs/recipes/contact-sms` cover discovery and the SMS workflow.
+
 ## Connect without USB
 
 A signed release APK includes both interfaces. Direct access needs Python on the controlling computer or a native Streamable HTTP MCP client, a reachable private network, and the phone's own Android access grants. It does not need Android Lab, an emulator, ADB, root or a USB cable.
@@ -370,7 +374,7 @@ await dikciz.emitEvent("weather.refresh.completed", { updatedAt: Date.now() });
 
 Custom names are 1 through 128 characters, start with a letter, and use letters, digits, `.`, `_`, `:`, or `-`. Lua uses its matching `emitEvent` action.
 
-The direct action vocabulary is `accessibilityAction`, `accessibilityGesture`, `accessibilityGlobalAction`, `selectPage`, `patchWidget`, `patchState`, `patchDom`, `launchApp`, `appAction`, `postNotification`, `sendSms`, `explicitIntent`, `emitEvent`, `mediaControl`, `mediaVolume`, `notificationControl`, and `lockDevice`. `appAction` takes an `action` and a `component`. A script action has no selected page, so it rejects `addShortcut`. `sendSms` takes a dialable `recipient` and a `body`, and needs the `SEND_SMS` permission that `automationStatus` reports as `smsSend`. Dikciz is not the default SMS app, so a sent message does not reach the Android SMS provider or the owner's messaging history. `accessibilityAction` requires the current `snapshotId`, a `nodeId`, and one supported `action`; `setText` also requires `text`. Current policy and Android access decide whether an action can complete.
+The direct action vocabulary is `accessibilityAction`, `accessibilityGesture`, `accessibilityGlobalAction`, `selectPage`, `patchWidget`, `patchState`, `patchDom`, `launchApp`, `appAction`, `postNotification`, `sendSms`, `explicitIntent`, `emitEvent`, `mediaControl`, `mediaVolume`, `notificationControl`, and `lockDevice`. `appAction` takes an `action` and a `component`. A script action has no selected page, so it rejects `addShortcut`. `sendSms` takes a dialable `recipient` and a `body`, and needs the `SEND_SMS` permission that `automationStatus` reports as `smsSend`. Android can save messages sent by non-default SMS apps into its SMS provider. This legacy typed action confirms submission only; use tracked `smsSend` and `smsStatus` for duplicate protection and sent/delivery evidence. `accessibilityAction` requires the current `snapshotId`, a `nodeId`, and one supported `action`; `setText` also requires `text`. Current policy and Android access decide whether an action can complete.
 
 `patchDom` takes `widgetAddress`, a CSS `selector`, and a `values` object containing one or more of `text`, `html`, `value`, `className`, or `attributes`. It changes only a currently rendered HTML document and does not persist source or state. A target that is not rendered returns `target_not_rendered`.
 

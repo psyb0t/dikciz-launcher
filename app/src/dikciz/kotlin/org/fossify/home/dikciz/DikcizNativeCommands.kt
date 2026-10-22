@@ -1,0 +1,212 @@
+package org.fossify.home.dikciz
+
+import org.json.JSONArray
+import org.json.JSONObject
+
+/** One discovery and validation contract for network and owner command bindings. */
+internal object DikcizNativeCommands {
+    const val MAXIMUM_LIMIT = 200
+    const val DEFAULT_LIMIT = 50
+    const val MAXIMUM_TEXT = 4096
+    const val MAXIMUM_OFFSET = 1_000_000
+    const val MAXIMUM_BATCH = 32
+    const val MAXIMUM_COLUMNS = 32
+    const val MAXIMUM_RESPONSE_BYTES = 524_288
+    const val TYPE_STATUS = "nativeDataStatus"
+    const val TYPE_QUERY = "contentQuery"
+    const val TYPE_WRITE = "contentWrite"
+    const val TYPE_BATCH = "contentBatch"
+    const val TYPE_SMS_SEND = "smsSend"
+    const val TYPE_SMS_STATUS = "smsStatus"
+    const val TYPE_SIM_LIST = "simList"
+    const val TYPE_CALL = "callControl"
+    const val TYPE_CLIPBOARD_GET = "clipboardGet"
+    const val TYPE_CLIPBOARD_SET = "clipboardSet"
+    const val TYPE_LOCATION = "locationGet"
+    const val TYPE_NOTIFICATIONS = "notificationsList"
+    const val TYPE_MEDIA = "mediaSessionsList"
+    const val TYPE_DEVICE_STATE = "deviceState"
+    const val ERROR_UNAVAILABLE = "native_unavailable"
+    const val ERROR_FAILED = "native_operation_failed"
+    const val ERROR_NOT_FOUND = "native_record_not_found"
+    const val ERROR_READ_ONLY = "native_read_only"
+    const val KEY_RESOURCE = "resource"
+    const val KEY_ID = "id"
+    const val KEY_VALUES = "values"
+    const val KEY_OPERATION = "operation"
+    const val KEY_OPERATIONS = "operations"
+    const val KEY_BACK_REFERENCES = "backReferences"
+    const val KEY_COLUMNS = "columns"
+    const val KEY_FILTER = "filter"
+    const val KEY_QUERY = "query"
+    const val KEY_LIMIT = "limit"
+    const val KEY_OFFSET = "offset"
+    const val KEY_ITEMS = "items"
+    const val KEY_HAS_MORE = "hasMore"
+    const val KEY_STATE = "state"
+    const val KEY_REQUEST_KEY = "idempotencyKey"
+    const val KEY_RECIPIENT = "recipient"
+    const val KEY_BODY = "body"
+    const val KEY_SUBSCRIPTION = "subscriptionId"
+    const val KEY_TEXT = "text"
+    const val OP_CREATE = "create"
+    const val OP_UPDATE = "update"
+    const val OP_DELETE = "delete"
+    private const val TYPE_STRING = "string"
+    private const val TYPE_INTEGER = "integer"
+    private const val TYPE_OBJECT = "object"
+    private const val TYPE_ARRAY = "array"
+    private val ENVELOPE = setOf("type", "requestId")
+    private val UUID_PATTERN = Regex("[A-Za-z0-9][A-Za-z0-9_.-]{0,79}")
+    private val PHONE_PATTERN = Regex("[+]?[0-9]{3,32}")
+    private val FORMATTED_PHONE_PATTERN = Regex("[+]?[0-9() .-]{3,63}")
+    private val PAGE_FIELDS = linkedMapOf(
+        KEY_LIMIT to integer(1, MAXIMUM_LIMIT, DEFAULT_LIMIT),
+        KEY_OFFSET to integer(0, MAXIMUM_OFFSET, 0),
+    )
+    private val WRITE_FIELDS = linkedMapOf(
+        KEY_RESOURCE to string("Resource from nativeDataStatus.resources.", 64),
+        KEY_OPERATION to string("create, update or delete. Updates and deletes require one positive row id.", 16),
+        KEY_ID to integer(1, Int.MAX_VALUE),
+        KEY_VALUES to JSONObject().put("type", TYPE_OBJECT).put("description", "Allowlisted provider columns and primitive values. Unspecified columns remain unchanged."),
+        KEY_BACK_REFERENCES to JSONObject().put("type", TYPE_OBJECT).put("description", "Batch-only foreign-key column to earlier create-operation index, within the same provider."),
+    )
+    data class Definition(
+        val type: String,
+        val tool: String,
+        val description: String,
+        val fields: Map<String, JSONObject>,
+        val required: Set<String> = emptySet(),
+        val readOnly: Boolean = true,
+        val mainThread: Boolean = false,
+    ) {
+        fun toolDocument(): JSONObject {
+            val properties = JSONObject()
+            fields.forEach { (name, schema) -> properties.put(name, schema) }
+            properties.put(DikcizPermissionRequests.KEY_AUTO_REQUEST, JSONObject().put("type", "boolean").put("default", false)
+                .put("description", "Ask the owner to grant missing Android access. Never grants access or retries automatically."))
+            return JSONObject().put("name", tool).put("title", type).put("description", description)
+                .put("inputSchema", JSONObject().put("type", TYPE_OBJECT).put("properties", properties)
+                    .put("required", JSONArray(required.toList())).put("additionalProperties", false))
+                .put("annotations", JSONObject().put("readOnlyHint", readOnly).put("destructiveHint", !readOnly)
+                    .put("openWorldHint", !readOnly))
+        }
+    }
+    val DEFINITIONS = listOf(
+        Definition(TYPE_STATUS, "dikciz_native_data_status", "Discover direct Android data resources, columns, operations and permission state. No UI automation or root.", emptyMap()),
+        Definition(TYPE_QUERY, "dikciz_content_query", "Read one bounded page from an allowlisted Android provider. Filter values use bound arguments. Query is literal substring search. Follow hasMore using offset plus returned item count.",
+            PAGE_FIELDS + mapOf(KEY_RESOURCE to WRITE_FIELDS.getValue(KEY_RESOURCE), KEY_QUERY to string("Literal substring matched against the resource search columns.", 256),
+                KEY_FILTER to JSONObject().put("type", TYPE_OBJECT).put("description", "Exact equality filters on allowlisted columns. Null matches SQL NULL."),
+                KEY_COLUMNS to JSONObject().put("type", TYPE_ARRAY).put("maxItems", MAXIMUM_COLUMNS).put("minItems", 1).put("items", string("Allowlisted column.", 64))), setOf(KEY_RESOURCE)),
+        Definition(TYPE_WRITE, "dikciz_content_write", "Create, update or delete a single Android provider row. Native data status lists writable resources and columns. SMS history stays read-only. Android permissions and provider rules apply.", WRITE_FIELDS - KEY_BACK_REFERENCES, setOf(KEY_RESOURCE, KEY_OPERATION), false),
+        Definition(TYPE_BATCH, "dikciz_content_batch", "Apply at most 32 validated writes atomically within one Android provider. Earlier create results may supply allowlisted foreign-key back references. No arbitrary URI or SQL.",
+            mapOf(KEY_OPERATIONS to JSONObject().put("type", TYPE_ARRAY).put("minItems", 1).put("maxItems", MAXIMUM_BATCH)
+                .put("items", JSONObject().put("type", TYPE_OBJECT).put("properties", JSONObject(WRITE_FIELDS)).put("required", JSONArray(listOf(KEY_RESOURCE, KEY_OPERATION))).put("additionalProperties", false))), setOf(KEY_OPERATIONS), false),
+        Definition(TYPE_SMS_SEND, "dikciz_sms_send", "Submit an SMS through Android SmsManager. Required idempotencyKey prevents duplicate sends across retries and launcher restarts. Poll smsStatus for sent and delivery outcomes; accepted is not sent. Select a SIM explicitly when there is no default.",
+            mapOf(KEY_REQUEST_KEY to string("Unique caller key. Reusing it with different content fails. Retained until app data is cleared.", 80), KEY_RECIPIENT to string("Dialable phone number. Spaces, parentheses, dots and hyphens are normalized.", 64), KEY_BODY to string("SMS body. Android splits multipart messages.", MAXIMUM_TEXT), KEY_SUBSCRIPTION to integer(0, Int.MAX_VALUE)), setOf(KEY_REQUEST_KEY, KEY_RECIPIENT, KEY_BODY), false),
+        Definition(TYPE_SMS_STATUS, "dikciz_sms_status", "Read the persisted state for an SMS submitted by Dikciz, without returning its recipient or body. Delivery remains unknown until a carrier callback arrives.", mapOf(KEY_REQUEST_KEY to string("Key from smsSend.", 80)), setOf(KEY_REQUEST_KEY)),
+        Definition(TYPE_SIM_LIST, "dikciz_sim_list", "List active SIM subscription IDs, slots and default SMS subscription, using granted phone-state access.", PAGE_FIELDS),
+        Definition(TYPE_CALL, "dikciz_call_control", "Native phone operations: state, place, answer or end. Place requires recipient. Android may restrict operations by role or privilege. accepted never claims a connected call.", mapOf("action" to string("state, place, answer or end.", 16), KEY_RECIPIENT to string("Dialable number for place only. Common formatting separators are normalized.", 64)), setOf("action"), false),
+        Definition(TYPE_CLIPBOARD_GET, "dikciz_clipboard_get", "Read clipboard text while Android permits the calling app to access it. Background restrictions return available=false.", emptyMap(), mainThread = true),
+        Definition(TYPE_CLIPBOARD_SET, "dikciz_clipboard_set", "Set plain clipboard text through ClipboardManager.", mapOf(KEY_TEXT to string("Plain text, including an empty string.", MAXIMUM_TEXT)), setOf(KEY_TEXT), false, true),
+        Definition(TYPE_LOCATION, "dikciz_location_get", "Read the newest permitted last-known location with its age and accuracy. Never claims a fresh location fix. Returns available=false when missing or older than maxAgeMilliseconds.", mapOf("maxAgeMilliseconds" to integer(0, Int.MAX_VALUE, 300_000))),
+        Definition(TYPE_NOTIFICATIONS, "dikciz_notifications_list", "Read current notifications directly through the enabled notification listener, including bounded text and short-lived action tokens.", PAGE_FIELDS),
+        Definition(TYPE_MEDIA, "dikciz_media_sessions_list", "Read current media sessions, playback state and bounded metadata through granted notification-listener access.", PAGE_FIELDS),
+        Definition(TYPE_DEVICE_STATE, "dikciz_device_state", "Read screen, keyguard, battery and charging state, power save, audio levels and network connectivity without navigating Settings.", emptyMap()),
+    ).associateBy(Definition::type)
+    val FIELDS = DEFINITIONS.mapValues { (_, definition) -> definition.fields.keys }
+    val REQUIRED_FIELDS = DEFINITIONS.mapValues { (_, definition) -> definition.required }
+    val TOOLS = DEFINITIONS.values.associate { it.tool to it.type }
+    val READ_ONLY_TYPES = DEFINITIONS.values.filter(Definition::readOnly).map(Definition::type).toSet()
+    val BACKGROUND_TYPES = DEFINITIONS.values.filterNot(Definition::mainThread).map(Definition::type).toSet()
+
+    fun validate(type: String, request: JSONObject, envelope: Boolean = false) {
+        val definition = DEFINITIONS.getValue(type)
+        validateFields(request, definition.fields, definition.required, if (envelope) ENVELOPE else emptySet())
+        when (type) {
+            TYPE_QUERY -> DikcizContentData.validateQuery(request)
+            TYPE_WRITE -> DikcizContentData.validateWrite(request, false)
+            TYPE_BATCH -> {
+                val operations = request.getJSONArray(KEY_OPERATIONS)
+                if (operations.length() !in 1..MAXIMUM_BATCH) invalid()
+                var authority: String? = null
+                for (index in 0 until operations.length()) {
+                    val operation = operations.optJSONObject(index) ?: invalid()
+                    validateFields(operation, WRITE_FIELDS, setOf(KEY_RESOURCE, KEY_OPERATION))
+                    val resource = DikcizContentData.validateWrite(operation, true)
+                    if (authority != null && authority != resource.uri.authority) invalid("Batches must stay within one provider")
+                    authority = resource.uri.authority
+                    operation.optJSONObject(KEY_BACK_REFERENCES)?.let { references ->
+                        references.keys().forEach { key ->
+                            val prior = strictInteger(references.opt(key), 0, (index - 1).toLong())
+                            val earlier = operations.getJSONObject(prior.toInt())
+                            if (earlier.getString(KEY_OPERATION) != OP_CREATE ||
+                                key !in resource.references || earlier.getString(KEY_RESOURCE) != resource.references[key]) invalid("Invalid batch foreign-key reference")
+                        }
+                    }
+                }
+            }
+            TYPE_SMS_SEND -> {
+                if (!UUID_PATTERN.matches(request.getString(KEY_REQUEST_KEY))) invalid("Invalid idempotencyKey")
+                validatePhone(request.getString(KEY_RECIPIENT))
+                if (request.getString(KEY_BODY).isBlank()) invalid("SMS body cannot be blank")
+            }
+            TYPE_SMS_STATUS -> if (!UUID_PATTERN.matches(request.getString(KEY_REQUEST_KEY))) invalid("Invalid idempotencyKey")
+            TYPE_CALL -> {
+                val action = request.getString("action")
+                if (action !in setOf("state", "place", "answer", "end")) invalid("Unsupported call action")
+                if (action == "place") validatePhone(request.optString(KEY_RECIPIENT))
+                if (action != "place" && request.has(KEY_RECIPIENT)) invalid("Only place accepts recipient")
+            }
+        }
+    }
+
+    fun validateFields(request: JSONObject, fields: Map<String, JSONObject>, required: Set<String>, extra: Set<String> = emptySet()) {
+        if (request.keys().asSequence().any { it !in fields && it !in extra } || required.any { !request.has(it) }) invalid()
+        for ((key, schema) in fields) {
+            if (!request.has(key)) continue
+            val value = request.opt(key)
+            when (schema.getString("type")) {
+                TYPE_STRING -> if (value !is String || value.length > schema.optInt("maxLength", MAXIMUM_TEXT) || '\u0000' in value) invalid()
+                TYPE_INTEGER -> strictInteger(value, schema.optLong("minimum", 0), schema.optLong("maximum", Int.MAX_VALUE.toLong()))
+                TYPE_OBJECT -> if (value !is JSONObject) invalid()
+                TYPE_ARRAY -> if (value !is JSONArray) invalid()
+            }
+        }
+    }
+
+    fun strictInteger(value: Any?, minimum: Long, maximum: Long): Long {
+        if (value !is Int && value !is Long) invalid()
+        val number = (value as Number).toLong()
+        if (number !in minimum..maximum) invalid()
+        return number
+    }
+
+    fun invalid(message: String = "Invalid native command arguments"): Nothing = throw DikcizAutomationRequestException("validation_failed", message)
+    fun failure(code: String, message: String): Nothing = throw DikcizAutomationRequestException(code, message)
+    fun requirePermission(context: android.content.Context, permission: String, requirement: String) {
+        if (context.checkSelfPermission(permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            failure("native_permission_" + requirement, "Android permission is required for this operation")
+        }
+    }
+    fun page(items: List<JSONObject>, request: JSONObject): JSONObject = page(items, request) { it }
+
+    fun <T> page(items: List<T>, request: JSONObject, encode: (T) -> JSONObject): JSONObject {
+        val offset = request.optInt(KEY_OFFSET, 0)
+        val limit = request.optInt(KEY_LIMIT, DEFAULT_LIMIT)
+        return JSONObject().put(KEY_ITEMS, JSONArray(items.drop(offset).take(limit).map(encode)))
+            .put(KEY_OFFSET, offset).put(KEY_LIMIT, limit).put(KEY_HAS_MORE, offset.toLong() + limit < items.size)
+    }
+    private fun validatePhone(value: String) {
+        normalizedRecipient(value)
+    }
+
+    fun normalizedRecipient(value: String): String {
+        if (!FORMATTED_PHONE_PATTERN.matches(value)) invalid("recipient must be a dialable phone number")
+        val normalized = android.telephony.PhoneNumberUtils.normalizeNumber(value)
+        if (!PHONE_PATTERN.matches(normalized)) invalid("recipient must contain a valid phone number")
+        return normalized
+    }
+    private fun string(description: String, maximum: Int): JSONObject = JSONObject().put("type", TYPE_STRING).put("description", description).put("maxLength", maximum)
+    private fun integer(minimum: Int, maximum: Int, default: Int? = null): JSONObject = JSONObject().put("type", TYPE_INTEGER).put("minimum", minimum).put("maximum", maximum).apply { default?.let { put("default", it) } }
+}

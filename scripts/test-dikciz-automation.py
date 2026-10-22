@@ -436,6 +436,33 @@ FILE_MCP_TOOLS = {
     TYPE_APK_INSTALL: "dikciz_apk_install",
     TYPE_APK_INSTALL_STATUS: "dikciz_apk_install_status",
 }
+NATIVE_COMMAND_FIELDS = {
+    "nativeDataStatus": (),
+    "contentQuery": ("resource", "query", "columns", "filter", "limit", "offset"),
+    "contentWrite": ("resource", "operation", "id", "values"),
+    "contentBatch": ("operations",),
+    "smsSend": ("idempotencyKey", "recipient", "body", "subscriptionId"),
+    "smsStatus": ("idempotencyKey",),
+    "simList": ("limit", "offset"), "callControl": ("action", "recipient"),
+    "clipboardGet": (), "clipboardSet": ("text",),
+    "locationGet": ("maxAgeMilliseconds",),
+    "notificationsList": ("limit", "offset"), "mediaSessionsList": ("limit", "offset"),
+    "deviceState": (),
+}
+NATIVE_READ_COMMANDS = {
+    "nativeDataStatus", "contentQuery", "smsStatus", "simList", "clipboardGet",
+    "locationGet", "notificationsList", "mediaSessionsList", "deviceState",
+}
+NATIVE_MCP_TOOLS = {
+    "nativeDataStatus": "dikciz_native_data_status",
+    "contentQuery": "dikciz_content_query", "contentWrite": "dikciz_content_write",
+    "contentBatch": "dikciz_content_batch", "smsSend": "dikciz_sms_send",
+    "smsStatus": "dikciz_sms_status", "simList": "dikciz_sim_list",
+    "callControl": "dikciz_call_control", "clipboardGet": "dikciz_clipboard_get",
+    "clipboardSet": "dikciz_clipboard_set", "locationGet": "dikciz_location_get",
+    "notificationsList": "dikciz_notifications_list", "mediaSessionsList": "dikciz_media_sessions_list",
+    "deviceState": "dikciz_device_state",
+}
 CONTROL_STATUS_COMMAND_FIELDS = {
     "shellStream": ("chunkBytes", "command", "root", "timeoutMilliseconds"),
     "shellStreamStop": ("streamId",),
@@ -485,7 +512,7 @@ CONTROL_STATUS_COMMAND_FIELDS = {
     TYPE_WIDGET_GET: (KEY_WIDGET_ADDRESS,),
     TYPE_WIDGET_MOVE: (KEY_CELL, KEY_WIDGET_ADDRESS),
     TYPE_WIDGET_RESIZE: (KEY_CELL, KEY_WIDGET_ADDRESS),
-} | FILE_COMMAND_FIELDS
+} | FILE_COMMAND_FIELDS | NATIVE_COMMAND_FIELDS
 CONTROL_STATUS_DEVICE_COMMAND_TYPES = {
     "shellStream",
     "shellStreamStop",
@@ -494,7 +521,7 @@ CONTROL_STATUS_DEVICE_COMMAND_TYPES = {
     TYPE_INTENT,
     TYPE_LAUNCH_APP,
     TYPE_SHELL,
-} | (FILE_COMMAND_FIELDS.keys() - FILE_READ_COMMAND_TYPES)
+} | (FILE_COMMAND_FIELDS.keys() - FILE_READ_COMMAND_TYPES) | (NATIVE_COMMAND_FIELDS.keys() - NATIVE_READ_COMMANDS)
 CONTROL_STATUS_INTERACTIVE_COMMAND_TYPES = {TYPE_ACCESSIBILITY_ACTION, TYPE_TAP}
 CONTROL_STATUS_READ_COMMAND_TYPES = {
     "displayScreenshot",
@@ -515,7 +542,7 @@ CONTROL_STATUS_READ_COMMAND_TYPES = {
     TYPE_UI_DUMP,
     TYPE_WAIT_FOR,
     TYPE_WIDGET_GET,
-} | FILE_READ_COMMAND_TYPES
+} | FILE_READ_COMMAND_TYPES | NATIVE_READ_COMMANDS
 CONTROL_STATUS_SAFE_MODE_ALLOWED_COMMAND_TYPES = {
     "launcherHandoff",
     "displayScreenshot",
@@ -535,7 +562,7 @@ CONTROL_STATUS_SAFE_MODE_ALLOWED_COMMAND_TYPES = {
     TYPE_SCRIPT_LOGS,
     TYPE_UI_DUMP,
     TYPE_WIDGET_GET,
-} | FILE_READ_COMMAND_TYPES
+} | FILE_READ_COMMAND_TYPES | NATIVE_READ_COMMANDS
 CONTROL_STATUS_SAFE_MODE_ALLOWED_TAP_IDS = {"safeMode:exit", "safeMode:reset"}
 CONTROL_STATUS_MCP_TOOLS = {
     "shellStream": "dikciz_shell_stream",
@@ -586,7 +613,7 @@ CONTROL_STATUS_MCP_TOOLS = {
     TYPE_WIDGET_GET: "dikciz_widget_get",
     TYPE_WIDGET_MOVE: "dikciz_widget_move",
     TYPE_WIDGET_RESIZE: "dikciz_widget_resize",
-} | FILE_MCP_TOOLS
+} | FILE_MCP_TOOLS | NATIVE_MCP_TOOLS
 SCRIPT_LOG_RECORD_KEYS = {
     KEY_SCRIPT_LOG_ACTION_TYPE,
     KEY_SCRIPT_LOG_COMPONENT_PACKAGE,

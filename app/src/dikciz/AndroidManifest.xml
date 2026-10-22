@@ -71,7 +71,7 @@
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="29" />
+        android:maxSdkVersion="32" />
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
@@ -176,6 +176,8 @@
         <receiver
             android:name=".dikciz.DikcizAutomationAlarmReceiver"
             android:exported="false" />
+
+        <receiver android:name=".dikciz.DikcizSmsStatusReceiver" android:exported="false" />
 
         <receiver
             android:name=".dikciz.DikcizSmsReceiver"

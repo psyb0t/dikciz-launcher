@@ -1,4 +1,4 @@
-"""Measure real notification cadence from the bundled clock script."""
+"""Measure real notification cadence from an explicit opt-in clock fixture."""
 
 import json
 import re
@@ -49,11 +49,29 @@ def clock_notification() -> dict | None:
     return {"when": int(timestamp[1]), "body": body[1]}
 
 
-def test_bundled_clock_posts_every_minute_while_awake(websocket_control: socket.socket) -> None:
+def test_explicit_clock_posts_every_minute_while_awake(websocket_control: socket.socket) -> None:
     device_command("input keyevent KEYCODE_WAKEUP")
     device_command("wm dismiss-keyguard")
     device_command("cmd statusbar collapse")
-    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_RESET)
+    configured = AUTOMATION.require_configuration(
+        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_RESET),
+    )
+    configured["scripts"] = [{
+        "id": CLOCK_SCRIPT_ID, "title": "Minute clock fixture", "enabled": True,
+        "apiVersion": 1, "state": {},
+        "source": 'local function two_digits(value)\n  if value < 10 then return "0" .. tostring(value) end\n  return tostring(value)\nend\n\nfunction on_event(event)\n  local clock = two_digits(event.time.hour24) .. ":" .. two_digits(event.time.minute)\n  return {\n    status = "Notification requested for " .. clock,\n    actions = {\n      { type = "postNotification", title = "Dikciz clock", text = "Current time: " .. clock }\n    }\n  }\nend',
+    }]
+    configured["automation"] = {
+        "apiVersion": 1,
+        "policies": [{"id": CLOCK_SCRIPT_ID, "title": "Minute fixture", "enabled": True,
+                      "capabilities": ["alarm"], "actions": ["postNotification"]}],
+        "scripts": [{"scriptId": CLOCK_SCRIPT_ID, "policyId": CLOCK_SCRIPT_ID,
+                     "enabled": True, "subscriptions": [{
+                         "event": "alarm", "minimumIntervalMilliseconds": 60000,
+                         "alarmIntervalMilliseconds": 60000,
+                     }]}],
+    }
+    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured)
     device_command(f"pm grant {DIKCIZ_DEBUG_PACKAGE} android.permission.POST_NOTIFICATIONS")
     device_command(f"cmd notification allow_listener {AUTOMATION_NOTIFICATION_COMPONENT}")
     previous = clock_notification()

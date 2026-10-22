@@ -9,8 +9,8 @@ SCRIPT_DASHBOARD_ACTION_TOGGLE_ENABLED = "toggle-enabled"
 SCRIPT_DASHBOARD_ARTIFACT_NAME = "script-dashboard.png"
 SCRIPT_DASHBOARD_DEFAULT_ARTIFACT_NAME = "default-script-dashboard.png"
 SCRIPT_DASHBOARD_DEFAULT_SCRIPT_IDS = {
-    "hourly-clock",
-    "notification-digest",
+    "low-battery",
+    "charge-ready",
     "screen-lock",
 }
 SCRIPT_DASHBOARD_DEFAULT_WIDGET_ID = "script-dashboard"

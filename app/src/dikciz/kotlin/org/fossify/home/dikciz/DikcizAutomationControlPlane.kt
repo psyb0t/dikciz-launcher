@@ -484,6 +484,10 @@ internal class DikcizAutomationControlPlane(
     }
 
     private fun validateCommand(request: JSONObject, commandType: String) {
+        if (commandType in DikcizNativeCommands.FIELDS) {
+            DikcizNativeCommands.validate(commandType, request, true)
+            return
+        }
         if (commandType in DikcizFileCommands.FIELDS) {
             DikcizFileCommands.validate(commandType, request, true)
             return
@@ -1279,7 +1283,7 @@ internal class DikcizAutomationControlPlane(
             DikcizShellStreams.TYPE_START to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_COMMAND),
             DikcizShellStreams.TYPE_STOP to setOf(KEY_REQUEST_ID, KEY_TYPE, DikcizShellStreams.KEY_STREAM_ID),
             TYPE_SHELL to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_COMMAND),
-        ) + DikcizFileCommands.REQUIRED_FIELDS.mapValues { (_, fields) -> fields + setOf(KEY_REQUEST_ID, KEY_TYPE) }
+        ) + (DikcizFileCommands.REQUIRED_FIELDS + DikcizNativeCommands.REQUIRED_FIELDS).mapValues { (_, fields) -> fields + setOf(KEY_REQUEST_ID, KEY_TYPE) }
         val COMMAND_KEYS = mapOf(
             DikcizPermissionRequests.TYPE_REQUEST to setOf(KEY_REQUEST_ID, KEY_TYPE, DikcizPermissionRequests.KEY_REQUIREMENT),
             DikcizDeviceInspection.TYPE_DEVICE_INFO to setOf(KEY_REQUEST_ID, KEY_TYPE),
@@ -1348,7 +1352,7 @@ internal class DikcizAutomationControlPlane(
                 KEY_WIDGET_ADDRESS,
             ),
             TYPE_WAIT_FOR to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_SEMANTIC_ID, KEY_TIMEOUT_MILLISECONDS),
-        ) + DikcizFileCommands.FIELDS.mapValues { (_, fields) -> fields + setOf(KEY_REQUEST_ID, KEY_TYPE) }
+        ) + (DikcizFileCommands.FIELDS + DikcizNativeCommands.FIELDS).mapValues { (_, fields) -> fields + setOf(KEY_REQUEST_ID, KEY_TYPE) }
         val REMOTE_AUTH_COMMAND_TYPES = setOf(
             TYPE_REMOTE_AUTH_STATUS,
             TYPE_REMOTE_AUTH_ENABLE,

@@ -130,6 +130,7 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
             "guides/shell" to "Shell and streaming",
             "guides/logging" to "Logs and diagnosis",
             "guides/security" to "Security boundaries",
+            "guides/native-data" to "Direct Android data and system APIs",
             "recipes/inspect-ui" to "Inspect and act",
             "recipes/launch-app" to "Open an app reliably",
             "recipes/html-item" to "Edit one HTML card",
@@ -142,6 +143,7 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
             "recipes/stream-logs" to "Stream logcat",
             "recipes/restart" to "Restart and reconnect",
             "recipes/listener" to "Change listener endpoints",
+            "recipes/contact-sms" to "Look up a contact and send tracked SMS",
         )
     }
 }
