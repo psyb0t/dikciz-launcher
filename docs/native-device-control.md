@@ -16,9 +16,9 @@ Start with `nativeDataStatus` or MCP `dikciz_native_data_status`. Its `resources
 | `query` | Literal substring search over the resource's declared search fields. SQL wildcards are escaped. |
 | `limit`, `offset` | Integer page size and row offset. Defaults 50 and 0. Ranges 1 through 200 and 0 through 1000000. |
 
-Results are `{resource, items, limit, offset, hasMore}`, ordered by `_id` ascending. Continue at `offset + items.length` while `hasMore` is true. Concurrent edits can change page membership. A page is limited to 512 KiB and text fields to 4096 characters. Shortened fields appear in each row's `truncatedFields` array. Empty results return an empty array. Binary provider columns are excluded.
+Results are `{resource, items, limit, offset, hasMore}`, ordered by `_id` ascending except for the chronological `calendarInstances` resource described below. Continue at `offset + items.length` while `hasMore` is true. Concurrent edits can change page membership. A page is limited to 512 KiB and text fields to 4096 characters. Shortened fields appear in each row's `truncatedFields` array. Empty results return an empty array. Binary provider columns are excluded.
 
-Resources cover `contacts`, `phones`, `emails`, `rawContacts`, `contactData`, `calendars`, `calendarEvents`, `calendarReminders`, `sms`, `callLog`, `images`, `audio` and `videos`. Provider column names remain native. For phone rows, `display_name` is the contact name and `data1` is the number.
+Resources cover `contacts`, `phones`, `emails`, `rawContacts`, `contactData`, `calendars`, `calendarEvents`, `calendarInstances`, `calendarReminders`, `sms`, `callLog`, `images`, `audio` and `videos`. Provider column names remain native. For phone rows, `display_name` is the contact name and `data1` is the number.
 
 ~~~json
 {"type":"contentQuery","resource":"phones","filter":{"display_name":"Example Contact"},"columns":["contact_id","raw_contact_id","display_name","data1"]}
@@ -106,6 +106,12 @@ Sensor discovery includes static and connected dynamic sensors. Records include 
 Camera and microphone require their Android grants and foreground eligibility. Open Dikciz before capture. Concurrent requests for the same capture resource return `hardware_busy`. Successful capture returns `state: saved`, `path`, `mimeType` and byte count. Paths are generated under app-specific external `captures` storage. Read or download them through the existing file APIs. Incomplete files are removed. Android microphone silencing returns an explicit failure when reported by the recorder.
 
 Camera and speech accept `timeoutMilliseconds`, default 30000, range 1 through 120000. The supplied client adjusts HTTP, WebSocket and MCP response waits to cover requested hardware durations. Other clients must allow the same time. Timeouts and interruption release capture resources. Speech uses the configured Android engine and fails explicitly if unavailable. Device speaker output is not cellular audio injection. Stock Android reserves call-stream capture for privileged components; granting microphone permission does not grant call-stream access.
+
+## Calendar occurrences and next alarm
+
+`contentQuery` resource `calendarInstances` reads Android-expanded occurrences, including recurring events, from local midnight today through local midnight seven calendar days later. The window follows the device time zone and DST. It is read-only and requires calendar access. Columns are `event_id`, `title`, `begin`, `end`, `allDay`, `eventLocation`, `calendar_id` and `visible`. Results are ordered by `begin`, `end` and `event_id`; use `limit`, `offset` and `hasMore`. Results include `rangeStartMilliseconds` and `rangeEndMilliseconds`. Restart pagination if calendar data changes or the date/time zone crosses a window boundary. Filter `visible: 1` for displayed calendars. All-day dates use UTC date semantics.
+
+`deviceState.nextAlarmAtMilliseconds` is the next user-visible Android alarm timestamp, or JSON null when none is reported. It does not enumerate or create alarms. These additions use the existing shared commands across MCP, HTTP, WebSocket, HTML and Lua. See Android [calendar instances](https://developer.android.com/reference/android/provider/CalendarContract.Instances) and [next alarm](https://developer.android.com/reference/android/app/AlarmManager#getNextAlarmClock()).
 
 ## Permissions and limits
 

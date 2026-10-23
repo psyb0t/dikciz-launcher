@@ -5,7 +5,7 @@ import base64
 from . import *
 
 
-STARTER_WIDGET_IDS = ["home-dashboard"]
+STARTER_WIDGET_IDS = ["time-weather", "agenda"]
 STARTER_SCRIPT_IDS = {"low-battery", "charge-ready", "screen-lock"}
 NOTE_TEXT = "remember_milk"
 
@@ -46,7 +46,7 @@ def test_targeted_run_cleanup_restores_the_bundled_starter_home(websocket_contro
     ]
     restored = starter_reset(websocket_control)
     home = restored["launcher"]["home"]
-    assert [page["id"] for page in home["pages"]] == ["home", "insights", "sensors"]
+    assert [page["id"] for page in home["pages"]] == ["home", "tools"]
     assert [widget["id"] for widget in configuration_page(restored, "home")["widgets"]] == STARTER_WIDGET_IDS
     restore_system_home()
     wait_for_physical_description_bounds(STARTER_HOME_WIDGET_TITLE)
@@ -54,24 +54,31 @@ def test_targeted_run_cleanup_restores_the_bundled_starter_home(websocket_contro
         assert title not in physical_visible_texts()
 
 
-def test_bundled_starter_home_is_quiet_and_notes_persist(websocket_control):
+def test_bundled_starter_scripts_are_quiet_and_optional_notes_persist(websocket_control):
     restored = starter_reset(websocket_control)
     assert {script["id"] for script in restored["scripts"]} == STARTER_SCRIPT_IDS
     assert all(script["enabled"] is False for script in restored["scripts"])
     assert all(entry["enabled"] for entry in restored["automation"]["scripts"])
+    source = Path("app/src/dikciz/assets/widget-library/quick-note")
+    configuration_page(restored, "home")["widgets"] = [{
+        "id":"optional-note", "type":"html", "title":"Optional quick note", "enabled":True,
+        "html":(source / "index.html").read_text(), "css":(source / "style.css").read_text(),
+        "javascript":(source / "script.js").read_text(), "state":{},
+        "cell":{"column":0,"row":0,"columnSpan":8,"rowSpan":6},
+    }]
+    starter_replace(websocket_control, restored)
     restore_system_home()
     wait_for_physical_text_bounds("Quick note")
     note_bounds = physical_bounds_from_nodes(list(reversed(physical_nodes())), lambda node: node.get("class") == "android.widget.EditText" and node.get("hint") == "Quick note")
     direct_enter_text(note_bounds, NOTE_TEXT)
     direct_hide_keyboard()
     direct_tap(wait_for_physical_button_bounds("Save note"))
-    starter_wait_state(websocket_control, "home-dashboard", "quick-note", {"text": NOTE_TEXT})
+    starter_wait_state(websocket_control, "optional-note", "quick-note", {"text": NOTE_TEXT})
     wait_for_physical_text_bounds("Note saved on this phone.")
     run_device_operation("screenshot")
     shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "starter-home.png")
-    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SELECT_PAGE, pageId="insights")
-    wait_for_physical_text_bounds("Your phone")
-    wait_for_physical_text_bounds("Use my location")
+    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SELECT_PAGE, pageId="tools")
+    wait_for_physical_text_bounds("Device status")
     device_state = AUTOMATION.request(websocket_control, "deviceState")
     assert isinstance(device_state["internetValidated"], bool)
     AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SELECT_PAGE, pageId="home")
@@ -108,7 +115,7 @@ def wait_for_weather_render(observer, expected_status, expected_temperature, sce
 @pytest.mark.parametrize("scenario", ["success", "air-offline", "invalid", "offline", "empty", "oversized", "coordinates"])
 def test_bundled_starter_weather_handles_provider_results(websocket_control, weather_render_observer, scenario):
     configured = starter_reset(websocket_control)
-    weather = configuration_widget(configured, "weather-air")
+    weather = configuration_widget(configured, "time-weather")
     weather["state"] = {
         "city":{"name":"Previous city","latitude":40,"longitude":20},
         "weather":{"fetchedAt":int(time.time()*1000)},
@@ -168,8 +175,8 @@ window.addEventListener("dikciz-ready", () => {
 """
     configured["limits"]["maxTextCharacters"] = 65536
     weather["javascript"] = mock + weather["javascript"] + exercise
-    configured["launcher"]["home"]["selectedPageId"] = "insights"
-    configured["launcher"]["home"]["homePageId"] = "insights"
+    configured["launcher"]["home"]["selectedPageId"] = "home"
+    configured["launcher"]["home"]["homePageId"] = "home"
     restore_system_home()
     starter_replace(websocket_control, configured)
     if scenario in ("offline", "oversized", "empty", "coordinates"):
@@ -179,16 +186,16 @@ window.addEventListener("dikciz-ready", () => {
             else "No matching cities. Try another name."
         )
         wait_for_weather_render(weather_render_observer, expected_status, "Unavailable", scenario)
-        state = configuration_widget(AUTOMATION.require_configuration(AUTOMATION.request(websocket_control,"configGet")),"weather-air")["state"]
+        state = configuration_widget(AUTOMATION.require_configuration(AUTOMATION.request(websocket_control,"configGet")),"time-weather")["state"]
         assert state["city"] == weather["state"]["city"],state
         run_device_operation("screenshot")
         shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / ("starter-insights-" + scenario + ".png"))
         return
     expected = "Air quality unavailable" if scenario == "air-offline" else "Weather unavailable" if scenario == "invalid" else None
-    state = starter_wait_state(websocket_control, "weather-air", "city", WEATHER_CITY)
+    state = starter_wait_state(websocket_control, "time-weather", "city", WEATHER_CITY)
     deadline = time.monotonic() + CONFIGURATION_SAVE_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
-        state = configuration_widget(AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET)), "weather-air")["state"]
+        state = configuration_widget(AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET)), "time-weather")["state"]
         weather_ready = bool(state.get("weather", {}).get("fetchedAt"))
         air_ready = bool(state.get("air", {}).get("fetchedAt"))
         if (

@@ -8,7 +8,7 @@ Publish through MCP `dikciz_automation_dispatch`, HTTP or WebSocket `automationD
 {"type":"emitEvent","event":"example.start","payload":{}}
 ```
 
-Lua receives custom events only through enabled subscription records backed by an enabled policy with `manualTrigger` and the required action allowlist. An HTML widget receives matching `eventSubscriptions` through `dikciz.onEvent` only while rendered. Events are not a replayable message queue.
+Lua receives custom events only through enabled subscription records backed by an enabled policy with `manualTrigger` and the required action allowlist. An HTML widget receives matching `eventSubscriptions` through `dikciz.onEvent` only while rendered. Live delivery is transient. The process-owned [event journal](dikciz://docs/guides/event-replay) provides bounded cursor replay of dispatched events, with explicit loss; it has no durable acknowledgements and does not survive process death.
 
 Subscription records specify `event` and `minimumIntervalMilliseconds`. Use the current schema for filters and coalescing fields. Rate limits and coalescing can intentionally skip repeated work. Avoid emitting the same input event from its own handler.
 

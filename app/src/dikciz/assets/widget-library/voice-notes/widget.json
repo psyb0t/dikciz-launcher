@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "voice-notes",
+  "title": "Voice notes",
+  "description": "Tap to record up to five minutes, stop to save in this widget, and play recent recordings. Requires microphone access; stops when its page is hidden.",
+  "span": {
+    "columnSpan": 8,
+    "rowSpan": 3
+  }
+}

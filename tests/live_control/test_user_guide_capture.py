@@ -62,8 +62,8 @@ APP_DRAWER_SEARCH_TERM = "Settings"
 GUIDE_CLOCK_NOTIFICATION_POLL_SECONDS = 1
 GUIDE_CLOCK_NOTIFICATION_TIMEOUT_SECONDS = 20
 GUIDE_CLOCK_SCRIPT_ID = "low-battery"
-GUIDE_COMMAND_DECK_EDITOR_HTML_SEMANTIC_ID = "widget:home-dashboard:editor:html"
-GUIDE_COMMAND_DECK_EDITOR_SAVE_SEMANTIC_ID = "widget:home-dashboard:editor:save"
+GUIDE_COMMAND_DECK_EDITOR_HTML_SEMANTIC_ID = "widget:time-weather:editor:html"
+GUIDE_COMMAND_DECK_EDITOR_SAVE_SEMANTIC_ID = "widget:time-weather:editor:save"
 GUIDE_HTML_RESULT_TEXT = "Guide HTML change saved"
 GUIDE_HTML_RESULT_SOURCE = f"<main><h1>{GUIDE_HTML_RESULT_TEXT}</h1></main>"
 GUIDE_NOTIFICATION_EVENT_TAG = "dikciz-guide-event"
@@ -219,8 +219,8 @@ def capture_page_search(connection: socket.socket) -> None:
 
 
 def capture_second_page(connection: socket.socket) -> None:
-    """Show the second bundled page with optional web data and local status."""
-    go_to_page(connection, "insights")
+    """Show the second bundled page with voice notes and device status."""
+    go_to_page(connection, "tools")
     capture("03-insights-page.png")
     go_to_page(connection, STARTER_HOME_PAGE_ID)
 

@@ -10,10 +10,10 @@ Start returns streamId. Read with cursor=0 and optional waitMilliseconds up to 3
 
 Save nextCursor, drain hasMore and inspect historyGap/lostEvents. Whole events include start, audio and exit. A page holds at most 393216 encoded JSON bytes. Bounded retention evicts old chunks explicitly. Metadata is sampled before the optional wait, so poll again for current lifecycle state. Use waitMilliseconds=0 inside Lua event handlers.
 
-Stop requests cancellation. Poll until stopped/expired/failed and hardwareReleaseConfirmed=true, then drain terminal events and forget. Cleanup failure retains hardware ownership and prevents forgetting until restart. A failed start may leave a retained record, so inspect list.
+Stop requests cancellation. Poll until stopped/expired/failed and hardwareReleaseConfirmed=true, then drain terminal events and forget. Cleanup failure retains hardware ownership and prevents forgetting until the app process restarts. A failed start may leave a retained record, so inspect list.
 
 Streaming shares exclusive microphone ownership with recording, recognition and video with audio. Limits: eight retained records, 32 MiB reserved replay buffers, each buffer 65536..8388608 bytes, 1..4096 events, retention 1..1440 minutes, startup 1..120000 ms and duration 100..2147483647 ms. One encoded chunk must fit both the buffer and a response page. Hardware also constrains formats.
 
-Audio history lives in process memory. Disconnecting preserves it; process death, update or restart loses it. Terminal expiry is pruned on subsequent operations. List supports offset/limit pagination. Audio payloads are not application log records. Explicit saves or durable jobs containing audio reads can persist the returned data.
+Audio history lives in process memory. Disconnecting and activity recreation preserve it; process death, force-stop, reboot or APK replacement lose it. The restart command recreates the activity within the same process and does not clear this history. Terminal expiry is pruned on subsequent operations. List supports offset/limit pagination. Audio payloads are not application log records. Explicit saves or durable jobs containing audio reads can persist the returned data.
 
 Read docs/microphone-streams.md in the repository for the full lifecycle and operating limits.

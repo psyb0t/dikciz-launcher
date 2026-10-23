@@ -3,6 +3,10 @@
 HTML_WIDGET_LIBRARY_BACKUP_DIRECTORY = ".resilience-card.backup"
 HTML_WIDGET_LIBRARY_APPENDED_ARTIFACT_NAME = "html-widget-appended.png"
 HTML_WIDGET_LIBRARY_BUNDLED_PACKAGES = {
+    "time-weather": "Time and weather",
+    "agenda": "Agenda",
+    "voice-notes": "Voice notes",
+    "device-status": "Device status",
     "app-launcher": "Android app settings",
     "brightness": "Android display settings",
     "lock-screen": "Lock screen",

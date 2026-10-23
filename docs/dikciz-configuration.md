@@ -133,7 +133,7 @@ A native page is one fixed viewport. It never gains canvas height, and adding a 
 `launcher.home.nativeGrid` describes the grid every page is laid out on:
 
 ```json
-"nativeGrid": { "columns": 8, "rows": 6, "gapDp": 8, "outerPaddingDp": 12 }
+{ "nativeGrid": { "columns": 8, "rows": 6, "gapDp": 8, "outerPaddingDp": 12 } }
 ```
 
 `columns` and `rows` accept 1 to 12. `gapDp` and `outerPaddingDp` accept 0 to
@@ -145,7 +145,7 @@ The right and bottom pager rails provide the trailing outer spacing. The page re
 Every top-level widget owns whole grid cells through one `cell` record:
 
 ```json
-"cell": { "column": 0, "row": 0, "columnSpan": 2, "rowSpan": 1 }
+{ "cell": { "column": 0, "row": 0, "columnSpan": 2, "rowSpan": 1 } }
 ```
 
 `column` and `row` are zero-based cell indexes. Both spans are cell counts and are at least 1. The rectangle must fit inside the configured grid, and two widgets on one page may never claim the same cell. Rendered pixels are derived from the current viewport at draw time, so the same logical rectangle survives page selection, process recreation, and rotation.
@@ -239,7 +239,7 @@ HTML packages are reusable starters under `widget-library/<package-id>/`. A pack
 
 ### Complete WebView templates
 
-The library contains whole documents: `home-dashboard`, `command-deck`, `quick-apps`, `quick-note`, `system-dashboard`, `sensors-dashboard`, `markets-news`, `app-launcher`, `brightness`, `lock-screen`, `notifications` and `system-status`. Each placed widget owns its full HTML, CSS, JavaScript and state. Library source is copied at insertion; there are no native card preset objects or fragment picker. Ordinary DOM sections remain programmable through the document's own JavaScript.
+The library contains whole documents: `time-weather`, `agenda`, `voice-notes`, `device-status`, `home-dashboard`, `command-deck`, `quick-apps`, `quick-note`, `system-dashboard`, `sensors-dashboard`, `markets-news`, `app-launcher`, `brightness`, `lock-screen`, `notifications` and `system-status`. Each placed widget owns its full HTML, CSS, JavaScript and state. Library source is copied at insertion; there are no native card preset objects or fragment picker. Ordinary DOM sections remain programmable through the document's own JavaScript.
 
 The system template reads `deviceState.system` for RAM, app-data filesystem capacity, CPU samples and a bounded sensor inventory. CPU availability and scope are explicit. Sensor inventory lists hardware, not live readings. The market template uses explicit Coinbase and GDELT requests and retains dated results in its widget state. See [starter templates](starter-home.md#complete-webview-templates) for sources and refresh behavior.
 
@@ -301,7 +301,7 @@ clipboardMetadata, clipboardContent, widgetState, deviceAdministration,
 manualTrigger, accessibility
 ```
 
-The current action names are:
+The current policy action capability names are:
 
 ```text
 accessibilityAction, accessibilityGesture, accessibilityGlobalAction,
@@ -310,11 +310,13 @@ postNotification, sendSms, explicitIntent, emitEvent, mediaControl,
 mediaVolume, notificationControl, lockDevice
 ```
 
+The list above contains policy capability names. The volume action record uses `type: "setMediaVolume"` and integer `levelPercent` from 0 through 100, while its policy allows `mediaVolume`. See the [complete typed action reference](typed-actions.md) for fields and policy mappings.
+
 Read the [scripting tutorial](scripting-tutorial.md) for end-to-end event subscriptions, custom events, HTML bridge calls, cross-widget state, and action results.
 
 `sendSms` takes a `recipient` and a `body`. The recipient is a dialable number of up to 20 characters: digits with an optional leading `+` and the usual dialling punctuation. The body uses the configured text limit and is divided into parts when it is longer than one message segment.
 
-Dikciz is not the default SMS app. A sent message leaves the device, but Dikciz does not write it to the Android SMS provider, so it does not appear in the owner's messaging history. Android can rate-limit sends or ask the owner for confirmation. The limits depend on the device. Dikciz reports what Android returned and does not work around that prompt.
+Dikciz does not request the default SMS role. It does not directly insert sent messages into Android's SMS provider, but Android can persist messages sent by non-default SMS apps, so they can appear in the owner's messaging history. See [Android's SMS provider behavior](https://android-developers.googleblog.com/2013/10/getting-your-sms-apps-ready-for-kitkat.html). Android can rate-limit sends or ask the owner for confirmation. The limits depend on the device. Dikciz reports what Android returned and does not work around that prompt.
 
 The action needs the `SEND_SMS` Android permission, which `automationStatus` reports as `smsSend` under `androidAccess`. Without it the action returns `android_permission_denied` and sends nothing. A policy that does not declare `sendSms` is refused before Android is reached.
 
@@ -351,7 +353,7 @@ Fresh Dikciz includes three disabled utility scripts. Their enabled policies and
 | `charge-ready` | Notifies once at 80 percent or higher while charging. Unplugging or dropping below 75 percent resets it. |
 | `screen-lock` | Locks only when explicitly run, after checking Device Administration. It never runs when access changes. |
 
-No bundled script patches a particular widget or subscribes to Accessibility, notification contents, location or a periodic alarm. The [starter home guide](starter-home.md) covers the three pages, automatic weather location and live sensor sampling.
+No bundled script patches a particular widget or subscribes to Accessibility, notification contents, location or a periodic alarm. The [starter home guide](starter-home.md) covers the two demo pages, automatic weather location, read-only agenda, voice recordings and device status. Live sensors remain an optional template.
 
 Use the native Script dashboard or Settings to enable, disable, edit, import, export, delete, inspect status, and read logs. The dashboard, Settings, WebSocket `scriptLogs`, and MCP `dikciz_script_logs` read the same safe log projection. A failed Lua compile or handler run keeps `invalid_lua` as its stable run status. Its matching log record includes a bounded, sanitized `diagnostic` with the public `scripts/<script-id>/main.lua` location and line when LuaJ provides one. Credential-shaped values are redacted before the native viewer or either remote control plane receives the record.
 
@@ -371,7 +373,7 @@ The local `shell` command and `dikciz_shell` tool request `su` by default. Dikci
 
 `control/remote-auth.json` is separate from `config.json`. It stores version, bcrypt verifier, cost, and enabled state. It never stores the plaintext password. Set, replace, clear, enable, or disable the password from **Settings**, then **Automation**. The phone does not ask for the old password when changing it.
 
-When enabled, WebSocket and MCP requests on every interface need `Authorization: Bearer <password>`. A remote client can check, enable, or disable the setting with the documented remote-auth commands. It cannot read, replace, or clear the password. Enabling or disabling remotely requires the configured password even while authentication is disabled. An invalid auth record refuses connections until repaired or cleared on the phone.
+When enabled, WebSocket and MCP requests on every interface need `Authorization: Bearer <password>`. A remote client can check, enable, or disable the setting with the documented remote-auth commands. The remote-auth commands cannot retrieve, replace or clear the password. File APIs deny the verifier and its atomic aliases, but an independently authorized app-UID/root shell is not restricted by those file-command guards; see [Android access](android-access.md#credentials-and-privilege-limits). Enabling or disabling remotely requires the configured password even while authentication is disabled. An invalid auth record refuses connections until repaired or cleared on the phone.
 
 ## Control ports
 

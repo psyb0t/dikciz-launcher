@@ -1,57 +1,45 @@
 # Starter home
 
-New installations start with three pages. Existing edited homes keep their pages, widgets and scripts when the APK updates. **Reset Dikciz home** replaces saved pages with this starter and restores matching bundled scripts. Other saved scripts and policies remain; disable or delete unwanted older examples under Settings, Scripts.
+Fresh installations and **Reset Dikciz home** use two pages with four independent HTML WebViews. Existing saved homes are preserved on APK update. Reset replaces pages and restores matching bundled utility scripts; other saved scripts and policies remain. It restores the bundled 8-column, 6-row grid.
 
-The starter uses an 8-column, 6-row grid. Home fills all eight columns; the two Insights widgets also fill the page width. Updates preserve edited grids; resetting the home restores the bundled grid and validation limits too.
+Each widget spans eight columns and three rows. Long press it or its handle to edit the complete HTML, CSS, JavaScript and JSON state, change appearance, resize, move or delete it. Each owns separate state and files under `/sdcard/Dikciz/pages/<page-id>/widgets/<widget-id>/`. Removing one preserves its neighboring WebView and removes its own state and files.
 
 ## Home
 
-- **Clock and search** shows local time and date. Search opens the browser only after submitting a query.
-- **Find an app** shows Android app icons and filters the real installed-app catalogue by name or package and launches a selected result. Up to six matches appear. Tap a result to launch it. The bottom app drawer shows all apps and adds separate native screen shortcuts; those are not inserted into this HTML document.
-- **Quick note** saves up to 2,000 characters on this phone when you tap **Save note**. Unsaved edits are marked. Saved text survives switching pages and reopening Dikciz.
+**Time and weather** shows local time and date with city and temperature. Expand **Weather details and city** for feels-like temperature, wind, rain probability, low/high, European AQI and city controls. It tries already-permitted phone location when no city is saved. Missing access stays inline until you tap **Use my location**. Grant access, then tap again. A manual city takes precedence. Device locations are checked again after five minutes when visible.
 
-Home is one full-page HTML document with clock, app search and note sections. Long press anywhere for the whole WebView's controls. Edit shows its HTML, CSS, JavaScript and JSON state. The document's JavaScript controls its sections; they are not native preset objects. Existing homes and note state remain unchanged on update.
+City search sends the name to Open-Meteo; weather and air-quality requests send coordinates. The services load independently, retain dated successful readings on failure and refresh missing or fifteen-minute-old weather when opened. There is no hidden-page polling. Requests time out after fifteen seconds and accept at most 64 KiB each. Calendar, recordings and device metrics are not sent.
 
-<img src="images/user-guide/01-first-launch.png" alt="Starter Home with clock, app search and quick note" width="280">
+Attribution: [Open-Meteo weather](https://open-meteo.com/en/docs), [geocoding](https://open-meteo.com/en/docs/geocoding-api), and [CAMS ENSEMBLE air quality through Open-Meteo](https://open-meteo.com/en/docs/air-quality-api). Public endpoints are for personal, non-commercial use under the provider terms.
 
-## Insights
+**Agenda** shows the next Android alarm and up to three upcoming calendar occurrences in the current seven-day window. Android expands recurring events. All-day dates retain their calendar date. Calendar data stays on the phone. Tap **Allow calendar access**, return from Android and tap **Refresh agenda**. It refreshes once a minute while visible and when reopened. The bounded preview scans up to ten pages of fifty occurrences and directs you to Calendar when more remain. **Open calendar** and **Open alarms** request Android activities. Missing handlers produce an explicit error. The widget never changes events or alarms.
 
-**Your phone** reads Android battery level, plugged-in state, battery saver, network transport and internet validation. It refreshes when the page opens or when you tap **Refresh phone**. Android reporting an active network does not always mean internet access works.
+<img src="images/user-guide/01-first-launch.png" alt="Independent time/weather and agenda widgets on Home" width="280">
 
-**Weather and air** tries the phone location when no city is saved. Missing location access opens the owner-review flow. Grant access, then tap **Use my location** to retry. Android supplies a recent cached location or a bounded fresh fix; its place name is used when available. If location is disabled or unavailable, enter a city, tap **Find city**, then choose a match. A saved manual city takes precedence. Device-derived locations are checked again on page opening after five minutes. City search sends the name to Open-Meteo geocoding; weather and air-quality requests send coordinates to Open-Meteo. Contacts and notes are not sent.
+## Tools
 
-It displays temperature, feels-like temperature, wind in km/h, today's rain probability, low/high temperatures and European AQI. Weather and air quality load independently. Missing values appear as unavailable. Saved readings carry their fetch times. Opening the page refreshes missing readings or data older than 15 minutes. There is no background polling. Refresh weather updates immediately; Use my location replaces the selected city only after a successful lookup.
+**Voice notes** starts only when you tap **Record voice note**. If Android access is missing, review it and tap Record again. Tap **Stop and save** to finalize an AAC M4A. Recording has a five-minute maximum and stops when its page becomes hidden. This is foreground microphone capture, not a background service or cellular call recorder. Android interruptions report failure instead of claiming a saved recording.
 
-Requests time out after 15 seconds and each response is limited to 64 KiB. A failed city search leaves the selected city unchanged. Choosing another city clears the previous city's readings. Partial service failure retains available readings for the selected city and names the failed service. No matching city, offline service and malformed responses stay recoverable through Find city or Refresh weather.
+Completed audio moves from temporary capture storage into this WebView directory with generated filenames. The five most recent recordings have playback buttons; earlier files and metadata remain. **Stop playback** releases playback. A failed move or metadata save leaves **Retry saving** available. Saved notes survive reopening and are removed when their widget is deleted. Copy them elsewhere before deleting the widget to keep them. Recorder sessions do not survive app process death; saved files do.
 
-Data attribution: [Open-Meteo weather](https://open-meteo.com/en/docs), [Open-Meteo geocoding](https://open-meteo.com/en/docs/geocoding-api), and [CAMS ENSEMBLE air-quality data through Open-Meteo](https://open-meteo.com/en/docs/air-quality-api). The public endpoints are for personal, non-commercial use under the provider's terms. A commercial deployment must arrange appropriate service access.
+**Device status** shows battery, charging/battery saver, available RAM, free app-data filesystem capacity and network transport. It refreshes every thirty seconds while visible or on **Refresh device**. Network presence does not guarantee working internet. It starts no sensor listeners and requests no root access.
 
-<img src="images/user-guide/03-insights-page.png" alt="Insights with optional city weather and local phone status" width="280">
+<img src="images/user-guide/03-insights-page.png" alt="Independent voice notes and device status widgets on Tools" width="280">
 
-## Sensors
+## Optional complete templates
 
-The third page lists static and connected dynamic Android sensors, including multiple sensors of the same type. Disconnected dynamic sensors disappear on refresh. It shows sampled values, accuracy, timestamp age, reporting mode, range and resolution. Sampling runs while visible, with a half-second sample window followed by a 1.5-second pause. Pause stops future requests. Each request unregisters its listeners when it finishes. Sensors without permission, rejected registrations and sensors waiting for a trigger show their actual status. Review sensor access requests the specific owner-controlled permission. Sensor values use Android units and array ordering.
+The picker includes all four starter templates with fresh independent state. The combined **Home dashboard**, app search, notes, detailed **System dashboard**, **Live sensors**, and **BTC and economic news** remain optional. Adding a template copies the whole HTML/CSS/JavaScript document. **Save to library** makes a customized document reusable. Library edits do not silently change placed widgets.
 
-## Complete WebView templates
-
-The HTML widget picker offers **Home dashboard**, the individual complete clock/search, app search and note documents, **System dashboard**, **Live sensors**, and **BTC and economic news**. Adding a template copies a full HTML/CSS/JavaScript document into an independent WebView with fresh state. **Save to library** reuses a complete customized document. Library changes do not silently update existing widgets.
-
-**System dashboard** reads local Android metrics on opening, every five seconds while visible and when Refresh is tapped. It displays RAM used and available, total RAM, free app-data filesystem capacity, battery and temperature, network state, logical processors and CPU samples. System CPU can be unavailable because Android restricts `/proc/stat`; Dikciz CPU is labeled separately as a percentage of one core and requires two samples. Expand Sensor inventory for the available sensor names and types. This inventory does not claim live sensor values or start listeners.
-
-**BTC and economic news** starts with no external requests. Refresh fetches [Coinbase BTC/USD spot price](https://docs.cdp.coinbase.com/coinbase-app/track-apis/prices) and [GDELT economic coverage](https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/) from the preceding 24 hours. It lists up to eight English-language headlines matching economy, inflation or monetary coverage, with publisher links and GDELT discovery times. Discovery time is not publication time. No API keys are required. These public services can rate-limit or fail independently.
-
-Each request times out after 15 seconds and accepts at most 64 KiB. Text is rendered as text, and publisher links accept only HTTP or HTTPS. The widget saves successful results with their fetch times and keeps them dated if another request fails. It never polls in the background. No phone metrics, contacts or notes are sent with the requests.
+The detailed sensor template samples actual hardware while visible. Markets and news fetch on explicit Refresh, save dated successful data and report provider failures. See [HTML editing](user-guide.md#edit-an-html-widget), [configuration](dikciz-configuration.md) and [API coverage](capability-coverage.md).
 
 ## Optional Lua utilities
 
-Open **Settings**, **Scripts** to inspect a script before enabling it. A script dashboard can also be added from the widget picker.
+Three example sources start disabled. Review them in **Settings**, **Scripts** before enabling them. Policies and subscriptions are prepared; none depends on a particular page or widget.
 
 | Script | Behavior |
 | --- | --- |
 | `low-battery` | One notification at 20 percent or lower while discharging. Charging or reaching 30 percent resets it. |
 | `charge-ready` | One notification at 80 percent or higher while charging. Unplugging or dropping below 75 percent resets it. |
-| `screen-lock` | Explicit manual lock only, with owner-enabled Device Administration. Granting access never triggers it. |
+| `screen-lock` | Explicit manual lock with owner-enabled Device Administration. Granting access never triggers it. |
 
-All Lua source records start disabled. Policies and subscriptions are prepared so enabling a source activates its utility without editing JSON. Notification reminders need Android notification-posting permission. The utilities save their reminder state, suppress repeated alerts, and do not depend on page or widget addresses.
-
-See [configuration](dikciz-configuration.md), [Lua scripting](scripting-tutorial.md) and [HTML widgets](user-guide.md#edit-an-html-widget) to customize them.
+Notification reminders need Android notification permission. Add a native script dashboard from the picker when wanted. See [Lua scripting](scripting-tutorial.md).

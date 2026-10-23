@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "agenda",
+  "title": "Agenda",
+  "description": "Upcoming calendar occurrences for the next seven days and Android next-alarm time. Read-only; calendar permission required.",
+  "span": {
+    "columnSpan": 8,
+    "rowSpan": 3
+  }
+}

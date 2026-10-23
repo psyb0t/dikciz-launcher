@@ -1,12 +1,14 @@
 # Dikciz task index
 
-Read only the sections needed for the current task. Each resource is at most 4 KiB of UTF-8 text. Discovery returns eight entries per page; follow `nextCursor`. Read a section with `resources/read` and its exact `uri`. These resources ship with the running APK. Use `tools/list` for that build's executable schemas and `dikciz_control_status` for live limits.
+Fetch sections as needed with resources/read and the exact URI. Each is at most 4 KiB. Follow resources/list nextCursor, eight entries per page. Content ships with this APK; tools/list and dikciz_control_status describe its commands and limits.
 
 ## Guides
 
 - [Connection](dikciz://docs/guides/connect): addresses, authentication and sessions.
 - [Discovery](dikciz://docs/guides/discovery): versions and response envelopes.
-- [Permissions](dikciz://docs/guides/permissions): owner review and explicit retries.
+- [Permissions](dikciz://docs/guides/permissions): owner review.
+- [Access map](dikciz://docs/guides/access): feature grants.
+- Typed actions: [state/events](dikciz://docs/guides/actions-state), [device](dikciz://docs/guides/actions-device), [UI](dikciz://docs/guides/actions-ui).
 - [UI](dikciz://docs/guides/ui): semantic nodes, Accessibility and screenshots.
 - [Apps](dikciz://docs/guides/apps): verified launches and recent tasks.
 - [Pages](dikciz://docs/guides/pages): addresses, layout and locks.
@@ -59,4 +61,4 @@ Read only the sections needed for the current task. Each resource is at most 4 K
 - [Restart and reconnect](dikciz://docs/recipes/restart).
 - [Change listener endpoints](dikciz://docs/recipes/listener).
 
-An accepted request is not proof of the intended effect. Verify saved state, the current window or the operation's final status. Ask the owner to review required Android access; never claim a prompt granted it.
+Verify saved state, the current window or terminal operation status. Permission prompts require owner review and explicit retry.

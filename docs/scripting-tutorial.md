@@ -389,7 +389,7 @@ The native bridge creates `window.dikciz`, `window.selfWidget`, and a `dikciz-re
 
 `selfWidget.visible` reports whether the owning WebView is visible in the launcher window. Listen for `dikciz-visibility` and inspect `event.detail.visible` to start or stop foreground polling. A preloaded neighboring page can receive `dikciz-ready` while invisible; readiness alone does not mean the user opened the page.
 
-Long press a saved HTML card to open its native Edit/Delete menu. Dikciz targets the touched DOM item and preserves the containing widget, page, CSS, JavaScript and state. Cards, articles, sections and list items are recognized automatically; add `data-dikciz-item` to another element to mark its boundary explicitly. Runtime-only elements without saved source cannot be edited this way. Use the top move handle for whole-widget controls.
+Long press the HTML content, background or top handle for whole-widget controls. Edit opens the complete HTML, CSS, JavaScript and state; Delete removes the WebView and its owned files. To change one section, edit the document source while preserving its siblings. DOM sections and `data-*` attributes do not create native preset objects or independent native Edit/Delete menus.
 
 | API | Use it for |
 | --- | --- |
@@ -413,7 +413,7 @@ Long press a saved HTML card to open its native Edit/Delete menu. Dikciz targets
 | `item.getState()`, `item.patchState(values)` | Read or replace one card's state while preserving its siblings. `item.state` reads the current live value. |
 | `item.readFile(name, options)`, `item.writeFile(name, dataBase64, options)` | Use file commands inside the instance directory. File contents use base64; `state.json` is reserved for `patchState`. |
 
-Wrapper state lives in `pages/<page-id>/widgets/<webview-id>/state.json`. Card state lives in that directory's `items/<instance-id>/state.json`. Use a stable `data-dikciz-item-id` on each authored card and scope DOM queries to its root. Preset insertion assigns fresh IDs. For example, inside a `dikciz-ready` handler:
+Wrapper state lives in `pages/<page-id>/widgets/<webview-id>/state.json`. Card state lives in that directory's `items/<instance-id>/state.json`. Use a stable `data-dikciz-item-id` on each authored card and scope DOM queries to its root. When authoring or copying a section, give its state namespace a distinct ID. Separate WebView instances already have separate owning directories. For example, inside a `dikciz-ready` handler:
 
 ```javascript
 const root = document.querySelector("[data-dikciz-item-id]");
@@ -422,7 +422,7 @@ const previous = await item.getState();
 await item.patchState({...previous, text:"Saved for this instance"});
 ```
 
-`selfWidget.itemStates` is the current map of card states. `dikciz-item-state` delivers its replacement without recreating the document. Wrapper state continues to use `selfWidget.state` and `dikciz-state`. A source edit that removes a namespace marker and state entry removes its owned files on save. Native Delete removes the entire WebView. Removing the wrapper removes all its owned instance files. Do not use a shared preset catalog directory for live state.
+`selfWidget.itemStates` is the current map of card states. `dikciz-item-state` delivers its replacement without recreating the document. Wrapper state continues to use `selfWidget.state` and `dikciz-state`. A source edit that removes a namespace marker and state entry removes its owned files on save. Native Delete removes the entire WebView. Removing the wrapper removes all its owned instance files. Do not use a shared library directory for live state.
 
 The browser also receives these events:
 
@@ -435,7 +435,7 @@ The browser also receives these events:
 
 ## Return device and launcher actions from Lua
 
-Lua returns one status plus an `actions` array. Each action must appear in the script policy's `actions` list. HTML can dispatch the same actions directly because its owner pressed a visible widget control, but Android access checks still apply.
+Lua returns one status plus an `actions` array. The matching policy capability must appear in the script policy's `actions` list. Most names match the action type; `setMediaVolume` uses `mediaVolume`. The [typed action reference](typed-actions.md) lists every action's fields, policy name and binding-specific constraints. HTML can dispatch the same actions directly because its owner pressed a visible widget control, but Android access checks still apply.
 
 | Action | What it does |
 | --- | --- |
@@ -450,7 +450,7 @@ Lua returns one status plus an `actions` array. Each action must appear in the s
 | `explicitIntent` | Send an explicit Android activity or broadcast intent. Android decides whether it accepts it. |
 | `emitEvent` | Publish a custom event with a JSON payload. |
 | `mediaControl` | Control an allowed media session. |
-| `mediaVolume` | Set the allowed media volume. |
+| `setMediaVolume` | Set integer `levelPercent` from 0 through 100. The Lua policy action name is `mediaVolume`. |
 | `notificationControl` | Invoke a supported notification action token. |
 | `lockDevice` | Lock the screen after the owner enables Dikciz Device Administration. |
 | `accessibilityAction` | Act on a fresh bounded Accessibility snapshot node. |

@@ -8,6 +8,8 @@ Use `automationStatus` for configured scripts and Android access, `automationTri
 
 `context.requestJson` lets an enabled Lua script call the shared owner command API. Its requests still undergo command validation and Android permission checks. Declared policy rules govern returned automation actions; do not assume they isolate arbitrary owner commands or unrestricted shell access.
 
+Typed action names and policy capabilities usually match. Volume is an exception: return {type="setMediaVolume",levelPercent=35}, but allow mediaVolume in policy.actions. levelPercent is an integer 0..100. The returned action parser accepts at most eight actions; patchState replaces script state. HTML/network patchState replaces the source widget's state. For a Lua-returned patchWidget, itemStates is not supported; use the shared automationDispatch command or edit the saved widget record. Read [state/event actions](dikciz://docs/guides/actions-state), [device actions](dikciz://docs/guides/actions-device) and [UI actions](dikciz://docs/guides/actions-ui) for complete fields.
+
 File observers reload valid source, metadata and automation changes. Preserve the existing manifest and other scripts when installing. The native source editor does not invent an automation policy for a new script.
 
 [Install a script](dikciz://docs/recipes/install-script). [Two-event Lua source](dikciz://docs/recipes/event-lua). [Logs](dikciz://docs/guides/logging).

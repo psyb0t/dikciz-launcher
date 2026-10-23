@@ -5,8 +5,10 @@ Start with the [README](../README.md) for installation, or choose the task below
 | Task | Guide |
 | --- | --- |
 | Install, choose Home, navigate, edit pages/widgets, manage apps and scripts | [Illustrated user guide](user-guide.md) |
-| Understand the initial Home, Insights and Sensors pages | [Starter home](starter-home.md) |
+| Understand the initial Home and Tools pages | [Starter home](starter-home.md) |
 | Edit files, themes, grid, widget state, libraries, policies, logging and listeners | [Configuration](dikciz-configuration.md) |
+| Look up every typed action, its fields and Lua policy name | [Typed actions](typed-actions.md) |
+| Check Android grants, foreground requirements and privilege boundaries | [Android access](android-access.md) |
 | Write Lua and HTML, publish events, use policies and the native bridge | [Scripting tutorial](scripting-tutorial.md) |
 | Connect HTTP/WebSocket/MCP, authenticate, discover and request permissions | [Automation control](automation-control.md) |
 | Look up contacts, send tracked SMS, use calendars, calls, clipboard and media | [Native device data](native-device-control.md) |

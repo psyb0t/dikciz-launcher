@@ -41,9 +41,9 @@ HTML widgets receive `window.dikciz`, `window.selfWidget` and `dikciz-ready`. St
 | `selfWidget.get()`, `selfWidget.patch(values)` | Read or patch this widget without hardcoding its address. |
 | `selfWidget.patchState(values)`, `selfWidget.patchDom(selector, values)` | Change this widget's saved state or rendered DOM. |
 
-Card instances use `selfWidget.itemFor(element)` or `selfWidget.item(id)` for independent state and files under the owning page/widget directory. Their methods include `getState`, `patchState`, `readFile` and `writeFile`. Deleting a card removes its owned files; deleting a wrapper removes all its instance files.
+Card instances use `selfWidget.itemFor(element)` or `selfWidget.item(id)` for independent state and files under the owning page/widget directory. Their methods include `getState`, `patchState`, `readFile` and `writeFile`. Removing a section's namespace marker and saved state removes its owned files; native Delete removes the whole WebView and all its instance files. Long press opens whole-widget controls, not a native per-section menu.
 
-Browser events include `dikciz-ready`, `dikciz-state`, `dikciz-event`, `dikciz-item-state`. HTML receives subscribed events only while its page is selected and its WebView exists. Use background Lua for durable event processing. Read the [HTML bridge reference](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/scripting-tutorial.md#html-bridge-reference) for signatures and examples.
+Browser events include `dikciz-ready`, `dikciz-state`, `dikciz-event`, `dikciz-item-state` and `dikciz-visibility`. Use `selfWidget.visible` to suspend polling when the WebView is hidden. HTML receives subscribed events only while its page is selected and its WebView exists. Use background Lua for durable event processing. Read the [HTML bridge reference](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/scripting-tutorial.md#html-bridge-reference) for signatures and examples.
 
 ## Lua and event sources
 
@@ -77,12 +77,12 @@ These actions are available through the documented Lua/HTML action executor. Lua
 | `postNotification`, `sendSms` | Post a notification or send an SMS with Android approval and access. |
 | `explicitIntent` | Dispatch an explicit activity or broadcast intent. |
 | `emitEvent` | Publish a custom event. |
-| `mediaControl`, `mediaVolume` | Control an allowed media session or volume. |
+| `mediaControl`, `setMediaVolume` | Control an allowed media session or set integer `levelPercent` (0..100). The volume policy capability is `mediaVolume`. |
 | `notificationControl` | Invoke a supported notification action token. |
 | `lockDevice` | Lock the screen with enabled Device Administration. |
 | `accessibilityAction`, `accessibilityGesture`, `accessibilityGlobalAction` | Act on another app's fresh accessibility state or use supported system navigation actions. |
 
-Read [typed actions](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/scripting-tutorial.md#return-device-and-launcher-actions-from-lua) for fields, allowed targets and outcomes. SMS can cost money. Notification actions, intents and cross-app interactions can affect other apps; keep them within the user's requested task.
+Read [all action fields and policy mappings](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/typed-actions.md) and [typed actions](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/scripting-tutorial.md#return-device-and-launcher-actions-from-lua) for fields, allowed targets and outcomes. SMS can cost money. Notification actions, intents and cross-app interactions can affect other apps; keep them within the user's requested task.
 
 ## Remote controls and UI automation
 

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "time-weather",
+  "title": "Time and weather",
+  "description": "Local time, date, weather and air quality. Uses permitted location or a saved city. Open-Meteo requests only while visible.",
+  "span": {
+    "columnSpan": 8,
+    "rowSpan": 3
+  }
+}

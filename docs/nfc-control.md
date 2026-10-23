@@ -20,6 +20,16 @@ Successful writes report `state: written` and `verified`. An ordinary NDEF write
 
 `ioTimeoutMilliseconds` defaults to 5000, range 1 through 60000, for technologies with configurable I/O timeouts. The outer deadline still applies. Responses include Base64 bytes and their count, bounded to 32768 bytes. Raw commands may modify a tag. Use the tag manufacturer's protocol and do not treat successful transport as application-level success.
 
+## Payment cards and multi-command protocols
+
+A payment card can advertise `IsoDep` and `NfcA` without supporting NDEF. `ndefSupported: false` means there is no NDEF message through this API; it does not mean the phone cannot communicate with the card. The returned tag ID is not an account number.
+
+Contactless payment terminals implement EMV application selection and APDU exchanges over ISO-DEP. Dikciz exposes raw `nfcTransceive` transport, not an EMV decoder, wallet provisioning or a payment terminal. JavaScript or Lua can encode commands and decode responses through that transport, subject to the card's own access rules.
+
+Each `nfcTransceive` request opens one tag connection, sends one command and closes it. There is no persistent session or multi-command batch. Card application selection or authentication state may be lost between requests, so a stateful EMV conversation is not guaranteed by chaining independent calls. A higher-level protocol needing a continuous connection requires additional native session support. No secret card keys, PIN or payment authority are implied by a successful raw exchange.
+
+References: [Android IsoDep](https://developer.android.com/reference/android/nfc/tech/IsoDep), [EMV contactless](https://www.emvco.com/emv-technologies/emv-contactless-chip/).
+
 ## Example
 
 ```json

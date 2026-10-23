@@ -1,6 +1,7 @@
 package org.fossify.home.dikciz
 
 import android.Manifest
+import android.app.AlarmManager
 import android.app.KeyguardManager
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -236,7 +237,8 @@ internal class DikcizNativeData(
         val audio = context.getSystemService(AudioManager::class.java)
         val connectivity = context.getSystemService(ConnectivityManager::class.java)
         val network = connectivity.getNetworkCapabilities(connectivity.activeNetwork)
-        return JSONObject().put("system", systemMetrics.read()).put("screenInteractive", power.isInteractive).put("keyguardLocked", keyguard.isKeyguardLocked)
+        return JSONObject().put("nextAlarmAtMilliseconds", context.getSystemService(AlarmManager::class.java)?.nextAlarmClock?.triggerTime ?: JSONObject.NULL)
+            .put("system", systemMetrics.read()).put("screenInteractive", power.isInteractive).put("keyguardLocked", keyguard.isKeyguardLocked)
             .put("deviceLocked", keyguard.isDeviceLocked).put("powerSaveMode", power.isPowerSaveMode)
             .put("batteryLevel", battery?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: JSONObject.NULL)
             .put("batteryScale", battery?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: JSONObject.NULL)

@@ -8,6 +8,6 @@ nfcTransceive requires technology and dataBase64. Technologies: IsoDep, NfcA/B/F
 
 All three accept expectedTagIdBase64 from a prior read, up to 64 decoded bytes. Other tags are ignored. IDs select tags; they do not authenticate them. Raw commands and NDEF writes may alter a tag. Timeout/failure may leave partial effects, so inspect before retrying.
 
-Each request releases reader mode and its connection. No adapter, disabled radio, foreground restriction and no tag before the deadline are explicit failures. Do not claim a tag transaction from emulator-only validation.
+Each request releases reader mode and its connection. nfcTransceive sends one command per connection; there is no persistent session or command batch. A payment card with IsoDep/NfcA can have ndefSupported:false and still speak EMV APDUs. nfcRead does not decode EMV, and tag IDs are not account numbers. Lua/JS can encode raw exchanges, but application/authentication state may be lost between calls. A multi-command EMV reader, wallet provisioning and payment processing are not implemented. No adapter, disabled radio, foreground restriction and no tag before the deadline are explicit failures. Do not claim a tag transaction from emulator-only validation.
 
 Full guide: https://github.com/psyb0t/dikciz-launcher/blob/main/docs/nfc-control.md

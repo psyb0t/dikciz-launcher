@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "device-status",
+  "title": "Device status",
+  "description": "Battery, charging, RAM, free storage and network status. Refreshes every 30 seconds while visible without starting sensors.",
+  "span": {
+    "columnSpan": 8,
+    "rowSpan": 3
+  }
+}

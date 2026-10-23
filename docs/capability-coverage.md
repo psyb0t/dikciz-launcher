@@ -16,7 +16,7 @@ This table describes dedicated Dikciz operations. Generic intents, shell and Acc
 | System settings | Brightness/mode, rotation/mode and screen timeout read/write/read-back | Additional supported setting families and dedicated power/network control flows. |
 | Bluetooth | Adapter state events, paired inventory, BLE/classic discovery, bond requests, bounded RFCOMM and GATT discovery/read/write/observation | Persistent connections and additional Bluetooth profiles. |
 | Wi-Fi | Connectivity state, cached scans and requested scans with deadlines/freshness | Network request/selection, hotspot and Wi-Fi Direct workflows. |
-| NFC | Adapter status, reader-mode tag discovery, NDEF read/write and bounded raw technology transactions | Card emulation and persistent tag sessions. |
+| NFC | Adapter status, reader-mode tag discovery, NDEF read/write and one raw technology command per connection | EMV application decoding/payment workflows, card emulation, persistent tag sessions and command batches. |
 | USB | Attached host devices/interfaces/endpoints, owner permission request and bounded control/bulk transfers | Persistent multi-command sessions and additional transfer families. |
 | Health Connect | Availability, grants and daily-step subscriptions | General history, aggregation, other record types and writes. |
 | Notifications | Listing, content events, plain actions, dismiss, snooze and inline reply | Additional Android notification-policy capabilities. |

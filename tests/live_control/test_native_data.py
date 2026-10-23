@@ -60,7 +60,7 @@ def test_native_data_discovery_and_system_state(websocket_control, protocol):
     AUTOMATION.verify_control_status(websocket_control)
     status = native_call(protocol, "nativeDataStatus")
     resources = {resource["resource"]: resource for resource in status["resources"]}
-    assert {"contacts", "phones", "emails", "rawContacts", "contactData", "calendars", "calendarEvents", "calendarReminders", "sms", "callLog", "images", "audio", "videos"} == resources.keys()
+    assert {"contacts", "phones", "emails", "rawContacts", "contactData", "calendars", "calendarEvents", "calendarInstances", "calendarReminders", "sms", "callLog", "images", "audio", "videos"} == resources.keys()
     assert resources["sms"]["writableColumns"] == []
     assert resources["contactData"]["foreignKeys"] == {"raw_contact_id": "rawContacts"}
     assert status["maximumPageSize"] == 200

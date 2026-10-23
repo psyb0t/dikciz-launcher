@@ -4,6 +4,23 @@ This history includes the releases made while Dikciz and Android Lab shared one 
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-23
+
+### Added
+
+- Four independent half-page starter WebViews: time/weather and agenda on Home, voice notes and device status on Tools. Each is a complete reusable HTML/CSS/JavaScript library template with separate state.
+- Shared read-only calendar occurrence queries for the current seven-day window, with Android recurrence expansion and pagination, plus the next alarm timestamp in device state.
+- Tap-operated voice recording with stop/save, widget-owned audio, recent playback and save recovery. Existing homes remain unchanged on APK update.
+
+### Documentation
+
+- Correct typed action names and policy mappings, HTML whole-document editing, credential-file restrictions, event replay and process-versus-activity lifecycle guidance.
+- Add the complete typed-action and Android access references, including NFC payment-card protocol and session limits. Package feature access and all typed-action fields as four additional short MCP resources.
+
+### Migration
+
+Fresh installations and Reset Dikciz home now use Home and Tools with four independent HTML widgets. Existing saved homes remain unchanged on update. Add the new templates individually or reset the home to use the demo layout. Saved voice recordings belong to their widget and are deleted with it; copy recordings elsewhere before removing that widget. Calendar and microphone actions require Android access.
+
 ## [0.25.0] - 2026-10-23
 
 ### Fixed
@@ -35,7 +52,7 @@ This history includes the releases made while Dikciz and Android Lab shared one 
 
 ### Migration
 
-Updates preserve existing home files. Changing grid dimensions now reflows widgets and removes overflow items in saved order; back up crowded pages before shrinking them. Apps remain installed when their shortcuts are removed. New device operations require the corresponding Android access and actual hardware. Microphone streaming starts while Dikciz is foreground and uses process-owned replay, which is lost on restart or update. Cellular call audio remains platform-restricted.
+Updates preserve existing home files. Changing grid dimensions now reflows widgets and removes overflow items in saved order; back up crowded pages before shrinking them. Apps remain installed when their shortcuts are removed. New device operations require the corresponding Android access and actual hardware. Microphone streaming starts while Dikciz is foreground and uses process-owned replay, which is lost on app process death or APK replacement. Cellular call audio remains platform-restricted.
 
 ## [0.24.0] - 2026-10-22
 

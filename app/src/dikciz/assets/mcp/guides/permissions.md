@@ -12,4 +12,4 @@ After owner confirmation, read fresh status and retry the authorized operation e
 
 For the complete checklist, open **Settings**, **Automation**, **Set up full device access**. It opens a separate **Full device access** task in Recents. Return to it after Android Settings or another app takes the foreground. The checklist refreshes from actual grants; each missing access has a setup button. While resumed, `dikciz_snapshot` reports `screen: "deviceAccess"`, and `dikciz_screenshot` captures this screen. This checklist is separate from a targeted remote review.
 
-[Security boundaries](dikciz://docs/guides/security).
+[Security boundaries](dikciz://docs/guides/security). Read the [feature access map](dikciz://docs/guides/access) for grants and execution limits.

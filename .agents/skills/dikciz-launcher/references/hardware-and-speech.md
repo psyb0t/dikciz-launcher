@@ -16,7 +16,7 @@ Read live tool schemas before calling. Each ordinary operation shares validation
 | Supported settings | `systemSetting` get/set and stored read-back; Modify system settings access for writes. |
 | Bluetooth | `bluetoothDevices`, `bluetoothScan`, `bluetoothPair`, `bluetoothExchange`, `bluetoothGatt`; confirm peer effects before retrying writes. |
 | USB | `usbDevices`, `usbRequestAccess`, `usbTransfer`; Android owner confirmation and peripheral protocol apply. |
-| NFC | `nfcStatus`, `nfcRead`, `nfcWrite`, `nfcTransceive`; foreground, unlocked phone and presented tag required. |
+| NFC | `nfcStatus`, `nfcRead`, `nfcWrite`, `nfcTransceive`; foreground, unlocked phone and presented tag required. A raw call sends one command and closes its connection. No EMV decoder or persistent session; absent NDEF does not mean unreadable hardware. |
 | Wi-Fi | `wifiScanResults` for cache and `wifiScan` for a requested scan; inspect freshness and platform throttling. No automatic connection. |
 | Audio | `audioDevices` and `audioPlayback`; local playback, explicit session controls, focus and preferred output. |
 | Carrier USSD | `ussdRequest`; owner-requested code only, select the voice SIM, treat timeout as unknown and never repeat automatically. |

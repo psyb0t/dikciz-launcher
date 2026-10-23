@@ -463,6 +463,10 @@ internal class DikcizHtmlWidgetLibrary(
         val BUNDLED_PACKAGE_IDS = listOf(
             "app-launcher",
             "home-dashboard",
+            "time-weather",
+            "agenda",
+            "voice-notes",
+            "device-status",
             "command-deck",
             "quick-apps",
             "quick-note",

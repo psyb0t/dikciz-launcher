@@ -13,6 +13,7 @@ import android.provider.ContactsContract
 import android.provider.MediaStore
 import android.provider.Telephony
 import java.nio.charset.StandardCharsets
+import java.util.Calendar
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -53,8 +54,23 @@ internal class DikcizContentData(private val context: Context) {
         val items = JSONArray()
         var hasMore = false
         var bytes = 0
-        context.contentResolver.query(resource.uri, columns.toTypedArray(), terms.takeIf { it.isNotEmpty() }?.joinToString(" AND "),
-            arguments.takeIf { it.isNotEmpty() }?.toTypedArray(), "_id ASC")?.use { cursor ->
+        val isCalendarInstances = request.getString(DikcizNativeCommands.KEY_RESOURCE) == RESOURCE_CALENDAR_INSTANCES
+        val rangeStart = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val rangeEnd = (rangeStart.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, AGENDA_DAYS) }
+        val queryUri = if (isCalendarInstances) {
+            resource.uri.buildUpon().also { builder ->
+                ContentUris.appendId(builder, rangeStart.timeInMillis)
+                ContentUris.appendId(builder, rangeEnd.timeInMillis)
+            }.build()
+        } else resource.uri
+        val sortOrder = if (isCalendarInstances) "begin ASC, end ASC, event_id ASC" else "_id ASC"
+        context.contentResolver.query(queryUri, columns.toTypedArray(), terms.takeIf { it.isNotEmpty() }?.joinToString(" AND "),
+            arguments.takeIf { it.isNotEmpty() }?.toTypedArray(), sortOrder)?.use { cursor ->
             cursor.moveToPosition(offset - 1)
             while (cursor.moveToNext()) {
                 if (items.length() == limit) { hasMore = true; break }
@@ -80,9 +96,13 @@ internal class DikcizContentData(private val context: Context) {
                 bytes += rowBytes
             }
         } ?: DikcizNativeCommands.failure(DikcizNativeCommands.ERROR_UNAVAILABLE, "Android provider returned no cursor")
-        return JSONObject().put(DikcizNativeCommands.KEY_RESOURCE, request.getString(DikcizNativeCommands.KEY_RESOURCE))
+        val result = JSONObject().put(DikcizNativeCommands.KEY_RESOURCE, request.getString(DikcizNativeCommands.KEY_RESOURCE))
             .put(DikcizNativeCommands.KEY_ITEMS, items).put(DikcizNativeCommands.KEY_LIMIT, limit)
             .put(DikcizNativeCommands.KEY_OFFSET, offset).put(DikcizNativeCommands.KEY_HAS_MORE, hasMore)
+        if (isCalendarInstances) {
+            result.put("rangeStartMilliseconds", rangeStart.timeInMillis).put("rangeEndMilliseconds", rangeEnd.timeInMillis)
+        }
+        return result
     }
 
     fun write(request: JSONObject, batch: Boolean): JSONObject {
@@ -151,6 +171,8 @@ internal class DikcizContentData(private val context: Context) {
             }
         }
 
+        private const val RESOURCE_CALENDAR_INSTANCES = "calendarInstances"
+        private const val AGENDA_DAYS = 7
         private const val DEFAULT_PROJECTION_COLUMNS = 12
         private const val DATA_COLUMN_COUNT = 10
         private const val MAXIMUM_FILTERS = 16
@@ -175,6 +197,9 @@ internal class DikcizContentData(private val context: Context) {
             "calendarEvents" to Resource(CalendarContract.Events.CONTENT_URI, setOf("_id", "calendar_id", "title", "dtstart", "dtend", "eventTimezone", "allDay", "description", "eventLocation", "rrule", "duration", "deleted"), Manifest.permission.READ_CALENDAR, REQUIREMENT_CALENDAR,
                 setOf("calendar_id", "title", "dtstart", "dtend", "eventTimezone", "allDay", "description", "eventLocation", "rrule", "duration"), Manifest.permission.WRITE_CALENDAR,
                 setOf("calendar_id", "title", "dtstart", "eventTimezone"), search = setOf("title", "description"), numeric = setOf("calendar_id", "dtstart", "dtend", "allDay")),
+            RESOURCE_CALENDAR_INSTANCES to Resource(CalendarContract.Instances.CONTENT_URI,
+                setOf("event_id", "title", "begin", "end", "allDay", "eventLocation", "calendar_id", "visible"),
+                Manifest.permission.READ_CALENDAR, REQUIREMENT_CALENDAR, search = setOf("title", "eventLocation")),
             "calendarReminders" to Resource(CalendarContract.Reminders.CONTENT_URI, setOf("_id", "event_id", "minutes", "method"), Manifest.permission.READ_CALENDAR, REQUIREMENT_CALENDAR,
                 setOf("event_id", "minutes", "method"), Manifest.permission.WRITE_CALENDAR, setOf("event_id", "minutes", "method"), references = mapOf("event_id" to "calendarEvents"), numeric = setOf("event_id", "minutes", "method")),
             "sms" to Resource(Telephony.Sms.CONTENT_URI, setOf("_id", "thread_id", "address", "body", "date", "date_sent", "type", "status", "read", "sub_id"), Manifest.permission.READ_SMS, "sms", search = setOf("address", "body")),

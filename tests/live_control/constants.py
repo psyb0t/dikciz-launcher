@@ -711,8 +711,8 @@ APP_DRAWER_TITLE = "Apps"
 AUTOMATION_SETTINGS_CLOSE_SEMANTIC_ID = "settings:automation:close"
 STARTER_NOTES_PAGE_ID = "notes"
 STARTER_HOME_PAGE_ID = "home"
-STARTER_HOME_WIDGET_ID = "home-dashboard"
-STARTER_HOME_WIDGET_TITLE = "Home dashboard"
+STARTER_HOME_WIDGET_ID = "time-weather"
+STARTER_HOME_WIDGET_TITLE = "Time and weather"
 FIXTURE_WIDGET_IDS = ("welcome", "focus", "fixture-detail")
 FIXTURE_WIDGET_TITLES = {
     "welcome": "Dikciz",

@@ -40,7 +40,7 @@ Release packages use `eu.psyb0t.dikciz.launcher`; debug packages use `eu.psyb0t.
 - Themes, fonts, wallpaper, widget appearance, editing locks and a chosen Android Home destination.
 - Semantic UI inspection, screenshots, logs, configuration editing and device actions through the remote APIs.
 
-The starter has three pages: **Home** with one full-page HTML document containing clock, installed-app search and saved-note sections; **Insights** with battery and connection status plus weather and air quality using phone location or a chosen city; **Sensors** with live hardware readings. The HTML library offers complete editable WebView templates, including system metrics and BTC/USD with economic news. Save customized documents to reuse them. Three useful Lua examples start disabled. See the [starter home guide](docs/starter-home.md).
+The starter has two pages with four independent HTML widgets: **Home** pairs time/weather with agenda; **Tools** pairs voice notes with device status. Each occupies half a page and can be edited, resized or removed separately. The HTML library offers complete editable WebView templates, including system metrics and BTC/USD with economic news. Save customized documents to reuse them. Three useful Lua examples start disabled. See the [starter home guide](docs/starter-home.md).
 
 ## Navigate and manage the home
 
@@ -88,7 +88,7 @@ Use [direct Android data commands](docs/native-device-control.md) for contact lo
 
 ## Android capabilities
 
-Direct commands cover sensors, location/geocoding, JPEG capture, microphone recording and [live PCM streaming](docs/microphone-streams.md), audio playback, speech synthesis/recognition, torch, vibration and selected settings. Bluetooth supports discovery, pairing requests, RFCOMM and GATT transactions; NFC supports tags and NDEF; USB supports owner access and transfers. Wi-Fi supports cached and requested scans with freshness metadata. File management, notification replies and durable jobs use the same command target. All ordinary bindings share the same executor and Android access. [Hardware controls](docs/hardware-controls.md), [speech recognition](docs/speech-recognition.md) and the [command reference](docs/command-reference.md) document fields and results. The [coverage table](docs/capability-coverage.md) states partial features and remaining work; Dikciz does not expose every Android SDK method.
+Direct commands cover sensors, location/geocoding, JPEG capture, microphone recording and [live PCM streaming](docs/microphone-streams.md), audio playback, speech synthesis/recognition, torch, vibration and selected settings. Bluetooth supports discovery, pairing requests, RFCOMM and GATT transactions; NFC supports tag discovery, NDEF and raw transactions; USB supports owner access and transfers. Wi-Fi supports cached and requested scans with freshness metadata. File management, notification replies and durable jobs use the same command target. All ordinary bindings share the same executor and Android access. [Hardware controls](docs/hardware-controls.md), [speech recognition](docs/speech-recognition.md) and the [command reference](docs/command-reference.md) document fields and results. The [Android access reference](docs/android-access.md) maps features to grants and execution limits. The [coverage table](docs/capability-coverage.md) states partial features and remaining work; Dikciz does not expose every Android SDK method.
 
 ## Logs and failure reporting
 
