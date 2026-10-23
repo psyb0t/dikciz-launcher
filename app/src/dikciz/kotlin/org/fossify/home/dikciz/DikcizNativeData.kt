@@ -27,15 +27,51 @@ internal class DikcizNativeData(
     private val context: Context,
     private val logger: DikcizLogger,
 ) {
+    private val bluetoothControl = DikcizBluetoothControl(context, logger)
+    private val gattControl = DikcizGattControl(context, logger, bluetoothControl::permittedAdapter)
+    private val nfcControl = DikcizNfcControl(context, logger)
+    private val locationServices = DikcizLocationServices(context)
+    private val usbControl = DikcizUsbControl(context, logger)
+    private val fileManagement = DikcizFileManagement()
+    private val notificationControl = DikcizNotificationControl(context)
     private val content = DikcizContentData(context)
     private val sensorReadings = DikcizSensorReadings(context)
     private val mediaCapture = DikcizMediaCapture(context)
+    private val cameraVideo = DikcizCameraVideo(context, logger)
+    private val speechOutput = DikcizSpeechOutput(context)
+    private val speechRecognition = DikcizSpeechRecognition(context)
+    private val hardwareControl = DikcizHardwareControl(context)
+    private val wifiControl = DikcizWifiControl(context, hardwareControl::wifi)
     private val systemMetrics = DikcizSystemMetrics(context)
+
+    init {
+        DikcizShellSessions.attachLogger(logger)
+        DikcizMicrophoneStreams.attachLogger(logger)
+    }
 
     fun execute(command: DikcizAutomationCommand): JSONObject {
         DikcizNativeCommands.validate(command.type, command.request, true)
         try {
             val result = when (command.type) {
+                in DikcizMicrophoneStreams.TYPES -> DikcizMicrophoneStreams.execute(context, logger, command.type, command.request)
+                in DikcizEventJournal.TYPES -> DikcizEventJournal.execute(context, logger, command.type, command.request)
+                in DikcizShellSessions.TYPES -> DikcizShellSessions.execute(logger, command.type, command.request)
+                in DikcizSpeechModels.TYPES -> DikcizSpeechModels.execute(context, logger, command.type, command.request)
+                DikcizWifiControl.TYPE -> wifiControl.scan(command.request)
+                DikcizMicrophoneSession.TYPE -> DikcizMicrophoneSession.execute(context, logger, command.request)
+                DikcizAudioPlayback.TYPE -> DikcizAudioPlayback.execute(context, logger, command.request)
+                DikcizGattControl.TYPE -> gattControl.execute(command.request)
+                DikcizBluetoothControl.TYPE_SCAN -> bluetoothControl.scan(command.request)
+                DikcizBluetoothControl.TYPE_PAIR -> bluetoothControl.pair(command.request)
+                DikcizBluetoothControl.TYPE_EXCHANGE -> bluetoothControl.exchange(command.request)
+                in DikcizNfcControl.TYPES -> nfcControl.execute(command.type, command.request)
+                DikcizLocationServices.TYPE_GEOCODE -> locationServices.geocode(command.request)
+                DikcizLocationServices.TYPE_GNSS -> locationServices.gnss(command.request)
+                DikcizUsbControl.TYPE_ACCESS -> usbControl.requestAccess(command.request)
+                DikcizUsbControl.TYPE_TRANSFER -> usbControl.transfer(command.request, command.autoRequestPermissions)
+                in DikcizCommandJobs.TYPES -> DikcizCommandJobs.execute(context.applicationContext, logger, command.type, command.request, command.autoRequestPermissions)
+                DikcizFileManagement.TYPE -> fileManagement.execute(command.request)
+                DikcizNotificationControl.TYPE -> notificationControl.execute(command.request)
                 DikcizNativeCommands.TYPE_STATUS -> content.status()
                 DikcizNativeCommands.TYPE_QUERY -> content.query(command.request)
                 DikcizNativeCommands.TYPE_WRITE -> content.write(command.request, false)
@@ -51,9 +87,26 @@ internal class DikcizNativeData(
                 }
                 DikcizNativeCommands.TYPE_SENSOR_READINGS -> sensorReadings.read(command.request)
                 DikcizNativeCommands.TYPE_CAMERAS -> mediaCapture.cameras()
+                DikcizUssdControl.TYPE -> DikcizUssdControl.execute(context, command.request)
+                DikcizCameraVideo.TYPE -> cameraVideo.record(command.request)
                 DikcizNativeCommands.TYPE_CAMERA_CAPTURE -> mediaCapture.photo(command.request)
                 DikcizNativeCommands.TYPE_MICROPHONE_RECORD -> mediaCapture.microphone(command.request)
-                DikcizNativeCommands.TYPE_SPEAK -> mediaCapture.speak(command.request)
+                DikcizHardwareControl.TYPE_TORCH -> hardwareControl.torch(command.request)
+                DikcizHardwareControl.TYPE_VIBRATION -> hardwareControl.vibration(command.request)
+                DikcizHardwareControl.TYPE_SETTINGS -> hardwareControl.settings(command.request)
+                DikcizHardwareControl.TYPE_BLUETOOTH -> hardwareControl.bluetooth(command.request)
+                DikcizHardwareControl.TYPE_USB -> hardwareControl.usb(command.request)
+                DikcizHardwareControl.TYPE_NFC -> hardwareControl.nfc()
+                DikcizHardwareControl.TYPE_WIFI -> hardwareControl.wifi(command.request)
+                DikcizHardwareControl.TYPE_AUDIO -> hardwareControl.audioDevices(command.request)
+                DikcizHardwareControl.TYPE_CAMERA -> hardwareControl.cameraCapabilities(command.request)
+                DikcizSpeechOutput.TYPE_VOICES -> speechOutput.voices(command.request)
+                DikcizSpeechOutput.TYPE_STOP -> speechOutput.stop()
+                DikcizNativeCommands.TYPE_SPEECH_STATUS -> speechRecognition.status()
+                DikcizNativeCommands.TYPE_SPEECH_RECOGNIZE -> speechRecognition.recognize(command.request)
+                DikcizNativeCommands.TYPE_SPEECH_STOP -> speechRecognition.stop()
+                DikcizNativeCommands.TYPE_SYNTHESIZE -> speechOutput.speak(command.request, true)
+                DikcizNativeCommands.TYPE_SPEAK -> speechOutput.speak(command.request)
                 DikcizNativeCommands.TYPE_CALL_AUDIO -> mediaCapture.callAudio(command.request)
                 DikcizNativeCommands.TYPE_LOCATION -> location(command.request)
                 DikcizNativeCommands.TYPE_NOTIFICATIONS -> notifications(command.request)
@@ -151,6 +204,7 @@ internal class DikcizNativeData(
                 .put("title", extras.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString()?.take(DikcizNativeCommands.MAXIMUM_TEXT) ?: JSONObject.NULL)
                 .put("text", extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString()?.take(DikcizNativeCommands.MAXIMUM_TEXT) ?: JSONObject.NULL)
                 .put("actionTokens", org.json.JSONArray(DikcizNotificationActionRegistry.tokens(notification)))
+                .put("actions", DikcizNotificationActionRegistry.details(notification))
         }
     }
 

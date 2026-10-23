@@ -17,6 +17,12 @@ These pytest scenarios exercise real Android UI and forwarded WebSocket, MCP and
 | `test_widget_instance_state.py` | Per-page/wrapper/card ownership, distinct copies, file watcher updates, source-driven cleanup, validation and legacy state migration. |
 | `test_html_card_presets.py` | Native intent URI validation through all transports. |
 | `test_shared_vm_starter.py` | First-use pages, disabled Lua defaults, saved notes and external weather success/failure in the real WebView. |
+| `test_ussd_control.py` | USSD validation, permission recovery and explicit missing-SIM/platform failures without claiming carrier acceptance. |
+| `test_camera_video.py` | Finalized MP4/AAC through ordinary bindings, permissions, deadlines, cancellation and shared camera/microphone ownership. |
+| `test_camera_controls.py` | Real configured JPEG capture, requested/actual metadata, device bounds and shared validation. |
+| `test_feedback_controls.py` | Torch callbacks and waveform/predefined haptics with real vibration-service state and cancellation. |
+| `test_event_replay.py` | Actual bus event replay, cursor/filter pagination, loss, retention, long polling, restart, revoked Android access and local bindings. |
+| `test_shell_sessions.py` | Incremental replay, binary output, process cancellation, capacity and HTML/Lua consumers. |
 | `test_native_data.py` | Native provider CRUD, pagination, rollback, validation, permission recovery, SIM/state access, SMS duplicate protection and Lua/HTML commands. |
 | `test_device_files.py` | Filesystem pagination, binary transfers, HTTP security, CLI results and actual Android APK install/cancel outcomes. |
 | `test_mcp_resources.py` | Resource discovery, every section read, bounded pagination, protocol errors, authentication/session gates, CLI reads and execution of the packaged event recipe. |

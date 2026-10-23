@@ -1,0 +1,17 @@
+# Microphone PCM streams
+
+Use microphoneStreamStart, microphoneStreamRead, microphoneStreamStop, microphoneStreamsList and microphoneStreamForget through HTTP, WebSocket, MCP, HTML or Lua. MCP names use dikciz_microphone_stream_start/read/stop/forget and dikciz_microphone_streams_list. Discover the exact schemas first.
+
+Starting requires Android microphone permission and an eligible foreground Dikciz process. Recording then runs under a dedicated microphone foreground service and can continue while another app is open. Android privacy controls, permission revocation or service loss can stop it. The notification has a Stop recording action. When notifications are blocked, Android may show foreground work only in its active-apps UI; inspect notificationPostingEnabled. This records the microphone, not cellular call audio.
+
+Defaults: sampleRateHz=16000, channels=1, chunkMilliseconds=100, maximumDurationMilliseconds=30000, startupTimeoutMilliseconds=30000, bufferBytes=2097152, maximumEvents=1024 and retentionMinutes=60. Optional inputDeviceId prefers an audioDevices input; routedInputDeviceId reports the actual route after samples arrive. Hardware can reject formats advertised by the input schema.
+
+Start returns streamId and metadata. Read with streamId, cursor=0, limit=200 and optional waitMilliseconds up to 30000. Each audio event contains sequence, audioBase64, firstFrame, frames and observedAtElapsedNanoseconds. Decode signed 16-bit little-endian interleaved PCM using the returned sampleRateHz and channels. The byte count is frames * channels * 2. audioTimestampNanoseconds/audioFramePosition may be null; their timebase is monotonic. Start and exit events share the sequence.
+
+Save nextCursor, drain hasMore, and inspect historyGap/lostEvents before treating audio as continuous. Replay stores whole events. A page holds at most 393216 encoded JSON bytes. Event/count/byte limits evict old history explicitly. Read metadata is sampled before its optional wait; poll again for updated lifecycle state. Long polling inside a Lua event handler delays that handler, so use waitMilliseconds=0 there.
+
+Stop requests cancellation. Poll reads or list until state is stopped, expired or failed and hardwareReleaseConfirmed=true. Read the exit event and any remaining pages. A stop acknowledgement alone does not prove release. Forget then removes retained audio. Cleanup failure keeps hardware ownership reserved and prevents forgetting until the process is restarted.
+
+Only one microphone owner runs across streaming, ordinary recording, managed recording, speech recognition and video with audio. At most eight stream records and 32 MiB of reserved replay buffers are retained per process. Each buffer accepts 65536 through 8388608 bytes; event count is 1 through 4096; retention is 1 through 1440 minutes. Startup accepts 1 through 120000 ms; duration accepts 100 through 2147483647 ms. Every encoded chunk must fit both its buffer and a complete response page.
+
+History is process-owned memory and survives client disconnects, not app death, updates or restarts. Terminal records expire on subsequent operations. List uses offset/limit pagination. Audio payloads are not written to application logs. Explicitly saving returned data or wrapping reads in durable jobs can persist it. A failed start can leave a retained record; inspect list and observe cleanup before forgetting it.

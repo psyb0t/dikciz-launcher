@@ -12,6 +12,6 @@ Connect to the phone's real Wi-Fi or private VPN hostname, never `0.0.0.0`. Tail
 
 Send `Authorization: Bearer <password>` when enabled. Native clients omit `Origin`; untrusted browser origins are rejected. The supplied client reads `DIKCIZ_REMOTE_BEARER_TOKEN` from the environment. Keep credentials out of command arguments, logs and shared files.
 
-MCP clients initialize with the advertised protocol version, preserve `MCP-Session-Id`, send `notifications/initialized`, and include the required per-request protocol metadata. The supplied client does this automatically. Reinitialize after a restart or APK replacement. Resource reads use the same authentication, Origin and session checks as tools.
+Modern MCP 2026-07-28 uses stateless server/discover and per-request protocol/capability metadata, MCP-Protocol-Version and matching Mcp-Method/Mcp-Name headers. Legacy clients initialize with 2025-11-25, 2025-06-18 or 2025-03-26, retain Mcp-Session-Id and send notifications/initialized; modern metadata is optional there. The supplied client manages its connection. Resources and tools share authentication and Origin checks.
 
 CLI: `python3 scripts/dikciz-control.py mcp-read dikciz://docs/index --host phone.example --port 19002 --pretty`.

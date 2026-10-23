@@ -364,6 +364,7 @@ internal object DikcizAutomationActionDocument {
     private fun validateStateValue(value: Any?, limits: DikcizLimits, depth: Int) {
         require(depth <= MAXIMUM_STATE_DEPTH) { MESSAGE_INVALID_STATE_PATCH }
         when (value) {
+            null, JSONObject.NULL -> Unit
             is Boolean -> Unit
             is Number -> require(value.toDouble().isFinite()) { MESSAGE_INVALID_STATE_PATCH }
             is String -> require(value.length <= limits.maxTextCharacters && NUL_CHARACTER !in value) {

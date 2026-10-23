@@ -27,3 +27,5 @@ Missing grants use `native_permission_<requirementId>` and the shared `permissio
 [Tracked SMS workflow](dikciz://docs/recipes/contact-sms).
 
 `deviceState.system` reports RAM, app-data filesystem capacity, uptime, logical processors and CPU samples. System CPU may be unavailable under Android restrictions; Dikciz CPU is a separate percentage of one core. Samples need two calls. Sensor records are a bounded hardware inventory, not live readings. Battery temperature is in tenths Celsius and voltage is in millivolts. All transports and HTML use the same executor.
+
+`notificationManage` / `dikciz_notification_manage` supports dismiss(notificationKey), snooze(notificationKey,durationMilliseconds 1000..604800000) and reply(actionToken,text). notificationsList.actions supplies title and supportsReply. Reply text is nonblank, at most 4096 chars. Tokens expire in 60 seconds, rotate with notifications and are single-use. Result submitted does not prove delivery. Verify dismiss/snooze by disappearance or events; ongoing notifications may resist dismissal. A plain action cannot accept a reply.

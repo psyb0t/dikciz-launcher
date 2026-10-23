@@ -135,6 +135,7 @@ internal enum class DikcizGridFailure(
 internal data class DikcizGridItem(
     val id: String,
     val cell: DikcizGridRectangle,
+    val resizeWithGrid: Boolean = true,
 )
 
 /** The first item that a candidate grid cannot hold, and why. */
@@ -175,6 +176,59 @@ internal data class DikcizGridPixelBounds(
  * move and resize candidates for one page.
  */
 internal object DikcizGridLayoutEngine {
+    fun reflow(
+        previous: DikcizNativeGrid,
+        grid: DikcizNativeGrid,
+        items: List<DikcizGridItem>,
+    ): List<DikcizGridItem> {
+        val placed = mutableListOf<DikcizGridItem>()
+        items.forEach { item ->
+            val cell = item.cell
+            val column = scaledStart(cell.column, previous.columns, grid.columns)
+            val row = scaledStart(cell.row, previous.rows, grid.rows)
+            val endColumn = if (item.resizeWithGrid && cell.columnSpan == previous.columns) {
+                grid.columns
+            } else {
+                scaledEnd(cell.endColumn, previous.columns, grid.columns)
+            }
+            val endRow = if (item.resizeWithGrid && cell.rowSpan == previous.rows) {
+                grid.rows
+            } else {
+                scaledEnd(cell.endRow, previous.rows, grid.rows)
+            }
+            val candidate = DikcizGridRectangle(
+                column = column,
+                row = row,
+                columnSpan = (endColumn - column).coerceAtLeast(DikcizGridRectangle.MINIMUM_SPAN),
+                rowSpan = (endRow - row).coerceAtLeast(DikcizGridRectangle.MINIMUM_SPAN),
+            )
+            val occupied = placed.map { it.cell }
+            val target = if (!collides(candidate, occupied)) {
+                candidate
+            } else {
+                findFirstFree(grid, occupied, candidate)
+            }
+            if (target != null) {
+                placed.add(item.copy(cell = target))
+            }
+        }
+        return placed
+    }
+
+    private fun scaledStart(index: Int, previousCount: Int, count: Int): Int {
+        if (count >= previousCount) {
+            return index
+        }
+        return (index * count / previousCount).coerceAtMost(count - DikcizGridRectangle.MINIMUM_SPAN)
+    }
+
+    private fun scaledEnd(index: Int, previousCount: Int, count: Int): Int {
+        if (count >= previousCount) {
+            return index
+        }
+        return index * count / previousCount
+    }
+
     /** Whether [rectangle] has legal spans and sits entirely inside [grid]. */
     fun isWithinBounds(grid: DikcizNativeGrid, rectangle: DikcizGridRectangle): Boolean {
         if (rectangle.columnSpan < DikcizGridRectangle.MINIMUM_SPAN) {

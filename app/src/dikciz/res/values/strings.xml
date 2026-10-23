@@ -56,13 +56,14 @@
     <string name="dikciz_app_group_remove_title">Remove %1$s?</string>
     <string name="dikciz_app_group_remove_message">It leaves %1$s. The app stays installed.</string>
     <string name="dikciz_settings_page_grid">Page grid</string>
-    <string name="dikciz_settings_page_grid_hint">Every page uses this grid. A change applies to all pages at once and is refused if a placed widget would no longer fit.</string>
+    <string name="dikciz_settings_page_grid_hint">Every page uses this grid. Widgets resize to fit. Items that cannot fit are removed from their pages; apps remain installed.</string>
     <string name="dikciz_settings_grid_columns">Columns</string>
     <string name="dikciz_settings_grid_rows">Rows</string>
     <string name="dikciz_settings_grid_gap">Gap (dp)</string>
     <string name="dikciz_settings_grid_outer_padding">Outer padding (dp)</string>
     <string name="dikciz_settings_save_page_grid">Save page grid</string>
     <string name="dikciz_settings_grid_value_invalid">%1$s must be a whole number between %2$d and %3$d.</string>
+    <string name="dikciz_settings_grid_saved_evicted">Grid saved. Removed %1$d overflow items.</string>
     <string name="dikciz_settings_grid_saved">Page grid saved.</string>
     <string name="dikciz_settings_grid_conflict">Widget %1$s on page %2$s does not fit a %3$d by %4$d grid. Move or resize it first.</string>
     <string name="dikciz_grid_page_full">Page is full. Resize, move, or remove a widget first.</string>
@@ -471,4 +472,7 @@
     <string name="dikciz_permission_allow">Allow access</string>
     <string name="dikciz_device_access_install_packages">Install unknown apps</string>
     <string name="dikciz_device_access_home_app">Default Home app</string>
+    <string name="dikciz_microphone_stream_channel">Microphone capture</string>
+    <string name="dikciz_microphone_stream_active">Microphone audio is streaming. Stop recording when finished.</string>
+    <string name="dikciz_microphone_stream_stop">Stop recording</string>
 </resources>

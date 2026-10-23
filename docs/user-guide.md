@@ -57,7 +57,7 @@ Open page search, type the name, then tap the matching row to return to it.
 
 ### Set the grid to fit your layout
 
-New and reset homes start with 8 columns and 6 rows. Open **Settings**, then change grid columns, rows, gap, or outer padding. Dikciz validates the whole change before saving. If a widget would collide or leave its page, it rejects the edit and names the affected page and widget. The old layout stays in place. The right and bottom pager rails provide their own outer spacing, so grid padding is not added twice beside them. Widget appearance margins still apply.
+New and reset homes start with 8 columns and 6 rows. Open **Settings**, then change grid columns, rows, gap, or outer padding. Dikciz shrinks widget rectangles to fit and relocates collisions into free cells. Full-width HTML follows the column count. Items that cannot fit are removed from their pages in saved order, and Settings reports the number removed. Removing a shortcut leaves its app installed. Removing a widget also removes its scoped state. The right and bottom pager rails provide their own outer spacing, so grid padding is not added twice beside them. Widget appearance margins still apply.
 
 ![Grid settings](images/user-guide/28-grid-settings.png)
 

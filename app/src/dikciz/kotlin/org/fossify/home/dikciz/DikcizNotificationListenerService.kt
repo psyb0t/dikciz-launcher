@@ -105,6 +105,19 @@ internal class DikcizNotificationListenerService : NotificationListenerService()
 
         fun currentNotifications(): Array<StatusBarNotification>? = connected?.activeNotifications
 
+        fun control(key: String, snoozeMilliseconds: Long?): JSONObject {
+            val listener = connected ?: DikcizNativeCommands.failure("notification_listener_unavailable", "Android notification listener is not connected")
+            val notification = listener.activeNotifications.firstOrNull { it.key == key }
+                ?: DikcizNativeCommands.failure(DikcizNativeCommands.ERROR_NOT_FOUND, "Notification is no longer active")
+            if (snoozeMilliseconds == null) {
+                listener.cancelNotification(key)
+            } else {
+                listener.snoozeNotification(key, snoozeMilliseconds)
+            }
+            return JSONObject().put("state", "submitted").put("notificationKey", notification.key)
+                .put("action", if (snoozeMilliseconds == null) "dismiss" else "snooze")
+        }
+
         const val COALESCING_NOTIFICATION_PREFIX = "notification:"
         const val PAYLOAD_CATEGORY = "category"
         const val PAYLOAD_NOTIFICATION_ACTION_TOKENS = "actionTokens"

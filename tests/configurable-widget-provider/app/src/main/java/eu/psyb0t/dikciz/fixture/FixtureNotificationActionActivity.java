@@ -5,6 +5,8 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.RemoteInput;
+import android.os.Build;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -61,6 +63,16 @@ public final class FixtureNotificationActionActivity extends Activity {
                 actionIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
+        PendingIntent replyIntent = PendingIntent.getBroadcast(
+                this,
+                PENDING_INTENT_REQUEST_CODE + 1,
+                new Intent(this, FixtureNotificationActionReceiver.class)
+                        .setAction("eu.psyb0t.dikciz.fixture.NOTIFICATION_REPLY"),
+                PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0)
+        );
+        Notification.Action reply = new Notification.Action.Builder(
+                android.R.drawable.ic_input_add, "Reply", replyIntent
+        ).addRemoteInput(new RemoteInput.Builder("replyText").setLabel("Reply").build()).build();
         notificationManager.notify(
                 notificationId,
                 new Notification.Builder(this, CHANNEL_ID)
@@ -68,6 +80,7 @@ public final class FixtureNotificationActionActivity extends Activity {
                         .setContentTitle(CHANNEL_NAME)
                         .setContentText(CHANNEL_NAME)
                         .addAction(android.R.drawable.ic_input_add, ACTION_INVOKE, pendingIntent)
+                        .addAction(reply)
                         .build()
         );
     }

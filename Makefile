@@ -85,7 +85,7 @@ DIKCIZ_APP_GROUPS_SELECTOR := test_app_groups
 DIKCIZ_GRID_PLACEMENT_SELECTOR := test_add_widget_takes_the_first_fitting_free_cells
 DIKCIZ_GRID_PAGE_FULL_SELECTOR := test_a_full_page_refuses_insertion_and_writes_nothing
 DIKCIZ_GRID_SETTINGS_SELECTOR := test_page_grid_change_persists_and_is_reported
-DIKCIZ_GRID_CONFLICT_SELECTOR := test_page_grid_change_that_orphans_a_widget_is_rejected_whole
+DIKCIZ_GRID_CONFLICT_SELECTOR := test_page_grid_change_evicts_overflow_items
 DIKCIZ_GRID_ROTATION_SELECTOR := test_rotation_round_trip_keeps_selected_page_cells_unchanged
 DIKCIZ_WIDGET_MOVE_SELECTOR := test_widget_action_sheet_exposes_a_visible_move_action
 DIKCIZ_DIALOG_REACHABILITY_SELECTOR := test_settings_and_automation_expose_their_last_control_to_a_real_touch
@@ -282,7 +282,7 @@ version: ## Print the launcher repository version
 release-apk: ensure-dev-image ## Build the signed Dikciz release APK into dist/ (needs SIGNING_KEY_ALIAS, SIGNING_KEY_PASSWORD, SIGNING_STORE_PASSWORD)
 	@[[ "$(DIKCIZ_RELEASE_KEYSTORE)" != /* && "$(DIKCIZ_RELEASE_KEYSTORE)" != *..* ]] || { printf '%s\n' "DIKCIZ_RELEASE_KEYSTORE must be a workspace-relative path" >&2; exit 1; }
 	@$(subst -w /work,-e SIGNING_KEY_ALIAS -e SIGNING_KEY_PASSWORD -e SIGNING_STORE_PASSWORD -e SIGNING_STORE_FILE=/work/$(DIKCIZ_RELEASE_KEYSTORE) -e DIKCIZ_RELEASE_CERT_SHA256=$(DIKCIZ_RELEASE_CERT_SHA256) -w /work,$(DEV_RUN)) bash scripts/dikciz-release-apk.sh "$(DIKCIZ_RELEASE_APK)"
-test-tooling: audit-compose ## Check embedded lab contracts and reversible upstream refresh
+test-tooling: audit-compose dikciz-command-docs-test ## Check lab contracts, command docs and reversible upstream refresh
 	@$(DEV_RUN) bash scripts/test-upstream-refresh.sh
 check-images: emulator-ready ## Check both local lab images, installing the pinned release once the SDK license is accepted
 build: GRADLE_TASK := :app:assembleDikcizDebug
@@ -325,6 +325,14 @@ app-lint: gradle ## Run Android lint for the default Fossify-compatible debug va
 lint: ensure-dev-image ## Check scripts and run Android lint for minified Dikciz
 	@$(DEV_RUN) bash scripts/lint.sh
 	@$(MAKE) --no-print-directory gradle GRADLE_TASK=:app:lintDikcizMinified
+
+.PHONY: dikciz-command-docs dikciz-command-docs-test
+
+dikciz-command-docs: ensure-dev-image ## Generate command input docs from .testing/mcp-command-discovery.json
+	@$(DEV_RUN) python3 scripts/generate-dikciz-command-reference.py
+
+dikciz-command-docs-test: ensure-dev-image ## Test command-reference generation with complete input schemas
+	@$(DEV_RUN) python3 -m pytest -q tests/command_reference
 
 format: ensure-dev-image ## Format the lab shell and Python sources
 	@$(DEV_RUN) bash scripts/format.sh
@@ -714,7 +722,7 @@ dikciz-test-grid-settings: ensure-dev-image ## Build Dikciz and prove the page g
 	@DIKCIZ_TEST_SELECTOR="$(DIKCIZ_GRID_SETTINGS_SELECTOR)" \
 		$(MAKE) --no-print-directory dikciz-test-existing-apk
 
-dikciz-test-grid-conflict: ensure-dev-image ## Build Dikciz and prove a grid change that orphans a widget is rejected whole
+dikciz-test-grid-conflict: ensure-dev-image ## Build Dikciz and prove smaller grids reflow widgets and evict overflow items
 	@$(MAKE) --no-print-directory gradle ANDROID_PROJECT=. GRADLE_TASK=:app:assembleDikcizDebug
 	@DIKCIZ_TEST_SELECTOR="$(DIKCIZ_GRID_CONFLICT_SELECTOR)" \
 		$(MAKE) --no-print-directory dikciz-test-existing-apk

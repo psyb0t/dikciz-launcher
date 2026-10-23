@@ -16,7 +16,7 @@ If an item has requirementId, request that access with `dikciz_request_device_ac
 
 ## Capture
 
-`dikciz_camera_list` lists cameraId and facing without capture. `dikciz_camera_capture` accepts optional cameraId, maxDimension (default 1280, range 320 through 4096) and timeoutMilliseconds (default 30000, range 1 through 120000). No supported JPEG size within the requested dimension returns an error.
+`dikciz_camera_list` lists cameraId and facing without capture. `dikciz_camera_capture` accepts optional cameraId, maxDimension (default 1280, range 320 through 4096) and timeoutMilliseconds (default 30000, range 1 through 120000). Quality defaults to 95 (1..100); optional jpegOrientation is 0/90/180/270. cameraCapabilities supplies zoom/exposure/focus limits for zoomPercent (100=1x), exposureCompensation steps and autofocusMode. Unsupported controls fail before opening hardware. Success waits for JPEG bytes and Android completion; requestedControls and captureMetadata distinguish submitted values from actual frame results, with null for missing metadata. No focus convergence is claimed.
 
 `dikciz_microphone_record` accepts durationMilliseconds (default 3000, range 1000 through 120000). It records microphone AAC audio in an M4A file. Camera and microphone require the appropriate Android permission and foreground eligibility. Open Dikciz before capture. Set autoRequestPermissions to true to request missing access, then explicitly retry. Busy, timeout and Android restrictions are errors.
 

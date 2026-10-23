@@ -1,11 +1,33 @@
 ---
 name: "dikciz-launcher"
-description: "Install a Dikciz Launcher APK with ADB and use its home screen, configuration, HTML widgets, Lua automation, WebSocket and HTTP controls, file transfers, APK installation, and MCP tools on the user's selected Android device."
+description: "Install and operate Dikciz Launcher on an owner-selected Android device. Use when controlling its home, HTML widgets, Lua, Android data, sensors, camera, audio, speech, Bluetooth, NFC, USB, Wi-Fi, files, APKs, shell sessions or command jobs through MCP, HTTP or WebSocket. Source builds use the Android Lab skill."
+homepage: "https://github.com/psyb0t/dikciz-launcher"
+user-invocable: true
+metadata:
+  openclaw:
+    requires:
+      bins: [python3]
+permissions:
+  network: "Connect only to the owner-selected Dikciz phone endpoint. Requested SMS, USSD, weather, speech and model-download operations can send data to their documented recipients or providers."
+  shell: "Run the documented controller or explicitly requested ADB installation. Device shell commands require explicit task scope and remain subject to Android access."
+  filesystem: "Read supplied APKs and task inputs; save requested screenshots, transfers and results in the task workspace. Keep bearer credentials in the secret environment."
 ---
 
 # Dikciz launcher
 
 Use this skill to install and operate Dikciz, not to develop its Android source or manage Android Lab.
+
+## Security & safety
+
+Operate only the selected owner-controlled device and requested resources. Reset, uninstall, SMS, file changes, privileged commands and permission changes require the owner's requested scope. A connection request alone does not authorize them. Use the configured secret environment for bearer credentials; never include them in prompts, command arguments or tracked files. Native commands use Android permissions; root shell is separate and defaults to root unless `root: false` is supplied.
+
+## When to use
+
+Install an existing APK or operate the launcher, files, apps, Android data, sensors, speech and hardware through its discovered APIs. Use direct native commands before UI tapping when they cover the task. The phone runs the MCP server; the client supplies its reachable `/mcp` URL and optional bearer credential.
+
+## When NOT to use
+
+Source edits and builds use the separate Dikciz Android Lab skill. This skill does not grant Android permissions, bypass the lock screen, make private endpoints public or imply unrestricted system access.
 
 ## Install or connect
 
@@ -35,6 +57,10 @@ For arbitrary file browsing, binary upload/download, APK installation and shell 
 Start with `snapshot`, `homeGet`, `configGet`, or the matching discovered MCP read tool. Use returned semantic IDs and page/widget addresses for actions. Read a fresh snapshot after an action to verify the change. Android accessibility actions require the phone owner to enable Dikciz's Accessibility service; ordinary launcher controls do not require it.
 
 The bundled home has a full-page Home HTML dashboard, an Insights page and a live Sensors page. Long press HTML content or its top handle for whole-document controls. Edit exposes HTML, CSS, JavaScript and state. Complete WebView templates are available in the HTML widget library, including system metrics and BTC/USD with economic news. Three Lua utilities start disabled; a script dashboard can be added through the picker. The native picker can add third-party provider widgets. Lua runs as automation scripts, not as a widget type. Android permissions, special access and root remain device-controlled.
+
+## Complete capability reference
+
+Read [operations](references/operations.md) for files, notification management and durable jobs, [capabilities](references/capabilities.md) for the inventory, [hardware and speech](references/hardware-and-speech.md) for native operation choices, and [setup](references/setup.md) for connection and package identity. The public [documentation index](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/index.md), [command reference](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/command-reference.md) and [coverage table](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/capability-coverage.md) cover accepted fields and implemented/remaining features. The installed server can serve short resources one section at a time. New commands require a build that advertises them; do not infer availability from the latest documentation alone.
 
 ## Boundaries and completion
 

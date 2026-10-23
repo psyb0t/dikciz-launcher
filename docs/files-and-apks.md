@@ -128,3 +128,17 @@ Each request needs a UUID `requestId`. Responses preserve it and return either `
 Most commands return JSON; `shellStream` returns SSE. It uses the same bearer and browser-Origin rules as the other controls. Browser origins outside device loopback are refused; native clients can omit `Origin`. The endpoint has no built-in TLS, so use the private-network setup described in the connection guide.
 
 Common file errors are `file_access_denied`, `file_not_found`, `not_a_file`, `not_a_directory`, `file_exists`, `file_offset_mismatch`, `invalid_base64`, `file_chunk_too_large`, `file_io_failed` and `validation_failed`. A failed command does not claim a completed write or installation. File contents, APK bytes, bearer credentials and shell output are excluded from operation logs.
+
+## File management
+
+`fileManage` (`dikciz_file_manage`) accepts action and absolute path. `stat` returns metadata. `copy` copies one regular file to destination; `move` renames a file or directory to destination. Neither overwrites existing destinations. Moves across filesystems can fail explicitly.
+
+`delete` removes one file or empty directory. Set recursive=true for a nonempty directory. It preflights the tree, refuses symbolic links and checks maximumEntries (default 10000, range 1..100000) before deleting. An external process can still change files during execution; recursive deletion is not a filesystem transaction.
+
+`search` requires query, a literal case-insensitive name substring. It does not follow symbolic links. Use offset/limit to page matches, maximum 200 per page. maximumEntries bounds scanned entries; increase it or narrow the directory after file_tree_limit. Directory changes can affect enumeration between calls. The empty query matches every name.
+
+Credential record remote-auth.json and its atomic backup/staging aliases are denied through file commands, including canonical path aliases. Move/delete refuse any ancestor containing those credentials. Android still enforces filesystem access. This file-command restriction does not make an authorized privileged shell a sandbox.
+
+## Incremental shell sessions
+
+Use shellSessionStart/Read/Stop/Forget and shellSessionsList when output must be readable through any ordinary binding, including HTML and Lua, or after transport reconnects. Follow cursors, inspect explicit history gaps and wait for a terminal state. See [shell sessions](shell-sessions.md) for parameters and lifecycle. Existing WebSocket/MCP push streams remain connection-owned.

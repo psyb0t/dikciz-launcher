@@ -11,14 +11,14 @@ import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
+import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureFailure
+import android.hardware.camera2.TotalCaptureResult
 import android.media.ImageReader
 import android.media.MediaRecorder
 import android.os.Handler
 import android.os.HandlerThread
-import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
 import java.io.File
-import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -28,9 +28,6 @@ import org.json.JSONObject
 
 internal class DikcizMediaCapture(context: Context) {
     private val context: Context = context
-    private val cameraOwner = AtomicReference<Any?>()
-    private val microphoneBusy = AtomicBoolean()
-    private val speechBusy = AtomicBoolean()
 
     fun cameras(): JSONObject {
         val manager = cameraManager()
@@ -55,6 +52,8 @@ internal class DikcizMediaCapture(context: Context) {
         if (id !in manager.cameraIdList) {
             DikcizNativeCommands.failure(DikcizNativeCommands.ERROR_NOT_FOUND, "Camera not found")
         }
+        val characteristics = manager.getCameraCharacteristics(id)
+        val controls = DikcizCameraControls(request, characteristics)
         val owner = Any()
         if (!cameraOwner.compareAndSet(null, owner)) busy()
         val output = AtomicReference<File?>()
@@ -63,14 +62,18 @@ internal class DikcizMediaCapture(context: Context) {
         val failure = AtomicReference<String?>()
         val active = AtomicBoolean(true)
         val openSettled = AtomicBoolean(false)
-        val completed = CountDownLatch(1)
+        val metadata = AtomicReference<JSONObject?>()
+        val completed = CountDownLatch(2)
+        fun fail(code: String) {
+            failure.compareAndSet(null, code)
+            while (completed.count > 0L) completed.countDown()
+        }
         val thread = HandlerThread("dikciz-camera-capture").apply { start() }
         val handler = Handler(thread.looper)
         var reader: ImageReader? = null
         var opening = false
         try {
-            val sizes = manager.getCameraCharacteristics(id)
-                .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)?.getOutputSizes(ImageFormat.JPEG).orEmpty()
+            val sizes = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)?.getOutputSizes(ImageFormat.JPEG).orEmpty()
             val maximum = request.optInt("maxDimension", DEFAULT_DIMENSION)
             val size = sizes.filter { maxOf(it.width, it.height) <= maximum }.maxByOrNull { it.width.toLong() * it.height }
                 ?: DikcizNativeCommands.failure("camera_size_unavailable", "No supported JPEG size fits maxDimension")
@@ -80,18 +83,20 @@ internal class DikcizMediaCapture(context: Context) {
             reader = images
             images.setOnImageAvailableListener({ source ->
                 try {
-                    source.acquireNextImage()?.use { image ->
-                        if (active.get()) {
-                            val buffer = image.planes[0].buffer
-                            val bytes = ByteArray(buffer.remaining())
-                            buffer.get(bytes)
-                            target.outputStream().use { it.write(bytes) }
+                    val image = source.acquireNextImage()
+                    if (image != null) {
+                        image.use {
+                            if (active.get()) {
+                                val buffer = it.planes[0].buffer
+                                val bytes = ByteArray(buffer.remaining())
+                                buffer.get(bytes)
+                                target.outputStream().use { stream -> stream.write(bytes) }
+                            }
                         }
+                        completed.countDown()
                     }
                 } catch (exception: Exception) {
-                    failure.set("camera_image_failed")
-                } finally {
-                    completed.countDown()
+                    fail("camera_image_failed")
                 }
             }, handler)
             manager.openCamera(id, object : CameraDevice.StateCallback() {
@@ -112,35 +117,56 @@ internal class DikcizMediaCapture(context: Context) {
                                 try {
                                     val capture = device.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
                                     capture.addTarget(images.surface)
-                                    configured.capture(capture.build(), null, handler)
+                                    controls.apply(capture)
+                                    configured.capture(capture.build(), object : CameraCaptureSession.CaptureCallback() {
+                                        override fun onCaptureCompleted(
+                                            captureSession: CameraCaptureSession,
+                                            captureRequest: CaptureRequest,
+                                            result: TotalCaptureResult,
+                                        ) {
+                                            if (!active.get()) return
+                                            metadata.set(DikcizCameraControls.observed(result))
+                                            completed.countDown()
+                                        }
+
+                                        override fun onCaptureFailed(
+                                            captureSession: CameraCaptureSession,
+                                            captureRequest: CaptureRequest,
+                                            captureFailure: CaptureFailure,
+                                        ) {
+                                            fail("camera_capture_failed")
+                                        }
+
+                                        override fun onCaptureSequenceAborted(
+                                            captureSession: CameraCaptureSession,
+                                            sequenceId: Int,
+                                        ) {
+                                            fail("camera_capture_aborted")
+                                        }
+                                    }, handler)
                                 } catch (exception: Exception) {
-                                    failure.set("camera_capture_failed")
-                                    completed.countDown()
+                                    fail("camera_capture_failed")
                                 }
                             }
                             override fun onConfigureFailed(configured: CameraCaptureSession) {
                                 configured.close()
-                                failure.set("camera_configuration_failed")
-                                completed.countDown()
+                                fail("camera_configuration_failed")
                             }
                         }, handler)
                     } catch (exception: Exception) {
-                        failure.set("camera_session_failed")
-                        completed.countDown()
+                        fail("camera_session_failed")
                     }
                 }
                 override fun onDisconnected(device: CameraDevice) {
                     openSettled.set(true)
                     device.close()
-                    failure.set("camera_disconnected")
-                    completed.countDown()
+                    fail("camera_disconnected")
                     if (!active.get()) { cameraOwner.compareAndSet(owner, null); thread.quitSafely() }
                 }
                 override fun onError(device: CameraDevice, error: Int) {
                     openSettled.set(true)
                     device.close()
-                    failure.set("camera_android_error_$error")
-                    completed.countDown()
+                    fail("camera_android_error_$error")
                     if (!active.get()) { cameraOwner.compareAndSet(owner, null); thread.quitSafely() }
                 }
             }, handler)
@@ -151,6 +177,9 @@ internal class DikcizMediaCapture(context: Context) {
             failure.get()?.let { DikcizNativeCommands.failure(it, "Camera did not complete capture") }
             if (target.length() == 0L) DikcizNativeCommands.failure("camera_empty_image", "Camera returned no image")
             return mediaResult(target, "image/jpeg").put("cameraId", id).put("width", size.width).put("height", size.height)
+                .put("requestedControls", controls.requested())
+                .put("captureMetadata", metadata.get()
+                    ?: DikcizNativeCommands.failure("camera_metadata_missing", "Camera returned no completed capture metadata"))
                 .also { output.set(null) }
         } finally {
             active.set(false)
@@ -176,7 +205,7 @@ internal class DikcizMediaCapture(context: Context) {
     fun microphone(request: JSONObject): JSONObject {
         DikcizNativeCommands.requirePermission(context, Manifest.permission.RECORD_AUDIO, "cameraAndMicrophone")
         requireForeground()
-        if (!microphoneBusy.compareAndSet(false, true)) busy()
+        acquireMicrophone()
         var recorder: MediaRecorder? = null
         var target: File? = null
         var success = false
@@ -211,44 +240,8 @@ internal class DikcizMediaCapture(context: Context) {
                 recorder?.release()
                 if (!success) target?.let { if (it.exists() && !it.delete()) throw java.io.IOException("Could not remove incomplete recording") }
             } finally {
-                microphoneBusy.set(false)
+                releaseMicrophone()
             }
-        }
-    }
-
-    fun speak(request: JSONObject): JSONObject {
-        val text = request.getString(DikcizNativeCommands.KEY_TEXT)
-        if (text.isBlank()) DikcizNativeCommands.invalid("Speech text cannot be blank")
-        if (!speechBusy.compareAndSet(false, true)) busy()
-        val initialized = CountDownLatch(1)
-        val complete = CountDownLatch(1)
-        val status = AtomicReference<Int>()
-        val result = AtomicReference("pending")
-        var engine: TextToSpeech? = null
-        try {
-            val speech = TextToSpeech(context.applicationContext) { code -> status.set(code); initialized.countDown() }
-            engine = speech
-            if (!initialized.await(INIT_TIMEOUT, TimeUnit.MILLISECONDS) || status.get() != TextToSpeech.SUCCESS) {
-                DikcizNativeCommands.failure("speech_unavailable", "Text-to-speech engine is unavailable")
-            }
-            speech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                override fun onStart(id: String) = Unit
-                override fun onDone(id: String) { result.set("spoken"); complete.countDown() }
-                @Deprecated("Required by Android")
-                override fun onError(id: String) { result.set("speech_failed"); complete.countDown() }
-            })
-            if (speech.speak(text, TextToSpeech.QUEUE_FLUSH, null, UUID.randomUUID().toString()) != TextToSpeech.SUCCESS) {
-                DikcizNativeCommands.failure("speech_failed", "Android rejected speech")
-            }
-            if (!complete.await(request.optLong("timeoutMilliseconds", DEFAULT_TIMEOUT), TimeUnit.MILLISECONDS)) {
-                DikcizNativeCommands.failure("speech_timeout", "Speech did not finish before the timeout")
-            }
-            if (result.get() != "spoken") DikcizNativeCommands.failure("speech_failed", "Speech synthesis failed")
-            return JSONObject().put("state", "spoken").put("route", "device_output").put("injectedIntoCall", false)
-        } finally {
-            engine?.stop()
-            engine?.shutdown()
-            speechBusy.set(false)
         }
     }
 
@@ -283,10 +276,21 @@ internal class DikcizMediaCapture(context: Context) {
     private fun busy(): Nothing = DikcizNativeCommands.failure("hardware_busy", "A request already owns this hardware resource")
 
     companion object {
+        internal val cameraOwner = AtomicReference<Any?>()
+        private val microphoneBusy = AtomicBoolean()
+        fun acquireMicrophone() {
+            if (!microphoneBusy.compareAndSet(false, true)) {
+                DikcizNativeCommands.failure("hardware_busy", "A request already owns the microphone")
+            }
+        }
+
+        fun releaseMicrophone() {
+            microphoneBusy.set(false)
+        }
+
         private const val DEFAULT_DIMENSION = 1280
         private const val DEFAULT_TIMEOUT = 30_000L
         private const val DEFAULT_DURATION = 3000L
-        private const val INIT_TIMEOUT = 10_000L
         private const val CLEANUP_TIMEOUT = 2000L
         private const val AUDIO_CHECK_INTERVAL = 100L
         private const val AUDIO_SAMPLE_RATE = 44_100

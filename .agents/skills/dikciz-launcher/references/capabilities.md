@@ -5,7 +5,7 @@ Use this catalog to choose the right feature. Use the running build's `controlSt
 ## Launcher and appearance
 
 - Use a two-axis grid of native pages. Create, rename, reorder, select, remove, search and lock pages; select the Android Home destination. Each page has a fixed viewport and cell grid.
-- Configure rows, columns, gaps and padding. Add, move and resize items within the grid. Invalid placement or a full page returns a refusal instead of overlap or off-screen placement.
+- Configure rows, columns, gaps and padding. Grid dimension changes shrink and reposition widgets, evict overflow items in saved order and report evicted identities. Removing a shortcut leaves its app installed. Explicit add, move and resize operations still refuse invalid placement.
 - Search installed launchable apps by label or package. Launch them, add shortcuts, open Android app info, request uninstall, or force stop with device-granted root.
 - Create native app groups by dropping one shortcut onto another; manage group members.
 - Host real third-party Android AppWidgets, including their Android configuration flow.
@@ -19,7 +19,7 @@ Read the [user guide](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/u
 
 The public root is `/sdcard/Dikciz/`. `config.json` references separate page and widget documents. Scripts have metadata, Lua source, state and run-status files. Automation policies and subscriptions, complete widget-library templates, themes, fonts, wallpapers, control-port and remote-auth configuration, and logs have their own paths.
 
-Valid home and rendering-asset edits are watched and applied without restarting the app. Direct control-port edits apply when the listeners restart. Configuration replacement validates and saves atomically. Preserve unrelated root namespaces and avoid whole-document replacement for a narrow change. Read the [configuration guide](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/dikciz-configuration.md) before editing files or assembling a replacement.
+Valid home and rendering-asset edits are watched and applied without restarting the app. Valid listen-address and control-port edits automatically restart the affected listeners. Configuration replacement validates and saves atomically. Preserve unrelated root namespaces and avoid whole-document replacement for a narrow change. Read the [configuration guide](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/dikciz-configuration.md) before editing files or assembling a replacement.
 
 Safe mode opens the bundled first page without overwriting saved configuration. Diagnostics, snapshots, logs, screenshots, UI dumps and recovery remain available, while normal home edits and device mutations are blocked. Reset restores bundled home and automation files, so obtain approval before using it.
 
@@ -109,15 +109,23 @@ WebSocket, Streamable HTTP MCP and plain HTTP expose the same launcher command t
 - Subscribe to the persistent WebSocket event schema advertised by `controlStatus`, including command completion, UI rendering, HTML-widget events and automation events.
 - Deliberately crash one HTML renderer to test recovery through `htmlWidgetRendererCrash`. This is a diagnostic, not a normal widget operation.
 
-For exact commands and MCP tools, read [automation control](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/automation-control.md) and query the live contract. Do not manufacture a remote command by copying a Lua action name. Match WebSocket replies by request ID while handling interleaved events. For MCP, honor initialization and session headers.
+For exact commands and MCP tools, read [automation control](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/automation-control.md) and query the live contract. Do not manufacture a remote command by copying a Lua action name. Match WebSocket replies by request ID while handling interleaved events. For MCP, use modern stateless discovery or the negotiated legacy initialization/session flow advertised by the server.
 
 ## Direct Android data
 
-Use `nativeDataStatus` or `dikciz_native_data_status` before navigating Contacts, Messages or Settings. Direct commands query contact, SMS, calendar, call-log and media providers, write contact/calendar rows atomically, list SIMs and inspect calls, clipboard, location, notifications, media sessions and device state. `smsSend` requires an idempotency key; `smsStatus` distinguishes submission, sent callbacks and carrier delivery. Read [native device control](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/native-device-control.md) or the MCP native-data and contact-SMS resources. Prefer these commands when they cover the task.
+Use `nativeDataStatus` or `dikciz_native_data_status` before navigating Contacts, Messages or Settings. Direct commands query contact, SMS, calendar, call-log and media providers, write contact/calendar rows atomically, list SIMs and inspect calls, clipboard, location, notifications, media sessions and device state. `smsSend` requires an idempotency key; `smsStatus` distinguishes submission, sent callbacks and carrier delivery. Read [native device control](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/native-device-control.md) or the MCP native-data and contact-SMS resources. Prefer these commands when they cover the task. Use `ussdRequest` only for an owner-requested carrier code; read the [USSD guide](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/ussd-control.md) before sending and treat timeout as unknown.
 
 ## Hardware capture and live samples
 
-Use `sensorReadings` for paginated live hardware samples and per-sensor unavailable reasons. `cameraList` discovers camera IDs; `cameraCapture` saves a JPEG. `microphoneRecord` saves AAC audio in M4A. `speechSpeak` speaks through device output. These use the same command executor through every ordinary network, HTML and Lua binding. Camera and microphone need Android foreground eligibility and grants. Read capture paths through file APIs. `locationGet` can wait for a bounded fresh fix when cache is unavailable. `callAudio` reports unsupported cellular capture and injection on ordinary Android installations. Read [hardware commands](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/native-device-control.md#sensors-camera-microphone-and-speech) or `dikciz://docs/guides/hardware` for fields and limits.
+Use `sensorReadings` for paginated live hardware samples and per-sensor unavailable reasons. `cameraList` discovers camera IDs; `cameraCapabilities` reports supported controls, sizes and FPS ranges. `cameraCapture` saves a configured JPEG with actual frame metadata; `cameraVideoRecord` saves bounded foreground MP4 with optional microphone AAC. `microphoneRecord` saves AAC audio in M4A. `speechSpeak` speaks through device output. These use the same command executor through every ordinary network, HTML and Lua binding. Camera and microphone need Android foreground eligibility and grants. Read capture paths through file APIs. `locationGet` can wait for a bounded fresh fix when cache is unavailable. `callAudio` reports unsupported cellular capture and injection on ordinary Android installations. Read [hardware commands](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/native-device-control.md#sensors-camera-microphone-and-speech) or `dikciz://docs/guides/hardware` for fields and limits.
+
+## Additional hardware and speech
+
+Speech recognition, torch, vibration, supported system settings and Bluetooth/USB/NFC/Wi-Fi/audio inventories are described in [hardware and speech](hardware-and-speech.md). Use discovery to distinguish APIs implemented by this build from planned capabilities. The [complete command reference](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/command-reference.md) covers every advertised tool schema; the [coverage table](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/capability-coverage.md) lists partial features and platform boundaries.
+
+## Managed operations
+
+Read [operations](operations.md) for file lifecycle/search, notification dismissal/snooze/inline reply and durable idempotent jobs. Bluetooth supports discovery, pairing requests, RFCOMM and GATT transactions; NFC supports presented tags, NDEF and raw transactions. USB supports owner access and control/bulk transfers. Local audio playback supports explicit session controls and output preference. Incremental shell sessions and process-owned event replay provide cursor reads across every ordinary binding. Discover fields and verify actual results.
 
 ## Access, logs and verification
 

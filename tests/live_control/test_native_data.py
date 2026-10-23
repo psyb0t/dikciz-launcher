@@ -7,7 +7,7 @@ from . import *
 
 
 PROTOCOLS = ("websocket", "mcp", "http")
-TOOLS = AUTOMATION.NATIVE_MCP_TOOLS
+TOOLS = AUTOMATION.CONTROL_STATUS_MCP_TOOLS
 PREFIX = "Dikciz native fixture "
 NAME_MIME = "vnd.android.cursor.item/name"
 PHONE_MIME = "vnd.android.cursor.item/phone_v2"
@@ -17,7 +17,7 @@ CLIENT = load_script("dikciz_native_client", "scripts/dikciz-control.py")
 PHONE = "4085550100"
 
 
-def native_call(protocol, command, arguments=None, error=None):
+def native_call(protocol, command, arguments=None, error=None, allowed_errors=None):
     port = AUTOMATION_PORT if protocol == "websocket" else MCP_PORT
     operation = TOOLS[command] if protocol == "mcp" else command
     completed = subprocess.run(
@@ -26,12 +26,13 @@ def native_call(protocol, command, arguments=None, error=None):
          "--log-file", "/tmp/dikciz-native-client.log"], capture_output=True, text=True, timeout=45,
     )
     response = json.loads(completed.stdout)
-    if error is not None:
+    if error is not None or (allowed_errors is not None and completed.returncode != 0):
         assert completed.returncode != 0, response
         detail = response["response"]
         if protocol == "mcp":
             detail = detail["structuredContent"]
-        assert detail["code"] == error, response
+        expected_codes = allowed_errors if error is None else ((error,) if isinstance(error, str) else error)
+        assert detail["code"] in expected_codes, response
         return detail
     assert completed.returncode == 0, (completed.stdout, completed.stderr)
     return response["structuredContent" if protocol == "mcp" else "result"]

@@ -2,6 +2,41 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [Unreleased]
+
+## [0.25.0] - 2026-10-23
+
+### Fixed
+
+- Grid dimension changes resize widgets to fit, relocate collisions and evict overflow items instead of refusing smaller grids. Full-width HTML follows the column count; all control bindings share the procedure and report evictions.
+- Shared state patches accept JSON null consistently with saved widget and script state, including nullable API results.
+
+### Added
+
+- Live microphone PCM streaming with a dedicated Android foreground service, owner Stop action, bounded reconnectable replay, shared microphone ownership and explicit lifecycle/cleanup results.
+- Native one-shot USSD requests with voice-SIM selection, shared phone-access recovery, configurable response/observation budgets and explicit uncancellable network outcomes.
+- Bounded foreground camera MP4 recording with optional microphone AAC, discovered sizes/FPS ranges, shared hardware ownership, finalized-media inspection and cancellation cleanup.
+- Replayable process-owned automation events with epoch-bound cursors, filters, long polling, adjustable retention, explicit loss and current Android source-access checks.
+- Bounded torch-state callback observation, finite vibration waveforms and predefined effects with native-support discovery and strict action-specific validation.
+- Configurable JPEG quality, orientation, sensor crop zoom, exposure compensation and autofocus, with actual Android completion metadata and device-range validation.
+- Process-owned shell sessions with incremental cursor reads across every ordinary binding, bounded replay history, explicit gaps, cancellation, retention and release controls.
+- Recognition language inventory and model-download requests with provider progress, scheduled/available distinctions, bounded observation and status.
+- Requested Wi-Fi scans with explicit throttling/failure, bounded completion, cleanup and per-result elapsed-time freshness.
+- Managed microphone recording with explicit start/status/stop/cancel, shared hardware ownership, input preference, encoding options and automatic duration/file limits.
+- Local audio playback sessions with asynchronous status, pause/resume/seek/stop, volume, audio focus, output preference and expiry.
+- NFC tag reading, NDEF writing and raw technology transactions with optional tag selection; Bluetooth BLE/classic discovery, pairing requests, bounded RFCOMM and GATT discovery, attributes and observations.
+- Shared notification dismissal, snooze and inline reply, file lifecycle/search operations with protected credential paths, durable asynchronous command jobs, USB owner access and control/bulk transfers, saved speech audio, geocoding and GNSS status.
+- Standard modern stateless MCP discovery and legacy protocol negotiation, with mirrored-header validation and focused interoperability tests.
+- Speech voice discovery, voice/language/rate/pitch selection and output cancellation.
+- Shared microphone speech recognition with on-device/system modes, provider discovery, language selection, deadlines, alternatives/confidence and cancellation.
+- Torch and vibration controls, allowlisted system-setting read/write/read-back, camera capability discovery and Bluetooth, USB, NFC, Wi-Fi and audio inventories.
+- Claude Code and Codex plugin manifests, Glama maintainer metadata and focused agent connection documentation for owner-supplied phone endpoints.
+- A documentation index, capability coverage table, complete discovered command reference and focused speech/hardware MCP guides.
+
+### Migration
+
+Updates preserve existing home files. Changing grid dimensions now reflows widgets and removes overflow items in saved order; back up crowded pages before shrinking them. Apps remain installed when their shortcuts are removed. New device operations require the corresponding Android access and actual hardware. Microphone streaming starts while Dikciz is foreground and uses process-owned replay, which is lost on restart or update. Cellular call audio remains platform-restricted.
+
 ## [0.24.0] - 2026-10-22
 
 ### Added

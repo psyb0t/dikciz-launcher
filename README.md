@@ -76,7 +76,7 @@ python3 scripts/dikciz-control.py mcp dikciz_snapshot --host phone.example --por
 | Direct private network | `ws://phone.example:19001/v1/automation` | `http://phone.example:19002/mcp` | `http://phone.example:19002/v1/automation` |
 | Lab ADB forwards after `make dikciz-run` | `ws://127.0.0.1:19101/v1/automation` | `http://127.0.0.1:19102/mcp` | `http://127.0.0.1:19102/v1/automation` |
 
-Configure your MCP client's Streamable HTTP URL and bearer header, then initialize and list tools. Read `dikciz://docs/index` through MCP resources for short guides and task recipes, fetched one section at a time. The [resource guide](docs/mcp-resources.md) covers discovery and CLI reads. Direct access needs no USB, ADB or emulator. The endpoints do not provide TLS themselves; use a trusted private network or an encrypted VPN. `0.0.0.0` listens on all IPv4 interfaces, including Wi-Fi, subject to network routing and filtering.
+Configure your MCP client's Streamable HTTP URL and bearer header, then discover the server and list tools. Read `dikciz://docs/index` through MCP resources for short guides and task recipes, fetched one section at a time. The [resource guide](docs/mcp-resources.md) covers discovery and CLI reads. Direct access needs no USB, ADB or emulator. The endpoints do not provide TLS themselves; use a trusted private network or an encrypted VPN. `0.0.0.0` listens on all IPv4 interfaces, including Wi-Fi, subject to network routing and filtering.
 
 The [connection walkthrough](docs/automation-control.md#connect-without-usb) covers setup, troubleshooting and ADB alternatives. Both protocols reject browser origins outside HTTP or HTTPS loopback pages. Native clients can omit `Origin`. Network access, bearer authentication and Android permissions are separate checks. Shell commands request root by default; pass `root: false` for Dikciz's app sandbox. Commands accept `autoRequestPermissions: true` to show owner review when Android access is missing. Use `requestDeviceAccess` or MCP `dikciz_request_device_access` to ask for one capability directly; responses report permission state, notification delivery and instructions. See [permission requests](docs/automation-control.md#request-missing-android-access).
 
@@ -84,7 +84,11 @@ Browse and transfer any files Android lets Dikciz access, upload standalone APKs
 
 Inspect the actual serving package and version with `deviceInfo`, inspect another installed package with `packageInfo`, and use `restart` for an acknowledged launcher restart that preserves configuration and reconnects without killing the process. `launcherHandoff` switches between installed release and debug controllers after checking target access. `displayScreenshot` captures other apps through enabled Accessibility on Android 11+. The [remote device guide](docs/remote-device-control.md) covers these controls, port-conflict recovery and which operations require Android access or root.
 
-Use [direct Android data commands](docs/native-device-control.md) for contact lookup and edits, SMS history and tracked sends, calendars, call history, SIM selection, clipboard, last-known location, notifications, media sessions and device state. They call Android APIs without navigating other apps. Discover resources and grants with `nativeDataStatus`; Android still enforces permissions and app roles.
+Use [direct Android data commands](docs/native-device-control.md) for contact lookup and edits, SMS history and tracked sends, calendars, call history, SIM selection, clipboard, current location, notifications, media sessions and device state. They call Android APIs without navigating other apps. Discover resources and grants with `nativeDataStatus`; Android still enforces permissions and app roles.
+
+## Android capabilities
+
+Direct commands cover sensors, location/geocoding, JPEG capture, microphone recording and [live PCM streaming](docs/microphone-streams.md), audio playback, speech synthesis/recognition, torch, vibration and selected settings. Bluetooth supports discovery, pairing requests, RFCOMM and GATT transactions; NFC supports tags and NDEF; USB supports owner access and transfers. Wi-Fi supports cached and requested scans with freshness metadata. File management, notification replies and durable jobs use the same command target. All ordinary bindings share the same executor and Android access. [Hardware controls](docs/hardware-controls.md), [speech recognition](docs/speech-recognition.md) and the [command reference](docs/command-reference.md) document fields and results. The [coverage table](docs/capability-coverage.md) states partial features and remaining work; Dikciz does not expose every Android SDK method.
 
 ## Logs and failure reporting
 
@@ -115,7 +119,9 @@ Main pushes and ready pull requests run the build, Android lint and tooling test
 
 After that gate passes, a version tag builds the signed APK and checksum in CI through `make release-apk`. Manual runs on a tag use the same gate. That target verifies the published signing certificate and the version from `VERSION`. Its keystore and signing secrets stay outside tracked source. The [release history](docs/changelog.md) records user-visible changes.
 
-## Source map
+## Documentation
+
+Start with the [documentation index](docs/index.md) for every guide and the [coverage table](docs/capability-coverage.md) for implemented and remaining capabilities.
 
 | Guide | Covers |
 | --- | --- |
@@ -127,9 +133,16 @@ After that gate passes, a version tag builds the signed APK and checksum in CI t
 | [Dikciz source](app/src/dikciz/README.md) | Product architecture and implementation boundaries. |
 | [Scripts](scripts/README.md), [tests](tests/README.md), [contributing](CONTRIBUTING.md) | Build tooling, verification and change boundaries. |
 
-## Agent use
+## Agent integrations
 
-The [Dikciz Launcher skill](.agents/skills/dikciz-launcher/SKILL.md) covers installation and operation through ADB or direct network control. Its [setup reference](.agents/skills/dikciz-launcher/references/setup.md) and [capability reference](.agents/skills/dikciz-launcher/references/capabilities.md) describe connection checks and available actions. The [Dikciz Android Lab skill](.agents/skills/dikciz-android-lab/SKILL.md) covers source builds and emulator work. Tag publishing selects only `dikciz-launcher` for ClawHub and publishes no plugin bundle.
+The [Dikciz Launcher skill](.agents/skills/dikciz-launcher/SKILL.md) covers installation and operation. Claude Code and Codex manifests under `.agents/` package those instructions. The server runs in your installed Android APK; supply its reachable `/mcp` URL and bearer password. Connect Codex directly, or load the local Claude plugin from this checkout:
+
+```bash
+codex mcp add dikciz --url http://phone.example:19002/mcp --bearer-token-env-var DIKCIZ_REMOTE_BEARER_TOKEN
+claude --plugin-dir .agents
+```
+
+The [agent integration guide](docs/agent-integrations.md) covers client setup, secrets and plugin configuration. The [Android Lab skill](.agents/skills/dikciz-android-lab/SKILL.md) covers source builds and emulator work. After APK release, tag publishing selects only the operating skill for ClawHub. Marketplace listing is separate from the phone connection.
 
 ## Upstream
 

@@ -174,11 +174,11 @@ Placement reports one of three finite failures. A rejected operation writes noth
 
 The grid is editable in **Settings**, under **Page grid**, and through the `gridSet` command and the `dikciz_grid_set` tool. One grid applies to every page.
 
-A change is validated against every placed widget before anything is written. If a single widget would leave the grid or collide under the new geometry, the whole change is rejected with `grid_bounds` or `grid_collision`, the offending page and widget are named, and the saved document is untouched. Move or resize that widget first, then change the grid again.
+Changing dimensions reflows every page, including locked and unselected pages. Shrinking scales widget edges to the smaller grid, with at least one cell per axis. Full-width and full-height widgets follow the corresponding grid dimension when it grows too. Items are processed in saved order; a collision uses the first free rectangle of the adjusted size. An item with no fitting space is removed from the page. Removing an app shortcut leaves its app installed; removing a widget also removes its scoped state. The new grid and adjusted pages are saved together. Spacing-only changes preserve placements.
 
 While a widget is being moved or resized, the page draws every cell of the grid behind the content. Placement snaps to whole cells, so the guides show where the widget can land. They appear when a move is armed or a resize starts, and they go away when the gesture ends.
 
-There is no layout migration or compatibility mode. Each widget must carry a valid `cell` record. Omitting `nativeGrid` uses the bundled grid; it does not make legacy pixel placement valid.
+Direct configuration replacement remains strict: each widget must carry a valid `cell` record. Use Settings or `gridSet` to reflow an existing layout. Omitting `nativeGrid` uses the bundled grid; it does not make legacy pixel placement valid.
 
 ## Native app shortcuts and app drawer
 
@@ -228,6 +228,8 @@ HTML widgets hide native and CSS scrollbars, including those in nested scroll co
 The native WebView viewport is clipped to the widget frame even when document CSS overflows. During resize, Dikciz draws the native outline and handles over the WebView, so the frame stays visible and remains the resize boundary.
 
 The public widget descriptor `<widget-id>.json` stores source and layout. Wrapper `state` is stored separately in `<widget-id>/state.json`. Card `itemStates` are split into `<widget-id>/items/<instance-id>/state.json`, under that widget's page directory. `configGet` and `widgetGet` assemble those values into the same record. Legacy state embedded in a widget descriptor migrates after the complete configuration passes validation.
+
+JSON state patches preserve null values in objects and arrays; null does not remove a key.
 
 State changes do not reload the WebView. The document receives `dikciz-state`, and `selfWidget.state` becomes the full replacement state. Update only the DOM nodes that changed.
 

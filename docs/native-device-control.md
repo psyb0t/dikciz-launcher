@@ -96,7 +96,7 @@ All commands below share the same schemas, execution and permission recovery in 
 | --- | --- | --- |
 | `sensorReadings` | `dikciz_sensor_readings` | Sample all sensors or one `sensorId` from the current device inventory. Accepts `limit` and `offset`; follow `hasMore`. `timeoutMilliseconds` defaults to 1000 and accepts 1 through 5000. |
 | `cameraList` | `dikciz_camera_list` | Camera IDs, front/back/external facing and flash availability. Does not start capture. |
-| `cameraCapture` | `dikciz_camera_capture` | Save an actual JPEG. Optional `cameraId` defaults to the first camera. `maxDimension` defaults to 1280 and accepts 320 through 4096; no fitting camera size returns an explicit error. |
+| `cameraCapture` | `dikciz_camera_capture` | Save an actual JPEG. Optional `cameraId` defaults to the first camera. `maxDimension` defaults to 1280 and accepts 320 through 4096; no fitting camera size returns an explicit error. Quality, orientation, crop zoom, exposure and autofocus controls return requested settings and actual capture metadata. See [camera controls](camera-control.md). |
 | `microphoneRecord` | `dikciz_microphone_record` | Save AAC audio in an M4A container. `durationMilliseconds` defaults to 3000 and accepts 1000 through 120000. |
 | `speechSpeak` | `dikciz_speech_speak` | Speak required `text` through Android device output, at most 2000 characters. Reports completion or failure. |
 | `callAudio` | `dikciz_call_audio` | `action: status` reports cellular audio capture and injection support. `record` and `speak` return `call_audio_unsupported` without privileged system integration. |
@@ -128,3 +128,7 @@ Malformed fields, columns, types, ranges, authorities and references return `val
 | Fastboot and bootloader | Outside the running Android app. |
 
 Arbitrary third-party databases, account management and privileged system settings are not implemented by these commands. Permission declarations are not a promise that every possible feature exists. Discover the running build's commands.
+
+## Additional native commands
+
+See [USSD requests](ussd-control.md), [camera capture/video](camera-control.md), [event replay](event-replay.md), [speech recognition and synthesis](speech-recognition.md), [audio playback and recording sessions](audio-playback.md), [hardware controls](hardware-controls.md), [Bluetooth](bluetooth-control.md), [NFC](nfc-control.md), [USB](usb-control.md), [Wi-Fi](wifi-control.md), [location services](location-services.md), [notification management](notification-management.md) and [durable jobs](command-jobs.md) for their dedicated operations. The [coverage table](capability-coverage.md) separates implemented operations from remaining work and Android privilege requirements.

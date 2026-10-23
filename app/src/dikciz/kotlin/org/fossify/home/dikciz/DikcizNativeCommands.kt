@@ -27,6 +27,10 @@ internal object DikcizNativeCommands {
     const val TYPE_CAMERA_CAPTURE = "cameraCapture"
     const val TYPE_MICROPHONE_RECORD = "microphoneRecord"
     const val TYPE_SPEAK = "speechSpeak"
+    const val TYPE_SYNTHESIZE = "speechSynthesize"
+    const val TYPE_SPEECH_STATUS = "speechRecognitionStatus"
+    const val TYPE_SPEECH_RECOGNIZE = "speechRecognize"
+    const val TYPE_SPEECH_STOP = "speechRecognitionStop"
     const val TYPE_CALL_AUDIO = "callAudio"
     const val TYPE_LOCATION = "locationGet"
     const val TYPE_NOTIFICATIONS = "notificationsList"
@@ -104,6 +108,7 @@ internal object DikcizNativeCommands {
                     .put("openWorldHint", !readOnly))
         }
     }
+    private val SPEECH_FIELDS = mapOf(KEY_TEXT to string("Text spoken by the phone.", 2000), "timeoutMilliseconds" to integer(1, 120_000, 30_000), "language" to string("BCP-47 language; defaults to engine selection.", 64), "voiceName" to string("Exact name from speechVoices. Voice selection takes precedence over language.", 256), "ratePercent" to integer(25, 400, 100), "pitchPercent" to integer(25, 400, 100))
     val DEFINITIONS = listOf(
         Definition(TYPE_STATUS, "dikciz_native_data_status", "Discover direct Android data resources, columns, operations and permission state. No UI automation or root.", emptyMap()),
         Definition(TYPE_QUERY, "dikciz_content_query", "Read one bounded page from an allowlisted Android provider. Filter values use bound arguments. Query is literal substring search. Follow hasMore using offset plus returned item count.",
@@ -125,20 +130,45 @@ internal object DikcizNativeCommands {
         Definition(TYPE_SENSOR_READINGS, "dikciz_sensor_readings", "Read a bounded sample window for all hardware sensors, including multiple sensors of one type. sensorId comes from this inventory. Follow hasMore. Each sensor reports actual values, accuracy, timestamp or an explicit unavailable reason. Registrations stop when the request ends.",
             PAGE_FIELDS + mapOf("sensorId" to integer(0, Int.MAX_VALUE), "timeoutMilliseconds" to integer(1, 5000, 1000))),
         Definition(TYPE_CAMERAS, "dikciz_camera_list", "List Android camera IDs and lens directions without starting capture.", emptyMap()),
-        Definition(TYPE_CAMERA_CAPTURE, "dikciz_camera_capture", "Capture a JPEG from a listed camera using granted camera access. Returns saved file path for fileRead/download, never success before image bytes exist. Android foreground and camera privacy restrictions apply.",
-            mapOf("cameraId" to string("Camera ID from cameraList; defaults to the first camera.", 128), "maxDimension" to integer(320, 4096, 1280), "timeoutMilliseconds" to integer(1, 120_000, 30_000)), readOnly = false),
+        Definition(TYPE_CAMERA_CAPTURE, "dikciz_camera_capture", "Capture a JPEG with optional quality, orientation, sensor crop zoom, exposure compensation and autofocus controls. Returns written image path and completed Android frame metadata. Read cameraCapabilities first. Android camera access and foreground restrictions apply.",
+            mapOf(
+                "cameraId" to string("Camera ID from cameraList; defaults to the first camera.", 128),
+                "maxDimension" to integer(320, 4096, 1280),
+                "timeoutMilliseconds" to integer(1, 120_000, 30_000),
+                "jpegQuality" to integer(1, 100, DikcizCameraControls.DEFAULT_JPEG_QUALITY),
+                "jpegOrientation" to integer(0, 270),
+                "zoomPercent" to integer(100, 10000),
+                "exposureCompensation" to integer(-1000, 1000),
+                "autofocusMode" to integer(0, 5),
+            ), readOnly = false),
         Definition(TYPE_MICROPHONE_RECORD, "dikciz_microphone_record", "Record microphone audio to an AAC M4A file and return its path for fileRead/download. durationMilliseconds defaults to 3000. Requires microphone access and Android foreground eligibility. This is not cellular call capture.",
             mapOf("durationMilliseconds" to integer(1000, 120_000, 3000)), readOnly = false),
         Definition(TYPE_SPEAK, "dikciz_speech_speak", "Speak text through the Android text-to-speech engine and device audio output. Returns only after synthesis completes. Does not inject speech into cellular calls.",
-            mapOf(KEY_TEXT to string("Text spoken by the phone.", 2000), "timeoutMilliseconds" to integer(1, 120_000, 30_000)), setOf(KEY_TEXT), false),
+            SPEECH_FIELDS, setOf(KEY_TEXT), false),
+        Definition(TYPE_SYNTHESIZE, "dikciz_speech_synthesize", "Synthesize text into a saved WAV audio file without playing it. Shares voice, language, rate, pitch, timeout and cancellation with speechSpeak. Read the saved path through fileRead/download.", SPEECH_FIELDS, setOf(KEY_TEXT), readOnly = false),
+        Definition(DikcizSpeechOutput.TYPE_VOICES, "dikciz_speech_voices", "List voices from the installed Android TTS engine, including language, quality, latency and network requirement. Follow hasMore.", PAGE_FIELDS),
+        Definition(DikcizSpeechOutput.TYPE_STOP, "dikciz_speech_stop", "Stop active Dikciz text-to-speech output. The original request returns speech_cancelled. Idle is explicit.", emptyMap(), readOnly = false),
+        Definition(TYPE_SPEECH_STATUS, "dikciz_speech_recognition_status", "Discover Android speech recognition and strict on-device availability without recording. Reports whether recognition is active.", emptyMap()),
+        Definition(TYPE_SPEECH_RECOGNIZE, "dikciz_speech_recognize", "Recognize microphone speech and return text, alternatives and confidence. mode defaults to onDevice, which never falls back to a network recognizer. system explicitly allows the installed service to use its network backend. Requires microphone permission and foreground eligibility. Use speechRecognitionStop to cancel.",
+            mapOf("language" to string("BCP-47 language tag, for example en-US; defaults to device language.", 64), "mode" to string("onDevice or system.", 16), "timeoutMilliseconds" to integer(1, 120_000, 30_000)), readOnly = false),
+        Definition(TYPE_SPEECH_STOP, "dikciz_speech_recognition_stop", "Cancel the active speech recognition request and destroy its Android recognizer. Returns idle when no request is active.", emptyMap(), readOnly = false),
         Definition(TYPE_CALL_AUDIO, "dikciz_call_audio", "Read cellular call-audio capability status or request record/speak. Ordinary Android installations return call_audio_unsupported for capture and injection. Microphone and device speech are separate operations.",
             mapOf("action" to string("status, record or speak.", 16), KEY_TEXT to string("Requested call speech.", 2000)), setOf("action"), false),
         Definition(TYPE_NOTIFICATIONS, "dikciz_notifications_list", "Read current notifications directly through the enabled notification listener, including bounded text and short-lived action tokens.", PAGE_FIELDS),
         Definition(TYPE_MEDIA, "dikciz_media_sessions_list", "Read current media sessions, playback state and bounded metadata through granted notification-listener access.", PAGE_FIELDS),
         Definition(TYPE_APP_ICON, "dikciz_app_icon", "Read a launchable activity icon as a bounded PNG. Use a component from appCatalogue. sizePixels defaults to 64 and accepts 16 through 128. Works through the shared HTML and network command API.",
             mapOf(KEY_COMPONENT to string("Exact launchable component from appCatalogue.", 512), KEY_ICON_SIZE to integer(MINIMUM_ICON_SIZE, MAXIMUM_ICON_SIZE, DEFAULT_ICON_SIZE)), setOf(KEY_COMPONENT)),
+        Definition(DikcizHardwareControl.TYPE_TORCH, "dikciz_torch_control", "Observe flash-camera torch state through bounded Android callbacks or submit on/off. Unknown and unavailable are explicit. Submission does not claim physical light verification.", DikcizTorchControl.FIELDS, setOf("action"), readOnly = false),
+        Definition(DikcizHardwareControl.TYPE_VIBRATION, "dikciz_vibration_control", "Discover vibrator and predefined-effect support; submit a bounded pulse, waveform, predefined effect or cancellation. Android settings may suppress physical vibration.", DikcizHapticsControl.FIELDS, setOf("action"), readOnly = false),
+        Definition(DikcizHardwareControl.TYPE_SETTINGS, "dikciz_system_setting", "Read or write an allowlisted system setting. Set requires owner-granted Modify system settings and returns read-back.", mapOf("action" to string("get or set.", 16), "setting" to string("brightness, automaticBrightness, automaticRotation, rotation or screenTimeoutMilliseconds.", 64), "value" to integer(0, Int.MAX_VALUE)), setOf("action", "setting"), readOnly = false),
+        Definition(DikcizHardwareControl.TYPE_BLUETOOTH, "dikciz_bluetooth_devices", "List paired Bluetooth devices with actual bond state. Does not scan, pair or connect.", PAGE_FIELDS, emptySet(), readOnly = true),
+        Definition(DikcizHardwareControl.TYPE_USB, "dikciz_usb_devices", "List attached USB host devices and per-device access. Does not request USB permission or transfer bytes.", PAGE_FIELDS, emptySet(), readOnly = true),
+        Definition(DikcizHardwareControl.TYPE_NFC, "dikciz_nfc_status", "Read NFC adapter availability and enabled state without changing it.", emptyMap(), emptySet(), readOnly = true),
+        Definition(DikcizHardwareControl.TYPE_WIFI, "dikciz_wifi_scan_results", "Read cached Wi-Fi scan results with Android timestamps. Requires location access; does not initiate a scan or connect.", PAGE_FIELDS, emptySet(), readOnly = true),
+        Definition(DikcizHardwareControl.TYPE_AUDIO, "dikciz_audio_devices", "List Android audio input and output devices, sample rates and channel counts.", PAGE_FIELDS, emptySet(), readOnly = true),
+        Definition(DikcizHardwareControl.TYPE_CAMERA, "dikciz_camera_capabilities", "Read JPEG and recorder sizes, camera frame-rate ranges, digital zoom, exposure range/EV step, sensor orientation and autofocus modes for one camera.", mapOf("cameraId" to string("Camera ID from cameraList.", 128)), setOf("cameraId"), readOnly = true),
         Definition(TYPE_DEVICE_STATE, "dikciz_device_state", "Read screen, battery, charging, audio, network, RAM, storage, CPU samples and bounded sensor inventory. System CPU may be unavailable under Android restrictions; sensor inventory does not claim live readings.", emptyMap()),
-    ).associateBy(Definition::type)
+    ).plus(DikcizMicrophoneStreams.DEFINITIONS).plus(DikcizUssdControl.DEFINITION).plus(DikcizCameraVideo.DEFINITION).plus(DikcizEventJournal.DEFINITIONS).plus(DikcizShellSessions.DEFINITIONS).plus(DikcizSpeechModels.DEFINITIONS).plus(DikcizWifiControl.DEFINITIONS).plus(DikcizMicrophoneSession.DEFINITIONS).plus(DikcizAudioPlayback.DEFINITIONS).plus(DikcizNotificationControl.DEFINITIONS).plus(DikcizFileManagement.DEFINITIONS).plus(DikcizCommandJobs.DEFINITIONS).plus(DikcizUsbControl.DEFINITIONS).plus(DikcizLocationServices.DEFINITIONS).plus(DikcizNfcControl.DEFINITIONS).plus(DikcizBluetoothControl.DEFINITIONS).plus(DikcizGattControl.DEFINITIONS).associateBy(Definition::type)
     val FIELDS = DEFINITIONS.mapValues { (_, definition) -> definition.fields.keys }
     val REQUIRED_FIELDS = DEFINITIONS.mapValues { (_, definition) -> definition.required }
     val TOOLS = DEFINITIONS.values.associate { it.tool to it.type }
@@ -148,7 +178,40 @@ internal object DikcizNativeCommands {
     fun validate(type: String, request: JSONObject, envelope: Boolean = false) {
         val definition = DEFINITIONS.getValue(type)
         validateFields(request, definition.fields, definition.required, if (envelope) ENVELOPE else emptySet())
+        if (type in DikcizMicrophoneStreams.TYPES) DikcizMicrophoneStreams.validate(type, request)
+        if (type in DikcizEventJournal.TYPES) DikcizEventJournal.validate(type, request)
+        if (type in DikcizShellSessions.TYPES) DikcizShellSessions.validate(type, request)
+        if (type in DikcizSpeechModels.TYPES) DikcizSpeechModels.validate(type, request)
+        if (type in DikcizCommandJobs.TYPES) DikcizCommandJobs.validate(type, request)
+        if (type in DikcizNfcControl.TYPES) DikcizNfcControl.validate(type, request)
+        if (type in DikcizBluetoothControl.TYPES) DikcizBluetoothControl.validate(type, request)
+        if (type == DikcizGattControl.TYPE) DikcizGattControl.validate(request)
+        if (type == DikcizAudioPlayback.TYPE) DikcizAudioPlayback.validate(request)
+        if (type == DikcizMicrophoneSession.TYPE) DikcizMicrophoneSession.validate(request)
         when (type) {
+            DikcizUssdControl.TYPE -> DikcizUssdControl.validate(request)
+            DikcizCameraVideo.TYPE -> DikcizCameraVideo.validate(request)
+            TYPE_CAMERA_CAPTURE -> DikcizCameraControls.validate(request)
+            DikcizLocationServices.TYPE_GEOCODE -> DikcizLocationServices.validate(request)
+            DikcizUsbControl.TYPE_TRANSFER -> DikcizUsbControl.validate(request)
+            DikcizFileManagement.TYPE -> DikcizFileManagement.validate(request)
+            DikcizNotificationControl.TYPE -> DikcizNotificationControl.validate(request)
+            DikcizHardwareControl.TYPE_TORCH -> DikcizTorchControl.validate(request)
+            DikcizHardwareControl.TYPE_VIBRATION -> DikcizHapticsControl.validate(request)
+            DikcizHardwareControl.TYPE_SETTINGS -> {
+                val action = request.getString("action")
+                if (action !in setOf("get", "set")) invalid("Unsupported settings action")
+                val setting = DikcizHardwareControl.SETTINGS[request.getString("setting")] ?: invalid("Unsupported system setting")
+                if (action == "set" && (!request.has("value") || request.getInt("value") !in setting.second)) invalid("Setting value is outside its allowed range")
+                if (action == "get" && request.has("value")) invalid("Get does not accept a value")
+            }
+
+            TYPE_SPEAK, TYPE_SYNTHESIZE -> {
+                if (request.has("language") && !Regex("[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*").matches(request.getString("language"))) invalid("Invalid BCP-47 language tag")
+                if (request.has("voiceName") && request.getString("voiceName").isBlank()) invalid("Voice name cannot be blank")
+            }
+            TYPE_SPEECH_RECOGNIZE -> validateRecognitionOptions(request)
+
             TYPE_CALL_AUDIO -> {
                 if (request.getString("action") !in setOf("status", "record", "speak")) invalid("Unsupported call audio action")
                 if (request.getString("action") == "speak" && request.optString(KEY_TEXT).isBlank()) invalid("Call speech requires text")
@@ -198,11 +261,22 @@ internal object DikcizNativeCommands {
             val value = request.opt(key)
             when (schema.getString("type")) {
                 TYPE_STRING -> if (value !is String || value.length > schema.optInt("maxLength", MAXIMUM_TEXT) || '\u0000' in value) invalid()
+                "number" -> {
+                    if (value !is Number) invalid()
+                    val number = value.toDouble()
+                    if (!number.isFinite() || number < schema.optDouble("minimum", -Double.MAX_VALUE) || number > schema.optDouble("maximum", Double.MAX_VALUE)) invalid()
+                }
+                "boolean" -> if (value !is Boolean) invalid()
                 TYPE_INTEGER -> strictInteger(value, schema.optLong("minimum", 0), schema.optLong("maximum", Int.MAX_VALUE.toLong()))
                 TYPE_OBJECT -> if (value !is JSONObject) invalid()
                 TYPE_ARRAY -> if (value !is JSONArray) invalid()
             }
         }
+    }
+
+    fun validateRecognitionOptions(request: JSONObject) {
+        if (request.optString("mode", DikcizSpeechRecognition.MODE_ON_DEVICE) !in setOf(DikcizSpeechRecognition.MODE_ON_DEVICE, DikcizSpeechRecognition.MODE_SYSTEM)) invalid("Unsupported speech recognition mode")
+        if (request.has("language") && !Regex("[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*").matches(request.getString("language"))) invalid("Invalid BCP-47 language tag")
     }
 
     fun strictInteger(value: Any?, minimum: Long, maximum: Long): Long {

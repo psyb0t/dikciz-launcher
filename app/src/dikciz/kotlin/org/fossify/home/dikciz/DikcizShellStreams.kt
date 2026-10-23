@@ -14,7 +14,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import org.json.JSONObject
 
-internal class DikcizShellStreams(private val logger: DikcizLogger) {
+internal class DikcizShellStreams(
+    logger: DikcizLogger,
+    private val loggerProvider: () -> DikcizLogger = { logger },
+) {
+    private val logger: DikcizLogger get() = loggerProvider()
     private val streams = ConcurrentHashMap<String, Stream>()
 
     @Synchronized

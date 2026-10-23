@@ -1,6 +1,13 @@
 package org.fossify.home.dikciz
 
 import android.app.PendingIntent
+import android.app.RemoteInput
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import android.os.Build
+import org.json.JSONArray
+import org.json.JSONObject
 import android.os.SystemClock
 import android.service.notification.StatusBarNotification
 import java.util.UUID
@@ -24,6 +31,8 @@ internal object DikcizNotificationActionRegistry {
                 notificationKey = notification.key,
                 packageName = notification.packageName,
                 pendingIntent = pendingIntent,
+                title = action.title?.toString()?.take(DikcizNativeCommands.MAXIMUM_TEXT).orEmpty(),
+                remoteInputs = action.remoteInputs.orEmpty().filter { it.allowFreeFormInput }.toTypedArray(),
                 expiresAtElapsedMilliseconds = now + ACTION_TOKEN_LIFETIME_MILLISECONDS,
             )
             tokensByNotificationKey.getOrPut(notification.key) { mutableSetOf() }.add(token)
@@ -38,6 +47,39 @@ internal object DikcizNotificationActionRegistry {
         val current = tokensByNotificationKey[notification.key].orEmpty().filter(entries::containsKey)
         if (current.isNotEmpty()) return@synchronized current
         replace(notification)
+    }
+
+    fun details(notification: StatusBarNotification): JSONArray = synchronized(this) {
+        JSONArray(tokens(notification).mapNotNull { token ->
+            entries[token]?.let { entry ->
+                JSONObject().put("actionToken", token).put("title", entry.title)
+                    .put("supportsReply", entry.remoteInputs.isNotEmpty())
+            }
+        })
+    }
+
+    fun reply(context: Context, token: String, text: String): DikcizNotificationActionResult {
+        val entry = synchronized(this) {
+            removeExpiredEntries(SystemClock.elapsedRealtime())
+            val target = entries[token] ?: return DikcizNotificationActionResult.TargetUnavailable
+            if (target.remoteInputs.isEmpty()) return DikcizNotificationActionResult.ReplyUnsupported
+            removeEntryLocked(token)
+            target
+        }
+        val result = Bundle().apply { entry.remoteInputs.forEach { putCharSequence(it.resultKey, text) } }
+        val fillIn = Intent()
+        RemoteInput.addResultsToIntent(entry.remoteInputs, fillIn, result)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            RemoteInput.setResultsSource(fillIn, RemoteInput.SOURCE_FREE_FORM_INPUT)
+        }
+        return try {
+            entry.pendingIntent.send(context, 0, fillIn)
+            DikcizNotificationActionResult.Executed
+        } catch (_: PendingIntent.CanceledException) {
+            DikcizNotificationActionResult.TargetUnavailable
+        } catch (_: SecurityException) {
+            DikcizNotificationActionResult.AndroidRejected
+        }
     }
 
     fun consume(token: String): DikcizNotificationActionResult {
@@ -96,6 +138,8 @@ internal object DikcizNotificationActionRegistry {
         val notificationKey: String,
         val packageName: String,
         val pendingIntent: PendingIntent,
+        val title: String,
+        val remoteInputs: Array<RemoteInput>,
         val expiresAtElapsedMilliseconds: Long,
     )
 
@@ -108,4 +152,5 @@ internal enum class DikcizNotificationActionResult {
     Executed,
     TargetUnavailable,
     AndroidRejected,
+    ReplyUnsupported,
 }

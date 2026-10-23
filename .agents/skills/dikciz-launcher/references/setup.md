@@ -81,7 +81,7 @@ python3 scripts/dikciz-control.py websocket snapshot --port 19101 --pretty
 python3 scripts/dikciz-control.py mcp-tools --port 19102 --pretty
 ```
 
-For a native MCP client, configure Streamable HTTP at `http://127.0.0.1:19102/mcp`, initialize the connection, then list tools. Use the returned tool schemas. The Python client handles the MCP initialization and session for its own calls; a bare POST without the handshake is not a connection check.
+For a native MCP client, configure Streamable HTTP at `http://127.0.0.1:19102/mcp` and discover tools. Modern MCP uses stateless per-request metadata and mirrored method/name headers; legacy clients initialize a negotiated session. The Python client handles its own connection. Use the returned tool schemas and the [protocol guide](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/mcp-protocol.md).
 
 Select the bundled Home page through WebSocket:
 

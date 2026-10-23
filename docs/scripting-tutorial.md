@@ -498,3 +498,5 @@ Finish every workflow by checking all three layers:
 3. The saved files under `/sdcard/Dikciz/` when your flow persists state.
 
 That gives you a stable loop: subscribe, inspect `event`, return typed actions, observe their exact outcome, and keep visible HTML state separate from background Lua logic.
+
+JSON state patches preserve null as a stored value, including nested objects and arrays. Null does not remove a key. This matches the saved widget/script JSON format.

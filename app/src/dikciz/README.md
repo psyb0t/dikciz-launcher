@@ -42,6 +42,16 @@ All Kotlin files below live in `kotlin/org/fossify/home/dikciz/`.
 | `DikcizDeviceAccess.kt`, `DikcizPrivilegedShell.kt`, `DikcizAccessibilityAutomationService.kt` | Report Android access, run bounded shell commands and implement cross-app Accessibility inspection and actions. |
 | `DikcizDeviceInspection.kt` | Reports actual package versions, Android information and launcher instance identity through native PackageManager APIs. |
 | `DikcizNativeCommands.kt`, `DikcizNativeData.kt`, `DikcizContentData.kt` | Define direct Android schemas, permission checks, bounded provider reads and atomic writes shared by every binding. |
+| `DikcizCommandJobs.kt`, `DikcizShellSessions.kt`, `DikcizShellStreams.kt` | Own durable command results and process-owned incremental shell sessions; the stream runner owns process groups and cleanup. |
+| `DikcizSpeechRecognition.kt`, `DikcizSpeechOutput.kt`, `DikcizSpeechModels.kt` | Adapt recognition, synthesis, voice/language discovery and model callbacks with deadlines and explicit outcomes. |
+| `DikcizUssdControl.kt` | Observe one native carrier USSD request with explicit voice-SIM selection and uncancellable timeout semantics. |
+| `DikcizEventJournal.kt`, `DikcizEventReplayAccess.kt` | Replay dispatched automation events with bounded process-owned history, epoch-bound cursors and current Android source-access checks. |
+| `DikcizTorchControl.kt`, `DikcizHapticsControl.kt` | Observe torch state with bounded callbacks and submit finite haptics through the shared native registry. |
+| `DikcizMediaCapture.kt`, `DikcizCameraControls.kt`, `DikcizCameraVideo.kt`, `DikcizAudioPlayback.kt`, `DikcizMicrophoneSession.kt` | Capture media with requested controls and actual frame metadata, and manage local playback/recording. Recognition and recorders share microphone ownership. |
+| `DikcizMicrophoneStream.kt`, `DikcizMicrophoneStreams.kt`, `DikcizMicrophoneCaptureService.kt`, `DikcizBoundedReplay.kt` | Own foreground-service PCM capture, bounded cursor replay, notification stop and shared microphone cleanup. |
+| `DikcizHardwareControl.kt`, `DikcizWifiControl.kt`, `DikcizLocationServices.kt` | Handle inventories, selected settings, requested scans, geocoding and GNSS observations. |
+| `DikcizBluetoothControl.kt`, `DikcizGattControl.kt`, `DikcizNfcControl.kt`, `DikcizUsbControl.kt` | Own bounded peripheral transactions, actual connections and platform-access checks. |
+| `DikcizFileManagement.kt`, `DikcizNotificationControl.kt` | Handle file lifecycle/search and notification dismissal, snooze and inline reply through the shared target. |
 | `DikcizAppIcon.kt`, `DikcizSystemMetrics.kt` | Read bounded Android app icons and local RAM, storage, CPU and sensor inventory through the shared native executor. |
 | `DikcizSmsStatus.kt` | Reserves durable idempotency keys and records per-part sent/delivery callbacks through a private receiver. |
 | `DikcizDeviceFiles.kt` | Validate absolute paths, paginate directories and transfer bounded base64 file chunks using Android app permissions. |
@@ -60,7 +70,9 @@ Pages use a fixed native grid and transparent canvases over one launcher backgro
 
 Both remote listeners default to device loopback and execute through the same command target. The owner can configure a numeric network listen address in `control/ports.json`. The configuration watcher applies address and port edits by restarting the listeners, without rebuilding the home. Keep human accessibility labels readable and machine identities in the semantic snapshot. The [automation-control guide](../../../docs/automation-control.md) owns commands, events, authentication, origin checks and limits. Debug-only event fixtures live in [the combined debug source set](../dikcizDebug/README.md); the control planes remain in this release source set.
 
-MCP documentation resources use a fixed URI allowlist and immutable APK assets. The catalog returns eight descriptors per page and enforces a 4096-byte UTF-8 budget per section. Asset reads run on MCP workers, with cached content and new response objects per request. Existing authentication, Origin, protocol and initialized-session checks precede resource dispatch. The [resource guide](../../../docs/mcp-resources.md) owns the public contract.
+MCP documentation resources use a fixed URI allowlist and immutable APK assets. The catalog returns eight descriptors per page and enforces a 4096-byte UTF-8 budget per section. Asset reads run on MCP workers, with cached content and new response objects per request. Authentication, Origin and the selected modern/legacy protocol checks precede resource dispatch. The [resource guide](../../../docs/mcp-resources.md) owns the public contract.
+
+Ordinary Android command schemas are registered in `DikcizNativeCommands` and dispatched by `DikcizNativeData`. Network, HTML and Lua adapters do not implement separate native procedures. Platform callbacks report observed, submitted, pending or unknown outcomes rather than upgrading acceptance to success. The [command reference](../../../docs/command-reference.md) is generated from installed-build discovery.
 
 Filesystem commands use direct file I/O with bounded reads and writes. They are not confined to the public configuration tree. APK installation uses PackageInstaller sessions, device-granted unknown-source access and Android confirmation. The [files and APK guide](../../../docs/files-and-apks.md) owns transfer rules and installer states.
 

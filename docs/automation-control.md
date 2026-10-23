@@ -70,7 +70,7 @@ The endpoints do not provide TLS themselves. An encrypted VPN protects traffic o
 | Connection refused | Dikciz is running, both ports are correct, and no other app owns a selected port. Read the listener status and logs on the phone. |
 | `401 Unauthorized` | Authentication is enabled and the client has the current bearer password. Network reachability is already working. |
 | `403 Forbidden` from a browser | Browser Origin restrictions apply on network bindings too. Use a native client rather than weakening those checks. |
-| `GET /mcp` returns `405` | Expected. MCP requires initialized POST requests; use `mcp-tools` for a protocol check. |
+| `GET /mcp` returns `405` | Expected. Use a valid modern or legacy MCP POST; `mcp-tools` checks the connection. |
 | MCP tools connect but an action is denied | Check `automationStatus`, the relevant Android permission or special access, and any automation policy required for the action. |
 
 From the controlling computer, `nc -vz phone.example 19001` and `nc -vz phone.example 19002` test TCP reachability when netcat is installed. If debugging through an authorized ADB connection, `adb -s "$SERIAL" shell 'nc -n -z -w 3 127.0.0.1 19001'` checks the listener internally. Repeat for port `19002`, and use the phone's interface IP to distinguish a loopback-only binding. Internal success does not prove another device can connect.
@@ -196,11 +196,11 @@ While that screen is resumed, `snapshot.screen` is `deviceAccess`. Semantic snap
 
 Read [remote device operations](remote-device-control.md) for build identification, acknowledged restart, listener recovery, full-display screenshots and Android privilege boundaries. `restart` writes its reply before recreating the launcher and listeners. Reconnect and verify a changed `deviceInfo.application.instanceId`; do not kill the process through its own shell.
 
-## MCP sessions
+## MCP protocol modes
 
-Connect a Streamable HTTP client to `/mcp`. Initialize a session, retain the returned `MCP-Session-Id`, and send `notifications/initialized` before `tools/list` or `tools/call`. POST requests use `Content-Type: application/json` and an `Accept` header containing both `application/json` and `text/event-stream`. Subsequent POSTs must carry the negotiated version in `MCP-Protocol-Version`. Requests with an ID also require that version in `params._meta["io.modelcontextprotocol/protocolVersion"]` and a `params._meta["io.modelcontextprotocol/clientCapabilities"]` object. The supplied client handles this handshake.
+Connect a Streamable HTTP client to `/mcp`. Modern protocol 2026-07-28 supports stateless server/discover, tool and resource requests with per-request metadata and mirrored HTTP method/name headers. Legacy clients negotiate an initialized session with protocol 2025-11-25, 2025-06-18 or 2025-03-26; their calls do not require modern metadata. The supplied client manages its own connection. See the [complete protocol contract](mcp-protocol.md).
 
-The server returns JSON responses and does not provide an SSE event stream. GET returns `405`; DELETE with the session ID closes that session. Sessions expire after ten idle minutes, and at most eight can exist at once. Use WebSocket for persistent events.
+JSON is the ordinary response format. Shell streaming returns SSE for that tool call. GET returns 405; WebSocket provides persistent launcher events. Authentication, Origin validation, schemas and Android access apply in both MCP modes.
 
 ## Cross-app Android UI
 
@@ -320,7 +320,7 @@ All three return the widget document, including its saved `cell`. A rejection re
 
 `gridSet` replaces the grid used by every page. It takes `columns`, `rows`, `gapDp`, and `outerPaddingDp`, and returns the saved grid. The MCP form is `dikciz_grid_set`.
 
-Validation covers every placed widget before anything is written. A widget that would leave the grid or collide under the new geometry rejects the whole change with `grid_bounds` or `grid_collision`, names the offending page and widget, and leaves the saved document untouched.
+Grid changes reflow widgets across every page before saving. Full-width HTML shrinks with the column count. Collisions relocate to the first fitting free cells; items that cannot fit are evicted in saved order. Apps remain installed when their shortcuts are evicted. The result includes `evictedWidgets`, an array of `{"pageId":"home","id":"shortcut-id"}` records, empty when nothing was removed. Widget removal also cleans up its scoped state. Settings and all command bindings use this same procedure.
 
 ```bash
 python3 scripts/dikciz-control.py websocket gridSet \
@@ -441,3 +441,9 @@ HTML uses `await dikciz.command("appIcon", {component: app.component})`, then se
 Hardware sensor snapshots, current location, camera capture, microphone recording and speech are shared native commands across network, HTML and Lua bindings. See [hardware commands](native-device-control.md#sensors-camera-microphone-and-speech) for schemas, capture paths and Android restrictions.
 
 HTML receives `dikciz-visibility` with `{visible}` when its native page or window visibility changes. `selfWidget.visible` exposes the current value. Use this for foreground work because neighboring pages can be preloaded before selection.
+
+### Speech and additional hardware commands
+
+[Speech recognition](speech-recognition.md) documents availability, modes, language, deadlines, cancellation, results and Android errors. [Hardware controls](hardware-controls.md) covers torch, vibration, settings read-back, Bluetooth, USB, NFC, Wi-Fi, audio and camera discovery. These use the same ordinary command path in HTTP, WebSocket, MCP, HTML and Lua. The [command reference](command-reference.md) lists discovered schemas.
+
+[Shell sessions](shell-sessions.md) provide incremental output through every ordinary binding, including HTML and Lua, with reconnectable cursor reads and explicit history gaps. [Speech models](speech-models.md), [audio sessions](audio-playback.md), [durable jobs](command-jobs.md), [notification management](notification-management.md) and [peripheral guides](index.md) describe the additional procedures. JSON state patches preserve nullable API results using the same saved-state format.

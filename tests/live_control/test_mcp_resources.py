@@ -1,6 +1,7 @@
 """Discover and execute packaged MCP documentation through a live Android build."""
 
 import argparse
+import logging
 import re
 import subprocess
 import sys
@@ -15,7 +16,7 @@ RESOURCE_PREFIX = "dikciz://docs/"
 INDEX_URI = RESOURCE_PREFIX + "index"
 PAGE_SIZE = 8
 SECTION_BYTES = 4096
-SECTION_COUNT = 29
+SECTION_COUNT = 44
 INVALID_PARAMS = -32602
 READ_METHOD = "resources/read"
 LIST_METHOD = "resources/list"
@@ -42,9 +43,15 @@ def resource_request(arguments, session, method, params, password=None, extra_he
             "io.modelcontextprotocol/protocolVersion": MCP.MCP_PROTOCOL_VERSION,
         }},
     }
+    headers = AUTH.mcp_headers(session, password)
+    if session is None:
+        headers["MCP-Protocol-Version"] = MCP.MCP_PROTOCOL_VERSION
+        headers["Mcp-Method"] = method
+        if method == READ_METHOD:
+            headers["Mcp-Name"] = params["uri"]
     return MCP.request(
         arguments, MCP.HTTP_METHOD_POST, message,
-        {**AUTH.mcp_headers(session, password), **(extra_headers or {})},
+        {**headers, **(extra_headers or {})},
     )
 
 
@@ -106,7 +113,8 @@ def test_mcp_resources_walk_all_pages_and_read_each_section(websocket_control):
         assert isinstance(cursor, str) and cursor not in cursors
         cursors.add(cursor)
         params = {"cursor": cursor}
-    assert page_lengths == [PAGE_SIZE, PAGE_SIZE, PAGE_SIZE, SECTION_COUNT % PAGE_SIZE]
+    full_pages, remainder = divmod(SECTION_COUNT, PAGE_SIZE)
+    assert page_lengths == [PAGE_SIZE] * full_pages + ([remainder] if remainder else [])
     uris = {item["uri"] for item in descriptors}
     assert len(uris) == len(descriptors) == SECTION_COUNT
     assert descriptors[0]["uri"] == INDEX_URI
@@ -119,9 +127,13 @@ def test_mcp_resources_walk_all_pages_and_read_each_section(websocket_control):
         assert descriptor["mimeType"] == "text/markdown"
         assert set(re.findall(r"dikciz://docs/[a-z/-]+", text)) <= uris
     assert CLIENT.call_mcp(client_arguments(), LIST_METHOD, {})["resources"] == descriptors[:PAGE_SIZE]
-    assert CLIENT.call_mcp(client_arguments(), TEMPLATES_METHOD, {}) == {
-        "resultType": "complete", "resourceTemplates": [],
-    }
+    if SECTION_COUNT % PAGE_SIZE == 0:
+        terminal = CLIENT.call_mcp(client_arguments(), LIST_METHOD, {"cursor": "docs1:" + str(SECTION_COUNT)})
+        assert terminal["resources"] == [] and "nextCursor" not in terminal
+    templates = CLIENT.call_mcp(client_arguments(), TEMPLATES_METHOD, {})
+    assert templates["resultType"] == "complete" and templates["resourceTemplates"] == []
+    assert templates["cacheScope"] == "private" and templates["ttlMs"] == 0
+    assert templates["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "dikciz"
     tools = CLIENT.call_mcp(client_arguments(), "tools/list", {})["tools"]
     assert any(tool["name"] == "dikciz_control_status" for tool in tools)
     after = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET))
@@ -140,7 +152,7 @@ def test_mcp_resources_reject_invalid_uris_cursors_and_fields():
         )),
         *((LIST_METHOD, {"cursor": value}) for value in (
             None, False, 8, [], {}, "", "0", "docs1:-8", "docs1:1", "docs1:08",
-            "docs1:+8", "docs1:8.0", "docs1:32", "docs2:8", "docs1:" + "9" * 100,
+            "docs1:+8", "docs1:8.0", "docs1:" + str((SECTION_COUNT // PAGE_SIZE + 1) * PAGE_SIZE), "docs2:8", "docs1:" + "9" * 100,
         )),
         (READ_METHOD, {"uri": INDEX_URI, "path": "/sdcard"}),
         (LIST_METHOD, {"limit": 1000}),
@@ -161,9 +173,9 @@ def test_mcp_resources_reject_invalid_uris_cursors_and_fields():
             assert response["error"]["code"] == -32601
 
 
-def test_mcp_resources_enforce_origin_and_session():
+def test_mcp_resources_enforce_origin_and_optional_session():
     for method, params in ((LIST_METHOD, {}), (READ_METHOD, {"uri": INDEX_URI}), (TEMPLATES_METHOD, {})):
-        assert resource_request(AUTH.mcp_arguments(), None, method, params)[0] == 400
+        assert resource_request(AUTH.mcp_arguments(), None, method, params)[0] == 200
         assert resource_request(AUTH.mcp_arguments(), "unknown-resource-session", method, params)[0] == 404
         with AUTH.connected_mcp() as (arguments, session):
             assert resource_request(arguments, session, method, params, extra_headers={"Origin": "https://evil.example"})[0] == 403
@@ -216,12 +228,13 @@ def test_mcp_resources_documented_two_event_recipe_runs_on_phone(websocket_contr
     javascript = fenced_source(widget_document, "javascript")
     original = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET))
     configured = copy.deepcopy(original)
-    configuration_page(configured, FIXTURE_HOME_PAGE_ID)["widgets"].append({
+    configured["launcher"]["home"]["selectedPageId"] = FIXTURE_HOME_PAGE_ID
+    configuration_page(configured, FIXTURE_HOME_PAGE_ID)["widgets"] = [{
         "id": WIDGET_ID, "type": "html", "title": "Resource event recipe",
         "html": html, "css": "", "javascript": javascript, "state": {},
         "eventSubscriptions": widget_subscriptions, "enabled": True,
-        "cell": {"column": 0, "row": 2, "columnSpan": 4, "rowSpan": 1},
-    })
+        "cell": {"column": 0, "row": 0, "columnSpan": 4, "rowSpan": 6},
+    }]
     configured["scripts"].append({
         "id": SCRIPT_ID, "title": "Resource recipe", "enabled": True,
         "apiVersion": LUA_SCRIPT_API_VERSION, "source": lua, "state": {},
@@ -230,7 +243,20 @@ def test_mcp_resources_documented_two_event_recipe_runs_on_phone(websocket_contr
     configured["automation"]["scripts"].append(subscription)
     try:
         AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured)
-        wait_for_physical_text_bounds("Waiting")
+        direct_tap(wait_for_physical_description_bounds("Resource event recipe"))
+        try:
+            wait_for_physical_text_bounds("Waiting")
+        except AssertionError:
+            try:
+                run_device_operation("screenshot")
+                current = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_GET))
+                widget = configuration_widget(current, WIDGET_ID)
+                logging.getLogger(__name__).error("Recipe widget did not expose its initial text",
+                    extra={"widget_state": widget.get("state"), "widget_cell": widget.get("cell")})
+            except (AssertionError, RuntimeError, OSError) as diagnostic_error:
+                logging.getLogger(__name__).warning("Recipe failure capture unavailable",
+                    extra={"error_class": type(diagnostic_error).__name__})
+            raise
         dispatch["sourceWidgetAddress"] = WIDGET_ADDRESS
         for event, running, visible in (("example.start", True, "Running"), ("example.stop", False, "Stopped")):
             dispatch["actions"][0]["event"] = event

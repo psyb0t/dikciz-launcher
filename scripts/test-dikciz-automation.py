@@ -450,17 +450,36 @@ NATIVE_COMMAND_FIELDS = {
     "cameraList": (),
     "cameraCapture": ("cameraId", "maxDimension", "timeoutMilliseconds"),
     "microphoneRecord": ("durationMilliseconds",),
-    "speechSpeak": ("text", "timeoutMilliseconds"),
+    "speechSpeak": ("text", "timeoutMilliseconds", "language", "voiceName", "ratePercent", "pitchPercent"),
     "callAudio": ("action", "text"),
     "notificationsList": ("limit", "offset"), "mediaSessionsList": ("limit", "offset"),
     "deviceState": (),
     "appIcon": ("component", "sizePixels"),
 }
+NATIVE_COMMAND_FIELDS.update({'speechRecognitionStatus': (), 'speechRecognize': ('language', 'mode', 'timeoutMilliseconds'), 'speechRecognitionStop': (), 'torchControl': ('action', 'cameraId'), 'vibrationControl': ('action', 'durationMilliseconds', 'amplitude'), 'systemSetting': ('action', 'setting', 'value'), 'bluetoothDevices': ('limit', 'offset'), 'usbDevices': ('limit', 'offset'), 'nfcStatus': (), 'wifiScanResults': ('limit', 'offset'), 'audioDevices': ('limit', 'offset'), 'cameraCapabilities': ('cameraId',)})
+NATIVE_COMMAND_FIELDS.update({"speechVoices": ("limit", "offset"), "speechStop": ()})
+NATIVE_COMMAND_FIELDS.update({"shellSessionStart": ("command", "root", "timeoutMilliseconds", "chunkBytes", "bufferBytes", "maximumEvents", "retentionMinutes"), "shellSessionRead": ("streamId", "cursor", "limit", "waitMilliseconds"), "shellSessionsList": ("offset", "limit"), "shellSessionStop": ("streamId",), "shellSessionForget": ("streamId",)})
+NATIVE_COMMAND_FIELDS.update({"speechLanguages": ("mode", "language", "timeoutMilliseconds", "offset", "limit"), "speechModelDownload": ("mode", "language", "timeoutMilliseconds"), "speechModelStatus": ("sessionId",)})
+NATIVE_COMMAND_FIELDS["wifiScan"] = ("timeoutMilliseconds", "offset", "limit")
+NATIVE_COMMAND_FIELDS["microphoneSession"] = ("action", "sessionId", "maximumDurationMilliseconds", "maximumBytes", "inputDeviceId", "sampleRateHz", "bitRate", "channels")
+NATIVE_COMMAND_FIELDS["audioPlayback"] = ("action", "sessionId", "path", "volumePercent", "positionMilliseconds", "outputDeviceId", "maximumDurationMilliseconds", "loop")
+NATIVE_COMMAND_FIELDS["bluetoothGatt"] = ("action", "address", "serviceUuid", "serviceInstanceId", "characteristicUuid", "characteristicInstanceId", "descriptorUuid", "dataBase64", "writeType", "maximumEvents", "mtu", "timeoutMilliseconds", "offset", "limit")
+NATIVE_COMMAND_FIELDS.update({"bluetoothScan": ("mode", "durationMilliseconds", "maximumDevices"), "bluetoothPair": ("address",), "bluetoothExchange": ("address", "serviceUuid", "dataBase64", "readBytes", "timeoutMilliseconds", "secure")})
+NATIVE_COMMAND_FIELDS.update({"nfcRead": ("timeoutMilliseconds", "expectedTagIdBase64"), "nfcWrite": ("timeoutMilliseconds", "dataBase64", "format", "expectedTagIdBase64"), "nfcTransceive": ("timeoutMilliseconds", "ioTimeoutMilliseconds", "technology", "dataBase64", "expectedTagIdBase64")})
+NATIVE_COMMAND_FIELDS.update({"geocode": ("action", "query", "latitude", "longitude", "language", "limit", "timeoutMilliseconds"), "gnssStatus": ("limit", "offset", "timeoutMilliseconds")})
+NATIVE_COMMAND_FIELDS["speechSynthesize"] = NATIVE_COMMAND_FIELDS["speechSpeak"]
+NATIVE_COMMAND_FIELDS.update({"usbRequestAccess": ("deviceId",), "usbTransfer": ("deviceId", "kind", "interfaceIndex", "endpointAddress", "requestType", "request", "value", "index", "length", "dataBase64", "timeoutMilliseconds")})
+NATIVE_COMMAND_FIELDS.update({"jobStart": ("command", "idempotencyKey", "retentionHours"), "jobStatus": ("jobId",), "jobsList": ("offset", "limit"), "jobCancel": ("jobId",)})
+NATIVE_COMMAND_FIELDS.update({"notificationManage": ("action", "notificationKey", "actionToken", "text", "durationMilliseconds"), "fileManage": ("action", "path", "destination", "recursive", "query", "maximumEntries", "offset", "limit")})
 NATIVE_READ_COMMANDS = {
     "nativeDataStatus", "contentQuery", "smsStatus", "simList", "clipboardGet",
-    "sensorReadings", "cameraList",
+    "sensorReadings", "cameraList", "speechVoices",
     "locationGet", "notificationsList", "mediaSessionsList", "deviceState", "appIcon",
 }
+NATIVE_READ_COMMANDS.update({"shellSessionRead", "shellSessionsList"})
+NATIVE_READ_COMMANDS.update({"speechLanguages", "speechModelStatus"})
+NATIVE_READ_COMMANDS.update({"jobStatus", "jobsList", "geocode", "gnssStatus", "nfcRead", "bluetoothScan"})
+NATIVE_READ_COMMANDS.update({"speechRecognitionStatus", "bluetoothDevices", "usbDevices", "nfcStatus", "wifiScanResults", "audioDevices", "cameraCapabilities"})
 NATIVE_MCP_TOOLS = {
     "nativeDataStatus": "dikciz_native_data_status",
     "contentQuery": "dikciz_content_query", "contentWrite": "dikciz_content_write",
@@ -475,6 +494,66 @@ NATIVE_MCP_TOOLS = {
     "deviceState": "dikciz_device_state",
     "appIcon": "dikciz_app_icon",
 }
+NATIVE_MCP_TOOLS.update({"eventJournalStatus": "dikciz_event_journal_status", "eventJournalRead": "dikciz_event_journal_read", "eventJournalConfigure": "dikciz_event_journal_configure"})
+NATIVE_MCP_TOOLS.update({"microphoneStreamStart": "dikciz_microphone_stream_start", "microphoneStreamRead": "dikciz_microphone_stream_read", "microphoneStreamStop": "dikciz_microphone_stream_stop", "microphoneStreamsList": "dikciz_microphone_streams_list", "microphoneStreamForget": "dikciz_microphone_stream_forget"})
+NATIVE_MCP_TOOLS["ussdRequest"] = "dikciz_ussd_request"
+NATIVE_MCP_TOOLS["cameraVideoRecord"] = "dikciz_camera_video_record"
+NATIVE_MCP_TOOLS.update({"speechVoices": "dikciz_speech_voices", "speechStop": "dikciz_speech_stop"})
+NATIVE_MCP_TOOLS.update({"shellSessionStart": "dikciz_shell_session_start", "shellSessionRead": "dikciz_shell_session_read", "shellSessionsList": "dikciz_shell_sessions_list", "shellSessionStop": "dikciz_shell_session_stop", "shellSessionForget": "dikciz_shell_session_forget"})
+NATIVE_MCP_TOOLS.update({"speechLanguages": "dikciz_speech_languages", "speechModelDownload": "dikciz_speech_model_download", "speechModelStatus": "dikciz_speech_model_status"})
+NATIVE_MCP_TOOLS["wifiScan"] = "dikciz_wifi_scan"
+NATIVE_MCP_TOOLS["microphoneSession"] = "dikciz_microphone_session"
+NATIVE_MCP_TOOLS["audioPlayback"] = "dikciz_audio_playback"
+NATIVE_MCP_TOOLS["bluetoothGatt"] = "dikciz_bluetooth_gatt"
+NATIVE_MCP_TOOLS.update({"bluetoothScan": "dikciz_bluetooth_scan", "bluetoothPair": "dikciz_bluetooth_pair", "bluetoothExchange": "dikciz_bluetooth_exchange"})
+NATIVE_MCP_TOOLS.update({"nfcRead": "dikciz_nfc_read", "nfcWrite": "dikciz_nfc_write", "nfcTransceive": "dikciz_nfc_transceive"})
+NATIVE_MCP_TOOLS.update({"geocode": "dikciz_geocode", "gnssStatus": "dikciz_gnss_status"})
+NATIVE_MCP_TOOLS["speechSynthesize"] = "dikciz_speech_synthesize"
+NATIVE_MCP_TOOLS.update({"usbRequestAccess": "dikciz_usb_request_access", "usbTransfer": "dikciz_usb_transfer"})
+NATIVE_MCP_TOOLS.update({"jobStart": "dikciz_job_start", "jobStatus": "dikciz_job_status", "jobsList": "dikciz_jobs_list", "jobCancel": "dikciz_job_cancel"})
+NATIVE_MCP_TOOLS.update({"notificationManage": "dikciz_notification_manage", "fileManage": "dikciz_file_manage"})
+NATIVE_MCP_TOOLS.update({'speechRecognitionStatus': 'dikciz_speech_recognition_status', 'speechRecognize': 'dikciz_speech_recognize', 'speechRecognitionStop': 'dikciz_speech_recognition_stop', 'torchControl': 'dikciz_torch_control', 'vibrationControl': 'dikciz_vibration_control', 'systemSetting': 'dikciz_system_setting', 'bluetoothDevices': 'dikciz_bluetooth_devices', 'usbDevices': 'dikciz_usb_devices', 'nfcStatus': 'dikciz_nfc_status', 'wifiScanResults': 'dikciz_wifi_scan_results', 'audioDevices': 'dikciz_audio_devices', 'cameraCapabilities': 'dikciz_camera_capabilities'})
+NATIVE_COMMAND_FIELDS.update({'cameraCapture': ('autofocusMode',
+                   'cameraId',
+                   'exposureCompensation',
+                   'jpegOrientation',
+                   'jpegQuality',
+                   'maxDimension',
+                   'timeoutMilliseconds',
+                   'zoomPercent'),
+ 'cameraVideoRecord': ('bitRate',
+                       'cameraId',
+                       'durationMilliseconds',
+                       'frameRate',
+                       'maxDimension',
+                       'orientation',
+                       'timeoutMilliseconds',
+                       'withAudio'),
+ 'eventJournalConfigure': ('bufferBytes', 'maximumEvents', 'retentionMinutes'),
+ 'eventJournalRead': ('cursor', 'eventTypes', 'journalId', 'limit', 'waitMilliseconds'),
+ 'eventJournalStatus': (),
+ 'microphoneStreamForget': ('streamId',),
+ 'microphoneStreamRead': ('cursor', 'limit', 'streamId', 'waitMilliseconds'),
+ 'microphoneStreamStart': ('bufferBytes',
+                           'channels',
+                           'chunkMilliseconds',
+                           'inputDeviceId',
+                           'maximumDurationMilliseconds',
+                           'maximumEvents',
+                           'retentionMinutes',
+                           'sampleRateHz',
+                           'startupTimeoutMilliseconds'),
+ 'microphoneStreamStop': ('streamId',),
+ 'microphoneStreamsList': ('limit', 'offset'),
+ 'torchControl': ('action', 'cameraId', 'timeoutMilliseconds'),
+ 'ussdRequest': ('code', 'maximumResponseCharacters', 'subscriptionId', 'timeoutMilliseconds'),
+ 'vibrationControl': ('action',
+                      'amplitude',
+                      'amplitudes',
+                      'durationMilliseconds',
+                      'effect',
+                      'timingsMilliseconds')})
+NATIVE_READ_COMMANDS.update({"eventJournalStatus", "eventJournalRead", "microphoneStreamRead", "microphoneStreamsList"})
 CONTROL_STATUS_COMMAND_FIELDS = {
     "shellStream": ("chunkBytes", "command", "root", "timeoutMilliseconds"),
     "shellStreamStop": ("streamId",),

@@ -1,0 +1,40 @@
+{
+  "name": "dikciz-launcher",
+  "description": "Programmable Android launcher and owner-controlled MCP device server.",
+  "author": {
+    "name": "psyb0t",
+    "url": "https://github.com/psyb0t"
+  },
+  "homepage": "https://github.com/psyb0t/dikciz-launcher",
+  "license": "GPL-3.0-only",
+  "keywords": [
+    "android",
+    "launcher",
+    "mcp",
+    "automation"
+  ],
+  "userConfig": {
+    "mcp_url": {
+      "type": "string",
+      "title": "Dikciz MCP URL",
+      "description": "Reachable owner-controlled phone endpoint, including /mcp.",
+      "required": true
+    },
+    "bearer_token": {
+      "type": "string",
+      "title": "Phone bearer password",
+      "description": "Password configured on the phone. Leave empty only when authentication is disabled.",
+      "sensitive": true,
+      "default": ""
+    }
+  },
+  "mcpServers": {
+    "dikciz": {
+      "type": "http",
+      "url": "${user_config.mcp_url}",
+      "headers": {
+        "Authorization": "Bearer ${user_config.bearer_token}"
+      }
+    }
+  }
+}

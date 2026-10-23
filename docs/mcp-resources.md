@@ -6,13 +6,13 @@ Dikciz packages short operating guides and recipes in the APK. MCP clients can d
 
 Initialization advertises `capabilities.resources: {}` and instructions pointing to the index. `resources/list` returns at most eight descriptors, each with `uri`, `name`, `title`, `description`, `mimeType` and UTF-8 byte `size`. Follow the opaque `nextCursor` until it is absent. Do not synthesize or alter cursors.
 
-Call `resources/read` with one exact URI. It returns one `text/markdown` content record. Every section is at most 4096 UTF-8 bytes. A read does not bundle linked sections automatically. The 29 resources include connection, permissions, UI, apps, pages, HTML, Lua, events, files, shell, logs, security, native Android data, sensors, location, camera, microphone, speech and focused recipes. The contact/SMS recipe covers direct lookup, SIM selection, duplicate protection and receipts. The custom-event example splits setup, Lua source and HTML source into separate resources.
+Call `resources/read` with one exact URI. It returns one `text/markdown` content record. Every section is at most 4096 UTF-8 bytes. A read does not bundle linked sections automatically. The 44 resources include connection, permissions, UI, apps, pages, HTML, Lua, events, files, shell, logs, security, native Android data, sensors, location, camera, microphone, speech and focused recipes. The contact/SMS recipe covers direct lookup, SIM selection, duplicate protection and receipts. The custom-event example splits setup, Lua source and HTML source into separate resources.
 
 ```json
 {"method":"resources/read","params":{"uri":"dikciz://docs/recipes/event-setup"}}
 ```
 
-This shows the method and parameters only. A real request also needs the negotiated JSON-RPC envelope, initialized session and protocol metadata. Existing clients handle those details. `resources/templates/list` returns an empty template list. These packaged resources do not advertise subscriptions or list-change notifications.
+This shows the method and parameters only. A real request needs the JSON-RPC envelope and its protocol mode: modern request metadata/routing headers, or a negotiated legacy session. Existing clients handle those details. `resources/templates/list` returns an empty template list. These packaged resources do not advertise subscriptions or list-change notifications.
 
 ## Use the supplied client
 
@@ -30,6 +30,8 @@ Pass the returned `nextCursor` to `mcp-resources --cursor '<returned-cursor>'` f
 
 Content describes the serving APK. Use `deviceInfo` to identify that package and version, `tools/list` for executable schemas, and `controlStatus` for live limits. Recipes require verifying persisted or visible effects after a request. The event recipe proves Lua state and a rendered HTML acknowledgement separately.
 
-Resource requests use the existing bearer, browser-Origin, session and protocol checks. Reads accept only catalogued `dikciz://docs/` URIs. They never read device paths, follow external URLs or expose credentials. Invalid parameters and unknown URIs return JSON-RPC `-32602`; unknown-resource errors include the URI in `error.data.uri`. Packaged-content load failures return `-32603`.
+Resource requests use the existing bearer, browser-Origin and protocol-mode checks. Reads accept only catalogued `dikciz://docs/` URIs. They never read device paths, follow external URLs or expose credentials. Invalid parameters and unknown URIs return JSON-RPC `-32602`; unknown-resource errors include the URI in `error.data.uri`. Packaged-content load failures return `-32603`.
 
 These are MCP resource methods. HTTP and WebSocket command APIs retain the shared command contract described in [automation control](automation-control.md). See [connection setup](automation-control.md#connect-without-usb) and the [source map](../app/src/dikciz/README.md) for transport and implementation details.
+
+Speech recognition and hardware controls have separate focused guides. Read `dikciz://docs/guides/speech` for recognition modes and cancellation, or `dikciz://docs/guides/hardware-controls` for torch, vibration, settings and device inventories.

@@ -98,3 +98,18 @@ Each test installs the checked-in configuration through `configReplace` and rest
 ## Remote permission handoff
 
 `make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_permission_request_` covers explicit permission requests, default suppression, opt-in recovery on all three network transports, strict Boolean and requirement validation, untrusted Origin rejection, notification denial, deduplication and the owner button opening Android permission UI. Tests use only the private emulator.
+
+## Command reference
+
+`make dikciz-command-docs-test` validates full-schema rendering and malformed discovery inputs without a device. The CI `make test-tooling` target includes it. Capture discovery from the intended APK, then use `make dikciz-command-docs` to regenerate the reference.
+
+
+## Native capability sessions
+
+Focused selectors cover configured JPEG capture and bounded MP4 video (`test_camera_video`), actual frame metadata and validation (`test_camera_controls`), torch callbacks and real Android vibration-service playback/cancellation (`test_feedback_controls`), microphone/playback lifecycle (`test_native_audio_`), provider speech models (`test_speech_models`), requested Wi-Fi scans (`test_wifi_control`) and reconnectable shell sessions (`test_shell_sessions`).
+
+`test_event_replay` exercises real custom/native bus events, filtered cursor pagination, reconnects, long polling, count/byte eviction, oversized-event markers, one-minute expiry, process restart, current notification access and HTML/Lua bindings. Build the provider fixture and pass its APK/package for the notification-revocation case. Replay tests adjust only the private lab's process-owned journal and restore its limits.
+
+Peripheral selectors validate NFC tag selection and unavailable hardware, Bluetooth discovery/GATT deadlines and resource cleanup. Lab results do not prove successful writes to a physical tag, USB device or Bluetooth peer. Those require an explicitly selected device and authorized transaction.
+
+`test_microphone_stream_` covers actual PCM byte/frame accounting, cross-transport replay, hardware ownership, explicit replay loss, pagination/capacity, duration expiry, permission/startup cleanup, background capture and the owner notification Stop action. Use the minified APK override to check release-mode behavior. Physical audio quality and carrier call audio are separate from these emulator checks.

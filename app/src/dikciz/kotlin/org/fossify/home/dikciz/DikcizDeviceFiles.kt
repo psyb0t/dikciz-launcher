@@ -300,7 +300,20 @@ internal object DikcizFileCommands {
         if (path !is String || path.isBlank() || path.length > MAXIMUM_PATH_CHARACTERS || '\u0000' in path || !File(path).isAbsolute) {
             throw DikcizAutomationRequestException(DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED, MESSAGE_INVALID_PATH)
         }
-        return if (canonical) File(path).canonicalFile else File(path)
+        val resolved = if (canonical) File(path).canonicalFile else File(path)
+        if (isCredentialPath(resolved)) throw failure(ERROR_ACCESS_DENIED)
+        return resolved
+    }
+
+    private fun credentialFiles(): List<File> {
+        val record = File(android.os.Environment.getExternalStorageDirectory(), "Dikciz/" + DikcizRemoteAccessAuth.CONTROL_DIRECTORY_NAME + "/" + DikcizRemoteAccessAuth.RECORD_FILE_NAME).canonicalFile
+        return listOf(record, File(record.path + ".bak"), File(record.path + ".new"))
+    }
+
+    fun isCredentialPath(file: File): Boolean = credentialFiles().any { it == file.canonicalFile }
+
+    fun containsCredentials(file: File): Boolean = credentialFiles().any { credential ->
+        credential.toPath().startsWith(file.canonicalFile.toPath())
     }
 
     fun failure(code: String, cause: Throwable? = null): DikcizAutomationRequestException {

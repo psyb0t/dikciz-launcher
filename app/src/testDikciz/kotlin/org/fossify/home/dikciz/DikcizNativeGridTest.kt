@@ -53,6 +53,61 @@ private val ONLY_FREE_CELL = DikcizGridRectangle(
 
 class DikcizNativeGridTest {
 
+    @Test
+    fun reflowShrinksAndRestoresFullPageWithoutChangingIdentity() {
+        val item = DikcizGridItem("html", DikcizGridRectangle(0, 0, GRID_COLUMNS, GRID_ROWS))
+        val narrow = STANDARD_GRID.copy(columns = GRID_COLUMNS - 1, rows = GRID_ROWS - 1)
+        val shrunk = DikcizGridLayoutEngine.reflow(STANDARD_GRID, narrow, listOf(item))
+        assertEquals(listOf(item.copy(cell = DikcizGridRectangle(0, 0, narrow.columns, narrow.rows))), shrunk)
+        assertEquals(listOf(item), DikcizGridLayoutEngine.reflow(narrow, STANDARD_GRID, shrunk))
+    }
+
+    @Test
+    fun reflowSharesNonDivisibleWidthAndKeepsAdjacentPanelsSeparate() {
+        val items = listOf(
+            DikcizGridItem("left", DikcizGridRectangle(0, 0, 2, GRID_ROWS)),
+            DikcizGridItem("right", DikcizGridRectangle(2, 0, 2, GRID_ROWS)),
+        )
+        val narrow = STANDARD_GRID.copy(columns = 3)
+        val placed = DikcizGridLayoutEngine.reflow(STANDARD_GRID, narrow, items)
+        assertEquals(DikcizGridRectangle(0, 0, 1, GRID_ROWS), placed[0].cell)
+        assertEquals(DikcizGridRectangle(1, 0, 2, GRID_ROWS), placed[1].cell)
+        assertNull(DikcizGridLayoutEngine.firstConflict(narrow, placed))
+    }
+
+    @Test
+    fun reflowEvictsOnlyOverflowAndFindsFreeCellsForCollidingIcons() {
+        val items = (0 until GRID_COLUMNS).map {
+            DikcizGridItem("icon$it", DikcizGridRectangle(it, 0, 1, 1))
+        }
+        val narrow = STANDARD_GRID.copy(columns = 2, rows = 1)
+        val placed = DikcizGridLayoutEngine.reflow(STANDARD_GRID, narrow, items)
+        assertEquals(listOf("icon0", "icon1"), placed.map { it.id })
+        assertEquals(listOf(0, 1), placed.map { it.cell.column })
+        assertNull(DikcizGridLayoutEngine.firstConflict(narrow, placed))
+        val minimum = narrow.copy(columns = 1)
+        assertEquals(listOf(items.first()), DikcizGridLayoutEngine.reflow(STANDARD_GRID, minimum, items))
+    }
+
+    @Test
+    fun reflowPreservesCellsForSpacingOnlyChangesAndDoesNotStretchIconsOnGrowth() {
+        val item = DikcizGridItem("icon", DikcizGridRectangle(GRID_COLUMNS - 1, GRID_ROWS - 1, 1, 1))
+        assertEquals(listOf(item), DikcizGridLayoutEngine.reflow(
+            STANDARD_GRID,
+            STANDARD_GRID.copy(gapDP = 0, outerPaddingDP = 0),
+            listOf(item),
+        ))
+        assertEquals(listOf(item), DikcizGridLayoutEngine.reflow(
+            STANDARD_GRID,
+            STANDARD_GRID.copy(columns = GRID_COLUMNS + 1, rows = GRID_ROWS + 1),
+            listOf(item),
+        ))
+        val minimum = STANDARD_GRID.copy(columns = 1, rows = 1)
+        val shortcut = DikcizGridItem("shortcut", SINGLE_CELL_REQUEST, resizeWithGrid = false)
+        assertEquals(listOf(shortcut), DikcizGridLayoutEngine.reflow(minimum, STANDARD_GRID, listOf(shortcut)))
+        assertTrue(DikcizGridLayoutEngine.reflow(STANDARD_GRID, STANDARD_GRID, emptyList()).isEmpty())
+    }
+
     // --- isWithinBounds ---
 
     @Test

@@ -1,0 +1,19 @@
+{
+  "name": "dikciz-launcher",
+  "version": "0.25.0",
+  "description": "Programmable Android launcher and owner-controlled MCP device server.",
+  "author": {
+    "name": "psyb0t",
+    "url": "https://github.com/psyb0t"
+  },
+  "homepage": "https://github.com/psyb0t/dikciz-launcher",
+  "repository": "https://github.com/psyb0t/dikciz-launcher",
+  "license": "GPL-3.0-only",
+  "keywords": [
+    "android",
+    "launcher",
+    "mcp",
+    "automation"
+  ],
+  "skills": "./skills/"
+}

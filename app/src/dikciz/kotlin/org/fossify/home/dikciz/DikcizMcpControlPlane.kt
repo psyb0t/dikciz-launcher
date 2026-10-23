@@ -11,6 +11,7 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.nio.charset.StandardCharsets
+import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
@@ -208,10 +209,20 @@ internal class DikcizMcpControlPlane(
             initialize(message, request.headers, output)
             return
         }
-        val session = requireSession(request.headers)
-        validateProtocolVersion(message, request.headers, session)
+        val stateless = !request.headers.containsKey(HEADER_MCP_SESSION_ID)
+        val session = if (stateless) {
+            if (!validateModernRequest(message, request.headers, output)) return
+            McpSession(PROTOCOL_VERSION).apply { isInitialized.set(true) }
+        } else {
+            requireSession(request.headers).also { validateProtocolVersion(message, request.headers, it) }
+        }
         session.touch()
         when (method) {
+            METHOD_DISCOVER -> writeJson(output, jsonRpcSuccess(message.requireID(), discovery()))
+            "ping" -> {
+                requireInitialized(session)
+                writeJson(output, jsonRpcSuccess(message.requireID(), JSONObject()))
+            }
             METHOD_INITIALIZED -> {
                 if (message.has(KEY_ID)) {
                     throw McpHttpException(HTTP_STATUS_BAD_REQUEST, REASON_INVALID_NOTIFICATION, MESSAGE_INVALID_NOTIFICATION)
@@ -255,6 +266,7 @@ internal class DikcizMcpControlPlane(
                     JSON_RPC_METHOD_NOT_FOUND,
                     MESSAGE_METHOD_NOT_FOUND,
                 ),
+                statusCode = if (stateless) HTTP_STATUS_NOT_FOUND else HTTP_STATUS_OK,
             )
         }
     }
@@ -303,8 +315,9 @@ internal class DikcizMcpControlPlane(
         val params = message.requireObject(KEY_PARAMS)
         val stop = params.getString(KEY_NAME) == TOOL_SHELL_STREAM_STOP
         val rawArguments = params.optJSONObject(KEY_ARGUMENTS) ?: JSONObject()
-        val sessionID = request.headers.getValue(HEADER_MCP_SESSION_ID)
-        val owner = MCP_STREAM_OWNER_PREFIX + sessionID
+        val sessionID = request.headers[HEADER_MCP_SESSION_ID]
+        val owner = if (sessionID != null) MCP_STREAM_OWNER_PREFIX + sessionID
+            else HTTP_STREAM_OWNER_PREFIX + (request.headers[HEADER_AUTHORIZATION] ?: HTTP_ANONYMOUS_OWNER)
         try {
             val arguments = DikcizPermissionRequests.operation(rawArguments)
             DikcizShellStreams.validate(arguments, stop)
@@ -326,7 +339,7 @@ internal class DikcizMcpControlPlane(
                 val completed = stream.consume(
                     isAllowed = {
                         session.touch()
-                        isRunning.get() && sessions[sessionID] === session && isAuthorized()
+                        isRunning.get() && (sessionID == null || sessions[sessionID] === session) && isAuthorized()
                     },
                     abortConnection = { connection.close() },
                 ) { event ->
@@ -394,22 +407,17 @@ internal class DikcizMcpControlPlane(
         val clientInfo = params.requireObject(KEY_CLIENT_INFO)
         clientInfo.requireMcpString(KEY_NAME)
         clientInfo.requireMcpString(KEY_VERSION)
-        if (protocolVersion != PROTOCOL_VERSION) {
-            throw McpHttpException(
-                HTTP_STATUS_BAD_REQUEST,
-                REASON_PROTOCOL_MISMATCH,
-                MESSAGE_PROTOCOL_MISMATCH,
-            )
-        }
+        val negotiatedVersion = if (protocolVersion == PROTOCOL_VERSION || protocolVersion in LEGACY_PROTOCOL_VERSIONS) protocolVersion
+            else LEGACY_PROTOCOL_VERSIONS.first()
         cleanExpiredSessions()
         if (sessions.size >= MAXIMUM_SESSION_COUNT) {
             throw McpHttpException(HTTP_STATUS_TOO_MANY_REQUESTS, REASON_SESSION_LIMIT, MESSAGE_SESSION_LIMIT)
         }
         val sessionID = UUID.randomUUID().toString()
-        sessions[sessionID] = McpSession(protocolVersion)
+        sessions[sessionID] = McpSession(negotiatedVersion)
         logger.info(EVENT_MCP_SESSION_CREATED)
         val result = JSONObject()
-            .put(KEY_PROTOCOL_VERSION, PROTOCOL_VERSION)
+            .put(KEY_PROTOCOL_VERSION, negotiatedVersion)
             .put(KEY_CAPABILITIES, JSONObject()
                 .put(KEY_TOOLS, JSONObject().put(KEY_LIST_CHANGED, false))
                 .put(DikcizMcpResources.KEY_RESOURCES, JSONObject()))
@@ -674,7 +682,7 @@ internal class DikcizMcpControlPlane(
         if (headerVersion != session.protocolVersion) {
             throw McpHttpException(HTTP_STATUS_BAD_REQUEST, REASON_PROTOCOL_MISMATCH, MESSAGE_PROTOCOL_MISMATCH)
         }
-        if (!message.has(KEY_ID)) {
+        if (!message.has(KEY_ID) || session.protocolVersion in LEGACY_PROTOCOL_VERSIONS) {
             return
         }
         val params = message.optJSONObject(KEY_PARAMS) ?: JSONObject()
@@ -684,6 +692,56 @@ internal class DikcizMcpControlPlane(
             throw McpHttpException(HTTP_STATUS_BAD_REQUEST, REASON_PROTOCOL_MISMATCH, MESSAGE_PROTOCOL_MISMATCH)
         }
         meta.requireObject(KEY_META_CLIENT_CAPABILITIES)
+    }
+
+    private fun discovery(): JSONObject = JSONObject()
+        .put("supportedVersions", JSONArray(listOf(PROTOCOL_VERSION) + LEGACY_PROTOCOL_VERSIONS))
+        .put(KEY_CAPABILITIES, JSONObject().put(KEY_TOOLS, JSONObject()).put(DikcizMcpResources.KEY_RESOURCES, JSONObject()))
+        .put(KEY_INSTRUCTIONS, DikcizMcpResources.INSTRUCTIONS)
+
+    private fun validateModernRequest(message: JSONObject, headers: Map<String, String>, output: BufferedOutputStream): Boolean {
+        val id = message.opt(KEY_ID) ?: JSONObject.NULL
+        val params = message.optJSONObject(KEY_PARAMS) ?: JSONObject()
+        val meta = params.optJSONObject(KEY_META) ?: JSONObject()
+        val requested = meta.opt(KEY_META_PROTOCOL_VERSION)
+        fun reject(code: Int, text: String, data: JSONObject? = null): Boolean {
+            val response = jsonRpcError(id, code, text)
+            data?.let { response.getJSONObject(KEY_ERROR).put(KEY_DATA, it) }
+            writeJson(output, response, statusCode = HTTP_STATUS_BAD_REQUEST)
+            return false
+        }
+        if (requested !is String || requested != headers[HEADER_MCP_PROTOCOL_VERSION]) {
+            return reject(JSON_RPC_HEADER_MISMATCH, "Protocol header and request metadata must agree")
+        }
+        if (requested != PROTOCOL_VERSION) {
+            return reject(JSON_RPC_UNSUPPORTED_VERSION, "Unsupported protocol version", JSONObject()
+                .put("requested", requested).put("supported", JSONArray(listOf(PROTOCOL_VERSION) + LEGACY_PROTOCOL_VERSIONS)))
+        }
+        if (headers[HEADER_MCP_METHOD] != message.optString(KEY_METHOD)) {
+            return reject(JSON_RPC_HEADER_MISMATCH, "Mcp-Method header must match the request method")
+        }
+        if (meta.opt(KEY_META_CLIENT_CAPABILITIES) !is JSONObject) {
+            return reject(JSON_RPC_INVALID_REQUEST, "Request metadata must include clientCapabilities")
+        }
+        val nameKey = when (message.optString(KEY_METHOD)) {
+            METHOD_TOOLS_CALL, "prompts/get" -> KEY_NAME
+            DikcizMcpResources.METHOD_READ -> DikcizMcpResources.KEY_URI
+            else -> null
+        }
+        if (nameKey != null) {
+            val bodyName = params.opt(nameKey)
+            val headerName = headers[HEADER_MCP_NAME]
+            if (bodyName !is String || headerName == null) return reject(JSON_RPC_HEADER_MISMATCH, "Mcp-Name header is required")
+            val decoded = if (headerName.startsWith(HEADER_BASE64_PREFIX) && headerName.endsWith(HEADER_BASE64_SUFFIX)) {
+                try {
+                    val bytes = Base64.getDecoder().decode(headerName.removePrefix(HEADER_BASE64_PREFIX).removeSuffix(HEADER_BASE64_SUFFIX))
+                    StandardCharsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(bytes)).toString()
+                } catch (_: IllegalArgumentException) { return reject(JSON_RPC_HEADER_MISMATCH, "Invalid encoded Mcp-Name header") }
+                  catch (_: java.nio.charset.CharacterCodingException) { return reject(JSON_RPC_HEADER_MISMATCH, "Invalid UTF-8 Mcp-Name header") }
+            } else headerName
+            if (decoded != bodyName) return reject(JSON_RPC_HEADER_MISMATCH, "Mcp-Name header must match the request body")
+        }
+        return true
     }
 
     private fun cleanExpiredSessions() {
@@ -865,6 +923,12 @@ internal class DikcizMcpControlPlane(
     }
 
     private fun jsonRpcSuccess(id: Any, result: JSONObject): JSONObject {
+        result.put(KEY_RESULT_TYPE, RESULT_TYPE_COMPLETE)
+        result.put(KEY_META, (result.optJSONObject(KEY_META) ?: JSONObject()).put(KEY_META_SERVER_INFO,
+            JSONObject().put(KEY_NAME, SERVER_NAME).put(KEY_VERSION, SERVER_VERSION)))
+        if (listOf("tools", "resources", "contents", "resourceTemplates", "supportedVersions").any(result::has)) {
+            result.put("ttlMs", 0).put("cacheScope", "private")
+        }
         return JSONObject().put(KEY_JSON_RPC, JSON_RPC_VERSION).put(KEY_ID, id).put(KEY_RESULT, result)
     }
 
@@ -1184,6 +1248,15 @@ internal class DikcizMcpControlPlane(
         private const val HTTP_ANONYMOUS_OWNER = "anonymous"
         private val STREAM_LOG_LEVELS = setOf("info", "debug")
         private val STREAM_SUCCESS_STATES = setOf(DikcizShellStreams.STATE_EXITED, DikcizShellStreams.STATE_CANCELLED)
+        private const val METHOD_DISCOVER = "server/discover"
+        private const val HEADER_MCP_METHOD = "mcp-method"
+        private const val HEADER_MCP_NAME = "mcp-name"
+        private const val HEADER_BASE64_PREFIX = "=?base64?"
+        private const val HEADER_BASE64_SUFFIX = "?="
+        private const val KEY_META_SERVER_INFO = "io.modelcontextprotocol/serverInfo"
+        private const val JSON_RPC_HEADER_MISMATCH = -32020
+        private const val JSON_RPC_UNSUPPORTED_VERSION = -32022
+        private val LEGACY_PROTOCOL_VERSIONS = listOf("2025-11-25", "2025-06-18", "2025-03-26")
         const val PROTOCOL_VERSION = "2026-07-28"
         const val REASON_ACCEPT = "accept"
         const val REASON_BODY_SIZE = "body_size"
@@ -1436,7 +1509,7 @@ internal class DikcizMcpControlPlane(
             ToolDefinition("dikciz_ui_dump", "Dump Dikciz UI", "Read the current semantic launcher UI tree.", emptyList(), true),
             ToolDefinition("dikciz_diagnostics", "Read Dikciz diagnostics", "Read local control-plane diagnostics.", emptyList(), true),
             ToolDefinition("dikciz_widget_get", "Read Dikciz widget", "Read one widget by its stable H/V widget address.", listOf(widgetAddressArgument()), true),
-            ToolDefinition(TOOL_GRID_SET, "Set Dikciz page grid", "Replace the page grid used by every page. Validation covers all placed widgets first; a widget that would leave the grid or collide rejects the whole change with grid_bounds or grid_collision and writes nothing.", listOf(gridColumnsArgument(), gridRowsArgument(), gridGapArgument(), gridOuterPaddingArgument()), false),
+            ToolDefinition(TOOL_GRID_SET, "Set Dikciz page grid", "Replace the page grid used by every page. Reflow widget rectangles to fit, relocate collisions and remove overflow items in saved order. Return the saved grid and evictedWidgets with pageId/id records. Evicting app shortcuts leaves their apps installed.", listOf(gridColumnsArgument(), gridRowsArgument(), gridGapArgument(), gridOuterPaddingArgument()), false),
             ToolDefinition(TOOL_ADD_WIDGET, "Add Dikciz widget", "Place one new top-level item in the first fitting free cells of the selected page grid. Rejects with page_full and writes nothing when no space fits. Use dikciz_widget_move and dikciz_widget_resize to place it afterwards.", listOf(widgetTypeArgument()), false),
             ToolDefinition(TOOL_WIDGET_MOVE, "Move Dikciz widget", "Move one widget to an explicit grid rectangle. Rejects with grid_collision or grid_bounds and writes nothing.", listOf(widgetAddressArgument(), cellArgument()), false),
             ToolDefinition(TOOL_WIDGET_RESIZE, "Resize Dikciz widget", "Resize one widget to an explicit grid rectangle. Rejects with grid_collision or grid_bounds and writes nothing.", listOf(widgetAddressArgument(), cellArgument()), false),

@@ -22,6 +22,29 @@ Read only the sections needed for the current task. Each resource is at most 4 K
 
 - [Hardware](dikciz://docs/guides/hardware): live sensors, location, camera, microphone and speech.
 
+- [Speech recognition](dikciz://docs/guides/speech): on-device or system recognition, errors and cancellation.
+- [Hardware controls](dikciz://docs/guides/hardware-controls): torch, vibration, settings and device inventories.
+
+- [Jobs](dikciz://docs/guides/jobs): persisted commands, results and cancellation.
+
+- [USB](dikciz://docs/guides/usb): owner approval and control/bulk transfers.
+- [Location](dikciz://docs/guides/location): fixes, geocoding and GNSS observations.
+
+- [NFC](dikciz://docs/guides/nfc): presented tags, NDEF and raw transactions.
+- [Bluetooth](dikciz://docs/guides/bluetooth): discovery, pairing, RFCOMM and GATT.
+
+- [Audio](dikciz://docs/guides/audio): local playback, focus, routing and controls.
+- [Microphone streams](dikciz://docs/guides/microphone-streams): live PCM, replay and owner stop.
+
+- [Wi-Fi](dikciz://docs/guides/wifi): requested scans, cached results and freshness.
+
+- [Speech models](dikciz://docs/guides/speech-models): language inventory, downloads and progress.
+
+- [USSD](dikciz://docs/guides/ussd): native carrier requests, SIM choice and uncertain outcomes.
+- [Camera video](dikciz://docs/guides/video): bounded MP4 with optional microphone and finalized metadata.
+- [Event replay](dikciz://docs/guides/event-replay): cursor reads, long polling and explicit loss.
+- [Shell sessions](dikciz://docs/guides/shell-sessions): incremental output on every ordinary binding.
+
 ## Recipes
 
 - [Contact and tracked SMS](dikciz://docs/recipes/contact-sms).

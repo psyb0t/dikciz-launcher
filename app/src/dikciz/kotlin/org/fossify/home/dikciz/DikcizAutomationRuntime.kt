@@ -224,6 +224,7 @@ internal object DikcizAutomationEventBus {
         context: Context,
         event: DikcizAutomationEvent,
     ) {
+        DikcizEventJournal.append(event)
         runtime(context).dispatch(event)
         eventListeners[context.packageName]?.invoke(event)
         remoteEventListeners[context.packageName]?.invoke(event)
@@ -1210,7 +1211,8 @@ internal class DikcizAutomationRuntime(
                 AutomationActionExecution(configuration, REASON_TARGET_UNAVAILABLE)
             }
 
-            DikcizNotificationActionResult.AndroidRejected -> {
+            DikcizNotificationActionResult.AndroidRejected,
+            DikcizNotificationActionResult.ReplyUnsupported -> {
                 AutomationActionExecution(configuration, REASON_ANDROID_REJECTED)
             }
         }

@@ -4176,9 +4176,8 @@ class DikcizHomeActivity : Activity() {
     /**
      * Replaces the page grid for every page at once.
      *
-     * Validation covers all placed items before anything is written. A single item that no
-     * longer fits rejects the whole change and names the offending page and widget, so the
-     * saved document is never left half converted.
+     * Reflows every page before saving dimensions and rectangles together.
+     * Items that cannot fit are evicted in page order.
      */
     private fun setAutomationGrid(command: DikcizAutomationCommand): JSONObject {
         val configuration = homeConfiguration ?: throw automationFailure(MESSAGE_CONFIGURATION_UNAVAILABLE)
@@ -4190,23 +4189,8 @@ class DikcizHomeActivity : Activity() {
                 DikcizAutomationControlPlane.KEY_OUTER_PADDING_DP,
             ),
         )
-        nativeGridConflict(configuration, grid)?.let { (page, conflict) ->
-            dikcizLogger.warn(
-                EVENT_PAGE_GRID_REJECTED,
-                mapOf(
-                    FIELD_PAGE_ID to page.id,
-                    FIELD_REASON to conflict.failure.persistedValue,
-                    FIELD_WIDGET_ID to conflict.itemID,
-                ),
-            )
-            throw DikcizAutomationRequestException(
-                gridFailureCode(conflict.failure),
-                nativeGridConflictMessage(page, conflict, grid),
-            )
-        }
-        if (grid != configuration.nativeGrid &&
-            !updateConfiguration { current -> current.copy(nativeGrid = grid) }
-        ) {
+        val resized = reflowNativeGrid(configuration, grid)
+        if (grid != configuration.nativeGrid && !updateConfiguration { resized }) {
             throw automationFailure(MESSAGE_CONFIGURATION_SAVE_FAILED)
         }
         dikcizLogger.info(
@@ -4214,9 +4198,13 @@ class DikcizHomeActivity : Activity() {
             mapOf(
                 FIELD_COLUMN_SPAN to grid.columns,
                 FIELD_ROW_SPAN to grid.rows,
+                FIELD_EVICTED_COUNT to evictedGridWidgets(configuration, resized).length(),
             ),
         )
-        return automationGrid(grid)
+        return automationGrid(grid).put(
+            KEY_EVICTED_WIDGETS,
+            evictedGridWidgets(configuration, resized),
+        )
     }
 
     private fun moveAutomationWidget(command: DikcizAutomationCommand): JSONObject {
@@ -8349,32 +8337,15 @@ class DikcizHomeActivity : Activity() {
     /**
      * Applies a page grid for every page at once.
      *
-     * The change is all or nothing: if a single placed item would leave the grid or collide
-     * under the new geometry, nothing is written and the offending page and widget are
-     * named. Users resize or move that item first, then change the grid again.
+     * Reflows widgets and evicts overflow before saving the complete configuration.
      */
     private fun applyNativeGrid(grid: DikcizNativeGrid): Boolean {
         val configuration = homeConfiguration ?: return false
         if (grid == configuration.nativeGrid) {
             return true
         }
-        nativeGridConflict(configuration, grid)?.let { (page, conflict) ->
-            dikcizLogger.warn(
-                EVENT_PAGE_GRID_REJECTED,
-                mapOf(
-                    FIELD_PAGE_ID to page.id,
-                    FIELD_REASON to conflict.failure.persistedValue,
-                    FIELD_WIDGET_ID to conflict.itemID,
-                ),
-            )
-            Toast.makeText(
-                this,
-                nativeGridConflictMessage(page, conflict, grid),
-                Toast.LENGTH_LONG,
-            ).show()
-            return false
-        }
-        if (!updateConfiguration { current -> current.copy(nativeGrid = grid) }) {
+        val resized = reflowNativeGrid(configuration, grid)
+        if (!updateConfiguration { resized }) {
             return false
         }
         dikcizLogger.info(
@@ -8382,41 +8353,54 @@ class DikcizHomeActivity : Activity() {
             mapOf(
                 FIELD_COLUMN_SPAN to grid.columns,
                 FIELD_ROW_SPAN to grid.rows,
+                FIELD_EVICTED_COUNT to evictedGridWidgets(configuration, resized).length(),
             ),
         )
-        Toast.makeText(this, R.string.dikciz_settings_grid_saved, Toast.LENGTH_SHORT).show()
+        val evictedCount = evictedGridWidgets(configuration, resized).length()
+        val message = if (evictedCount > 0) {
+            getString(R.string.dikciz_settings_grid_saved_evicted, evictedCount)
+        } else {
+            getString(R.string.dikciz_settings_grid_saved)
+        }
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
         return true
     }
 
-    private fun nativeGridConflictMessage(
-        page: HomePage,
-        conflict: DikcizGridConflict,
-        grid: DikcizNativeGrid,
-    ): String {
-        return getString(
-            R.string.dikciz_settings_grid_conflict,
-            conflict.itemID,
-            page.title,
-            grid.columns,
-            grid.rows,
-        )
-    }
-
-    /** The first page and widget a candidate grid cannot hold, or null when every item fits. */
-    private fun nativeGridConflict(
+    private fun reflowNativeGrid(
         configuration: HomeConfiguration,
         grid: DikcizNativeGrid,
-    ): Pair<HomePage, DikcizGridConflict>? {
-        configuration.pages.forEach { page ->
-            val conflict = DikcizGridLayoutEngine.firstConflict(
+    ): HomeConfiguration {
+        val pages = configuration.pages.map { page ->
+            val cells = DikcizGridLayoutEngine.reflow(
+                previous = configuration.nativeGrid,
                 grid = grid,
-                items = page.widgets.map { widget -> DikcizGridItem(widget.id, widget.cell) },
-            )
-            if (conflict != null) {
-                return page to conflict
+                items = page.widgets.map { widget ->
+                    DikcizGridItem(
+                        id = widget.id,
+                        cell = widget.cell,
+                        resizeWithGrid = widget !is AppHomeWidget && widget !is AppGroupHomeWidget,
+                    )
+                },
+            ).associate { it.id to it.cell }
+            page.copy(widgets = page.widgets.mapNotNull { widget ->
+                cells[widget.id]?.let { widget.withCell(it) }
+            })
+        }
+        return configuration.copy(nativeGrid = grid, pages = pages)
+    }
+
+    private fun evictedGridWidgets(
+        previous: HomeConfiguration,
+        resized: HomeConfiguration,
+    ): JSONArray {
+        val retainedIDs = resized.pages.flatMap { it.widgets }.map { it.id }.toSet()
+        return JSONArray().apply {
+            previous.pages.forEach { page ->
+                page.widgets.filter { it.id !in retainedIDs }.forEach { widget ->
+                    put(JSONObject().put(KEY_PAGE_ID, page.id).put(KEY_ID, widget.id))
+                }
             }
         }
-        return null
     }
 
     private fun showResetConfirmation() {
@@ -11504,6 +11488,7 @@ class DikcizHomeActivity : Activity() {
         const val FIELD_TO_PAGE_INDEX = "to_page_index"
         const val FIELD_TO_WIDGET_INDEX = "to_widget_index"
         const val FIELD_WIDGET_COUNT = "widget_count"
+        const val FIELD_EVICTED_COUNT = "evicted_count"
         const val FIELD_WIDGET_ID = "widget_id"
         const val FIELD_WIDGET_PACKAGE_ID = "widget_package_id"
         const val FIELD_WIDTH_DP = "width_dp"
@@ -11749,6 +11734,7 @@ class DikcizHomeActivity : Activity() {
         const val KEY_OUTCOME = "outcome"
         const val KEY_OUTPUT_TRUNCATED = "outputTruncated"
         const val KEY_PAGES = "pages"
+        const val KEY_EVICTED_WIDGETS = "evictedWidgets"
         const val KEY_PAGE_ID = "pageId"
         const val KEY_PAGE_LOCATION = "pageLocation"
         const val KEY_PNG_BASE64 = "pngBase64"
