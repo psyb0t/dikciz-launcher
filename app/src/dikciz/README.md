@@ -52,7 +52,8 @@ All Kotlin files below live in `kotlin/org/fossify/home/dikciz/`.
 | `DikcizHardwareControl.kt`, `DikcizWifiControl.kt`, `DikcizLocationServices.kt` | Handle inventories, selected settings, requested scans, geocoding and GNSS observations. |
 | `DikcizBluetoothControl.kt`, `DikcizGattControl.kt`, `DikcizNfcControl.kt`, `DikcizUsbControl.kt` | Own bounded peripheral transactions, actual connections and platform-access checks. |
 | `DikcizFileManagement.kt`, `DikcizNotificationControl.kt` | Handle file lifecycle/search and notification dismissal, snooze and inline reply through the shared target. |
-| `DikcizAppIcon.kt`, `DikcizSystemMetrics.kt` | Read bounded Android app icons and local RAM, storage, CPU and sensor inventory through the shared native executor. |
+| `DikcizAppIcon.kt`, `DikcizSystemMetrics.kt`, `DikcizCpuCounters.kt` | Read Android app icons, RAM, storage, bounded per-core clocks/load and process CPU samples through the shared executor. |
+| `DikcizAppUsage.kt`, `DikcizStarterApps.kt` | Read owner-granted foreground-use metadata and resolve installed native dock shortcuts for a new starter. |
 | `DikcizSmsStatus.kt` | Reserves durable idempotency keys and records per-part sent/delivery callbacks through a private receiver. |
 | `DikcizDeviceFiles.kt` | Validate absolute paths, paginate directories and transfer bounded base64 file chunks using Android app permissions. |
 | `DikcizApkInstaller.kt` | Stage standalone APKs asynchronously, verify checksums and persist Android installer callback outcomes through its private receiver. |

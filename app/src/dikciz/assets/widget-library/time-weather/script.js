@@ -2,7 +2,9 @@
     const MINUTE_MS = 60000;
     function tick() {
         if (document.hidden || window.selfWidget?.visible === false) return;
-        document.getElementById("clock").textContent = new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+        const parts = new Intl.DateTimeFormat([], {hour:"2-digit", minute:"2-digit"}).formatToParts(new Date());
+        document.getElementById("clock").textContent = parts.filter(part => part.type !== "dayPeriod").map(part => part.value).join("").trim();
+        document.getElementById("period").textContent = parts.find(part => part.type === "dayPeriod")?.value || "";
         document.getElementById("date").textContent = new Date().toLocaleDateString([], {weekday:"long", month:"short", day:"numeric"});
     }
     tick();
@@ -65,7 +67,7 @@
     function render() {
         text("place", validCity(state.city) ? state.city.name : "Choose your city");
         const weather = state.weather || {};
-        text("temperature", number(weather.temperature, "°C"));
+        text("temperature", Number.isFinite(weather.temperature) ? number(weather.temperature, "°C") : "Weather");
         text("feels", number(weather.feels, "°C"));
         text("wind", number(weather.wind, ""));
         text("rain", number(weather.rain, "%"));
@@ -200,4 +202,23 @@
         state = event.detail || {};
         render();
     });
+})();
+
+(() => {
+    const card = document.querySelector(".card");
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+    const visibility = () => { document.body.dataset.visible = String(!document.hidden && window.selfWidget?.visible !== false); };
+    card?.addEventListener("pointermove", event => {
+        if (reduced.matches || event.pointerType === "touch") return;
+        const bounds = card.getBoundingClientRect();
+        card.style.setProperty("--ry", ((event.clientX - bounds.left) / bounds.width * 6 - 3) + "deg");
+        card.style.setProperty("--rx", (3 - (event.clientY - bounds.top) / bounds.height * 6) + "deg");
+    });
+    card?.addEventListener("pointerleave", () => {
+        card.style.setProperty("--rx", "0deg");
+        card.style.setProperty("--ry", "0deg");
+    });
+    document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("dikciz-visibility", visibility);
+    visibility();
 })();

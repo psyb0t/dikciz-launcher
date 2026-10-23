@@ -57,15 +57,6 @@ def open_html_package_picker(
         semanticId=HTML_WIDGET_LIBRARY_PICKER_SEARCH_SEMANTIC_ID,
         text=HTML_WIDGET_LIBRARY_PICKER_SEARCH_TEXT,
     )
-    wait_for_snapshot_node(
-        websocket_control,
-        HTML_WIDGET_LIBRARY_PICKER_HTML_ENTRY_SEMANTIC_ID,
-    )
-    AUTOMATION.request(
-        websocket_control,
-        AUTOMATION.TYPE_TAP,
-        semanticId=HTML_WIDGET_LIBRARY_PICKER_HTML_ENTRY_SEMANTIC_ID,
-    )
     return wait_for_snapshot_node(
         websocket_control,
         package_picker_entry_semantic_id(package_id),

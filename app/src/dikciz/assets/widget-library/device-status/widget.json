@@ -2,7 +2,7 @@
   "version": 2,
   "id": "device-status",
   "title": "Device status",
-  "description": "Battery, charging, RAM, free storage and network status. Refreshes every 30 seconds while visible without starting sensors.",
+  "description": "Live battery gauge, RAM and storage bars, Dikciz CPU history and per-core clocks or load where Android exposes them. Refreshes only while visible.",
   "span": {
     "columnSpan": 8,
     "rowSpan": 3

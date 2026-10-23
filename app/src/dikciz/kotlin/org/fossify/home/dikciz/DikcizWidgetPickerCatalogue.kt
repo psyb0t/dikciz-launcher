@@ -14,18 +14,23 @@ internal class DikcizWidgetPickerCatalogue(
     private val logger: DikcizLogger,
     private val loadLaunchableApps: () -> List<DikcizLaunchableApp>,
 ) {
-    fun widgetPickerCategories(): List<WidgetPickerCategory> {
-        val nativeEntries = buildList {
+    fun widgetPickerCategories(
+        htmlPackages: List<DikcizHtmlWidgetPackage>,
+    ): List<WidgetPickerCategory> {
+        val nativeEntries = buildList<WidgetPickerEntry> {
+            addAll(htmlPackages.map(::HtmlWidgetPickerEntry))
             add(
                 NativeWidgetPickerEntry(
                     NativeWidgetType.Html,
                     context.getString(R.string.dikciz_html_widget_title),
+                    context.getString(R.string.dikciz_html_widget_description),
                 ),
             )
             add(
                 NativeWidgetPickerEntry(
                     NativeWidgetType.ScriptDashboard,
                     context.getString(R.string.dikciz_script_dashboard_widget_title),
+                    context.getString(R.string.dikciz_script_dashboard_widget_description),
                 ),
             )
         }
@@ -71,7 +76,8 @@ internal class DikcizWidgetPickerCatalogue(
             return true
         }
         return category.label.contains(query, ignoreCase = true) ||
-            entry.label.contains(query, ignoreCase = true)
+            entry.label.contains(query, ignoreCase = true) ||
+            entry.description.contains(query, ignoreCase = true)
     }
 
     fun applicationMatchesQuery(

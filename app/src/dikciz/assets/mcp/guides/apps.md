@@ -1,6 +1,6 @@
 # Apps and running tasks
 
-Use app catalogue discovery or open the app drawer and inspect its semantic nodes. `launchApp` accepts an app node's `semanticId`. App actions and explicit intents have their own schemas. Confirm package identity with `packageInfo` when names are ambiguous.
+Use app catalogue discovery or open the app drawer and inspect its semantic nodes. appCatalogue reports usageAvailable, usageReason and usageWindowDays:7. When Android Usage access is granted, each app includes foregroundMilliseconds; otherwise it is null. Clients may rank by that value. The read never opens a permission prompt. `launchApp` accepts an app node's `semanticId`. App actions and explicit intents have their own schemas. Confirm package identity with `packageInfo` when names are ambiguous.
 
 App launch results distinguish an attempted launch from verified foreground state. Check the returned outcome and a fresh Accessibility snapshot or display screenshot. A backgrounded Home screen does not prove a launch worked. Apps can reject intents, be disabled, crash immediately, or be unavailable in the current Android profile.
 

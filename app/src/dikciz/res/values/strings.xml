@@ -122,7 +122,9 @@
     <string name="dikciz_horizontal_page_indicator_description">Horizontal pages. Page %1$d of %2$d: %3$s. Tap a dot to select a column. Tap empty rail space or swipe to move one column. Long press beyond the dots to create a column.</string>
     <string name="dikciz_vertical_page_indicator_description">Vertical pages. Page %1$d of %2$d: %3$s. Tap a dot to select a row. Tap empty rail space or swipe to move one row. Long press beyond the dots to create a row.</string>
     <string name="dikciz_disabled_widget">Disabled</string>
-    <string name="dikciz_html_widget_title">New HTML widget</string>
+    <string name="dikciz_html_widget_title">Empty HTML widget</string>
+    <string name="dikciz_html_widget_description">Start with a blank document and edit its HTML, CSS and JavaScript.</string>
+    <string name="dikciz_script_dashboard_widget_description">View Lua script status, enable trusted scripts and read their logs.</string>
     <string name="dikciz_app_group_widget_title">App group</string>
     <string name="dikciz_app_group_content_description">%1$s app group, %2$d available apps</string>
     <string name="dikciz_html_widget_library_title">HTML widget library</string>

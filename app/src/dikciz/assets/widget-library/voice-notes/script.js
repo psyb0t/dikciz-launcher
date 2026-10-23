@@ -8,14 +8,23 @@
     const stopButton = document.getElementById("stop");
     let ready = false;
     let busy = false;
+    let stopRequested = false;
     let session = null;
     let playback = null;
     let lastDuration = 0;
     function controls() {
         recordButton.disabled = !ready || busy || Boolean(session) || Boolean(selfWidget.state.pendingRecording);
-        stopButton.disabled = busy || !session;
+        stopButton.disabled = !session;
         document.getElementById("retry").hidden = !selfWidget.state.pendingRecording;
         document.getElementById("stop-playback").hidden = !playback;
+    }
+    function releaseBusy() {
+        busy = false;
+        controls();
+        if (stopRequested) {
+            stopRequested = false;
+            void stop();
+        }
     }
     function render() {
         const list = document.getElementById("recordings");
@@ -36,7 +45,7 @@
                     playback = result.sessionId;
                     status.textContent = "Playback requested.";
                 } catch (error) { status.textContent = "Playback failed: " + error.message; }
-                finally { busy = false; controls(); }
+                finally { releaseBusy(); }
             });
             item.append(button);
             list.append(item);
@@ -83,10 +92,14 @@
                 await selfWidget.patchState({...selfWidget.state, sessionId:null});
             }
             status.textContent = "Recording status needs attention: " + error.message;
-        } finally { busy = false; controls(); }
+        } finally { releaseBusy(); }
     }
     async function stop() {
-        if (!session || busy) return;
+        if (busy) {
+            stopRequested = true;
+            return;
+        }
+        if (!session) return;
         busy = true;
         controls();
         try {
@@ -98,7 +111,7 @@
                 status.textContent = "Recording was not saved: " + (result.error || result.reason || result.state);
             }
         } catch (error) { status.textContent = "Stop or save failed: " + error.message + ". Retry saving if available."; }
-        finally { busy = false; controls(); }
+        finally { releaseBusy(); }
     }
     recordButton.addEventListener("click", async () => {
         if (busy || session || selfWidget.state.pendingRecording || !selfWidget.visible) return;
@@ -114,7 +127,7 @@
             await selfWidget.patchState({...selfWidget.state, sessionId:session});
             status.textContent = "Recording. Tap Stop and save.";
         } catch (error) { status.textContent = "Recording needs attention: " + error.message + ". Grant access if requested, then tap Record again."; }
-        finally { busy = false; controls(); }
+        finally { releaseBusy(); }
     });
     stopButton.addEventListener("click", stop);
     document.getElementById("retry").addEventListener("click", async () => {
@@ -123,7 +136,7 @@
         controls();
         try { await save(selfWidget.state.pendingRecording); }
         catch (error) { status.textContent = "Save retry failed: " + error.message; }
-        finally { busy = false; controls(); }
+        finally { releaseBusy(); }
     });
     document.getElementById("stop-playback").addEventListener("click", async () => {
         if (!playback || busy) return;
@@ -133,7 +146,7 @@
             playback = null;
             status.textContent = "Playback stopped.";
         } catch (error) { status.textContent = "Playback stop failed: " + error.message; }
-        finally { busy = false; controls(); }
+        finally { releaseBusy(); }
     });
     window.addEventListener("dikciz-state", render);
     window.addEventListener("dikciz-ready", () => {
@@ -148,4 +161,23 @@
         if (session && !selfWidget.visible) stop();
         else if (selfWidget.visible && !document.hidden) observe();
     }, POLL_MS);
+})();
+
+(() => {
+    const card = document.querySelector(".card");
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+    const visibility = () => { document.body.dataset.visible = String(!document.hidden && window.selfWidget?.visible !== false); };
+    card?.addEventListener("pointermove", event => {
+        if (reduced.matches || event.pointerType === "touch") return;
+        const bounds = card.getBoundingClientRect();
+        card.style.setProperty("--ry", ((event.clientX - bounds.left) / bounds.width * 6 - 3) + "deg");
+        card.style.setProperty("--rx", (3 - (event.clientY - bounds.top) / bounds.height * 6) + "deg");
+    });
+    card?.addEventListener("pointerleave", () => {
+        card.style.setProperty("--rx", "0deg");
+        card.style.setProperty("--ry", "0deg");
+    });
+    document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("dikciz-visibility", visibility);
+    visibility();
 })();

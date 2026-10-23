@@ -129,7 +129,7 @@ internal class HomeConfigStore(
     }
 
     fun loadBundledConfiguration(): HomeConfiguration {
-        return parseConfiguration(readBundledConfiguration())
+        return DikcizStarterApps.populate(context, parseConfiguration(readBundledConfiguration()))
     }
 
     /**

@@ -2,9 +2,9 @@
   "version": 2,
   "id": "time-weather",
   "title": "Time and weather",
-  "description": "Local time, date, weather and air quality. Uses permitted location or a saved city. Open-Meteo requests only while visible.",
+  "description": "Local clock with live weather, automatic permitted location and editable city. Expand for air quality and forecast details.",
   "span": {
     "columnSpan": 8,
-    "rowSpan": 3
+    "rowSpan": 2
   }
 }

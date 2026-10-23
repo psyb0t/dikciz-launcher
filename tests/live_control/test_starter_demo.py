@@ -34,20 +34,24 @@ def demo_state(connection, identifier, predicate):
 def test_starter_demo_default_layout_and_independent_removal(websocket_control):
     configured = demo_reset(websocket_control)
     home = configured["launcher"]["home"]
-    assert [(page["id"], [widget["id"] for widget in page["widgets"]]) for page in home["pages"]] == [
-        ("home", ["time-weather", "agenda"]), ("tools", ["voice-notes", "device-status"]),
+    assert [(page["id"], [widget["id"] for widget in page["widgets"] if widget["type"] == "html"]) for page in home["pages"]] == [
+        ("home", ["time-weather", "most-used-apps"]), ("tools", ["agenda", "voice-notes"]), ("device", ["device-status"]),
     ]
     assert all(not script["enabled"] for script in configured["scripts"])
+    expected_cells = {"time-weather":(0,2), "most-used-apps":(2,3), "agenda":(0,3), "voice-notes":(3,3), "device-status":(0,6)}
     for page in home["pages"]:
-        for row, widget in zip((0, 3), page["widgets"]):
-            assert widget["cell"] == {"column":0, "row":row, "columnSpan":8, "rowSpan":3}
+        for widget in page["widgets"]:
+            if widget["type"] != "html":
+                continue
+            row, rows = expected_cells[widget["id"]]
+            assert widget["cell"] == {"column":0, "row":row, "columnSpan":8, "rowSpan":rows}
             assert all(widget[field] for field in ("html", "css", "javascript"))
-    wait_for_physical_text_bounds("Agenda")
+    wait_for_physical_description_bounds("Time and weather")
     run_device_operation("screenshot")
     shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "starter-demo-home.png")
     AUTOMATION.request(websocket_control, "selectPage", pageId="tools")
-    wait_for_physical_text_bounds("Voice notes")
-    wait_for_physical_text_bounds("Device status")
+    wait_for_physical_description_bounds("Voice notes")
+    wait_for_physical_description_bounds("Agenda")
     run_device_operation("screenshot")
     shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "starter-demo-tools.png")
     # Removing one document preserves the other complete document on that page.
@@ -91,7 +95,7 @@ def test_starter_demo_calendar_occurrences_pagination_and_access(websocket_contr
         native_call(protocol, "contentQuery", {"resource":"calendarInstances", "columns":["begin; DROP TABLE events"]}, error="validation_failed")
         state = native_call(protocol, "deviceState")
         assert state["nextAlarmAtMilliseconds"] is None or isinstance(state["nextAlarmAtMilliseconds"], int)
-        configured = demo_reset(websocket_control)
+        configured = demo_reset(websocket_control, "tools")
         agenda = configuration_widget(configured, "agenda")
         agenda["javascript"] += """
 window.addEventListener("dikciz-ready", () => {
@@ -172,7 +176,7 @@ def test_starter_demo_all_day_survives_utc_midnight_with_local_day_unchanged(web
         title = "All-day midnight fixture"
         values = {"calendar_id":calendar["_id"], "title":title, "dtstart":day, "dtend":day+day_ms, "eventTimezone":"UTC", "allDay":1}
         identifier = native_call("http", "contentWrite", {"resource":"calendarEvents", "operation":"create", "values":values})["results"][0]["id"]
-        configured = demo_reset(websocket_control)
+        configured = demo_reset(websocket_control, "tools")
         agenda = configuration_widget(configured, "agenda")
         prefix = """
 const OriginalDate = Date;

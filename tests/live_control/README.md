@@ -16,6 +16,8 @@ These pytest scenarios exercise real Android UI and forwarded WebSocket, MCP and
 | Domain support modules | Accessibility, media sessions, notifications, alarms, and script-status helpers. |
 | `test_widget_instance_state.py` | Per-page/wrapper/card ownership, distinct copies, file watcher updates, source-driven cleanup, validation and legacy state migration. |
 | `test_html_card_presets.py` | Native intent URI validation through all transports. |
+| `test_home_showcase.py` | Shared CPU/core telemetry, usage access, native dock placement, device rendering, manual demos and timed torch behavior. |
+| `test_showcase_capture.py` | Explicit live-weather and populated three-page documentation capture on the private emulator. |
 | `test_shared_vm_starter.py` | First-use pages, disabled Lua defaults, saved notes and external weather success/failure in the real WebView. |
 | `test_ussd_control.py` | USSD validation, permission recovery and explicit missing-SIM/platform failures without claiming carrier acceptance. |
 | `test_camera_video.py` | Finalized MP4/AAC through ordinary bindings, permissions, deadlines, cancellation and shared camera/microphone ownership. |
@@ -48,3 +50,15 @@ The [user-guide capture test](test_user_guide_capture.py) supplies images for th
 ## Signed release handoff fixture
 
 `test_remote_device_handoff_to_signed_release_without_process_kill` temporarily installs the official v0.15.4 release on the private emulator. It refuses to replace an existing release installation and removes its fixture afterwards. Prepare `.testing/handoff-release/dikciz-launcher-v0.15.4.apk` from the official release, verify its published SHA-256 and the certificate fingerprint in the root README, then run the focused selector. This pinned older release proves compatibility with an already installed build. Without that optional compatibility fixture, this one scenario reports a skip. It never selects a physical phone.
+
+## Configured starter screenshots
+
+The optional configured capture requires outbound internet on the private emulator and an installed app store for the complete native dock. It uses live Open-Meteo weather, a chosen London location, temporary Android calendar rows and a real emulator voice recording. It checks visible controls for clipping before capturing them.
+
+After building the debug APK, run:
+
+```bash
+DIKCIZ_GUIDE_CAPTURE=true make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_user_guide_showcase_live_weather_and_all_pages
+```
+
+Images remain under `.android-lab/shared/artifacts/showcase-guide/`. Inspect them before copying them into `docs/images/user-guide/`. The regular deterministic suite leaves this live-provider capture disabled. Provider failures fail the capture rather than publishing placeholder weather.

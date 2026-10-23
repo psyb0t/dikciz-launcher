@@ -471,13 +471,23 @@ internal data class WidgetPickerApplication(
 internal sealed interface WidgetPickerEntry {
     val label: String
     val automationID: String
+    val description: String get() = ""
 }
 
 internal data class NativeWidgetPickerEntry(
     val type: NativeWidgetType,
     override val label: String,
+    override val description: String = "",
 ) : WidgetPickerEntry {
     override val automationID: String = "native:${type.automationID}"
+}
+
+internal data class HtmlWidgetPickerEntry(
+    val packageValue: DikcizHtmlWidgetPackage,
+) : WidgetPickerEntry {
+    override val label: String = packageValue.title
+    override val description: String = packageValue.description
+    override val automationID: String = "html-package:${packageValue.id}"
 }
 
 internal enum class NativeWidgetType(val automationID: String) {

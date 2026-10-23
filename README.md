@@ -12,7 +12,22 @@ Dikciz is a programmable Android home screen. Build pages from HTML widgets, nat
 
 Your home lives in editable files under `/sdcard/Dikciz/`. The signed release includes scripting, inspection and remote control. Ordinary launcher control needs neither a debug build nor root. Android permissions govern access to the rest of the phone.
 
-<img src="docs/images/user-guide/01-first-launch.png" alt="Dikciz bundled home screen" width="280">
+<p>
+<img src="docs/images/user-guide/01-first-launch.png" alt="Home with live London weather, Android app icons and native dock" width="250">
+<img src="docs/images/user-guide/03-insights-page.png" alt="Tools with upcoming calendar entries and a saved voice note" width="250">
+<img src="docs/images/user-guide/04-device-page.png" alt="Device with battery, memory, storage and CPU charts" width="250">
+</p>
+
+Emulator demo with live London weather, sample calendar entries, a saved voice note and a configured battery level.
+
+## Contents
+
+| Start here | Details |
+| --- | --- |
+| [Install](#install-it) | [Home features](#what-the-home-supports), [navigation](#navigate-and-manage-the-home) |
+| [Configuration](#configure-it) | [Remote control](#inspect-and-control-it-remotely), [Android capabilities](#android-capabilities), [logs](#logs-and-failure-reporting) |
+| [Build and run](#run-it) | [Fossify updates](#fossify-source-updates), [verification](#verification) |
+| [Documentation](#documentation) | [Agent integrations](#agent-integrations), [upstream](#upstream) |
 
 ## Install it
 
@@ -40,7 +55,7 @@ Release packages use `eu.psyb0t.dikciz.launcher`; debug packages use `eu.psyb0t.
 - Themes, fonts, wallpaper, widget appearance, editing locks and a chosen Android Home destination.
 - Semantic UI inspection, screenshots, logs, configuration editing and device actions through the remote APIs.
 
-The starter has two pages with four independent HTML widgets: **Home** pairs time/weather with agenda; **Tools** pairs voice notes with device status. Each occupies half a page and can be edited, resized or removed separately. The HTML library offers complete editable WebView templates, including system metrics and BTC/USD with economic news. Save customized documents to reuse them. Three useful Lua examples start disabled. See the [starter home guide](docs/starter-home.md).
+The starter combines everyday launcher controls with programmable widgets. **Home** has clock/weather, app icons ranked by optional usage history, and native Phone, Camera, Settings and app-store shortcuts along the bottom. **Tools** has agenda and voice notes. **Device** has a live battery gauge, memory/storage bars and CPU charts. Tap the home quick actions for a short torch pulse sequence or speech; neither starts automatically. Each HTML document remains separately editable. The HTML library offers complete editable WebView templates, including system metrics and BTC/USD with economic news. Save customized documents to reuse them. Three useful Lua examples start disabled. See the [starter home guide](docs/starter-home.md).
 
 ## Navigate and manage the home
 

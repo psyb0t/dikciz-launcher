@@ -28,7 +28,7 @@ Apps opened from the drawer or a native shortcut run in their own Android task. 
 
 ### Switch pages or search by name
 
-Swipe across a page or tap a rail dot to move one page. Tap the magnifier beside the horizontal rail to search all pages. Search matches the page name and its stable address. The bundled pages are `Home (1H1V)` and `Tools (2H1V)`. Home has separate time/weather and agenda WebViews. Tools has separate voice-note and device-status WebViews. Each fills half a page and owns its source and state. Weather uses permitted location or a chosen city; calendar and microphone access are requested from their widgets. Read the [starter home guide](starter-home.md) for details.
+Swipe across a page or tap a rail dot to move one page. Tap the magnifier beside the horizontal rail to search all pages. Search matches the page name and its stable address. The bundled pages are `Home (1H1V)`, `Tools (2H1V)` and `Device (3H1V)`. Home combines time/weather, frequently used app icons and a native bottom row of Phone, Camera, Settings and an installed store. Tools has agenda and voice notes. Device has a battery ring, resource bars, CPU history and core tiles. Each WebView owns its complete source and state. Weather uses permitted location or a chosen city; calendar and microphone access are requested from their widgets. Read the [starter home guide](starter-home.md) for details.
 
 ![Tools page](images/user-guide/03-insights-page.png)
 
@@ -86,7 +86,7 @@ Tap the Dikciz mark and choose **Add to this page**. New items use the next free
 
 ![Add-to-page picker](images/user-guide/21-widget-picker.png)
 
-The **Dikciz** category contains bundled HTML packages, an empty HTML widget, and the native script dashboard. Choosing a package creates a new widget. It never adds HTML into an existing widget.
+The **Dikciz** category lists complete HTML templates directly, with a description below each title. Search matches titles and descriptions. Tap a template to preview it, then tap **Load** to create an independent widget. **Empty HTML widget** inserts a blank document immediately. The native **Script dashboard** is in the same list. Saved custom templates appear alongside the bundled choices. Choosing a template never adds HTML into an existing widget.
 
 ![Dikciz widget packages](images/user-guide/22-html-package-library.png)
 
@@ -138,7 +138,7 @@ Use **Appearance** to set its background, border, corner radius, spacing, and fo
 
 ### Reuse a complete WebView template
 
-Add an HTML widget from the page's widget picker and choose a complete library template. The starter templates are **Time and weather**, **Agenda**, **Voice notes** and **Device status**. **Home dashboard** remains an optional combined clock, app search and note document. **System dashboard** displays local RAM, storage, battery, CPU samples and sensor inventory. **Live sensors** displays actual hardware samples and explicit unavailable states. **BTC and economic news** fetches price and headlines when you tap Refresh. Each template supplies the entire HTML, CSS and JavaScript document; the placed widget owns its state.
+Open the page's widget picker, expand **Dikciz** and choose a complete template directly. The starter templates are **Time and weather**, **Most used apps**, **Agenda**, **Voice notes** and **Device status**. **Home dashboard** remains an optional combined clock, app search and note document. **System dashboard** displays local RAM, storage, battery, CPU samples and sensor inventory. **Live sensors** displays actual hardware samples and explicit unavailable states. **BTC and economic news** fetches price and headlines when you tap Refresh. Each template supplies the entire HTML, CSS and JavaScript document; the placed widget owns its state.
 
 To reuse your own document, open **Edit**, enter a package ID, and use **Save to library**. Adding that package creates another independent WebView. Edit the new widget's complete source to customize it. Live state is not copied into the library.
 

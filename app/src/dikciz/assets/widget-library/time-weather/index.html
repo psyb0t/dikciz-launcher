@@ -1,10 +1,11 @@
-<main class="card">
-<header><div><p id="date" class="muted">Today</p><h1 id="clock" style="font-size:clamp(26px,8vw,40px);white-space:nowrap">Time</h1></div><div style="text-align:right"><strong id="temperature" style="font-size:clamp(16px,5vw,28px)">...</strong><p id="place" class="muted">Choose your city</p></div></header>
+<main class="card weather-card">
+<header><div><p class="eyebrow">Your day, at a glance</p><p id="date" class="muted">Today</p></div><span class="live-dot" aria-label="Local clock"></span></header>
+<div class="weather-hero"><div class="clock-face"><h1 id="clock">Time</h1><span id="period" class="period"></span></div><div class="weather-now"><div class="weather-orb" aria-hidden="true"></div><strong id="temperature">...</strong><p id="place" class="muted">Choose your city</p></div></div>
 <p id="status" class="status" role="status">Checking weather.</p>
 <details><summary>Weather details and city</summary>
 <div class="metrics"><div><strong id="feels">...</strong><span>Feels like, Celsius</span></div><div><strong id="wind">...</strong><span>Wind, km/h</span></div><div><strong id="rain">...</strong><span>Rain chance today</span></div><div><strong id="range">...</strong><span>Low / high, Celsius</span></div><div><strong id="aqi">...</strong><span>European AQI</span></div></div>
 <p id="weather-status" class="status"></p><p id="air-status" class="status"></p>
 <div class="row"><button id="refresh" class="secondary" type="button" disabled>Refresh weather</button><button id="locate" class="secondary" type="button">Use my location</button></div>
 <form id="city-search" class="row"><input id="city" type="search" aria-label="City name" placeholder="City name" minlength="2" maxlength="80"><button id="find" type="submit">Find city</button></form><div id="choices"></div>
-<p class="status">City search and coordinates go to <a href="https://open-meteo.com/" rel="noreferrer">Open-Meteo</a>. Weather: Open-Meteo. Air quality: CAMS ENSEMBLE. Personal, non-commercial service.</p>
+<p class="status">Weather: <a href="https://open-meteo.com/" rel="noreferrer">Open-Meteo</a>. Air quality: CAMS ENSEMBLE. City search and coordinates go to Open-Meteo. Personal, non-commercial service.</p>
 </details></main>

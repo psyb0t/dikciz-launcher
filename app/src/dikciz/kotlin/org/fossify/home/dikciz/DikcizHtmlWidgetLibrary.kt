@@ -464,6 +464,7 @@ internal class DikcizHtmlWidgetLibrary(
             "app-launcher",
             "home-dashboard",
             "time-weather",
+            "most-used-apps",
             "agenda",
             "voice-notes",
             "device-status",

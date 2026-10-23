@@ -1,11 +1,12 @@
 # Dikciz unit tests
 
-This flavour-specific JVM test source set covers Unicode-safe USSD response budgets, SMS receipt aggregation and the pure grid rules in [`DikcizNativeGrid.kt`](../dikciz/kotlin/org/fossify/home/dikciz/DikcizNativeGrid.kt). It uses JUnit through the `testDikcizImplementation` dependency in [the app build](../../build.gradle.kts).
+This flavour-specific JVM test source set covers CPU counter deltas, Unicode-safe USSD response budgets, SMS receipt aggregation and the pure grid rules in [`DikcizNativeGrid.kt`](../dikciz/kotlin/org/fossify/home/dikciz/DikcizNativeGrid.kt). It uses JUnit through the `testDikcizImplementation` dependency in [the app build](../../build.gradle.kts).
 
 The test files live in `kotlin/org/fossify/home/dikciz/`:
 
 | File | Coverage |
 | --- | --- |
+| `DikcizCpuCountersTest.kt` | Non-guest CPU counters, cold samples, resets, malformed/overflow inputs and actual utilization deltas. |
 | `DikcizNativeGridTest.kt` | Bounds, overlap, grid reflow and overflow eviction, row-major free-cell search, preferred-span fallback, full pages, moves, resizes and pixel/cell conversion. |
 | `DikcizUssdResponseTest.kt` | Empty/exact/shortened response budgets, complete supplementary characters, combining code points and numeric boundaries. |
 | `DikcizSmsReceiptTest.kt` | Multipart sent/delivery callbacks, uncertain and failed reports, duplicate parts and invalid segment counts. |

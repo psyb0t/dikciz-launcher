@@ -53,7 +53,18 @@ def select_native_widget_picker_entry(entry_label: str) -> None:
         entry_label,
     )
     entry_description = NATIVE_WIDGET_PICKER_ENTRY_DESCRIPTION.format(label=entry_label)
-    direct_tap(wait_for_physical_description_bounds(entry_description))
+    deadline = time.monotonic() + PROVIDER_RENDER_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        try:
+            bounds = physical_bounds_for(
+                lambda node: node.get("content-desc", "").split("\n")[0] == entry_description,
+            )
+        except AssertionError:
+            time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
+            continue
+        direct_tap(bounds)
+        return
+    raise AssertionError(f"native widget choice did not appear: {entry_label}")
 
 
 def start_deskclock_provider_addition(connection: socket.socket) -> None:

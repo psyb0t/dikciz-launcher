@@ -5,7 +5,7 @@ import base64
 from . import *
 
 
-STARTER_WIDGET_IDS = ["time-weather", "agenda"]
+STARTER_WIDGET_IDS = ["time-weather", "most-used-apps"]
 STARTER_SCRIPT_IDS = {"low-battery", "charge-ready", "screen-lock"}
 NOTE_TEXT = "remember_milk"
 
@@ -46,8 +46,8 @@ def test_targeted_run_cleanup_restores_the_bundled_starter_home(websocket_contro
     ]
     restored = starter_reset(websocket_control)
     home = restored["launcher"]["home"]
-    assert [page["id"] for page in home["pages"]] == ["home", "tools"]
-    assert [widget["id"] for widget in configuration_page(restored, "home")["widgets"]] == STARTER_WIDGET_IDS
+    assert [page["id"] for page in home["pages"]] == ["home", "tools", "device"]
+    assert [widget["id"] for widget in configuration_page(restored, "home")["widgets"] if widget["type"] == "html"] == STARTER_WIDGET_IDS
     restore_system_home()
     wait_for_physical_description_bounds(STARTER_HOME_WIDGET_TITLE)
     for title in FIXTURE_WIDGET_TITLES.values():
@@ -77,8 +77,8 @@ def test_bundled_starter_scripts_are_quiet_and_optional_notes_persist(websocket_
     wait_for_physical_text_bounds("Note saved on this phone.")
     run_device_operation("screenshot")
     shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "starter-home.png")
-    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SELECT_PAGE, pageId="tools")
-    wait_for_physical_text_bounds("Device status")
+    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SELECT_PAGE, pageId="device")
+    wait_for_physical_description_bounds("Device status")
     device_state = AUTOMATION.request(websocket_control, "deviceState")
     assert isinstance(device_state["internetValidated"], bool)
     AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SELECT_PAGE, pageId="home")

@@ -2,7 +2,7 @@
   "version": 2,
   "id": "system-dashboard",
   "title": "System dashboard",
-  "description": "Local RAM, storage, battery, CPU samples and sensor inventory. Refreshes every five seconds while visible. Android may restrict system CPU data.",
+  "description": "Detailed battery, RAM, storage and CPU dashboard with per-core readings where exposed. Android protects system CPU counters; no app permission unlocks them.",
   "span": {
     "columnSpan": 8,
     "rowSpan": 6

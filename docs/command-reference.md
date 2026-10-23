@@ -3787,6 +3787,12 @@ Observe flash-camera torch state through bounded Android callbacks or submit on/
 {
   "type": "object",
   "properties": {
+    "durationMilliseconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5000,
+      "description": "On only: automatically request torch off after this duration, independent of WebView timers."
+    },
     "action": {
       "type": "string",
       "maxLength": 16,

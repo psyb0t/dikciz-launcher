@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "most-used-apps",
+  "title": "Most used apps",
+  "description": "Android app icons ranked by seven-day foreground use with optional Usage access. Includes owner-started torch pulses and speech.",
+  "span": {
+    "columnSpan": 8,
+    "rowSpan": 3
+  }
+}

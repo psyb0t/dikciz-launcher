@@ -1,16 +1,7 @@
-<main class="card">
-<h1>Your system</h1><p id="status" role="status">Waiting for Dikciz.</p>
-<dl class="metrics">
-<div><dt>RAM used / total</dt><dd id="ram">Unavailable</dd></div>
-<div><dt>RAM available</dt><dd id="available">Unavailable</dd></div>
-<div><dt>Storage available / total</dt><dd id="storage">Unavailable</dd></div>
-<div><dt>Battery</dt><dd id="battery">Unavailable</dd></div>
-<div><dt>Battery temperature</dt><dd id="temperature">Unavailable</dd></div>
-<div><dt>System CPU</dt><dd id="cpu">Unavailable</dd></div>
-<div><dt>Dikciz CPU, one core</dt><dd id="app-cpu">Sampling</dd></div>
-<div><dt>Logical processors</dt><dd id="cores">Unavailable</dd></div>
-</dl><p id="power"></p><p id="network"></p>
-<button id="refresh" type="button">Refresh system</button>
-<details><summary id="sensor-count">Sensor inventory</summary><p class="muted">Available Android sensors. This lists hardware, not live readings.</p><ul id="sensors"></ul></details>
-<p class="muted">Storage describes the filesystem holding Dikciz app data. CPU samples are measured between refreshes. No root or sensor listeners are required.</p>
-</main>
+<main class="card device-card"><header><div><p class="eyebrow">A living machine</p><h1>Your system</h1></div><button id="refresh" class="secondary" type="button" aria-label="Refresh device">↻</button></header>
+<section class="battery-hero"><div id="battery-gauge" class="battery-ring" role="progressbar" aria-label="Battery level" aria-valuemin="0" aria-valuemax="100"><div><strong id="battery">...</strong><span>BATTERY</span></div></div><div class="battery-copy"><span id="power" class="power-badge">Reading power</span><h2 id="temperature">...</h2><p id="voltage" class="muted"></p><p id="network" class="muted"></p></div></section>
+<section class="resource-grid"><div class="resource"><div><span>RAM</span><strong id="ram">...</strong></div><div class="meter"><i id="ram-meter"></i></div><p id="available" class="muted"></p></div><div class="resource"><div><span>STORAGE</span><strong id="storage">...</strong></div><div class="meter storage-meter"><i id="storage-meter"></i></div><p id="storage-total" class="muted"></p></div></section>
+<section class="cpu-section"><header><div><p class="eyebrow">Dikciz process</p><h2>CPU activity</h2></div><strong id="app-cpu" class="cpu-value">Sampling</strong></header><svg class="history" viewBox="0 0 300 62" preserveAspectRatio="none" role="img" aria-label="Recent Dikciz CPU usage"><path class="gridline" d="M0 61H300 M0 31H300 M0 1H300"/><polyline id="cpu-history" points=""/></svg><div class="cpu-legend"><span id="cores">Reading processors</span><span id="cpu-scale">Available CPU capacity</span></div></section>
+<section class="core-section"><header><h2>Across the cores</h2><span id="cpu" class="muted">Sampling</span></header><div id="core-grid" class="core-grid"></div><p id="cpu-note" class="muted"></p></section>
+<p id="status" class="status" role="status">Connecting to your phone.</p>
+<details class="diagnostics"><summary id="sensor-count">Device details</summary><p class="muted">Storage is the app-data filesystem. CPU history covers this Dikciz process, measured across available processors. Per-core clocks and load appear only where Android exposes them.</p><ul id="sensors"></ul></details></main>

@@ -94,3 +94,22 @@
     document.addEventListener("visibilitychange", refresh);
     setInterval(refresh, REFRESH_MS);
 })();
+
+(() => {
+    const card = document.querySelector(".card");
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+    const visibility = () => { document.body.dataset.visible = String(!document.hidden && window.selfWidget?.visible !== false); };
+    card?.addEventListener("pointermove", event => {
+        if (reduced.matches || event.pointerType === "touch") return;
+        const bounds = card.getBoundingClientRect();
+        card.style.setProperty("--ry", ((event.clientX - bounds.left) / bounds.width * 6 - 3) + "deg");
+        card.style.setProperty("--rx", (3 - (event.clientY - bounds.top) / bounds.height * 6) + "deg");
+    });
+    card?.addEventListener("pointerleave", () => {
+        card.style.setProperty("--rx", "0deg");
+        card.style.setProperty("--ry", "0deg");
+    });
+    document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("dikciz-visibility", visibility);
+    visibility();
+})();

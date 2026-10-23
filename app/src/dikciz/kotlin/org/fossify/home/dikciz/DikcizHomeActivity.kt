@@ -1422,6 +1422,7 @@ class DikcizHomeActivity : Activity() {
         // An HTML document is transparent, so its card frame and theme spacing are
         // drawn natively. App tiles and provider views draw their own surface.
         val drawsNativeFrame = !isContentOwnedSurface || widget is HtmlHomeWidget
+        val appliesContentPadding = drawsNativeFrame || (widget is AppHomeWidget && widget.style?.padding != null)
         val style = selectedWidgetStyle(widget)
         val frameStyle = dikcizStyleRenderer.resolveWidgetFrameStyle(
             style = style,
@@ -1478,10 +1479,10 @@ class DikcizHomeActivity : Activity() {
                     gravity = Gravity.CENTER
                 }
                 setPadding(
-                    if (drawsNativeFrame) frameStyle.padding.left else NO_PADDING,
-                    if (drawsNativeFrame) frameStyle.padding.top else NO_PADDING,
-                    if (drawsNativeFrame) frameStyle.padding.right else NO_PADDING,
-                    if (drawsNativeFrame) frameStyle.padding.bottom else NO_PADDING,
+                    if (appliesContentPadding) frameStyle.padding.left else NO_PADDING,
+                    if (appliesContentPadding) frameStyle.padding.top else NO_PADDING,
+                    if (appliesContentPadding) frameStyle.padding.right else NO_PADDING,
+                    if (appliesContentPadding) frameStyle.padding.bottom else NO_PADDING,
                 )
                 when (widget) {
                     is HtmlHomeWidget -> {
@@ -4788,6 +4789,7 @@ class DikcizHomeActivity : Activity() {
                 application.component.packageName,
             )
         }
+        val usage = DikcizAppUsage.read(this)
         val entries = JSONArray()
         applications.take(MAXIMUM_APP_CATALOGUE_ENTRIES).forEach { application ->
             entries.put(
@@ -4795,7 +4797,12 @@ class DikcizHomeActivity : Activity() {
                     .put(KEY_SEMANTIC_ID, drawerAppSemanticID(application))
                     .put(KEY_LABEL, application.label.take(MAXIMUM_APP_LABEL_CHARACTERS))
                     .put(KEY_PACKAGE_NAME, application.component.packageName)
-                    .put(KEY_COMPONENT, application.component.flattenToString()),
+                    .put(KEY_COMPONENT, application.component.flattenToString())
+                    .put("foregroundMilliseconds", if (usage.available) {
+                        usage.foregroundMilliseconds[application.component.packageName] ?: 0L
+                    } else {
+                        JSONObject.NULL
+                    }),
             )
         }
         dikcizLogger.debug(
@@ -4805,6 +4812,9 @@ class DikcizHomeActivity : Activity() {
         return JSONObject()
             .put(KEY_APPS, entries)
             .put(KEY_ENTRY_COUNT, applications.size)
+            .put("usageAvailable", usage.available)
+            .put("usageReason", usage.reason ?: JSONObject.NULL)
+            .put("usageWindowDays", DikcizAppUsage.WINDOW_DAYS)
             .put(KEY_TRUNCATED, applications.size > MAXIMUM_APP_CATALOGUE_ENTRIES)
             .put(DikcizAutomationControlPlane.KEY_ACTIONS, appActionDescriptors())
     }
@@ -5027,6 +5037,7 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun clearPrimaryWidgetPickerAutomationViews() {
+        clearHtmlWidgetPackageEntryAutomationViews()
         automationViews.keys
             .filter { semanticID ->
                 (
@@ -5231,9 +5242,16 @@ class DikcizHomeActivity : Activity() {
         "$pickerID$SEMANTIC_WIDGET_ACTION_SEPARATOR$SEMANTIC_PICKER_APPLICATION" +
             "$SEMANTIC_WIDGET_ACTION_SEPARATOR$packageName"
 
-    private fun pickerEntrySemanticID(pickerID: String, entry: WidgetPickerEntry): String =
-        "$pickerID$SEMANTIC_WIDGET_ACTION_SEPARATOR$SEMANTIC_PICKER_ENTRY" +
+    private fun pickerEntrySemanticID(pickerID: String, entry: WidgetPickerEntry): String {
+        if (entry is HtmlWidgetPickerEntry) {
+            return htmlWidgetPackageEntrySemanticID(
+                "$pickerID$SEMANTIC_WIDGET_ACTION_SEPARATOR$SEMANTIC_PICKER_HTML_PACKAGE",
+                entry.packageValue.id,
+            )
+        }
+        return "$pickerID$SEMANTIC_WIDGET_ACTION_SEPARATOR$SEMANTIC_PICKER_ENTRY" +
             "$SEMANTIC_WIDGET_ACTION_SEPARATOR${entry.automationID}"
+    }
 
     private fun appearanceActionSemanticID(widgetID: String): String =
         "${widgetSemanticID(widgetID)}$SEMANTIC_WIDGET_ACTION_SEPARATOR$SEMANTIC_ACTION_APPEARANCE"
@@ -8970,6 +8988,7 @@ class DikcizHomeActivity : Activity() {
         if (targetPage.locked) {
             return
         }
+        val packages = loadHtmlWidgetPickerPackages()
         val pickerID = widgetPickerSemanticID(target.pageID)
         val isTargetPageFull = isPageFull(targetPage)
         val pageFullNotice = TextView(this).apply {
@@ -8998,9 +9017,10 @@ class DikcizHomeActivity : Activity() {
             dialog.dismiss()
             when (entry) {
                 is NativeWidgetPickerEntry -> when (entry.type) {
-                    NativeWidgetType.Html -> showHtmlWidgetPackagePicker(target)
+                    NativeWidgetType.Html -> addEmptyHtmlWidget(target)
                     NativeWidgetType.ScriptDashboard -> addScriptDashboardWidget(target)
                 }
+                is HtmlWidgetPickerEntry -> showHtmlWidgetPackagePreview(target, entry.packageValue)
                 is AppWidgetPickerEntry -> addAppShortcut(target, entry.application)
                 is ProviderWidgetPickerEntry -> beginProviderWidgetAddition(target, entry.providerInfo)
             }
@@ -9027,7 +9047,7 @@ class DikcizHomeActivity : Activity() {
                 return
             }
             pageFullNotice.visibility = View.GONE
-            widgetPickerCatalogue.widgetPickerCategories().forEach { category ->
+            widgetPickerCatalogue.widgetPickerCategories(packages).forEach { category ->
                 val matchingEntries = category.entries.filter { entry ->
                     widgetPickerCatalogue.categoryMatchesQuery(category, entry, query)
                 }
@@ -9277,11 +9297,17 @@ class DikcizHomeActivity : Activity() {
         entryDescriptionResource: Int = R.string.dikciz_widget_picker_entry_description,
     ): Button {
         return Button(this).apply {
-            text = entry.label
-            contentDescription = getString(
-                entryDescriptionResource,
-                entry.label,
-            )
+            text = if (entry.description.isBlank()) {
+                entry.label
+            } else {
+                getString(R.string.dikciz_html_widget_package_label, entry.label, entry.description)
+            }
+            val actionDescription = getString(entryDescriptionResource, entry.label)
+            contentDescription = if (entry.description.isBlank()) {
+                actionDescription
+            } else {
+                getString(R.string.dikciz_html_widget_package_label, actionDescription, entry.description)
+            }
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
             isAllCaps = false
             setPadding(
@@ -9345,8 +9371,8 @@ class DikcizHomeActivity : Activity() {
         }
     }
 
-    private fun showHtmlWidgetPackagePicker(target: WidgetInsertionTarget) {
-        val packages = try {
+    private fun loadHtmlWidgetPickerPackages(): List<DikcizHtmlWidgetPackage> {
+        return try {
             homeConfigStore.htmlWidgetPackages()
         } catch (exception: HomeConfigException) {
             dikcizLogger.warn(
@@ -9354,41 +9380,23 @@ class DikcizHomeActivity : Activity() {
                 mapOf(FIELD_ERROR_CLASS to exception::class.java.simpleName),
             )
             Toast.makeText(this, R.string.dikciz_html_widget_library_unavailable, Toast.LENGTH_LONG).show()
-            return
+            emptyList()
         }
-        val pickerID = htmlWidgetPackagePickerSemanticID(target.pageID)
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(standardPadding(), NO_PADDING, standardPadding(), NO_PADDING)
+    }
+
+    private fun addEmptyHtmlWidget(target: WidgetInsertionTarget) {
+        val title = getString(R.string.dikciz_html_widget_default_title)
+        val widgetID = newWidgetIDOrShowError(title) ?: return
+        val widget = HtmlHomeWidget(
+            id = widgetID,
+            title = title,
+            html = getString(R.string.dikciz_html_widget_blank_document),
+            enabled = true,
+            cell = requestedCell(DikcizWidgetSpans.HTML),
+        )
+        if (insertWidget(target, widget)) {
+            dikcizLogger.info(EVENT_HTML_WIDGET_CREATED, mapOf(FIELD_WIDGET_ID to widget.id))
         }
-        lateinit var dialog: AlertDialog
-        packages.forEach { packageValue ->
-            content.addView(Button(this).apply {
-                text = getString(
-                    R.string.dikciz_html_widget_package_label,
-                    packageValue.title,
-                    packageValue.description,
-                )
-                contentDescription = text
-                gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                isAllCaps = false
-                setOnClickListener {
-                    dialog.dismiss()
-                    showHtmlWidgetPackagePreview(target, packageValue)
-                }
-                registerWidgetPickerAutomationView(
-                    htmlWidgetPackageEntrySemanticID(pickerID, packageValue.id),
-                    this,
-                )
-            })
-        }
-        dialog = AlertDialog.Builder(this)
-            .setTitle(R.string.dikciz_html_widget_library_title)
-            .setView(ScrollView(this).apply { addView(content) })
-            .setNegativeButton(R.string.dikciz_dialog_cancel, null)
-            .create()
-        dikcizLogger.info(EVENT_HTML_WIDGET_LIBRARY_OPENED, mapOf(FIELD_PAGE_ID to target.pageID))
-        showActiveDialog(dialog, onDismiss = ::clearHtmlWidgetPackageEntryAutomationViews)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -11320,7 +11328,6 @@ class DikcizHomeActivity : Activity() {
         const val EVENT_HTML_WIDGET_CONTENT_FIT_APPLIED = "html_widget_content_fit_applied"
         const val EVENT_HTML_WIDGET_CONTENT_FIT_REQUESTED = "html_widget_content_fit_requested"
         const val EVENT_HTML_WIDGET_EDITED = "html_widget_edited"
-        const val EVENT_HTML_WIDGET_LIBRARY_OPENED = "html_widget_library_opened"
         const val EVENT_HTML_WIDGET_LIBRARY_REJECTED = "html_widget_library_rejected"
         const val EVENT_HTML_WIDGET_LIBRARY_SAVED = "html_widget_library_saved"
         const val EVENT_HTML_WIDGET_LIBRARY_SAVE_REJECTED = "html_widget_library_save_rejected"

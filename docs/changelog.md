@@ -4,6 +4,28 @@ This history includes the releases made while Dikciz and Android Lab shared one 
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-23
+
+### Added
+
+- Three redesigned starter pages with clock/weather, real app icons and usage-based ranking, a native bottom dock, agenda, voice notes, and a visual battery/CPU dashboard. Reusable documents include reduced-motion and hidden-page behavior.
+- Bounded per-core CPU inventory, readable clock/load samples and normalized process CPU metadata across the shared command target. Protected system counters remain explicitly unknown.
+- Optional seven-day foreground-use metadata in appCatalogue and native timed torch off requests, shared across entrypoints. Home quick actions demonstrate owner-started torch pulses and speech.
+
+### Fixed
+
+- Honor explicit padding on unframed native app shortcuts, including the bottom dock.
+- Preserve voice-note stop requests that arrive during a microphone status poll.
+- List complete HTML templates directly in the Dikciz widget picker with searchable descriptions. Empty HTML widget inserts a blank document without another menu; saved templates and package previews remain available.
+
+### Documentation
+
+- Replace the starter screenshots with configured Home, Tools and Device pages showing live weather, sample agenda entries and a saved recording.
+
+### Migration
+
+Customized homes and existing library packages are preserved. Reset Dikciz home to try the new layout. The dock uses installed apps; it omits missing handlers. Usage ranking needs Android Usage access, and torch/speech demonstrations start only after a tap.
+
 ## [0.26.0] - 2026-10-23
 
 ### Added
