@@ -20,13 +20,16 @@ Also for goblins who want their phone to say "peen goes in vageen", flash the to
 
 You choose the model provider, scripts, permissions and network access. The built-in assistant and external clients use the same phone tools. Android's permission and hardware limits still apply.
 
-<p>
-<img src="docs/images/user-guide/01-first-launch.png" alt="Home with live London weather, Android app icons and native dock" width="250">
-<img src="docs/images/user-guide/03-insights-page.png" alt="Tools with upcoming calendar entries and a saved voice note" width="250">
-<img src="docs/images/user-guide/04-device-page.png" alt="Device with battery, memory, storage and CPU charts" width="250">
+<p align="center">
+<img src="docs/images/user-guide/01-first-launch.png" alt="Home with live London weather, Android app icons, native dock and the cheese chat control" width="280">
+<img src="docs/images/user-guide/05-goblin-page.png" alt="Goblin control with speech, alien sounds, torch pulses and live outdoor weather" width="280">
+</p>
+<p align="center">
+<img src="docs/images/user-guide/03-insights-page.png" alt="Tools with upcoming calendar entries and a saved voice note" width="280">
+<img src="docs/images/user-guide/04-device-page.png" alt="Device with battery, memory, storage and CPU charts" width="280">
 </p>
 
-Emulator demo with live London weather, sample calendar entries, a saved voice note and a configured battery level.
+Current four-page starter on the emulator, with live London weather, sample calendar entries, a saved voice note and a configured battery level. Device counters reflect what Android exposes to the app.
 
 ## Contents
 

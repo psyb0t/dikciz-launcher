@@ -1,6 +1,7 @@
 """Explicit documentation capture with live weather and private emulator fixtures."""
 
 import os
+import logging
 
 from . import *
 from .test_native_data import native_call, grant_permissions, CALENDAR_PERMISSIONS
@@ -21,6 +22,8 @@ window.addEventListener("dikciz-ready", () => {
             points:(document.getElementById("cpu-history")?.getAttribute("points") || "").trim().split(/ +/).filter(Boolean).length,
             historyEnd:Number((document.getElementById("cpu-history")?.getAttribute("points") || "0,0").trim().split(/ +/).at(-1).split(",")[0]),
             overflow:document.documentElement.scrollWidth > innerWidth + 1,
+            goblinButtonsWidth:document.getElementById("peen")?.parentElement.getBoundingClientRect().width,
+            viewportWidth:innerWidth,
             clipped:[...document.querySelectorAll("#clock,#temperature,#flash,#speak,#record,#calendar")].some(node=>{
                 const rect=node.getBoundingClientRect();
                 return rect.width>0 && rect.height>0 && (rect.left<0 || rect.right>innerWidth+1 || rect.bottom>innerHeight+1);
@@ -38,6 +41,10 @@ window.addEventListener("dikciz-ready", () => {
     publish();
 });
 """
+
+GOBLIN_WEATHER_ATTEMPTS = 3
+GOBLIN_WEATHER_WAIT_SECONDS = 35
+GOBLIN_MINIMUM_BUTTON_WIDTH_FRACTION = 0.75
 
 
 def capture_wait(connection, identifier, predicate, seconds=90):
@@ -59,6 +66,32 @@ def capture_image(name):
     target = ARTIFACT_DIRECTORY / "showcase-guide"
     target.mkdir(exist_ok=True)
     shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", target / name)
+
+
+def capture_goblin_page(connection):
+    AUTOMATION.request(connection, "selectPage", pageId="goblin")
+    for attempt in range(GOBLIN_WEATHER_ATTEMPTS):
+        direct_tap(wait_for_physical_text_bounds("Check outside"))
+        try:
+            goblin = capture_wait(connection, "goblin-console", lambda state: isinstance(state.get("temperatureC"), (int, float)), seconds=GOBLIN_WEATHER_WAIT_SECONDS)
+            break
+        except AssertionError:
+            if attempt + 1 == GOBLIN_WEATHER_ATTEMPTS:
+                raise
+            logging.getLogger(__name__).warning("goblin_live_weather_capture_retry", extra={"attempt":attempt + 1})
+    assert goblin["capture"]["overflow"] is False
+    assert goblin["capture"]["clipped"] is False
+    assert goblin["capture"]["goblinButtonsWidth"] >= goblin["capture"]["viewportWidth"] * GOBLIN_MINIMUM_BUTTON_WIDTH_FRACTION
+    capture_image("05-goblin-page.png")
+
+
+def test_capture_goblin_live_weather_and_controls(websocket_control):
+    grant_permissions(["android.permission.ACCESS_COARSE_LOCATION", "android.permission.ACCESS_FINE_LOCATION"])
+    run_device_operation("emulator-geo-fix", EMULATOR_GEO_LATITUDE="51.5074", EMULATOR_GEO_LONGITUDE="-0.1278")
+    config = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, "reset"))
+    configuration_widget(config, "goblin-console")["javascript"] += CAPTURE_PROBE
+    AUTOMATION.request(websocket_control, "configReplace", config=config)
+    capture_goblin_page(websocket_control)
 
 
 def test_user_guide_showcase_live_weather_and_all_pages(websocket_control):
@@ -111,6 +144,8 @@ def test_user_guide_showcase_live_weather_and_all_pages(websocket_control):
         assert device["capture"]["overflow"] is False
         assert device["capture"]["historyEnd"] == 300
         capture_image("04-device-page.png")
+
+        capture_goblin_page(websocket_control)
         AUTOMATION.request(websocket_control, "selectPage", pageId="home")
     finally:
         device_command("dumpsys battery reset")

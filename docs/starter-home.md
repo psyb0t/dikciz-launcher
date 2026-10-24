@@ -46,6 +46,8 @@ The chart measures this Dikciz process as a percentage of available processor ca
 
 London and speed run from native location events when their scripts and precise Android location access are enabled, including while the widget is hidden. Their units and accuracy come from [Android Location](https://developer.android.com/reference/android/location/Location). They do not bypass Android background-location or service restrictions. The London rule is a radius around 51.5074, -0.1278, not an administrative city boundary. Edit the Lua constants and phrases to customize triggers. Stored latches and timestamps suppress repeats across restarts. Speech failures remain visible in script status and are not marked spoken.
 
+<img src="images/user-guide/05-goblin-page.png" alt="Goblin control with live outdoor temperature and manual speech, sound and torch controls" width="280">
+
 ## Optional complete templates
 
 Previously placed documents and existing public library packages keep their saved source during APK updates. Reset the bundled home or update a document with the new package source to adopt widget-script fixes.

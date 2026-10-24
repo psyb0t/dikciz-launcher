@@ -2,6 +2,20 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.29.1] - 2026-10-24
+
+### Fixed
+
+- Keep Goblin controls at full width below the animated badge instead of squeezing their labels into narrow columns.
+
+### Documentation
+
+- Refresh the starter screenshots from the current Android build, add the Goblin page to the README gallery and capture walkthrough, and correct the user guide's bundled page list.
+
+### Migration
+
+Existing Goblin widgets keep their saved source. Reset the starter home or add `clear: both` to the widget's `.buttons` CSS rule to apply the layout fix.
+
 ## [0.29.0] - 2026-10-24
 
 ### Added

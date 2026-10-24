@@ -30,7 +30,7 @@ Apps opened from the drawer or a native shortcut run in their own Android task. 
 
 ### Switch pages or search by name
 
-Swipe across a page or tap a rail dot to move one page. Tap the magnifier beside the horizontal rail to search all pages. Search matches the page name and its stable address. The bundled pages are `Home (1H1V)`, `Tools (2H1V)` and `Device (3H1V)`. Home combines time/weather, frequently used app icons and a native bottom row of Phone, Camera, Settings and an installed store. Tools has agenda and voice notes. Device has a battery ring, resource bars, CPU history and core tiles. Each WebView owns its complete source and state. Weather uses permitted location or a chosen city; calendar and microphone access are requested from their widgets. Read the [starter home guide](starter-home.md) for details.
+Swipe across a page or tap a rail dot to move one page. Tap the magnifier beside the horizontal rail to search all pages. Search matches the page name and its stable address. The bundled pages are `Home (1H1V)`, `Tools (2H1V)`, `Device (3H1V)` and `Goblin (4H1V)`. Home combines time/weather, frequently used app icons and a native bottom row of Phone, Camera, Settings and an installed store. Tools has agenda and voice notes. Device has a battery ring, resource bars, CPU history and core tiles. Goblin has manual speech, alien sounds, torch pulses and outdoor weather checks, with optional Lua automations that start disabled. Each WebView owns its complete source and state. Weather uses permitted location or a chosen city; calendar and microphone access are requested from their widgets. Read the [starter home guide](starter-home.md) for details.
 
 ![Tools page](images/user-guide/03-insights-page.png)
 

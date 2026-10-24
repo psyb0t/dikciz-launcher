@@ -18,7 +18,7 @@ These pytest scenarios exercise real Android UI and forwarded WebSocket, MCP and
 | `test_html_card_presets.py` | Native intent URI validation through all transports. |
 | `test_app_list_and_hold.py` | Real package uninstall delivery into Most used, short-swipe cancellation, one-second drag arming and hold/release editing. |
 | `test_home_showcase.py` | Shared CPU/core telemetry, usage access, native dock placement, device rendering, manual demos and timed torch behavior. |
-| `test_showcase_capture.py` | Explicit live-weather and populated three-page documentation capture on the private emulator. |
+| `test_showcase_capture.py` | Explicit live-weather and populated four-page documentation capture on the private emulator. |
 | `test_shared_vm_starter.py` | First-use pages, disabled Lua defaults, saved notes and external weather success/failure in the real WebView. |
 | `test_ussd_control.py` | USSD validation, permission recovery and explicit missing-SIM/platform failures without claiming carrier acceptance. |
 | `test_camera_video.py` | Finalized MP4/AAC through ordinary bindings, permissions, deadlines, cancellation and shared camera/microphone ownership. |
