@@ -178,6 +178,45 @@
               "itemStates": {}
             }
           ]
+        },
+        {
+          "id": "goblin",
+          "title": "Goblin",
+          "position": {
+            "column": 3,
+            "row": 0
+          },
+          "widgets": [
+            {
+              "id": "goblin-console",
+              "type": "html",
+              "title": "Goblin control",
+              "enabled": true,
+              "html": "<main class=\"console\">\n<header><span class=\"eyebrow\">Dikciz after dark</span><span class=\"badge\">Tap to unleash</span></header>\n<div class=\"reactor\" aria-hidden=\"true\"><div class=\"orbit\"></div><div class=\"core\">D</div></div>\n<h1>Goblin control</h1><p class=\"intro\">Your phone has a speaker, a torch and questionable potential.</p>\n<div class=\"buttons\"><button id=\"peen\" type=\"button\">Say the thing</button><button id=\"alien\" type=\"button\">Alien transmission</button><button id=\"flash\" type=\"button\">Flash attack</button><button id=\"stop\" class=\"stop\" type=\"button\">Stop this widget</button></div>\n<details><summary>Try the automation voices</summary><div class=\"buttons previews\"><button id=\"london\" type=\"button\">London arrival</button><button id=\"heat\" type=\"button\">Too hot</button><button id=\"speed\" type=\"button\">Too fast</button></div><p>These buttons preview speech at your current volume. They do not enable background scripts.</p></details>\n<section class=\"weather\"><div><span class=\"eyebrow\">Outside, allegedly</span><strong id=\"temperature\">No reading yet</strong><small id=\"weather-time\">Phone battery temperature is not outdoor weather.</small></div><button id=\"weather\" type=\"button\">Check outside</button></section>\n<label class=\"watch\"><input id=\"watch\" type=\"checkbox\">Check weather every 15 minutes while this page is open</label>\n<p id=\"status\" role=\"status\" aria-live=\"polite\">Ready when you are. Nothing makes noise automatically.</p>\n<footer><strong>Make it react on its own</strong><p>Enable Goblin London, Goblin heat or Goblin speed in Settings, Scripts. London and speed need precise location. Heat listens to this widget's outdoor weather readings. All three ship disabled.</p><a href=\"https://open-meteo.com/\">Weather by Open-Meteo</a></footer>\n</main>\n",
+              "css": ":root{color-scheme:dark;--ink:#f2ffe9;--muted:#adbdad;--acid:#ccff64;--pink:#ff85c8}*{box-sizing:border-box}html,body{margin:0;background:transparent}body{font:14px/1.45 system-ui,sans-serif;color:var(--ink);-webkit-tap-highlight-color:transparent}\n.console{position:relative;min-height:100vh;overflow:hidden;padding:24px;border-radius:26px;background:radial-gradient(ellipse at 75% 5%,#57692566,transparent 55%),radial-gradient(ellipse at 0 60%,#5c1e5144,transparent 65%),#111b15;border:1px solid #ccff6428}header{display:flex;justify-content:space-between;align-items:center;gap:8px}.eyebrow{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--acid);font-weight:750}.badge{padding:5px 8px;border:1px solid #ffffff22;border-radius:20px;font-size:10px;color:var(--muted)}\nh1{font-size:34px;letter-spacing:-.05em;line-height:1;margin:0 0 12px}.intro{max-width:30em;color:var(--muted);margin:0 0 20px}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px}button{font:inherit;font-weight:650;min-height:48px;border-radius:14px;border:1px solid #ccff6433;background:#ccff6415;color:var(--acid);padding:10px;cursor:pointer}button:active{transform:scale(.97)}.stop{background:#ff85c81b;color:var(--pink);border-color:#ff85c844}\n.reactor{position:relative;float:right;width:100px;height:100px;perspective:200px;margin:12px 0 6px 12px}.core{position:absolute;inset:25px;display:grid;place-items:center;font-size:29px;font-weight:900;color:#1a230c;background:var(--acid);border-radius:16px;transform:rotate(-12deg);box-shadow:0 0 35px #ccff6433}.orbit{position:absolute;inset:6px;border:1px solid #ccff6455;border-radius:50%;animation:orbit 7s linear infinite}\ndetails{margin:14px 0;color:var(--muted);font-size:12px}summary{cursor:pointer;padding:10px 0}.previews{grid-template-columns:repeat(3,1fr)}.previews button{font-size:11px}.weather{clear:both;display:flex;justify-content:space-between;gap:12px;align-items:center;padding:18px 0;margin-top:14px;border-top:1px solid #ffffff15}.weather strong{display:block;font-size:28px;letter-spacing:-.04em}.weather small{display:block;font-size:10px;color:var(--muted);max-width:24em}.weather button{font-size:12px}.watch{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}input{width:20px;height:20px;accent-color:var(--acid)}#status{font-size:12px;min-height:36px;color:var(--acid);overflow-wrap:anywhere}footer{padding-top:14px;border-top:1px solid #ffffff15;font-size:11px;color:var(--muted)}footer strong{color:var(--ink)}footer p{margin:7px 0}a{color:var(--pink)}button:focus-visible,summary:focus-visible,input:focus-visible{outline:2px solid var(--pink);outline-offset:3px}\n@keyframes orbit{to{transform:rotateX(55deg) rotateZ(360deg)}}body[data-visible=\"false\"] *{animation-play-state:paused!important}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}@media(max-width:280px){.console{padding:16px}.reactor{width:78px;height:78px}.core{inset:18px}h1{font-size:28px}.badge{display:none}.previews{grid-template-columns:1fr}.weather{flex-wrap:wrap}}\n",
+              "javascript": "(() => {\n    const WEATHER_INTERVAL_MS = 900000, FETCH_TIMEOUT_MS = 15000, MAX_RESPONSE_BYTES = 65536;\n    const PULSE_MS = 250, PULSE_COUNT = 8, AUDIO_SECONDS = 2.4;\n    const phrases = {peen:\"Peen goes in vageen.\", london:\"God save the Queen! The goblin has arrived in London.\", heat:\"It's hotter than Satan's armpit. The goblin is being slow cooked!\", speed:\"Slow down! Your shit is about to come out of your arse!\"};\n    const element = id => document.getElementById(id);\n    const visible = () => ready && selfWidget.visible && !document.hidden;\n    const report = message => { element(\"status\").textContent = message; };\n    let ready = false, generation = 0, torchOwned = false, speechOwned = false, flashing = false;\n    let audio = null, request = null, weatherBusy = false, state = {}, lastWeatherAttempt = 0;\n    async function speak(text) {\n        if (!visible() || speechOwned) return;\n        const run = generation;\n        speechOwned = true;\n        report(\"Speaking at your current media volume...\");\n        try {\n            await dikciz.command(\"speechSpeak\", {text, language:\"en-GB\", timeoutMilliseconds:20000});\n            if (run === generation) report(\"Spoken. Your phone has opinions.\");\n        } catch (error) { if (run === generation) report(\"Speech failed: \" + error.message); }\n        finally { speechOwned = false; }\n    }\n    async function stop() {\n        generation++; request?.abort();\n        const work = [];\n        if (torchOwned) work.push(dikciz.command(\"torchControl\", {action:\"off\"}).then(() => { torchOwned = false; }));\n        if (speechOwned) work.push(dikciz.command(\"speechStop\"));\n        if (audio) { const current = audio; audio = null; work.push(current.close()); }\n        const results = await Promise.allSettled(work);\n        report(results.some(result => result.status === \"rejected\") ? \"Stop requested. Some hardware cleanup failed; check permissions and logs.\" : \"Stopped this widget's sounds and lights.\");\n    }\n    async function flash() {\n        if (!visible()) return;\n        if (flashing) { await stop(); return; }\n        flashing = true;\n        const run = generation;\n        report(\"Eight torch pulses. Tap Stop to end.\");\n        try {\n            for (let pulse = 0; pulse < PULSE_COUNT && visible() && run === generation; pulse++) {\n                torchOwned = true;\n                await dikciz.command(\"torchControl\", {action:\"on\", durationMilliseconds:PULSE_MS, autoRequestPermissions:true});\n                if (run !== generation || !visible()) break;\n                await new Promise(resolve => setTimeout(resolve, PULSE_MS * 2));\n            }\n            if (run === generation) report(\"Flash attack finished.\");\n        } catch (error) { if (run === generation) report(\"Torch unavailable: \" + error.message + \". Grant access, then tap again.\"); }\n        finally {\n            flashing = false;\n            if (torchOwned) {\n                try { await dikciz.command(\"torchControl\", {action:\"off\"}); torchOwned = false; }\n                catch (error) { console.warn(\"goblin_torch_cleanup_failed\", error.code || \"unknown\"); }\n            }\n        }\n    }\n    async function alien() {\n        if (!visible()) return;\n        if (audio) { await audio.close(); audio = null; }\n        const current = new AudioContext(); audio = current;\n        await current.resume();\n        const oscillator = current.createOscillator(), gain = current.createGain(), start = current.currentTime;\n        oscillator.type = \"sine\"; oscillator.connect(gain); gain.connect(current.destination);\n        gain.gain.setValueAtTime(0, start); gain.gain.linearRampToValueAtTime(0.08, start + 0.03);\n        gain.gain.setValueAtTime(0.08, start + AUDIO_SECONDS - 0.1); gain.gain.linearRampToValueAtTime(0, start + AUDIO_SECONDS);\n        for (let step = 0; step < 24; step++) oscillator.frequency.setValueAtTime(180 + ((step * 173) % 1100), start + step / 10);\n        oscillator.onended = () => {\n            if (audio !== current) return;\n            audio = null;\n            current.close().catch(error => console.warn(\"goblin_audio_cleanup_failed\", error.name));\n            report(\"Alien transmission complete.\");\n        };\n        oscillator.start(start); oscillator.stop(start + AUDIO_SECONDS);\n        report(\"Receiving deeply questionable signals for 2.4 seconds...\");\n    }\n    function renderWeather() {\n        element(\"watch\").checked = state.watchWeather === true;\n        if (!Number.isFinite(state.temperatureC)) return;\n        element(\"temperature\").textContent = state.temperatureC.toFixed(1) + \"°C\";\n        element(\"weather-time\").textContent = \"Saved outdoor weather, checked \" + new Date(state.fetchedAt).toLocaleString();\n    }\n    async function weather(askForAccess = false) {\n        if (!visible() || weatherBusy) return;\n        weatherBusy = true; lastWeatherAttempt = Date.now();\n        const run = generation;\n        report(\"Getting your location and outdoor weather...\");\n        try {\n            const location = await dikciz.command(\"locationGet\", {maxAgeMilliseconds:300000, timeoutMilliseconds:10000, autoRequestPermissions:askForAccess});\n            if (!location.available) throw new Error(\"Location unavailable. Allow location, then tap Check outside again.\");\n            if (!visible() || run !== generation) return;\n            if (!Number.isFinite(location.latitude) || Math.abs(location.latitude) > 90 || !Number.isFinite(location.longitude) || Math.abs(location.longitude) > 180) throw new Error(\"Invalid phone coordinates\");\n            const controller = new AbortController(); request = controller;\n            const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);\n            let data;\n            try {\n                const url = \"https://api.open-meteo.com/v1/forecast?latitude=\" + encodeURIComponent(location.latitude) + \"&longitude=\" + encodeURIComponent(location.longitude) + \"&current=temperature_2m&temperature_unit=celsius&timeformat=unixtime&forecast_days=1\";\n                const response = await fetch(url, {signal:controller.signal, credentials:\"omit\", referrerPolicy:\"no-referrer\"});\n                if (!response.ok) throw new Error(\"Weather HTTP \" + response.status);\n                const reader = response.body.getReader(), chunks = [];\n                let size = 0;\n                while (true) {\n                    const part = await reader.read(); if (part.done) break;\n                    size += part.value.byteLength;\n                    if (size > MAX_RESPONSE_BYTES) { await reader.cancel(); throw new Error(\"Weather response too large\"); }\n                    chunks.push(part.value);\n                }\n                const bytes = new Uint8Array(size); let offset = 0;\n                for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }\n                data = JSON.parse(new TextDecoder().decode(bytes));\n            } finally { clearTimeout(timer); if (request === controller) request = null; }\n            const temperatureC = data.current?.temperature_2m, observedAtMilliseconds = data.current?.time * 1000, now = Date.now();\n            if (!Number.isFinite(temperatureC) || temperatureC < -90 || temperatureC > 65 || !Number.isFinite(observedAtMilliseconds) || now - observedAtMilliseconds > 3600000 || observedAtMilliseconds > now + 60000) throw new Error(\"Weather reading is missing, invalid or stale\");\n            if (!visible() || run !== generation) return;\n            state = {...state, temperatureC, observedAtMilliseconds, fetchedAt:now};\n            await selfWidget.patchState(state);\n            if (!visible() || run !== generation) return;\n            renderWeather();\n            await dikciz.emitEvent(\"goblin.weather\", {temperatureC, observedAtMilliseconds});\n            report(\"Outdoor weather updated. Goblin heat reacts only if you enabled its Lua script.\");\n        } catch (error) { if (run === generation) report(\"Weather failed: \" + error.message); }\n        finally { weatherBusy = false; }\n    }\n    Object.entries(phrases).forEach(([id, phrase]) => element(id).addEventListener(\"click\", () => speak(phrase)));\n    element(\"flash\").addEventListener(\"click\", () => flash().catch(error => report(\"Flash failed: \" + error.message)));\n    element(\"alien\").addEventListener(\"click\", () => alien().catch(error => report(\"Audio failed: \" + error.message)));\n    element(\"stop\").addEventListener(\"click\", () => {\n        state = {...state, watchWeather:false}; element(\"watch\").checked = false;\n        Promise.allSettled([stop(), selfWidget.patchState(state)]).then(results => {\n            if (results.some(result => result.status === \"rejected\")) report(\"Stop requested, but state could not be saved.\");\n        });\n    });\n    element(\"weather\").addEventListener(\"click\", () => weather(true));\n    element(\"watch\").addEventListener(\"change\", async () => {\n        state = {...state, watchWeather:element(\"watch\").checked};\n        try { await selfWidget.patchState(state); if (state.watchWeather) await weather(true); else report(\"Weather watch disabled.\"); }\n        catch (error) { report(\"Could not save weather watch: \" + error.message); }\n    });\n    window.addEventListener(\"dikciz-ready\", () => { ready = true; state = {...selfWidget.state}; renderWeather(); });\n    window.addEventListener(\"dikciz-state\", () => { state = {...selfWidget.state}; renderWeather(); });\n    const visibilityChanged = () => {\n        document.body.dataset.visible = visible() ? \"true\" : \"false\";\n        if (!visible()) stop().catch(error => console.warn(\"goblin_hidden_cleanup_failed\", error.name));\n        else if (state.watchWeather && Date.now() - lastWeatherAttempt >= WEATHER_INTERVAL_MS) weather();\n    };\n    window.addEventListener(\"dikciz-visibility\", visibilityChanged);\n    document.addEventListener(\"visibilitychange\", visibilityChanged);\n    window.addEventListener(\"pagehide\", visibilityChanged);\n    setInterval(() => { if (visible() && state.watchWeather && Date.now() - lastWeatherAttempt >= WEATHER_INTERVAL_MS) weather(); }, 60000);\n})();\n",
+              "state": {},
+              "cell": {
+                "column": 0,
+                "row": 0,
+                "columnSpan": 8,
+                "rowSpan": 6
+              },
+              "style": {
+                "padding": {
+                  "all": 0
+                },
+                "margin": {
+                  "all": 0
+                },
+                "border": {
+                  "widths": {
+                    "all": 0
+                  }
+                }
+              }
+            }
+          ]
         }
       ]
     }
@@ -220,6 +259,39 @@
         "actions": [
           "lockDevice"
         ]
+      },
+      {
+        "id": "goblin-london",
+        "title": "Goblin London",
+        "enabled": true,
+        "capabilities": [
+          "locationPrecise"
+        ],
+        "actions": [
+          "patchState"
+        ]
+      },
+      {
+        "id": "goblin-heat",
+        "title": "Goblin heat",
+        "enabled": true,
+        "capabilities": [
+          "manualTrigger"
+        ],
+        "actions": [
+          "patchState"
+        ]
+      },
+      {
+        "id": "goblin-speed",
+        "title": "Goblin speed",
+        "enabled": true,
+        "capabilities": [
+          "locationPrecise"
+        ],
+        "actions": [
+          "patchState"
+        ]
       }
     ],
     "scripts": [
@@ -255,6 +327,41 @@
             "minimumIntervalMilliseconds": 0
           }
         ]
+      },
+      {
+        "scriptId": "goblin-london",
+        "policyId": "goblin-london",
+        "enabled": true,
+        "subscriptions": [
+          {
+            "event": "location",
+            "minimumIntervalMilliseconds": 60000,
+            "locationPrecision": "precise"
+          }
+        ]
+      },
+      {
+        "scriptId": "goblin-heat",
+        "policyId": "goblin-heat",
+        "enabled": true,
+        "subscriptions": [
+          {
+            "event": "goblin.weather",
+            "minimumIntervalMilliseconds": 0
+          }
+        ]
+      },
+      {
+        "scriptId": "goblin-speed",
+        "policyId": "goblin-speed",
+        "enabled": true,
+        "subscriptions": [
+          {
+            "event": "location",
+            "minimumIntervalMilliseconds": 5000,
+            "locationPrecision": "precise"
+          }
+        ]
       }
     ]
   },
@@ -281,6 +388,30 @@
       "enabled": false,
       "apiVersion": 1,
       "source": "function on_event(event)\n  if event.type ~= \"manual\" then return { status = \"Run manually to lock the screen\" } end\n  if not context.androidAccess.deviceAdminActive then\n    return { status = \"Enable Device Administration in Automation settings first\" }\n  end\n  return { status = \"Lock requested\", actions = { { type = \"lockDevice\" } } }\nend",
+      "state": {}
+    },
+    {
+      "id": "goblin-london",
+      "title": "Goblin London",
+      "enabled": false,
+      "apiVersion": 1,
+      "source": "local function finite(value, minimum, maximum)\n  return type(value) == \"number\" and value == value and value >= minimum and value <= maximum\nend\nlocal function state(values, status)\n  return {status = status, actions = {{type = \"patchState\", values = values}}}\nend\nlocal function announce(event, phrase, cooldown)\n  local now = event.timestampMilliseconds\n  local previous = context.state.lastSpokenMilliseconds or 0\n  if context.state.alerted then return {status = \"Already announced; waiting to rearm\"} end\n  if finite(previous, 1, now) and now - previous < cooldown then return {status = \"Speech cooldown active\"} end\n  local reply = context.request({type = \"speechSpeak\", text = phrase, language = \"en-GB\", timeoutMilliseconds = 20000})\n  if reply.type ~= \"result\" or not reply.result or reply.result.state ~= \"spoken\" then\n    return {status = \"Speech failed: \" .. tostring(reply.code or \"unverified\")}\n  end\n  return state({alerted = true, lastSpokenMilliseconds = now}, \"Spoken: \" .. phrase)\nend\n\nlocal LONDON_LATITUDE = 51.5074\nlocal LONDON_LONGITUDE = -0.1278\nlocal EARTH_RADIUS_KILOMETRES = 6371\nlocal ENTER_KILOMETRES = 20\nlocal EXIT_KILOMETRES = 25\nlocal MAXIMUM_ACCURACY_METRES = 500\nlocal COOLDOWN_MILLISECONDS = 6 * 60 * 60 * 1000\nfunction on_event(event)\n  local p = event.payload\n  if event.type ~= \"location\" or not finite(event.timestampMilliseconds, 1, 10000000000000)\n      or not finite(p.latitude, -90, 90) or not finite(p.longitude, -180, 180)\n      or not finite(p.accuracy, 0, MAXIMUM_ACCURACY_METRES) then\n    return {status = \"Waiting for an accurate precise GPS fix\"}\n  end\n  local latitude = math.rad(p.latitude)\n  local delta_latitude = math.rad(p.latitude - LONDON_LATITUDE)\n  local delta_longitude = math.rad(p.longitude - LONDON_LONGITUDE)\n  local chord = math.sin(delta_latitude / 2)^2 + math.cos(latitude) * math.cos(math.rad(LONDON_LATITUDE)) * math.sin(delta_longitude / 2)^2\n  local distance = 2 * EARTH_RADIUS_KILOMETRES * math.asin(math.sqrt(math.min(1, math.max(0, chord))))\n  if distance >= EXIT_KILOMETRES then return state({alerted = false}, \"Outside London; rearmed\") end\n  if distance > ENTER_KILOMETRES then return {status = \"London boundary buffer\"} end\n  return announce(event, \"God save the Queen! The goblin has arrived in London.\", COOLDOWN_MILLISECONDS)\nend\n",
+      "state": {}
+    },
+    {
+      "id": "goblin-heat",
+      "title": "Goblin heat",
+      "enabled": false,
+      "apiVersion": 1,
+      "source": "local function finite(value, minimum, maximum)\n  return type(value) == \"number\" and value == value and value >= minimum and value <= maximum\nend\nlocal function state(values, status)\n  return {status = status, actions = {{type = \"patchState\", values = values}}}\nend\nlocal function announce(event, phrase, cooldown)\n  local now = event.timestampMilliseconds\n  local previous = context.state.lastSpokenMilliseconds or 0\n  if context.state.alerted then return {status = \"Already announced; waiting to rearm\"} end\n  if finite(previous, 1, now) and now - previous < cooldown then return {status = \"Speech cooldown active\"} end\n  local reply = context.request({type = \"speechSpeak\", text = phrase, language = \"en-GB\", timeoutMilliseconds = 20000})\n  if reply.type ~= \"result\" or not reply.result or reply.result.state ~= \"spoken\" then\n    return {status = \"Speech failed: \" .. tostring(reply.code or \"unverified\")}\n  end\n  return state({alerted = true, lastSpokenMilliseconds = now}, \"Spoken: \" .. phrase)\nend\n\nlocal THRESHOLD_CELSIUS = 35\nlocal RESET_CELSIUS = 32\nlocal MAXIMUM_WEATHER_AGE_MILLISECONDS = 60 * 60 * 1000\nlocal CLOCK_SKEW_MILLISECONDS = 60000\nlocal COOLDOWN_MILLISECONDS = 30 * 60 * 1000\nfunction on_event(event)\n  local p = event.payload\n  local now = event.timestampMilliseconds\n  if event.type ~= \"goblin.weather\" or not finite(now, 1, 10000000000000)\n      or not finite(p.temperatureC, -90, 65)\n      or not finite(p.observedAtMilliseconds, now - MAXIMUM_WEATHER_AGE_MILLISECONDS, now + CLOCK_SKEW_MILLISECONDS) then\n    return {status = \"Waiting for fresh outdoor Celsius weather\"}\n  end\n  if p.temperatureC < RESET_CELSIUS then return state({alerted = false}, \"Below 32 Celsius; rearmed\") end\n  if p.temperatureC <= THRESHOLD_CELSIUS then return {status = \"Below the 35 Celsius trigger\"} end\n  return announce(event, \"It's hotter than Satan's armpit. The goblin is being slow cooked!\", COOLDOWN_MILLISECONDS)\nend\n",
+      "state": {}
+    },
+    {
+      "id": "goblin-speed",
+      "title": "Goblin speed",
+      "enabled": false,
+      "apiVersion": 1,
+      "source": "local function finite(value, minimum, maximum)\n  return type(value) == \"number\" and value == value and value >= minimum and value <= maximum\nend\nlocal function state(values, status)\n  return {status = status, actions = {{type = \"patchState\", values = values}}}\nend\nlocal function announce(event, phrase, cooldown)\n  local now = event.timestampMilliseconds\n  local previous = context.state.lastSpokenMilliseconds or 0\n  if context.state.alerted then return {status = \"Already announced; waiting to rearm\"} end\n  if finite(previous, 1, now) and now - previous < cooldown then return {status = \"Speech cooldown active\"} end\n  local reply = context.request({type = \"speechSpeak\", text = phrase, language = \"en-GB\", timeoutMilliseconds = 20000})\n  if reply.type ~= \"result\" or not reply.result or reply.result.state ~= \"spoken\" then\n    return {status = \"Speech failed: \" .. tostring(reply.code or \"unverified\")}\n  end\n  return state({alerted = true, lastSpokenMilliseconds = now}, \"Spoken: \" .. phrase)\nend\n\nlocal THRESHOLD_KMH = 80\nlocal RESET_KMH = 65\nlocal MAXIMUM_ACCURACY_METRES = 100\nlocal COOLDOWN_MILLISECONDS = 15 * 60 * 1000\nfunction on_event(event)\n  local p = event.payload\n  if event.type ~= \"location\" or not finite(event.timestampMilliseconds, 1, 10000000000000)\n      or not finite(p.speed, 0, 120) or not finite(p.accuracy, 0, MAXIMUM_ACCURACY_METRES) then\n    return {status = \"Waiting for a valid GPS speed and accuracy\"}\n  end\n  local speed = p.speed * 3.6\n  if speed < RESET_KMH then return state({alerted = false}, \"Below 65 km/h; rearmed\") end\n  if speed <= THRESHOLD_KMH then return {status = \"Below the 80 km/h trigger\"} end\n  return announce(event, \"Slow down! Your shit is about to come out of your arse!\", COOLDOWN_MILLISECONDS)\nend\n",
       "state": {}
     }
   ]

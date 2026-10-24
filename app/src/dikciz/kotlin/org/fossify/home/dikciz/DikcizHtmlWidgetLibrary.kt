@@ -478,6 +478,7 @@ internal class DikcizHtmlWidgetLibrary(
             "system-dashboard",
             "sensors-dashboard",
             "markets-news",
+            "goblin-console",
         )
         val MANIFEST_KEYS = setOf(
             KEY_VERSION,

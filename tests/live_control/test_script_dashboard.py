@@ -48,7 +48,7 @@ def test_script_dashboard_runs_page_addressed_patch_and_exposes_controls(
     bundled = AUTOMATION.require_configuration(
         AUTOMATION.request(websocket_control, AUTOMATION.TYPE_RESET),
     )
-    assert {"low-battery", "charge-ready", "screen-lock"} == {
+    assert {"low-battery", "charge-ready", "screen-lock", "goblin-london", "goblin-heat", "goblin-speed"} == {
         script["id"] for script in bundled["scripts"]
     }
     assert all(script["enabled"] is False for script in bundled["scripts"])

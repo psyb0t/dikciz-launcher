@@ -105,7 +105,7 @@ def test_home_showcase_usage_access_contract(websocket_control, protocol):
 def test_home_showcase_native_dock_and_pages(websocket_control):
     configured = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, "reset"))
     pages = configured["launcher"]["home"]["pages"]
-    assert [page["id"] for page in pages] == ["home", "tools", "device"]
+    assert [page["id"] for page in pages] == ["home", "tools", "device", "goblin"]
     home = configuration_page(configured, "home")
     assert [widget["id"] for widget in home["widgets"] if widget["type"] == "html"] == ["time-weather", "most-used-apps"]
     dock = [widget for widget in home["widgets"] if widget["type"] == "app"]

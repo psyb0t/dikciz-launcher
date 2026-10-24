@@ -2,6 +2,18 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.29.0] - 2026-10-24
+
+### Added
+
+- A Goblin starter page and reusable complete WebView with manual speech, local alien sounds, timed torch pulses and outdoor weather checks.
+- Three disabled Lua examples for London arrival, outdoor heat above 35 Celsius and GPS speed above 80 km/h, with persistent rearm thresholds and cooldowns.
+- A complete catalog of bundled HTML templates and Lua scripts, with activation and data-source details.
+
+### Migration
+
+Existing edited homes remain intact. Reset the home to load the fourth page and bundled scripts, or add Goblin control from the widget picker. GPS scripts require precise Android location access; the outdoor heat script receives fresh weather from the visible Goblin widget. All new scripts and weather watch start disabled.
+
 ## [0.28.0] - 2026-10-24
 
 ### Added

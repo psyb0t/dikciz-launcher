@@ -12,6 +12,14 @@ Dikciz is a programmable Android home screen. Build pages from HTML widgets, nat
 
 Your home lives in editable files under `/sdcard/Dikciz/`. The signed release includes scripting, inspection and remote control. Ordinary launcher control needs neither a debug build nor root. Android permissions govern access to the rest of the phone.
 
+## Who this is for
+
+**TL;DR: Your phone, your controls.** Dikciz is for developers, tinkerers and anyone who wants to program their phone: build a home screen in HTML/CSS/JavaScript, automate events with Lua, and let their own AI use the phone through MCP.
+
+Also for goblins who want their phone to say "peen goes in vageen", flash the torch like Christmas and play alien noises. Speech, audio, lights and SMS are programmable too. Build something useful, something ridiculous, or both.
+
+You choose the model provider, scripts, permissions and network access. The built-in assistant and external clients use the same phone tools. Android's permission and hardware limits still apply.
+
 <p>
 <img src="docs/images/user-guide/01-first-launch.png" alt="Home with live London weather, Android app icons and native dock" width="250">
 <img src="docs/images/user-guide/03-insights-page.png" alt="Tools with upcoming calendar entries and a saved voice note" width="250">
@@ -24,6 +32,8 @@ Emulator demo with live London weather, sample calendar entries, a saved voice n
 
 | Start here | Details |
 | --- | --- |
+| [Who this is for](#who-this-is-for) | [What you can build](#what-the-home-supports), [AI chat](#chat-with-your-phone) |
+| [Bundled widgets and scripts](#bundled-widgets-and-scripts) | [Complete catalog](docs/starter-home.md) |
 | [Install](#install-it) | [Home features](#what-the-home-supports), [navigation](#navigate-and-manage-the-home) |
 | [On-device chat](#chat-with-your-phone) | [Provider setup, tools and event rules](docs/embedded-chat.md) |
 | [Configuration](#configure-it) | [Remote control](#inspect-and-control-it-remotely), [Android capabilities](#android-capabilities), [logs](#logs-and-failure-reporting) |
@@ -56,7 +66,13 @@ Release packages use `eu.psyb0t.dikciz.launcher`; debug packages use `eu.psyb0t.
 - Themes, fonts, wallpaper, widget appearance, editing locks and a chosen Android Home destination.
 - Semantic UI inspection, screenshots, logs, configuration editing and device actions through the remote APIs.
 
-The starter combines everyday launcher controls with programmable widgets. **Home** has clock/weather, app icons ranked by optional usage history, and native Phone, Camera, Settings and app-store shortcuts along the bottom. **Tools** has agenda and voice notes. **Device** has a live battery gauge, memory/storage bars and CPU charts. Tap the home quick actions for a short torch pulse sequence or speech; neither starts automatically. Each HTML document remains separately editable. The HTML library offers complete editable WebView templates, including system metrics and BTC/USD with economic news. Save customized documents to reuse them. Three useful Lua examples start disabled. See the [starter home guide](docs/starter-home.md).
+The starter combines everyday launcher controls with programmable widgets. **Home** has clock/weather, app icons ranked by optional usage history, and native Phone, Camera, Settings and app-store shortcuts along the bottom. **Tools** has agenda and voice notes. **Device** has a live battery gauge, memory/storage bars and CPU charts. Tap the home quick actions for a short torch pulse sequence or speech; neither starts automatically. Each HTML document remains separately editable. The HTML library offers complete editable WebView templates, including system metrics and BTC/USD with economic news. Save customized documents to reuse them. Six Lua examples start disabled, including GPS London announcements, outdoor heat commentary and speed warnings. The **Goblin** page adds tap-operated speech, torch pulses and alien sounds. The [complete bundled catalog](docs/starter-home.md#complete-bundled-widget-catalog) describes every template and script. See the [starter home guide](docs/starter-home.md).
+
+## Bundled widgets and scripts
+
+The eighteen complete HTML templates cover **Time and weather**, **Most used apps**, **Agenda**, **Voice notes**, **Device status**, **Goblin control**, **Home dashboard**, **System dashboard**, **Live sensors**, **BTC and economic news**, **Clock and search**, **Find an app**, **Quick note**, **Android app settings**, **Android display settings**, **Lock screen**, **Post a notification** and **Dikciz diagnostics**. Add copies from the widget picker and edit their full HTML, CSS, JavaScript and saved state. The [complete catalog](docs/starter-home.md#complete-bundled-widget-catalog) explains every template and its data sources.
+
+Six Lua examples ship disabled: **Low battery reminder**, **Unplug at 80 percent**, **Lock screen on demand**, **Goblin London**, **Goblin heat** and **Goblin speed**. The goblin rules announce London arrival, complain above 35 Celsius outdoors, and yell above 80 km/h GPS speed. Their saved cooldowns and rearm thresholds prevent constant repetition. The Goblin page lets you preview the voices, say "peen goes in vageen", flash the torch and play synthesized alien sounds. Enable scripts individually in Settings; read [triggers, permissions and weather setup](docs/starter-home.md#optional-lua-utilities).
 
 ## Navigate and manage the home
 

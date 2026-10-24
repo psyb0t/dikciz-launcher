@@ -66,6 +66,8 @@ Notification, media, clipboard, SMS, Health Connect and Device Administration in
 
 ## Boundaries and invariants
 
+The [complete bundled widget/script catalog](../../../docs/starter-home.md) describes the four starter pages, eighteen complete HTML templates and six disabled Lua examples. Goblin effects use existing native commands; its heat rule consumes weather events emitted by its visible WebView.
+
 Keep product changes in this source set or a Dikciz-specific combined source set. Shared Fossify source sets remain replaceable. [The Gradle integration](../../build.gradle.kts) selects the Dikciz application ID and derives its version from the root `VERSION`; the [Fossify overlays](../../../.fossify/README.md) carry those changes across source refreshes.
 
 `HomeConfigStore` validates owned fields and public paths before saving, preserves unrelated root namespaces and sibling objects under `launcher`, and writes documents with `AtomicFile`. Widget IDs are globally unique without regard to case; page positions are unique and selected/home page IDs must resolve. The store replaces an older bundled starter only while the saved starter remains pristine.

@@ -345,15 +345,18 @@ The [scripting tutorial](scripting-tutorial.md) documents the supported runtime 
 
 The runtime removes dynamic loading and host escape routes: `debug`, `io`, `os`, `package`, `require`, `load`, `dofile`, `loadfile`, and `print` are not available. It also removes `string.format`, `string.gsub`, `string.rep`, `table.concat`, `table.move`, and `table.unpack` to keep script work bounded. Scripts receive no Android object handles. Use the typed action list above or the owner command functions for launcher and Android behavior.
 
-Fresh Dikciz includes three disabled utility scripts. Their enabled policies and subscriptions become active only after the owner enables the corresponding Lua source record.
+Fresh Dikciz includes six disabled example scripts, including the three Goblin GPS/weather demonstrations described in the [starter catalog](starter-home.md#optional-lua-utilities). Their enabled policies and subscriptions become active only after the owner enables the corresponding Lua source record.
 
 | Script | What it does after enabling |
 | --- | --- |
 | `low-battery` | Notifies once at 20 percent or lower while discharging. Charging or reaching 30 percent resets the reminder. |
 | `charge-ready` | Notifies once at 80 percent or higher while charging. Unplugging or dropping below 75 percent resets it. |
 | `screen-lock` | Locks only when explicitly run, after checking Device Administration. It never runs when access changes. |
+| `goblin-london` | Speaks on entry into its central-London radius, with precise GPS accuracy checks, exit rearming and a six-hour cooldown. |
+| `goblin-heat` | Speaks above 35 Celsius from fresh outdoor-weather events, rearms below 32 Celsius and uses a 30-minute cooldown. |
+| `goblin-speed` | Speaks above 80 km/h from accurate precise GPS speed, rearms below 65 km/h and uses a 15-minute cooldown. |
 
-No bundled script patches a particular widget or subscribes to Accessibility, notification contents, location or a periodic alarm. The [starter home guide](starter-home.md) covers the two demo pages, automatic weather location, read-only agenda, voice recordings and device status. Live sensors remain an optional template.
+The Goblin London and speed examples subscribe to precise location only after their Lua source is enabled. Goblin heat consumes `goblin.weather` events emitted by the visible Goblin widget. The [starter home guide](starter-home.md) covers all four pages, every bundled template and script, weather data sources, permissions, cooldowns and customization.
 
 Use the native Script dashboard or Settings to enable, disable, edit, import, export, delete, inspect status, and read logs. The dashboard, Settings, WebSocket `scriptLogs`, and MCP `dikciz_script_logs` read the same safe log projection. A failed Lua compile or handler run keeps `invalid_lua` as its stable run status. Its matching log record includes a bounded, sanitized `diagnostic` with the public `scripts/<script-id>/main.lua` location and line when LuaJ provides one. Credential-shaped values are redacted before the native viewer or either remote control plane receives the record.
 

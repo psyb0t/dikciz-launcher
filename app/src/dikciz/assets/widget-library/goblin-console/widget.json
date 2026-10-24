@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "goblin-console",
+  "title": "Goblin control",
+  "description": "Tap for ridiculous speech, finite torch pulses and local alien sounds. Check outdoor weather and feed the optional Goblin heat Lua script. Nothing starts without your choice.",
+  "span": {
+    "columnSpan": 8,
+    "rowSpan": 6
+  }
+}

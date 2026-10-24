@@ -6,7 +6,7 @@ from . import *
 
 
 STARTER_WIDGET_IDS = ["time-weather", "most-used-apps"]
-STARTER_SCRIPT_IDS = {"low-battery", "charge-ready", "screen-lock"}
+STARTER_SCRIPT_IDS = {"low-battery", "charge-ready", "screen-lock", "goblin-london", "goblin-heat", "goblin-speed"}
 NOTE_TEXT = "remember_milk"
 
 
@@ -46,7 +46,7 @@ def test_targeted_run_cleanup_restores_the_bundled_starter_home(websocket_contro
     ]
     restored = starter_reset(websocket_control)
     home = restored["launcher"]["home"]
-    assert [page["id"] for page in home["pages"]] == ["home", "tools", "device"]
+    assert [page["id"] for page in home["pages"]] == ["home", "tools", "device", "goblin"]
     assert [widget["id"] for widget in configuration_page(restored, "home")["widgets"] if widget["type"] == "html"] == STARTER_WIDGET_IDS
     restore_system_home()
     wait_for_physical_description_bounds(STARTER_HOME_WIDGET_TITLE)
