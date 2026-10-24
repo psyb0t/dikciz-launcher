@@ -2,7 +2,7 @@
 
 <!-- Regenerate with make dikciz-command-docs from captured tools/list discovery. -->
 
-This reference contains 128 discovered MCP tools and their complete input schemas. Discovery from the installed build is authoritative. Transport-independent procedures, Android permissions and results are described in the [automation guide](automation-control.md), [documentation index](index.md) and focused task guides. MCP tools use the same ordinary commands as HTTP, WebSocket, HTML and Lua.
+This reference contains 129 discovered MCP tools and their complete input schemas. Discovery from the installed build is authoritative. Transport-independent procedures, Android permissions and results are described in the [automation guide](automation-control.md), [documentation index](index.md) and focused task guides. MCP tools use the same ordinary commands as HTTP, WebSocket, HTML and Lua.
 
 Schemas include nested fields, required values, defaults and bounds. autoRequestPermissions requests owner review; it never grants access or retries the operation. Inspect returned state and errors before continuing.
 
@@ -896,6 +896,70 @@ Record bounded foreground camera H.264 MP4, optionally with microphone AAC. Retu
     }
   },
   "required": [],
+  "additionalProperties": false
+}
+```
+
+## dikciz_chat
+
+Manage the on-device Dikciz assistant. Actions: status, profiles, profileSave, models, create, list, read, rename, configure, delete, send, stop, subscribe, show, hide, fullscreen. A send is queued, not proof of completion. Poll read/status. Profile reads never return API keys. subscribe replaces the conversation's event rules; each rule has id, subscription (canonical automation event subscription) and instructions. show/hide/fullscreen control the chat panel independently of the agent. Read the chat MCP guide for fields and examples.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "maxLength": 32
+    },
+    "conversationId": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "profileId": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 32768
+    },
+    "requestKey": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "profile": {
+      "type": "object"
+    },
+    "rules": {
+      "type": "array"
+    },
+    "fullScreen": {
+      "type": "boolean"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "action"
+  ],
   "additionalProperties": false
 }
 ```

@@ -554,6 +554,8 @@ NATIVE_COMMAND_FIELDS.update({'cameraCapture': ('autofocusMode',
                       'effect',
                       'timingsMilliseconds')})
 NATIVE_READ_COMMANDS.update({"eventJournalStatus", "eventJournalRead", "microphoneStreamRead", "microphoneStreamsList"})
+NATIVE_COMMAND_FIELDS["chatControl"] = ("action", "conversationId", "profileId", "title", "text", "requestKey", "profile", "rules", "fullScreen", "limit", "offset")
+NATIVE_MCP_TOOLS["chatControl"] = "dikciz_chat"
 CONTROL_STATUS_COMMAND_FIELDS = {
     "shellStream": ("chunkBytes", "command", "root", "timeoutMilliseconds"),
     "shellStreamStop": ("streamId",),

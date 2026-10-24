@@ -225,6 +225,7 @@ internal object DikcizAutomationEventBus {
         event: DikcizAutomationEvent,
     ) {
         DikcizEventJournal.append(event)
+        DikcizChatRuntime.get(context).onEvent(event)
         runtime(context).dispatch(event)
         eventListeners[context.packageName]?.invoke(event)
         remoteEventListeners[context.packageName]?.invoke(event)
@@ -829,7 +830,12 @@ internal class DikcizAutomationRuntime(
         widgetAddress: String,
         values: JSONObject,
     ): AutomationActionExecution = homeConfigStore.withConfigurationLock {
-        patchWidgetFromStoredConfiguration(loadConfiguration() ?: configuration, widgetAddress, values)
+        val current = loadConfiguration() ?: configuration
+        try {
+            patchWidgetFromStoredConfiguration(current, widgetAddress, values)
+        } catch (_: HomeConfigException) {
+            AutomationActionExecution(current, REASON_CONFIGURATION_REJECTED)
+        }
     }
 
     private fun patchWidgetFromStoredConfiguration(
@@ -848,7 +854,7 @@ internal class DikcizAutomationRuntime(
                 if (widget.id != target.widgetID) {
                     return@map widget
                 }
-                val updatedWidget = patchableWidget(widget, values)
+                val updatedWidget = patchableWidget(widget, values, configuration.limits)
                     ?: return@map widget
                 patched = true
                 updatedWidget
@@ -879,7 +885,11 @@ internal class DikcizAutomationRuntime(
         )
     }
 
-    private fun patchableWidget(widget: HomeWidget, values: JSONObject): HomeWidget? {
+    private fun patchableWidget(
+        widget: HomeWidget,
+        values: JSONObject,
+        limits: DikcizLimits,
+    ): HomeWidget? {
         return when (widget) {
             is HtmlHomeWidget -> {
                 if (!values.hasOnly(HTML_WIDGET_PATCH_FIELDS)) {
@@ -892,6 +902,11 @@ internal class DikcizAutomationRuntime(
                     css = values.optStringOrCurrent(FIELD_CSS, widget.css),
                     javascript = values.optStringOrCurrent(FIELD_JAVASCRIPT, widget.javascript),
                     state = state?.let { JSONObject(it.toString()) } ?: widget.state,
+                    eventSubscriptions = if (values.has(FIELD_EVENT_SUBSCRIPTIONS)) {
+                        homeConfigStore.parseHtmlEventSubscriptions(values, limits)
+                    } else {
+                        widget.eventSubscriptions
+                    },
                     itemStates = DikcizHtmlWidgetStateStore.initialStates(
                         values.optStringOrCurrent(FIELD_HTML, widget.html),
                         values.optJSONObject(FIELD_ITEM_STATES) ?: widget.itemStates,
@@ -1382,6 +1397,7 @@ internal class DikcizAutomationRuntime(
         const val FIELD_HTML = "html"
         const val FIELD_JAVASCRIPT = "javascript"
         const val FIELD_STATE = "state"
+        const val FIELD_EVENT_SUBSCRIPTIONS = HomeConfigStore.HTML_EVENT_SUBSCRIPTIONS_KEY
         const val FIELD_ITEM_STATES = DikcizHtmlWidgetStateStore.ITEM_STATES_FIELD
         const val FIELD_TITLE = "title"
         const val INVALID_SENSOR_TYPE = -1
@@ -1424,6 +1440,7 @@ internal class DikcizAutomationRuntime(
             FIELD_JAVASCRIPT,
             FIELD_STATE,
             FIELD_ITEM_STATES,
+            FIELD_EVENT_SUBSCRIPTIONS,
         )
     }
 }

@@ -1,5 +1,9 @@
 (() => {
     const MAX_APPS = 8, ICON_SIZE = 64, REFRESH_MS = 60000, PULSE_MS = 250, PULSE_COUNT = 8;
+    const PACKAGE_EVENT = "packageChanged";
+    const PACKAGE_REMOVED = "removed";
+    const removedPackages = new Set();
+    let packageRevision = 0, refreshQueued = false;
     const byId = id => document.getElementById(id);
     let ready = false, busy = false, lastLoaded = 0, flashing = false, torchOwned = false, generation = 0;
     const visible = () => ready && selfWidget.visible && !document.hidden;
@@ -8,11 +12,12 @@
     async function refresh() {
         if (!visible() || busy || Date.now() - lastLoaded < REFRESH_MS) return;
         busy = true;
+        const revision = packageRevision;
         try {
             const result = await dikciz.command("appCatalogue");
             const seen = new Set();
             const apps = (Array.isArray(result.apps) ? result.apps : []).filter(app => {
-                if (seen.has(app.packageName)) return false;
+                if (seen.has(app.packageName) || removedPackages.has(app.packageName)) return false;
                 seen.add(app.packageName);
                 return true;
             }).sort((a, b) => (result.usageAvailable ? b.foregroundMilliseconds - a.foregroundMilliseconds : 0) || a.label.localeCompare(b.label)).slice(0, MAX_APPS);
@@ -22,8 +27,10 @@
             byId("access").hidden = result.usageAvailable;
             byId("apps").replaceChildren();
             for (const app of apps) {
+                if (removedPackages.has(app.packageName)) continue;
                 const button = document.createElement("button");
                 button.type = "button";
+                button.dataset.packageName = app.packageName;
                 const initial = document.createElement("span");
                 initial.className = "initial";
                 initial.textContent = app.label.slice(0, 1);
@@ -51,9 +58,31 @@
                 if (!visible()) return;
             }
             byId("status").textContent = used ? "Your most-used apps, ranked on this phone." : result.usageAvailable ? "No recent usage yet. Your apps are ready." : "Allow app history to rank your favourites.";
-            lastLoaded = Date.now();
+            lastLoaded = revision === packageRevision ? Date.now() : 0;
         } catch (error) { byId("status").textContent = "App list failed: " + error.message; }
-        finally { busy = false; }
+        finally {
+            busy = false;
+            if (revision === packageRevision) removedPackages.clear();
+            if (refreshQueued) {
+                refreshQueued = false;
+                lastLoaded = 0;
+                refresh();
+            }
+        }
+    }
+    function onPackageChanged(event) {
+        if (event.type !== PACKAGE_EVENT || typeof event.payload?.packageName !== "string") return;
+        const packageName = event.payload.packageName;
+        packageRevision++;
+        lastLoaded = 0;
+        if (event.payload.change !== PACKAGE_REMOVED) {
+            removedPackages.delete(packageName);
+            return;
+        }
+        removedPackages.add(packageName);
+        for (const button of byId("apps").querySelectorAll("button")) {
+            if (button.dataset.packageName === packageName) button.remove();
+        }
     }
     async function stopFlash() {
         flashing = false; generation++;
@@ -107,10 +136,31 @@
         } catch (error) { byId("status").textContent = "Access request failed: " + error.message; }
     });
     function visibilityChanged() {
-        if (visible()) { refresh(); return; }
+        if (visible()) {
+            lastLoaded = 0;
+            if (busy) refreshQueued = true;
+            else refresh();
+            return;
+        }
         stopFlash().catch(error => { status("Torch cleanup failed: " + error.message); });
     }
-    window.addEventListener("dikciz-ready", () => { ready = true; refresh(); });
+    window.addEventListener("dikciz-ready", async () => {
+        dikciz.onEvent(onPackageChanged);
+        try {
+            const widget = await selfWidget.get();
+            const subscriptions = widget.eventSubscriptions || [];
+            if (!subscriptions.some(subscription => subscription.event === PACKAGE_EVENT)) {
+                const result = await selfWidget.patch({eventSubscriptions:[...subscriptions, {event:PACKAGE_EVENT, minimumIntervalMilliseconds:0}]});
+                if (result.actions?.[0]?.outcome !== "executed") {
+                    console.warn("package_event_subscription_failed", result.actions?.[0]?.outcome || "invalid_response");
+                }
+            }
+        } catch (error) {
+            console.warn("package_event_subscription_failed", error.code || "unknown");
+        }
+        ready = true;
+        refresh();
+    });
     window.addEventListener("dikciz-visibility", visibilityChanged);
     document.addEventListener("visibilitychange", visibilityChanged);
     window.addEventListener("pagehide", visibilityChanged);

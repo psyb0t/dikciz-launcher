@@ -4,6 +4,8 @@ This guide starts after you have downloaded and installed a Dikciz APK on your A
 
 For events, HTML widgets, Lua scripts, and typed actions, start with the [scripting tutorial](scripting-tutorial.md). Read [Dikciz configuration](dikciz-configuration.md) for the editable-file layout and [automation control](automation-control.md) for WebSocket, MCP, and remote-control commands.
 
+Tap the cheese beside the launcher controls to open the [on-device assistant](embedded-chat.md). Configure its provider in chat Settings, create conversations, expand the panel or hide it while the agent works.
+
 ## Install Dikciz and make it your home screen
 
 1. Open the Dikciz APK from your browser, file manager, or Downloads app.
@@ -100,7 +102,7 @@ If the page has no free grid rectangle, Dikciz shows a refusal. It does not plac
 
 ### Move, resize, group, lock, or remove an item
 
-Drag an app shortcut to move it. Long press a native widget, or the top move handle of an HTML widget, for **Move**, **Resize**, **Edit**, **Appearance**, **Fit content**, **Lock**, and **Delete**. The available actions depend on the item type. HTML widgets keep the top 24Dp for moving, while their content keeps normal tap behaviour and item editing.
+Hold a native app shortcut or app group still for one second, then drag it to move. A swipe before that deadline cancels the move. Hold and release to open edit actions. Long press a native widget, or the top move handle of an HTML widget, for **Move**, **Resize**, **Edit**, **Appearance**, **Fit content**, **Lock**, and **Delete**. The available actions depend on the item type. HTML widgets keep the top 24Dp for moving, while their content keeps normal tap behaviour and item editing.
 
 ![Widget action sheet](images/user-guide/11-widget-actions.png)
 

@@ -46,7 +46,7 @@
      }
 
      compileOptions {
-@@ -141,6 +162,11 @@
+@@ -141,6 +162,19 @@
 
  dependencies {
      implementation(libs.fossify.commons)
@@ -54,6 +54,14 @@
 +    add("dikcizImplementation", "androidx.health.connect:connect-client:1.1.0")
 +    add("dikcizImplementation", "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 +    add("dikcizImplementation", "at.favre.lib:bcrypt:0.10.2")
++    add("dikcizImplementation", "ai.koog:prompt-executor-openai-client:1.3.0")
++    add("dikcizImplementation", "ai.koog:prompt-executor-anthropic-client:1.3.0")
++    add("dikcizImplementation", "ai.koog:agents-tools:1.3.0")
++    add("dikcizImplementation", "ai.koog:http-client-ktor:1.3.0")
++    add("dikcizImplementation", "io.ktor:ktor-client-okhttp:3.3.3")
++    add("dikcizImplementation", "io.noties.markwon:core:4.6.2")
++    add("dikcizImplementation", "io.noties.markwon:ext-tables:4.6.2")
++    add("dikcizImplementation", "io.noties.markwon:ext-strikethrough:4.6.2")
 +    add("testDikcizImplementation", "junit:junit:4.13.2")
 
      implementation(libs.bundles.room)

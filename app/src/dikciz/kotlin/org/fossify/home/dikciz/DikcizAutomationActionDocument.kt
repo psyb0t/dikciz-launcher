@@ -289,6 +289,13 @@ internal object DikcizAutomationActionDocument {
                 FIELD_JAVASCRIPT,
                 -> requireString(values, key, limits.maxTextCharacters)
 
+                FIELD_EVENT_SUBSCRIPTIONS -> {
+                    val subscriptions = values.optJSONArray(key)
+                        ?: throw IllegalArgumentException(MESSAGE_INVALID_WIDGET_PATCH)
+                    require(subscriptions.length() <= HomeConfigStore.MAXIMUM_AUTOMATION_SUBSCRIPTIONS) {
+                        MESSAGE_INVALID_WIDGET_PATCH
+                    }
+                }
                 FIELD_STATE -> validateStateValue(values.opt(key), limits, ROOT_STATE_DEPTH)
                 FIELD_ITEM_STATES -> {
                     val states = values.optJSONObject(key) ?: throw IllegalArgumentException(MESSAGE_INVALID_WIDGET_PATCH)
@@ -525,6 +532,7 @@ internal object DikcizAutomationActionDocument {
     private const val FIELD_PAGE_ID = "pageId"
     private const val FIELD_POSITION_MILLISECONDS = "positionMilliseconds"
     private const val FIELD_STATE = "state"
+    private const val FIELD_EVENT_SUBSCRIPTIONS = HomeConfigStore.HTML_EVENT_SUBSCRIPTIONS_KEY
     private const val FIELD_ITEM_STATES = DikcizHtmlWidgetStateStore.ITEM_STATES_FIELD
     private const val FIELD_START_X = "startX"
     private const val FIELD_START_Y = "startY"

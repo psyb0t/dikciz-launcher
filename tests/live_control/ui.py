@@ -78,6 +78,18 @@ def start_held_swipe(
     return time.monotonic() + duration_milliseconds / 1_000
 
 
+def direct_hold_then_drag(
+    start: tuple[int, int],
+    end: tuple[int, int],
+    hold_seconds: float = 1.1,
+) -> None:
+    device_command(
+        f"input motionevent DOWN {start[0]} {start[1]} && sleep {hold_seconds} "
+        f"&& input motionevent MOVE {end[0]} {end[1]} "
+        f"&& input motionevent UP {end[0]} {end[1]}",
+    )
+
+
 def direct_swipe(
     start: tuple[int, int],
     end: tuple[int, int],

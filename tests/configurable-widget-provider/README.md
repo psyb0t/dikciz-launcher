@@ -24,3 +24,5 @@ Use the root Makefile's focused targets. `make dikciz-test-provider-actions`, `m
 Shared helpers validate the expected package and APK paths, install the app for a scenario, and uninstall it afterward. Keep component names, resource IDs, action strings, and test constants synchronized. The configuration activity starts with `RESULT_CANCELED` and reports success only after saving, so tests distinguish cancellation from accepted configuration.
 
 See the [configuration guide](../../docs/dikciz-configuration.md) for launcher-side providers and the [automation-control guide](../../docs/automation-control.md) for media, notification, and accessibility commands.
+
+The accessibility fixture activity also has a launcher entry. Package-event tests use its real app-catalogue row and icon, then uninstall only this fixture to verify immediate HTML removal.

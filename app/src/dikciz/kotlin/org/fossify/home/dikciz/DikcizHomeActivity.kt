@@ -35,6 +35,7 @@ import android.text.InputType
 import android.text.TextWatcher
 import android.util.Base64
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -117,6 +118,9 @@ class DikcizHomeActivity : Activity() {
     private lateinit var dikcizThemeStore: DikcizThemeStore
     private lateinit var automationControlPlane: DikcizAutomationControlPlane
     private lateinit var mcpControlPlane: DikcizMcpControlPlane
+    private val chatBadgeObserver: () -> Unit = {
+        launcherControl.setChatUnread(DikcizChatRuntime.get(applicationContext).store.conversations().sumOf { it.getInt("unread") })
+    }
     private val deviceFiles by lazy { DikcizDeviceFiles(this, dikcizLogger) }
     private val nativeData by lazy { DikcizNativeData(this, dikcizLogger) }
     private lateinit var dikcizLogger: DikcizLogger
@@ -315,6 +319,8 @@ class DikcizHomeActivity : Activity() {
             automationControlPlane::executeLocalCommand,
             DikcizMcpResources(assets),
         )
+        DikcizChatRuntime.get(applicationContext).attachMcp(mcpControlPlane::executeOwnerRequest)
+        DikcizChatRuntime.get(applicationContext).observe(chatBadgeObserver)
         DikcizAutomationEventBus.setHtmlDomPatchListener(applicationContext, ::patchRenderedHtmlDom)
         DikcizDeviceAccessActivity.attachHost(automationInstanceID, ::publishAutomationUIRendered)
         dikcizLogger.info(EVENT_ACTIVITY_CREATED)
@@ -341,6 +347,8 @@ class DikcizHomeActivity : Activity() {
         }
         reloadConfiguration(true)
         startLauncherServicesIfReady()
+        val chat = DikcizChatRuntime.get(applicationContext)
+        if (!isSafeMode && (chat.busy() || chat.hasRules())) DikcizChatService.start(applicationContext)
         openRequestedDeviceAccessSetup()
     }
 
@@ -385,6 +393,8 @@ class DikcizHomeActivity : Activity() {
     }
 
     override fun onDestroy() {
+        DikcizChatRuntime.get(applicationContext).unobserve(chatBadgeObserver)
+        DikcizChatRuntime.get(applicationContext).attachMcp(null)
         DikcizDeviceAccessActivity.detachHost(automationInstanceID)
         DikcizLocalCommands.detach(automationInstanceID)
         dismissStartupBrand()
@@ -533,6 +543,7 @@ class DikcizHomeActivity : Activity() {
         launcherControl = findViewById(R.id.dikciz_launcher_control)
         launcherControl.onControlsRequested = ::showLauncherControlSheet
         launcherControl.onPageSearchRequested = ::showPageSearchSheet
+        launcherControl.onChatRequested = { startActivity(Intent(this, DikcizChatActivity::class.java)) }
         bindAppDrawer()
         pageScrollView.setOnTouchListener { view, event ->
             if (isSafeMode) {
@@ -2061,6 +2072,9 @@ class DikcizHomeActivity : Activity() {
         )
     }
 
+    private fun requiresHoldToMove(widget: HomeWidget): Boolean =
+        widget is AppHomeWidget || widget is AppGroupHomeWidget
+
     private fun handleWidgetMoveTouch(
         widget: HomeWidget,
         widgetView: View,
@@ -2073,7 +2087,7 @@ class DikcizHomeActivity : Activity() {
         }
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                setWidgetTouchInterceptionBlocked(widgetView, true)
+                setWidgetTouchInterceptionBlocked(widgetView, !requiresHoldToMove(widget))
                 beginPendingWidgetMove(widget, widgetView, event, onTap)
                 return true
             }
@@ -2095,11 +2109,18 @@ class DikcizHomeActivity : Activity() {
                 if ((deltaX * deltaX) + (deltaY * deltaY) < touchSlop * touchSlop) {
                     return true
                 }
+                if (requiresHoldToMove(widget) && !pendingMove.isMoveReady) {
+                    clearPendingWidgetMove(widgetView)
+                    setWidgetTouchInterceptionBlocked(widgetView, false)
+                    return false
+                }
                 val initialRawX = pendingMove.initialRawX
                 val initialRawY = pendingMove.initialRawY
                 clearPendingWidgetMove(widgetView)
                 widgetView.cancelLongPress()
+                setWidgetTouchInterceptionBlocked(widgetView, true)
                 if (!startWidgetMove(widget, widgetView, initialRawX, initialRawY)) {
+                    setWidgetTouchInterceptionBlocked(widgetView, false)
                     return false
                 }
                 activeWidgetMove?.let { updateWidgetMove(it, event) }
@@ -2118,7 +2139,11 @@ class DikcizHomeActivity : Activity() {
                 val pendingTap = pendingWidgetMove
                 if (pendingTap?.widgetView === widgetView) {
                     clearPendingWidgetMove(widgetView)
-                    pendingTap.onTap?.invoke()
+                    if (pendingTap.isMoveReady) {
+                        showWidgetEditActions(widget, widgetView)
+                    } else {
+                        pendingTap.onTap?.invoke()
+                    }
                     return true
                 }
             }
@@ -2165,6 +2190,12 @@ class DikcizHomeActivity : Activity() {
             if (pendingMove.widgetView !== widgetView) {
                 return@Runnable
             }
+            if (requiresHoldToMove(widget)) {
+                pendingMove.isMoveReady = true
+                setWidgetTouchInterceptionBlocked(widgetView, true)
+                widgetView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                return@Runnable
+            }
             pendingWidgetMove = null
             setWidgetTouchInterceptionBlocked(widgetView, false)
             showWidgetEditActions(widget, widgetView)
@@ -2177,7 +2208,12 @@ class DikcizHomeActivity : Activity() {
             longPressRunnable = longPressRunnable,
             onTap = onTap,
         )
-        mainHandler.postDelayed(longPressRunnable, ViewConfiguration.getLongPressTimeout().toLong())
+        val holdMilliseconds = if (requiresHoldToMove(widget)) {
+            APP_MOVE_HOLD_MILLISECONDS
+        } else {
+            ViewConfiguration.getLongPressTimeout().toLong()
+        }
+        mainHandler.postDelayed(longPressRunnable, holdMilliseconds)
     }
 
     private fun clearPendingWidgetMove(widgetView: View? = null) {
@@ -4131,7 +4167,14 @@ class DikcizHomeActivity : Activity() {
         val target = configuration.scriptWidgetTarget(address) ?: throw automationFailure(MESSAGE_WIDGET_NOT_FOUND)
         val page = configuration.pages.first { candidate -> candidate.id == target.pageID }
         val widget = page.widgets.first { candidate -> candidate.id == target.widgetID }
-        return DikcizWebWidgetContext.widgetDocument(page, widget)
+        return DikcizWebWidgetContext.widgetDocument(page, widget).also { document ->
+            if (widget is HtmlHomeWidget) {
+                document.put(
+                    HomeConfigStore.HTML_EVENT_SUBSCRIPTIONS_KEY,
+                    homeConfigStore.htmlEventSubscriptionsDocument(widget),
+                )
+            }
+        }
     }
 
     /**
@@ -5987,6 +6030,8 @@ class DikcizHomeActivity : Activity() {
         launcherControl.setControlsVisible(!isSafeMode)
         registerAutomationView(SEMANTIC_LAUNCHER_CONTROL, launcherControl.controlButton)
         registerAutomationView(SEMANTIC_PAGE_SEARCH, launcherControl.pageSearchButton)
+        registerAutomationView("launcher:chat", launcherControl.chatButton)
+        chatBadgeObserver()
         if (appDrawer.isOpen) {
             registerAppDrawerAutomationViews()
         }
@@ -10742,7 +10787,7 @@ class DikcizHomeActivity : Activity() {
             return
         }
         DikcizClipboardMonitor.sync(this, configuration)
-        if (!configuration.requiresBackgroundAutomationService()) {
+        if (!configuration.requiresBackgroundAutomationService() && !DikcizChatRuntime.get(this).hasRules()) {
             requestAutomationServiceStop()
             return
         }
@@ -11674,6 +11719,7 @@ class DikcizHomeActivity : Activity() {
         const val WIDGET_ID_FALLBACK_SLUG = "widget"
         const val WIDGET_ID_SEPARATOR = "-"
         const val WIDGET_ID_SEPARATOR_CHARACTER = '-'
+        const val APP_MOVE_HOLD_MILLISECONDS = 1000L
         const val WIDGET_MOVE_ELEVATION_DP = 12
         const val WIDGET_TOP_EDGE_MOVE_GESTURE_HEIGHT_DP = 24
         const val APP_OP_MANAGE_EXTERNAL_STORAGE = "android:manage_external_storage"

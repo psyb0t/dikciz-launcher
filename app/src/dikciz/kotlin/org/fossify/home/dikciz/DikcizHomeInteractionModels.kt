@@ -77,6 +77,7 @@ internal data class PendingWidgetMove(
      * has to be run from here rather than from that view's click listener.
      */
     val onTap: (() -> Unit)? = null,
+    var isMoveReady: Boolean = false,
 )
 
 internal data class ActiveWidgetMove(

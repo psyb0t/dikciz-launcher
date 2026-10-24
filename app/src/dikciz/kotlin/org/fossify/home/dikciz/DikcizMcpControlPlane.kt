@@ -461,6 +461,23 @@ internal class DikcizMcpControlPlane(
         return jsonRpcError(requestID, JSON_RPC_INTERNAL_ERROR, MESSAGE_RESOURCE_FAILED)
     }
 
+    internal fun executeOwnerRequest(method: String, params: JSONObject): JSONObject {
+        return when (method) {
+            "tools/list" -> toolsListResult()
+            "tools/call" -> callTool(JSONObject().put("params", params), null)
+            "tools/responseRecorded" -> {
+                val result = params.getJSONObject(KEY_RESULT)
+                if (!result.optBoolean(KEY_IS_ERROR)) {
+                    target.responseSent(TOOL_COMMANDS.getValue(params.getString(KEY_NAME)), result.getJSONObject(KEY_STRUCTURED_CONTENT))
+                }
+                JSONObject()
+            }
+            "resources/list" -> resources.list(params)
+            "resources/read" -> resources.read(params)
+            else -> throw IllegalArgumentException("Unsupported local MCP method")
+        }
+    }
+
     private fun toolsListResult(): JSONObject {
         val tools = JSONArray()
         TOOL_DEFINITIONS.forEach { definition -> tools.put(definition.toJson()) }

@@ -11,7 +11,7 @@ Every record has type. Required fields:
 
 Policy names match these types. Saved state replacement is not a merge. Preserve prior keys when needed. JSON null is a saved value, not key deletion; Lua nil omits a key.
 
-For HTML, JSON patchWidget values support title, html, css, javascript, state and itemStates, at most6 fields. The parser accepts text for compatible text targets. Layout and eventSubscriptions are not patch fields. Lua returned patchWidget accepts at most5 fields and no itemStates. Use context.request with automationDispatch and an actual HTML source address for the JSON contract, or edit the saved widget record.
+For HTML, JSON patchWidget values support title, html, css, javascript, state, itemStates and eventSubscriptions, at most6 fields. The parser accepts text for compatible text targets. Layout is not a patch field. eventSubscriptions replaces the full array, at most128 entries, using the saved-configuration validator. widgetGet returns the current list. Lua returned patchWidget accepts at most5 fields and no itemStates or eventSubscriptions. Use context.request with automationDispatch and an actual HTML source address for the JSON contract, or edit the saved widget record.
 
 patchDom values: text, html, value, className and string-valued attributes (max16). DOM changes are transient. Saved source changes can recreate the WebView. Long press opens whole-widget controls; native Delete removes the entire WebView and owned files.
 

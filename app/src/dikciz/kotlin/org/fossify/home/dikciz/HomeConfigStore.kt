@@ -128,6 +128,16 @@ internal class HomeConfigStore(
         return configuration
     }
 
+    fun parseHtmlEventSubscriptions(
+        document: JSONObject,
+        limits: DikcizLimits,
+    ): List<DikcizAutomationSubscription> =
+        document.parseHtmlWidgetEventSubscriptions("HTML widget patch", limits)
+
+    fun htmlEventSubscriptionsDocument(widget: HtmlHomeWidget): JSONArray = JSONArray().apply {
+        widget.eventSubscriptions.forEach { subscription -> put(subscription.toJson()) }
+    }
+
     fun loadBundledConfiguration(): HomeConfiguration {
         return DikcizStarterApps.populate(context, parseConfiguration(readBundledConfiguration()))
     }
@@ -3216,7 +3226,7 @@ internal class HomeConfigStore(
         private const val DISPLAY_STYLE_KEY = "displayStyle"
         private const val ENABLED_KEY = "enabled"
         private const val HTML_HEIGHT_MODE_KEY = "heightMode"
-        private const val HTML_EVENT_SUBSCRIPTIONS_KEY = "eventSubscriptions"
+        const val HTML_EVENT_SUBSCRIPTIONS_KEY = "eventSubscriptions"
         private const val HTML_KEY = "html"
         private const val HTML_WIDGET_TYPE = "html"
         private const val HARD_MAXIMUM_COMPONENT_CHARACTERS = 8_192
@@ -3275,7 +3285,7 @@ internal class HomeConfigStore(
         private const val MAXIMUM_AUTOMATION_SCRIPTS = 256
         private const val MAXIMUM_AUTOMATION_SENSOR_TYPES = 64
         private const val MAXIMUM_AUTOMATION_SENSOR_TYPE = 65_536
-        private const val MAXIMUM_AUTOMATION_SUBSCRIPTIONS = 128
+        const val MAXIMUM_AUTOMATION_SUBSCRIPTIONS = 128
         private const val MAXIMUM_AUTOMATION_VALUE_CHARACTERS = 64
         private const val EMPTY_OBJECT_LENGTH = 0
         private const val END_OF_STREAM = -1

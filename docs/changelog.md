@@ -2,7 +2,24 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
-## [Unreleased]
+## [0.28.0] - 2026-10-24
+
+### Added
+
+- Native cheese-button assistant with half/full-screen streaming Markdown, persistent SQLite conversations, encrypted provider credentials, custom OpenAI/Anthropic hosts, model discovery and reasoning/output settings.
+- Complete-exchange trimming or summary compaction with reserved output budgets, shared MCP phone tools, configurable event-driven turns, hidden-reply badges and notifications, cancellation and interrupted-work recovery.
+- Shared chatControl/dikciz_chat commands, focused MCP chat guides and fake-provider Android acceptance tests.
+
+### Fixed
+
+- Expose current HTML event subscriptions through widgetGet and allow validated subscription-array replacement through the shared JSON patchWidget action, including the HTML bridge.
+
+- Remove uninstalled apps from Most used immediately through packageChanged events, protect against stale in-flight icon work, and refresh when the widget becomes visible again.
+- Require a stationary one-second hold before moving native app shortcuts or groups. Quick swipes cannot accidentally move or group them; hold and release retains edit actions.
+
+### Migration
+
+Existing home files and conversations are preserved. Configure a model provider from the new cheese chat control before sending messages. Chat and configured event rules send requested phone data to that provider and may incur usage charges. Chat history stays in private app storage and survives home resets; uninstalling or clearing app data removes it. Customized Most used widgets keep their document; add the updated template or add its packageChanged subscription to receive immediate uninstall updates.
 
 ## [0.27.0] - 2026-10-23
 

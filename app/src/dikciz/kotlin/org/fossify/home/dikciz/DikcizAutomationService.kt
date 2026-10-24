@@ -347,7 +347,7 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
         configuration = loadedConfiguration
         logger.configure(loadedConfiguration.logging)
         DikcizAutomationEventBus.acceptConfiguration(applicationContext, loadedConfiguration)
-        if (!loadedConfiguration.requiresBackgroundAutomationService()) {
+        if (!loadedConfiguration.requiresBackgroundAutomationService() && !DikcizChatRuntime.get(this).hasRules()) {
             cancelAlarm()
             unregisterSources()
             unregisterLocation()
@@ -800,7 +800,7 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
                     }
             }
             .toSet()
-        val htmlSubscriptions = htmlEventSubscriptions(configuration, DikcizAutomationEventType.Alarm)
+        val htmlSubscriptions = widgetAndAgentSubscriptions(configuration, DikcizAutomationEventType.Alarm)
             .filter(::hasAndroidSubscriptionPermission)
             .toSet()
         val interval = (scriptSubscriptions.asSequence().map { item -> item.subscription } +
@@ -940,7 +940,7 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
         val scriptEvents = DikcizAutomationEventType.entries.filterTo(mutableSetOf()) { event ->
             activeSubscriptions(configuration, event).isNotEmpty()
         }
-        return scriptEvents + htmlEventSubscriptions(configuration).map(DikcizAutomationSubscription::event)
+        return scriptEvents + widgetAndAgentSubscriptions(configuration).map(DikcizAutomationSubscription::event)
     }
 
     private fun activeSubscriptions(
@@ -969,10 +969,10 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
     private fun hasConfiguredInterruptionFilterSubscription(configuration: HomeConfiguration): Boolean {
         val event = DikcizAutomationEventType.InterruptionFilter
         return allowedScriptSubscriptions(configuration, event).isNotEmpty() ||
-            htmlEventSubscriptions(configuration, event).isNotEmpty()
+            widgetAndAgentSubscriptions(configuration, event).isNotEmpty()
     }
 
-    private fun htmlEventSubscriptions(
+    private fun widgetAndAgentSubscriptions(
         configuration: HomeConfiguration,
         event: DikcizAutomationEventType? = null,
     ): List<DikcizAutomationSubscription> {
@@ -982,14 +982,14 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
             .filter(HtmlHomeWidget::enabled)
             .flatMap { widget -> widget.eventSubscriptions.asSequence() }
             .filter { subscription -> event == null || subscription.event == event }
-            .toList()
+            .toList() + DikcizChatRuntime.get(this).subscriptions(configuration).filter { event == null || it.event == event }
     }
 
     private fun registeredSubscriptions(
         configuration: HomeConfiguration,
         event: DikcizAutomationEventType,
     ): List<DikcizAutomationSubscription> {
-        return (activeSubscriptions(configuration, event) + htmlEventSubscriptions(configuration, event))
+        return (activeSubscriptions(configuration, event) + widgetAndAgentSubscriptions(configuration, event))
             .filter(::hasAndroidSubscriptionPermission)
     }
 
@@ -1010,7 +1010,7 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
     }
 
     private fun hasAuthorizedLocationSubscription(configuration: HomeConfiguration): Boolean {
-        if (htmlEventSubscriptions(configuration, DikcizAutomationEventType.Location).isNotEmpty()) {
+        if (widgetAndAgentSubscriptions(configuration, DikcizAutomationEventType.Location).isNotEmpty()) {
             return true
         }
         return configuration.automation.scripts.any { script ->

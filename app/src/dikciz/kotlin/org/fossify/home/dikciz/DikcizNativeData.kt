@@ -54,6 +54,10 @@ internal class DikcizNativeData(
         DikcizNativeCommands.validate(command.type, command.request, true)
         try {
             val result = when (command.type) {
+                DikcizChatCommands.TYPE -> {
+                    DikcizChatCommands.validate(command.request)
+                    DikcizChatRuntime.get(context).execute(command.request)
+                }
                 in DikcizMicrophoneStreams.TYPES -> DikcizMicrophoneStreams.execute(context, logger, command.type, command.request)
                 in DikcizEventJournal.TYPES -> DikcizEventJournal.execute(context, logger, command.type, command.request)
                 in DikcizShellSessions.TYPES -> DikcizShellSessions.execute(logger, command.type, command.request)

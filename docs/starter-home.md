@@ -12,9 +12,9 @@ City search sends the name to Open-Meteo; weather and air-quality requests send 
 
 Attribution: [Open-Meteo weather](https://open-meteo.com/en/docs), [geocoding](https://open-meteo.com/en/docs/geocoding-api), and [CAMS ENSEMBLE air quality through Open-Meteo](https://open-meteo.com/en/docs/air-quality-api). Public endpoints are for personal, non-commercial use under the provider terms.
 
-**Most used apps** occupies three rows and shows up to eight installed apps with Android icons. Optional Android Usage access lets it rank foreground time over seven days. Without access or recent history, it shows **Your apps**. Tap **Use app history**, allow access in Android and return. The list refreshes at most once a minute while visible. App icons use the same checked launch action as other entrypoints.
+**Most used apps** occupies three rows and shows up to eight installed apps with Android icons. Optional Android Usage access lets it rank foreground time over seven days. Without access or recent history, it shows **Your apps**. Tap **Use app history**, allow access in Android and return. Usage ranking refreshes once a minute while visible and immediately on return to the widget. The document subscribes to Android package changes and removes an uninstalled app immediately, including during an in-flight icon request. Updated complete template copies establish their own packageChanged subscription without replacing other subscriptions. App icons use the same checked launch action as other entrypoints.
 
-The final row contains native Phone, Camera and Android Settings shortcuts, then Obtainium, F-Droid or Play Store in that preference order. Dikciz resolves installed launchable activities and their real icons. Missing handlers leave their slot empty. These are ordinary movable and editable shortcuts on Home.
+The final row contains native Phone, Camera and Android Settings shortcuts, then Obtainium, F-Droid or Play Store in that preference order. Dikciz resolves installed launchable activities and their real icons. Missing handlers leave their slot empty. These are ordinary movable and editable shortcuts on Home. Hold a native app or group still for one second, then drag to move it. Releasing after the hold opens its edit controls. Moving before that deadline cancels the hold and cannot group icons.
 
 **Flash attack** requests eight brief torch pulses. Tap again to stop. Each on request has a native 250-millisecond off timer independent of JavaScript; leaving the page also requests off. Camera access is requested only after a tap. Missing flash hardware produces an explicit error. **Dikciz time** speaks its demonstration line through Android text-to-speech at the current speaker volume. Neither action starts automatically. Speech is not a cellular call.
 
@@ -39,6 +39,8 @@ The chart measures this Dikciz process as a percentage of available processor ca
 <img src="images/user-guide/04-device-page.png" alt="Live battery, memory and CPU dashboard on Device" width="280">
 
 ## Optional complete templates
+
+Previously placed documents and existing public library packages keep their saved source during APK updates. Reset the bundled home or update a document with the new package source to adopt widget-script fixes.
 
 The picker includes all five starter documents with fresh independent state. The combined **Home dashboard**, app search, notes, detailed **System dashboard**, **Live sensors**, and **BTC and economic news** remain optional. Adding a template copies its entire document. **Save to library** makes a customized document reusable. Library edits never silently change placed widgets. Reduced-motion settings and visibility control optional visual effects.
 

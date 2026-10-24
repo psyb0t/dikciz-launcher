@@ -56,6 +56,8 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
 
     val pageSearchButton: Button
     val controlButton: Button
+    val chatButton: Button
+    var onChatRequested: (() -> Unit)? = null
 
     init {
         orientation = HORIZONTAL
@@ -71,11 +73,33 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
             iconResourceID = R.drawable.dikciz_brand_mark,
             descriptionResourceID = R.string.dikciz_launcher_control_open_description,
         ) { onControlsRequested?.invoke() }
+        chatButton = Button(context).apply {
+            background = context.getDrawable(R.drawable.dikciz_control_pill)
+            gravity = Gravity.CENTER
+            minWidth = 0
+            minimumWidth = 0
+            minHeight = densityPixels(CHAT_HEIGHT_DP)
+            minimumHeight = densityPixels(CHAT_HEIGHT_DP)
+            setPadding(densityPixels(HORIZONTAL_PADDING_DP), 0, densityPixels(HORIZONTAL_PADDING_DP), 0)
+            setTextColor(context.getColor(R.color.dikciz_brand_cheese))
+            textSize = 11f
+            val icon = context.getDrawable(R.drawable.dikciz_chat_cheese)?.mutate()
+            icon?.setBounds(0, 0, densityPixels(CHAT_ICON_DP), densityPixels(CHAT_ICON_DP))
+            setCompoundDrawablesRelative(icon, null, null, null)
+            contentDescription = "Open Dikciz chat"
+            setOnClickListener { onChatRequested?.invoke() }
+        }
+        addView(chatButton, LayoutParams(LayoutParams.WRAP_CONTENT, densityPixels(CHAT_HEIGHT_DP)).apply { marginEnd = densityPixels(PILL_GAP_DP) })
         addView(pageSearchButton, pillLayoutParameters())
         addView(
             controlButton,
             pillLayoutParameters().apply { marginStart = densityPixels(PILL_GAP_DP) },
         )
+    }
+
+    fun setChatUnread(count: Int) {
+        chatButton.text = if (count == 0) "" else count.coerceAtMost(99).toString()
+        chatButton.contentDescription = "Open Dikciz chat. $count unread"
     }
 
     fun setControlsVisible(areControlsVisible: Boolean) {
@@ -143,6 +167,8 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
     }
 
     private companion object {
+        const val CHAT_HEIGHT_DP = 44
+        const val CHAT_ICON_DP = 30
         const val CONTROL_HEIGHT_DP = 34
         const val CONTROL_ICON_SIZE_DP = 18
         const val HORIZONTAL_PADDING_DP = 8

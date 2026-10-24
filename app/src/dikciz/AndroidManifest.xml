@@ -56,6 +56,7 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <!-- Usage access is granted in Android Settings and checked through AppOps. -->
     <uses-permission
@@ -100,7 +101,7 @@
         <package android:name="com.google.android.apps.healthdata" />
     </queries>
 
-    <application
+    <application android:usesCleartextTraffic="true"
         android:icon="@mipmap/dikciz_launcher_icon"
         android:label="@string/dikciz_app_name"
         android:roundIcon="@mipmap/dikciz_launcher_icon"
@@ -216,6 +217,20 @@
             </intent-filter>
         </receiver>
 
+        <activity
+            android:name=".dikciz.DikcizChatActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity="${applicationId}.chat"
+            android:theme="@style/DikcizChatWindow"
+            android:windowSoftInputMode="adjustResize" />
+        <service
+            android:name=".dikciz.DikcizChatService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Owner-configured phone assistant conversations and automation event processing" />
+        </service>
         <service
             android:name=".dikciz.DikcizMicrophoneCaptureService"
             android:exported="false"

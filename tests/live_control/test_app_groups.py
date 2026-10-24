@@ -21,7 +21,6 @@ SETTINGS_COMPONENT = "com.android.settings/.Settings"
 CLOCK_COMPONENT = "com.google.android.deskclock/com.android.deskclock.DeskClock"
 APP_WIDGET_TYPE_NAME = "app"
 APP_GROUP_WIDGET_TYPE_NAME = "appGroup"
-GROUP_DRAG_DURATION_MILLISECONDS = 1200
 WIDGET_SETTLE_SECONDS = 2.0
 FIRST_COLUMN = 0
 SECOND_COLUMN = 1
@@ -94,21 +93,16 @@ def group_page_widgets(connection: socket.socket) -> list[dict[str, Any]]:
 
 
 def drag_widget_onto(source_title: str, target_title: str) -> None:
-    """Drag one icon tile onto another.
-
-    An icon tile needs no menu first. A press that moves is the drag, and a
-    press that stays still is what opens the menu instead.
-    """
+    """Hold an icon to arm movement, then drop it on another tile."""
     source = physical_description_bounds(
         WIDGET_MOVE_HANDLE_DESCRIPTION.format(source_title),
     )
     target = physical_description_bounds(
         WIDGET_MOVE_HANDLE_DESCRIPTION.format(target_title),
     )
-    direct_swipe(
+    direct_hold_then_drag(
         center(source),
         (center(target)[0], center(source)[1]),
-        GROUP_DRAG_DURATION_MILLISECONDS,
     )
     time.sleep(WIDGET_SETTLE_SECONDS)
 

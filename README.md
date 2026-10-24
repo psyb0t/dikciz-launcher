@@ -25,6 +25,7 @@ Emulator demo with live London weather, sample calendar entries, a saved voice n
 | Start here | Details |
 | --- | --- |
 | [Install](#install-it) | [Home features](#what-the-home-supports), [navigation](#navigate-and-manage-the-home) |
+| [On-device chat](#chat-with-your-phone) | [Provider setup, tools and event rules](docs/embedded-chat.md) |
 | [Configuration](#configure-it) | [Remote control](#inspect-and-control-it-remotely), [Android capabilities](#android-capabilities), [logs](#logs-and-failure-reporting) |
 | [Build and run](#run-it) | [Fossify updates](#fossify-source-updates), [verification](#verification) |
 | [Documentation](#documentation) | [Agent integrations](#agent-integrations), [upstream](#upstream) |
@@ -62,6 +63,10 @@ The starter combines everyday launcher controls with programmable widgets. **Hom
 Tap the Dikciz mark beside the bottom page rail for the app drawer, widgets, page management and Settings. Swipe up from that rail to open the app drawer. Tap the magnifier to find a page by name or address. A full page refuses another widget rather than overlapping existing items.
 
 The [illustrated user guide](docs/user-guide.md) walks through pages, apps, groups, provider widgets, moving and resizing items, appearance, scripts and recovery.
+
+## Chat with your phone
+
+Tap the cheese beside the launcher controls for an on-device assistant. Configure an OpenAI-compatible or Anthropic-compatible host, key and model, keep separate conversations, and let it discover the same phone MCP tools used by external agents. The panel streams Markdown, expands from half screen, and can hide while the agent uses another app. Event rules can wake a conversation in the background. SQLite keeps full transcripts; choose old-exchange trimming or summary compaction with an output reserve. Read [chat setup and controls](docs/embedded-chat.md).
 
 ## Configure it
 
@@ -141,6 +146,7 @@ Start with the [documentation index](docs/index.md) for every guide and the [cov
 | Guide | Covers |
 | --- | --- |
 | [User guide](docs/user-guide.md) | Installation, Android access, navigation and native editing, with screenshots. |
+| [On-device chat](docs/embedded-chat.md) | Provider profiles, streaming Markdown, conversations, context budgets and event-driven agents. |
 | [Configuration](docs/dikciz-configuration.md) | Public files, validation, reload behavior, themes and logs. |
 | [Scripting](docs/scripting-tutorial.md) | Lua, HTML, events, policies and typed actions. |
 | [Automation control](docs/automation-control.md) | Direct connections, ADB forwarding, authentication, WebSocket, MCP and HTTP. |

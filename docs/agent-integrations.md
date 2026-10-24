@@ -2,6 +2,10 @@
 
 The Android APK is the MCP server. Each owner supplies a reachable phone endpoint such as `http://phone.example:19002/mcp` and, when enabled, its bearer password. There is no shared hosted phone service. The plugin supplies operating instructions; the MCP connection points directly to the installed launcher. Use [private-network setup](automation-control.md#connect-without-usb) first.
 
+## Assistant inside the launcher
+
+Dikciz also has its own [on-device chat](embedded-chat.md). Configure an OpenAI-compatible or Anthropic-compatible provider in the cheese panel. That agent discovers the existing local MCP tools and documentation directly; external MCP clients still connect as described below. Its profiles, conversations, event rules and visibility use the shared `dikciz_chat` tool.
+
 ## Codex
 
 The repository skill is available from `.agents/skills/dikciz-launcher/`. The Codex plugin manifest packages those instructions. Add the phone as a separate Streamable HTTP server using the real endpoint:

@@ -402,7 +402,7 @@ Long press the HTML content, background or top handle for whole-widget controls.
 | `dikciz.pages()` | Read the current page map by ID, address, and `home`. |
 | `dikciz.home()` | Read the current saved home document. |
 | `dikciz.widget(address)` | Read one current saved widget record. |
-| `dikciz.patchWidget(address, values)` | Persist a full allowed widget-field patch. HTML widgets accept `title`, `html`, `css`, `javascript`, `state`, and `itemStates`. Replacing source can destroy the calling WebView. |
+| `dikciz.patchWidget(address, values)` | Persist a full allowed widget-field patch. HTML widgets accept `title`, `html`, `css`, `javascript`, `state`, `itemStates`, and `eventSubscriptions`. Subscription patches replace the array; read existing entries through `selfWidget.get()` first. Replacing source can destroy the calling WebView. |
 | `dikciz.patchWidgetState(address, values)` | Persist only another HTML widget's `state`. |
 | `dikciz.patchDom(address, selector, values)` | Change a rendered HTML target without saving it. |
 | `selfWidget.get()` | Read this widget's current saved record. |

@@ -16,6 +16,7 @@ These pytest scenarios exercise real Android UI and forwarded WebSocket, MCP and
 | Domain support modules | Accessibility, media sessions, notifications, alarms, and script-status helpers. |
 | `test_widget_instance_state.py` | Per-page/wrapper/card ownership, distinct copies, file watcher updates, source-driven cleanup, validation and legacy state migration. |
 | `test_html_card_presets.py` | Native intent URI validation through all transports. |
+| `test_app_list_and_hold.py` | Real package uninstall delivery into Most used, short-swipe cancellation, one-second drag arming and hold/release editing. |
 | `test_home_showcase.py` | Shared CPU/core telemetry, usage access, native dock placement, device rendering, manual demos and timed torch behavior. |
 | `test_showcase_capture.py` | Explicit live-weather and populated three-page documentation capture on the private emulator. |
 | `test_shared_vm_starter.py` | First-use pages, disabled Lua defaults, saved notes and external weather success/failure in the real WebView. |
@@ -27,6 +28,7 @@ These pytest scenarios exercise real Android UI and forwarded WebSocket, MCP and
 | `test_shell_sessions.py` | Incremental replay, binary output, process cancellation, capacity and HTML/Lua consumers. |
 | `test_native_data.py` | Native provider CRUD, pagination, rollback, validation, permission recovery, SIM/state access, SMS duplicate protection and Lua/HTML commands. |
 | `test_device_files.py` | Filesystem pagination, binary transfers, HTTP security, CLI results and actual Android APK install/cancel outcomes. |
+| `test_chat_agent.py` | Fake OpenAI/Anthropic HTTP/SSE boundaries with real Android SQLite, shared MCP tool execution, context policies, event turns, cancellation and native streaming Markdown UI. |
 | `test_mcp_resources.py` | Resource discovery, every section read, bounded pagination, protocol errors, authentication/session gates, CLI reads and execution of the packaged event recipe. |
 | `test_remote_device_control.py` | Production-client restart, instance/version inspection, external-display capture, validation and delayed port-conflict recovery. |
 | `test_device_access_screen.py` | Full-access setup task, grant and denial, Settings return, Recents, rotation, process restoration and shared controls across transports. |

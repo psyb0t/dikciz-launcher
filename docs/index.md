@@ -5,6 +5,7 @@ Start with the [README](../README.md) for installation, or choose the task below
 | Task | Guide |
 | --- | --- |
 | Install, choose Home, navigate, edit pages/widgets, manage apps and scripts | [Illustrated user guide](user-guide.md) |
+| Configure the on-device assistant and event-driven conversations | [Embedded chat](embedded-chat.md) |
 | Understand the initial Home and Tools pages | [Starter home](starter-home.md) |
 | Edit files, themes, grid, widget state, libraries, policies, logging and listeners | [Configuration](dikciz-configuration.md) |
 | Look up every typed action, its fields and Lua policy name | [Typed actions](typed-actions.md) |

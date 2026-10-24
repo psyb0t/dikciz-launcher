@@ -47,6 +47,8 @@ Fetch sections as needed with resources/read and the exact URI. Each is at most 
 - [Event replay](dikciz://docs/guides/event-replay): cursor reads, long polling and explicit loss.
 - [Shell sessions](dikciz://docs/guides/shell-sessions): incremental output on every ordinary binding.
 
+Chat: [operation](dikciz://docs/guides/chat), [context](dikciz://docs/guides/chat-context), [events](dikciz://docs/guides/chat-events).
+
 ## Recipes
 
 - [Contact and tracked SMS](dikciz://docs/recipes/contact-sms).

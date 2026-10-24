@@ -117,6 +117,9 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
         private const val KEY_SIZE = "size"
         private val DEFINITIONS = listOf(
             "index" to "Start here",
+            "guides/chat" to "On-device assistant",
+            "guides/chat-context" to "Assistant context and output budgets",
+            "guides/chat-events" to "Event-driven conversations",
             "guides/connect" to "Connect to the phone",
             "guides/discovery" to "Discover the running build",
             "guides/permissions" to "Android permissions",

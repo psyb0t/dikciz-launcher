@@ -15,6 +15,10 @@ Use this catalog to choose the right feature. Use the running build's `controlSt
 
 Read the [user guide](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/user-guide.md) for native UI steps. Page and widget identities come from the current home, not from example names or guessed screen coordinates.
 
+## Embedded assistant
+
+The cheese control opens half/full-screen streaming Markdown chat with separate SQLite conversations and custom OpenAI/Anthropic provider profiles. `chatControl` / `dikciz_chat` expose the same validated actions to every ordinary binding. Read [embedded chat](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/embedded-chat.md) for model/reasoning settings, output reserves, context policies, encrypted credentials, event rules and interruption handling. The agent discovers and invokes the existing local MCP handlers; phone data used as context goes to its configured provider.
+
 ## Configuration and recovery
 
 The public root is `/sdcard/Dikciz/`. `config.json` references separate page and widget documents. Scripts have metadata, Lua source, state and run-status files. Automation policies and subscriptions, complete widget-library templates, themes, fonts, wallpapers, control-port and remote-auth configuration, and logs have their own paths.

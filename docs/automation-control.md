@@ -12,6 +12,10 @@ Ordinary MCP, WebSocket, HTTP, HTML and enabled Lua command calls share validati
 
 Both listeners default to device loopback. Set their listen address and ports through `control/ports.json` or Settings as described in [Control ports](dikciz-configuration.md#control-ports). Use ADB forwarding with loopback binding, or configure a network address for direct private-network access without USB. `make forward` creates generic host-loopback forwards on `19001` and `19002`. `make dikciz-run` owns its separate `19101` and `19102` forwards.
 
+## On-device assistant
+
+`chatControl` and MCP `dikciz_chat` manage the same profiles, conversations, queue, event rules and panel used by the native cheese button. Sends report queue state; poll the transcript and actual tool outcomes. The agent discovers and invokes existing MCP handlers in process. See [chat setup, actions and context budgets](embedded-chat.md).
+
 ## Direct Android data
 
 Use [native device control](native-device-control.md) for contacts, tracked SMS, calendars, call history, SIMs, clipboard, location, notifications, media sessions and device state. Commands call Android APIs through the shared target. Start with `nativeDataStatus` for resources and grants. MCP resources `dikciz://docs/guides/native-data` and `dikciz://docs/recipes/contact-sms` cover discovery and the SMS workflow.
@@ -428,7 +432,7 @@ To edit only part of a document programmatically, read its saved source, change 
 
 The `intent` command also accepts optional `data`, an absolute Android intent URI of at most 2048 characters without control characters. Browser search cards use `intentType: "activity"`, `action: "android.intent.action.VIEW"` and an encoded HTTPS search URL in `data`. URI dispatch uses the same activity-launch observer and Android permissions across all entrypoints. An installed app must handle the action and URI; dispatch acceptance is separate from verified foreground launch.
 
-HTML widget `state` and `itemStates` are assembled from page/widget-owned state files. `automationDispatch` with `patchWidget` accepts `values.itemStates`, a map of instance ID to state object; merge the current map when updating just one instance. `widgetGet` returns `itemStates` and the wrapper `storagePath`. HTML offers `selfWidget.itemFor(element).patchState(values)` for a queued update that preserves siblings. The same validator and state store serve Lua, HTML, WebSocket, MCP and HTTP. Removing an optional namespace marker and state entry in a source update removes its owned files; native widget deletion removes the complete document and all its state files. See [instance ownership](dikciz-configuration.md#html-instance-state-and-files).
+HTML widget `state` and `itemStates` are assembled from page/widget-owned state files. `automationDispatch` with `patchWidget` accepts `values.itemStates`, a map of instance ID to state object; merge the current map when updating just one instance. `widgetGet` returns `itemStates`, `eventSubscriptions` and the wrapper `storagePath`. JSON `patchWidget` can replace `eventSubscriptions` with a strictly validated array of at most 128 entries; preserve existing entries when extending it. HTML offers `selfWidget.itemFor(element).patchState(values)` for a queued update that preserves siblings. The same validator and state store serve Lua, HTML, WebSocket, MCP and HTTP. Removing an optional namespace marker and state entry in a source update removes its owned files; native widget deletion removes the complete document and all its state files. See [instance ownership](dikciz-configuration.md#html-instance-state-and-files).
 
 ### App icons
 
