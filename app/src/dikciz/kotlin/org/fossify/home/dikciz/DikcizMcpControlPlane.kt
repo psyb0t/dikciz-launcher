@@ -29,7 +29,7 @@ internal class DikcizMcpControlPlane(
     private val target: DikcizAutomationTarget,
     private val logger: DikcizLogger,
     private val remoteAccessAuth: DikcizRemoteAccessAuth,
-    private val executeHttpCommand: (JSONObject, String?) -> String,
+    private val executeHttpCommand: (JSONObject, String?, Boolean) -> String,
     private val resources: DikcizMcpResources,
 ) {
     /** The port of the running listener, or the port the next start would bind. */
@@ -168,7 +168,7 @@ internal class DikcizMcpControlPlane(
                 handleHttpStream(command, request, output, connection)
                 return
             }
-            val response = executeHttpCommand(command, request.headers[HEADER_AUTHORIZATION])
+            val response = executeHttpCommand(command, request.headers[HEADER_AUTHORIZATION], false)
             val document = JSONObject(response)
             writeJson(output, document)
             if (document.optString(DikcizAutomationControlPlane.KEY_TYPE) == DikcizAutomationControlPlane.TYPE_RESULT) {
@@ -461,11 +461,16 @@ internal class DikcizMcpControlPlane(
         return jsonRpcError(requestID, JSON_RPC_INTERNAL_ERROR, MESSAGE_RESOURCE_FAILED)
     }
 
-    internal fun executeOwnerRequest(method: String, params: JSONObject): JSONObject {
+    internal fun executeOwnerRequest(method: String, params: JSONObject, readOnly: Boolean): JSONObject {
         return when (method) {
-            "tools/list" -> toolsListResult()
-            "tools/call" -> callTool(JSONObject().put("params", params), null)
+            "tools/list" -> toolsListResult(readOnly)
+            "tools/call" -> try {
+                callTool(JSONObject().put("params", params), null, readOnly)
+            } catch (exception: McpHttpException) {
+                toolFailure(exception.message.orEmpty(), exception.reason)
+            }
             "tools/responseRecorded" -> {
+                if (readOnly) requireReadOnlyCommand(TOOL_COMMANDS[params.getString(KEY_NAME)].orEmpty(), JSONObject())
                 val result = params.getJSONObject(KEY_RESULT)
                 if (!result.optBoolean(KEY_IS_ERROR)) {
                     target.responseSent(TOOL_COMMANDS.getValue(params.getString(KEY_NAME)), result.getJSONObject(KEY_STRUCTURED_CONTENT))
@@ -478,14 +483,20 @@ internal class DikcizMcpControlPlane(
         }
     }
 
-    private fun toolsListResult(): JSONObject {
+    private fun toolsListResult(readOnly: Boolean = false): JSONObject {
         val tools = JSONArray()
-        TOOL_DEFINITIONS.forEach { definition -> tools.put(definition.toJson()) }
-        DikcizNativeCommands.DEFINITIONS.values.forEach { definition -> tools.put(definition.toolDocument()) }
+        TOOL_DEFINITIONS.filter { !readOnly || it.readOnly }.forEach { definition -> tools.put(definition.toJson()) }
+        DikcizNativeCommands.DEFINITIONS.values.filter { !readOnly || it.readOnly }.forEach { definition -> tools.put(definition.toolDocument()) }
+        if (readOnly) {
+            for (index in 0 until tools.length()) {
+                tools.getJSONObject(index).getJSONObject(KEY_INPUT_SCHEMA).getJSONObject(KEY_PROPERTIES)
+                    .remove(DikcizPermissionRequests.KEY_AUTO_REQUEST)
+            }
+        }
         return JSONObject().put(KEY_RESULT_TYPE, RESULT_TYPE_COMPLETE).put(KEY_TOOLS, tools)
     }
 
-    private fun callTool(message: JSONObject, authorization: String?): JSONObject {
+    private fun callTool(message: JSONObject, authorization: String?, readOnly: Boolean = false): JSONObject {
         val params = message.requireObject(KEY_PARAMS)
         val toolName = params.requireMcpString(KEY_NAME)
         val commandType = TOOL_COMMANDS[toolName]
@@ -504,7 +515,7 @@ internal class DikcizMcpControlPlane(
             val command = JSONObject(rawArguments.toString())
                 .put(DikcizAutomationControlPlane.KEY_TYPE, commandType)
                 .put(DikcizAutomationControlPlane.KEY_REQUEST_ID, UUID.randomUUID().toString())
-            val response = JSONObject(executeHttpCommand(command, authorization))
+            val response = JSONObject(executeHttpCommand(command, authorization, readOnly))
             if (response.optString(DikcizAutomationControlPlane.KEY_TYPE) == DikcizAutomationControlPlane.TYPE_ERROR) {
                 return toolFailure(
                     response.getString(DikcizAutomationControlPlane.KEY_MESSAGE),
@@ -1577,6 +1588,19 @@ internal class DikcizMcpControlPlane(
         val REMOTE_AUTH_CHALLENGE_HEADER = mapOf(
             HEADER_WWW_AUTHENTICATE to "Bearer realm=\"Dikciz\"",
         )
+
+        const val ERROR_READ_ONLY_VIOLATION = "read_only_violation"
+
+        internal fun requireReadOnlyCommand(commandType: String, request: JSONObject) {
+            val allowed = TOOL_DEFINITIONS.any { it.readOnly && TOOL_COMMANDS[it.name] == commandType } ||
+                commandType in DikcizNativeCommands.READ_ONLY_TYPES
+            if (!allowed || request.optBoolean(DikcizPermissionRequests.KEY_AUTO_REQUEST)) {
+                throw DikcizAutomationRequestException(
+                    ERROR_READ_ONLY_VIOLATION,
+                    "Read-only mode blocks this operation. The owner can change access in chat model settings.",
+                )
+            }
+        }
 
         fun toolNameForCommand(commandType: String): String? {
             return TOOL_COMMANDS.entries.firstOrNull { it.value == commandType }?.key

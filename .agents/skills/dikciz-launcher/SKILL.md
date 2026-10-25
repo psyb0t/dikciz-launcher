@@ -60,7 +60,7 @@ The bundled home has four pages: Home combines time/weather, app icons ranked by
 
 ## On-device assistant
 
-Use discovered `dikciz_chat` (native `chatControl`) for provider profiles, conversations, messages, stop, event subscriptions and panel show/hide/fullscreen. Read [embedded chat](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/embedded-chat.md), or fetch `dikciz://docs/guides/chat`, `chat-context` and `chat-events` under the same guides prefix. API keys are write-only; never place real keys in prompts or command arguments. Queued sends and requested visibility changes require status/transcript verification. Event rules can incur provider usage while hidden; configure only the requested automation and clear rules when finished.
+Use discovered `dikciz_chat` (native `chatControl`) for shared provider connections, API model discovery, per-conversation model/token settings, messages, stop, event subscriptions and panel show/hide/fullscreen. Read [embedded chat](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/embedded-chat.md), or fetch `dikciz://docs/guides/chat`, `chat-context` and `chat-events` under the same guides prefix. Add a connection once, discover its models, then configure each conversation with independent settings. Read them with the settings action. The native chat exposes a model dropdown and Model settings. API keys are write-only; never place real keys in prompts or command arguments. Queued sends and requested visibility changes require status/transcript verification. Event rules can incur provider usage while hidden; configure only the requested automation and clear rules when finished.
 
 ## Complete capability reference
 
@@ -73,3 +73,5 @@ An installation or connection request does not authorize resetting the home, uni
 Preserve `/sdcard/Dikciz/` and the user's existing home. Keep bearer passwords in the user's secret environment, never in command arguments or public files. Forward only the selected device's ports to host loopback.
 
 Finish after the requested installation or action is verified on that device. A queued automation event is not proof its actions succeeded; check script status and logs. Report access denials and connection failures instead of claiming completion.
+
+Embedded chat supports per-conversation `settings:{"readOnly":true}`. Discovery hides mutating tools and the trusted executor flag blocks direct writes and permission prompts with `read_only_violation`. Tool arguments cannot disable it. Chat history and logs still save; other owner entrypoints retain their configured access. Read [embedded chat](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/embedded-chat.md) for the full contract.

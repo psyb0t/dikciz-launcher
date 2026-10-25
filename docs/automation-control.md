@@ -14,7 +14,7 @@ Both listeners default to device loopback. Set their listen address and ports th
 
 ## On-device assistant
 
-`chatControl` and MCP `dikciz_chat` manage the same profiles, conversations, queue, event rules and panel used by the native cheese button. Sends report queue state; poll the transcript and actual tool outcomes. The agent discovers and invokes existing MCP handlers in process. See [chat setup, actions and context budgets](embedded-chat.md).
+`chatControl` and MCP `dikciz_chat` manage the same provider connections, per-conversation model/token settings, queue, event rules and panel used by the native cheese button. Sends report queue state; poll the transcript and actual tool outcomes. The agent discovers and invokes existing MCP handlers in process. See [chat setup, actions and context budgets](embedded-chat.md).
 
 ## Direct Android data
 
@@ -451,3 +451,5 @@ HTML receives `dikciz-visibility` with `{visible}` when its native page or windo
 [Speech recognition](speech-recognition.md) documents availability, modes, language, deadlines, cancellation, results and Android errors. [Hardware controls](hardware-controls.md) covers torch, vibration, settings read-back, Bluetooth, USB, NFC, Wi-Fi, audio and camera discovery. These use the same ordinary command path in HTTP, WebSocket, MCP, HTML and Lua. The [command reference](command-reference.md) lists discovered schemas.
 
 [Shell sessions](shell-sessions.md) provide incremental output through every ordinary binding, including HTML and Lua, with reconnectable cursor reads and explicit history gaps. [Speech models](speech-models.md), [audio sessions](audio-playback.md), [durable jobs](command-jobs.md), [notification management](notification-management.md) and [peripheral guides](index.md) describe the additional procedures. JSON state patches preserve nullable API results using the same saved-state format.
+
+Embedded chat supports per-conversation `settings:{"readOnly":true}`. Discovery hides mutating tools and the trusted executor flag blocks direct writes and permission prompts with `read_only_violation`. Tool arguments cannot disable it. Chat history and logs still save; other owner entrypoints retain their configured access. See the embedded chat guide for the full contract.

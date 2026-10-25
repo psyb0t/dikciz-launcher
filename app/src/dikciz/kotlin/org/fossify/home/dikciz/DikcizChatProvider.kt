@@ -50,7 +50,7 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
     )
     private val model = LLModel(
         provider = if (isAnthropic) LLMProvider.Anthropic else LLMProvider.OpenAI,
-        id = profile.getString("model"),
+        id = profile.getString("model").ifBlank { "discovery" },
         capabilities = listOf(LLMCapability.Completion, LLMCapability.Tools, LLMCapability.Temperature,
             LLMCapability.OpenAIEndpoint.Completions, LLMCapability.Vision.Image, LLMCapability.Thinking),
         contextLength = profile.getLong("contextTokens"),
@@ -188,13 +188,13 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
         fun decode(document: String): Message = JSON.decodeFromString(Message.serializer(), document)
         private fun parameter(name: String, description: String) = ToolParameterDescriptor(name, description, ToolParameterType.String)
         val TOOLS = listOf(
-            ToolDescriptor("phone_tools", "Discover the phone's real MCP tools and their input schemas. Search by task before calling a tool.",
+            ToolDescriptor("phone_tools", "Search the phone MCP tool catalogue and return input schemas. Discovery never executes an action. Search one keyword at a time; try a shorter keyword if empty. Use phone_call to execute a discovered tool. Follow hasMore with nextOffset to see more tools.",
                 requiredParameters = listOf(parameter("query", "Case-insensitive tool name or description search; empty lists the first page.")),
                 optionalParameters = listOf(parameter("offset", "Decimal offset for the next page, initially 0."))),
             ToolDescriptor("phone_call", "Call a discovered phone MCP tool. Returns its real result, errors and permission recovery. Never assume acceptance means completion.",
                 requiredParameters = listOf(parameter("name", "Exact discovered MCP tool name."), parameter("arguments_json", "A JSON object matching the discovered input schema."))),
             ToolDescriptor("phone_resources", "List the phone's short MCP documentation resources and recipes.", optionalParameters = listOf(parameter("cursor", "Opaque nextCursor from the previous resource page."))),
-            ToolDescriptor("phone_resource", "Read one discovered MCP documentation resource.", requiredParameters = listOf(parameter("uri", "Exact URI from phone_resources."))),
+            ToolDescriptor("phone_resource", "Read documentation using an exact URI returned by phone_resources. Do not invent URIs or use tool names as URIs. Resource errors are tool results; correct the URI and continue.", requiredParameters = listOf(parameter("uri", "Exact URI from phone_resources."))),
         )
     }
 }

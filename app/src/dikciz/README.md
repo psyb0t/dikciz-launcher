@@ -32,7 +32,7 @@ All Kotlin files below live in `kotlin/org/fossify/home/dikciz/`.
 | `DikcizHtmlWidgetLibrary.kt` | Validates and installs complete WebView templates. |
 | `DikcizAutomationControlPlane.kt`, `DikcizMcpControlPlane.kt` | Serve WebSocket, Streamable HTTP MCP and HTTP JSON commands through one `DikcizAutomationTarget`. |
 | `DikcizControlStatus.kt`, `DikcizAutomationStatus.kt` | Describe the command protocol and Android capabilities for discovery. |
-| `DikcizChatActivity.kt`, `DikcizChatCommands.kt` | Native resizable Markdown chat and its shared command schema. |
+| `DikcizChatActivity.kt`, `DikcizChatModelControls.kt`, `DikcizChatCommands.kt` | Native resizable Markdown chat, API-backed model dropdown, per-conversation settings and shared command schema. |
 | `DikcizChatRuntime.kt`, `DikcizChatAgent.kt`, `DikcizChatService.kt` | Serialized persistent queue, tool loop, context selection, event routing and foreground/reply notifications. |
 | `DikcizChatStore.kt`, `DikcizChatSettings.kt`, `DikcizChatProvider.kt`, `DikcizChatAnthropicStream.kt` | SQLite transcripts, Keystore-encrypted credentials, validated budgets and Koog provider/SSE adapters. See [embedded chat](../../../docs/embedded-chat.md). |
 | `DikcizMcpResources.kt` | Maps exact documentation URIs to packaged Markdown, validates resource parameters and paginates the fixed catalog. |

@@ -40,6 +40,7 @@ internal data class DikcizAutomationCommand(
     val type: String,
     val request: JSONObject,
     val autoRequestPermissions: Boolean = false,
+    val readOnly: Boolean = false,
 )
 
 internal class DikcizAutomationRequestException(
@@ -373,7 +374,7 @@ internal class DikcizAutomationControlPlane(
             .toString()
     }
 
-    internal fun executeLocalCommand(request: JSONObject, authorization: String? = null): String {
+    internal fun executeLocalCommand(request: JSONObject, authorization: String? = null, readOnly: Boolean = false): String {
         val requestID = request.opt(KEY_REQUEST_ID) as? String
         if (requestID == null || !isValidRequestID(requestID)) {
             return errorResponse(null, ERROR_VALIDATION_FAILED, MESSAGE_INVALID_REQUEST_ID)
@@ -384,7 +385,7 @@ internal class DikcizAutomationControlPlane(
         )
         logger.debug(EVENT_COMMAND_RECEIVED, fields)
         return try {
-            val response = handleCommand(request, requestID, authorization)
+            val response = handleCommand(request, requestID, authorization, readOnly)
             publishCommandCompletion(requestID, request, OUTCOME_SUCCEEDED)
             logger.info(EVENT_COMMAND_COMPLETED, fields)
             response
@@ -403,9 +404,11 @@ internal class DikcizAutomationControlPlane(
         rawRequest: JSONObject,
         requestID: String,
         authorization: String? = null,
+        readOnly: Boolean = false,
     ): String {
         val request = DikcizPermissionRequests.operation(rawRequest)
         val commandType = request.requireString(KEY_TYPE)
+        if (readOnly) DikcizMcpControlPlane.requireReadOnlyCommand(commandType, rawRequest)
         if (commandType in setOf(DikcizShellStreams.TYPE_START, DikcizShellStreams.TYPE_STOP)) {
             throw DikcizAutomationRequestException(ERROR_VALIDATION_FAILED, "shell streaming requires a network stream connection")
         }
@@ -425,7 +428,7 @@ internal class DikcizAutomationControlPlane(
                 throw DikcizAutomationRequestException(exception.code, exception.message.orEmpty())
             }
         } else {
-            dispatchCommand(DikcizPermissionRequests.command(commandType, rawRequest))
+            dispatchCommand(DikcizPermissionRequests.command(commandType, rawRequest).copy(readOnly = readOnly))
         }
         return JSONObject()
             .put(KEY_TYPE, TYPE_RESULT)
@@ -436,6 +439,7 @@ internal class DikcizAutomationControlPlane(
     }
 
     private fun dispatchCommand(command: DikcizAutomationCommand): JSONObject {
+        if (command.readOnly) DikcizMcpControlPlane.requireReadOnlyCommand(command.type, command.request)
         if (command.type == TYPE_WAIT_FOR) {
             return waitForAutomationView(command)
         }

@@ -17,7 +17,7 @@ Read the [user guide](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/u
 
 ## Embedded assistant
 
-The cheese control opens half/full-screen streaming Markdown chat with separate SQLite conversations and custom OpenAI/Anthropic provider profiles. `chatControl` / `dikciz_chat` expose the same validated actions to every ordinary binding. Read [embedded chat](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/embedded-chat.md) for model/reasoning settings, output reserves, context policies, encrypted credentials, event rules and interruption handling. The agent discovers and invokes the existing local MCP handlers; phone data used as context goes to its configured provider.
+The cheese control opens half/full-screen streaming Markdown chat with separate SQLite conversations and shared OpenAI/Anthropic provider connections, API model discovery and independent conversation settings. Read-only mode filters tool discovery and blocks direct write calls and permission prompts in the executor. `chatControl` / `dikciz_chat` expose the same validated actions to every ordinary binding. Read [embedded chat](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/embedded-chat.md) for model/reasoning settings, output reserves, context policies, encrypted credentials, event rules and interruption handling. The agent discovers and invokes the existing local MCP handlers; phone data used as context goes to its configured provider.
 
 ## Configuration and recovery
 

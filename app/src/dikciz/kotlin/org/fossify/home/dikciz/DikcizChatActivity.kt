@@ -37,6 +37,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import org.fossify.home.dikciz.DikcizChatColors.FOREGROUND
+import org.fossify.home.dikciz.DikcizChatColors.MUTED
 
 internal class DikcizChatActivity : Activity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -50,6 +52,7 @@ internal class DikcizChatActivity : Activity() {
     private lateinit var title: Button
     private lateinit var status: TextView
     private lateinit var markwon: Markwon
+    private lateinit var modelControls: DikcizChatModelControls
     private val rendered = mutableMapOf<Long, MessageView>()
     private var conversationID: String? = null
     private var fullScreen = false
@@ -88,6 +91,8 @@ internal class DikcizChatActivity : Activity() {
         panel.addView(header)
         status = textView().apply { textSize = 11f; setTextColor(MUTED); contentDescription = "Chat agent status" }
         panel.addView(status)
+        modelControls = DikcizChatModelControls(this, { conversationID }) { request, completed -> command(request, completed) }
+        panel.addView(modelControls.view)
         val content = FrameLayout(this)
         scroll = ChatScrollView(this).apply {
             isFillViewport = true
@@ -156,7 +161,11 @@ internal class DikcizChatActivity : Activity() {
         super.onPause()
     }
 
-    override fun onDestroy() { scope.cancel(); super.onDestroy() }
+    override fun onDestroy() {
+        scope.cancel()
+        if (::modelControls.isInitialized) modelControls.invalidate()
+        super.onDestroy()
+    }
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("conversationId", conversationID)
@@ -182,11 +191,12 @@ internal class DikcizChatActivity : Activity() {
                 val id = conversationID
                 val state = withContext(Dispatchers.IO) {
                     val conversation = id?.let { runtime.store.conversation(it) }
-                    conversation to if (id == null) emptyList() else runtime.store.displayMessages(id)
+                    Triple(conversation, if (id == null) emptyList() else runtime.store.displayMessages(id), id?.let { runtime.store.settings(it).getJSONObject("settings") })
                 }
                 if (id != conversationID) return@launch
                 title.text = state.first?.getString("title") ?: "Dikciz"
-                status.text = if (runtime.busy()) "Agent working · tools and replies appear here" else "Your phone assistant · tap Settings to configure a provider"
+                modelControls.update(id, state.first?.getString("profile_id"), state.third)
+                status.text = (if (state.third?.optBoolean(DikcizChatSettings.KEY_READ_ONLY) == true) "Read-only · " else "") + if (runtime.busy()) "Agent working · tools and replies appear here" else "Your phone assistant · tap Settings to configure a provider"
                 val anchor = (0 until messages.childCount).map(messages::getChildAt).firstOrNull { it.bottom > scroll.scrollY }
                 val anchorOffset = anchor?.let { scroll.scrollY - it.top } ?: 0
                 for (row in state.second) {
@@ -310,20 +320,8 @@ internal class DikcizChatActivity : Activity() {
         val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)) }
         val inputs = linkedMapOf<String, EditText>()
         val fields = listOf(
-            Triple("name", "Profile name", ""), Triple("protocol", "Protocol: openai or anthropic", "openai"),
+            Triple("name", "Provider name", ""), Triple("protocol", "Protocol: openai or anthropic", "openai"),
             Triple("baseUrl", "API base URL", ""), Triple("apiKey", "API key. Blank retains it for the same host and protocol", ""),
-            Triple("model", "Model ID", ""), Triple("contextTokens", "Total context tokens", "131072"),
-            Triple("maxOutputTokens", "Maximum output and reserved reply tokens", "4096"),
-            Triple("compaction", "Context policy: drop-oldest or summarize", "drop-oldest"),
-            Triple("summaryModel", "Summary model ID. Blank uses the chat model", ""),
-            Triple("summaryOutputTokens", "Maximum summary output tokens", "2048"),
-            Triple("reasoning", "Reasoning: auto, none, minimal, low, medium, high, xhigh, max", "auto"),
-            Triple("thinkingTokens", "Anthropic thinking tokens. 0 uses provider defaults", "0"),
-            Triple("outputTokenField", "OpenAI output field: max_completion_tokens or max_tokens", "max_completion_tokens"),
-            Triple("maximumRounds", "Maximum tool rounds per turn", "32"),
-            Triple("timeoutMilliseconds", "Turn timeout in milliseconds", "300000"),
-            Triple("safetyMarginTokens", "Context safety margin", "1024"),
-            Triple("systemPrompt", "Additional system instructions", ""),
         )
         fields.forEach { (name, label, default) ->
             body.addView(textView().apply { text = label; textSize = 12f; setTextColor(MUTED) })
@@ -331,7 +329,6 @@ internal class DikcizChatActivity : Activity() {
                 setText(if (name == "apiKey") "" else initial.optString(name, default))
                 contentDescription = label
                 setSelectAllOnFocus(true)
-                if (name in NUMBER_FIELDS) inputType = InputType.TYPE_CLASS_NUMBER
                 if (name == "apiKey") inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
                 SETTING_CHOICES[name]?.let { choices ->
                     isFocusable = false
@@ -345,47 +342,25 @@ internal class DikcizChatActivity : Activity() {
                 body.addView(this)
             }
         }
-        body.addView(button("Load models", "Load provider models") {
-            val candidate = try {
-                profileDocument(initial, inputs).apply { if (optString("model").isBlank()) put("model", "discovery") }
-            } catch (_: NumberFormatException) {
-                status.text = "Token and timeout settings must be whole numbers"
-                return@button
-            }
-            command(JSONObject().put("action", "profileSave").put("profile", candidate)) { saved ->
-                initial.put("id", saved.getString("id"))
-                command(JSONObject().put("action", "models").put("profileId", saved.getString("id"))) { result ->
-                    val models = result.getJSONArray("models")
-                    AlertDialog.Builder(this).setTitle("Model")
-                        .setItems((0 until models.length()).map { models.getJSONObject(it).getString("id") }.toTypedArray()) { _, index -> inputs.getValue("model").setText(models.getJSONObject(index).getString("id")) }.show()
-                }
-            }
-        })
         val scroller = ScrollView(this).apply { contentDescription = "Chat provider form"; addView(body) }
         val dialog = AlertDialog.Builder(this).setTitle("Provider settings").setView(scroller)
             .setPositiveButton("Save", null).setNegativeButton("Cancel", null).create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                try {
-                    val profile = profileDocument(initial, inputs)
-                    command(JSONObject().put("action", "profileSave").put("profile", profile)) { dialog.dismiss(); if (conversationID == null) newConversation() }
-                } catch (exception: NumberFormatException) { status.text = "Token and timeout settings must be whole numbers" }
+                val profile = profileDocument(initial, inputs)
+                command(JSONObject().put("action", "profileSave").put("profile", profile)) { dialog.dismiss(); modelControls.invalidate(); if (conversationID == null) newConversation() }
             }
         }
         dialog.show()
     }
 
     private fun profileDocument(initial: JSONObject, inputs: Map<String, EditText>): JSONObject {
-        val result = JSONObject()
+        val result = JSONObject(initial.toString())
         initial.optString("id").takeIf(String::isNotBlank)?.let { result.put("id", it) }
         inputs.forEach { (name, input) ->
             val value = input.text.toString()
             if (name == "apiKey" && value.isEmpty() && result.has("id")) return@forEach
-            val parsed = if (name in NUMBER_FIELDS) value.toIntOrNull() ?: run {
-                input.error = "Enter a whole number"
-                throw NumberFormatException("Invalid numeric setting")
-            } else value
-            result.put(name, parsed)
+            result.put(name, value)
         }
         return result
     }
@@ -483,20 +458,14 @@ internal class DikcizChatActivity : Activity() {
 
     private companion object {
         const val BACKGROUND = 0xFF111725.toInt()
-        const val FOREGROUND = 0xFFE6E9F0.toInt()
-        const val MUTED = 0xFF9AA4B8.toInt()
         const val ACCENT = 0xFFF6C85F.toInt()
         const val ERROR = 0xFFFF9696.toInt()
         const val DIM = 0x55000000
         const val OWNER_BUBBLE = 0xFF27334B.toInt()
         const val ASSISTANT_BUBBLE = 0xFF192131.toInt()
         const val BUTTON_RIPPLE = 0x44F6C85F
-        val NUMBER_FIELDS = setOf("contextTokens", "maxOutputTokens", "summaryOutputTokens", "thinkingTokens", "maximumRounds", "timeoutMilliseconds", "safetyMarginTokens")
         val SETTING_CHOICES = mapOf(
             "protocol" to arrayOf("openai", "anthropic"),
-            "compaction" to arrayOf("drop-oldest", "summarize"),
-            "reasoning" to arrayOf("auto", "none", "minimal", "low", "medium", "high", "xhigh", "max"),
-            "outputTokenField" to arrayOf("max_completion_tokens", "max_tokens"),
         )
     }
 }

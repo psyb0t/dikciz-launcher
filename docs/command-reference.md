@@ -902,7 +902,7 @@ Record bounded foreground camera H.264 MP4, optionally with microphone AAC. Retu
 
 ## dikciz_chat
 
-Manage the on-device Dikciz assistant. Actions: status, profiles, profileSave, models, create, list, read, rename, configure, delete, send, stop, subscribe, show, hide, fullscreen. A send is queued, not proof of completion. Poll read/status. Profile reads never return API keys. subscribe replaces the conversation's event rules; each rule has id, subscription (canonical automation event subscription) and instructions. show/hide/fullscreen control the chat panel independently of the agent. Read the chat MCP guide for fields and examples.
+Manage the on-device Dikciz assistant. Actions: status, profiles, profileSave, models, create, list, read, rename, settings, configure, delete, send, stop, subscribe, show, hide, fullscreen. A send is queued, not proof of completion. Poll read/status. Profile reads never return API keys. Save a connection without a model, discover its models, then configure each conversation with independent model and token settings. settings reads effective values; configure patches settings and optionally changes profileId. Changing providers retains read-only access and resets other overrides. settings.readOnly defaults to false; true hides mutating tools and blocks their execution and permission prompts. subscribe replaces the conversation's event rules; each rule has id, subscription (canonical automation event subscription) and instructions. show/hide/fullscreen control the chat panel independently of the agent. Read the chat MCP guide for fields and examples.
 
 ```json
 {
@@ -933,6 +933,9 @@ Manage the on-device Dikciz assistant. Actions: status, profiles, profileSave, m
       "maxLength": 80
     },
     "profile": {
+      "type": "object"
+    },
+    "settings": {
       "type": "object"
     },
     "rules": {

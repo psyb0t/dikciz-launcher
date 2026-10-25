@@ -19,7 +19,7 @@ Run from the repository root through Make. `make dikciz-test` builds the debug A
 make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_native_page_hosts_individual_html_and_provider_widgets
 ```
 
-Chat scenarios use local fake OpenAI/Anthropic model-discovery and SSE endpoints with real Android SQLite, native Markdown UI and production MCP tools. The mock endpoints use a guarded, lab-only reverse mapping to Android loopback; emulator Wi-Fi is not required. No real provider key is needed. Run `make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_chat_agent` after building the APK.
+Chat scenarios use local fake OpenAI/Anthropic model-discovery and SSE endpoints with real Android SQLite, native Markdown UI and production MCP tools. The mock endpoints use a guarded, lab-only reverse mapping to Android loopback; emulator Wi-Fi is not required. No real provider key is needed. Run `make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_chat_agent` after building the APK. Provider connections, model discovery, per-chat budgets, dropdown selection and settings validation have the focused selector `test_chat_provider_models`. Read-only discovery, executor enforcement and denied permission prompts use `test_chat_read_only`.
 
 The control-listener scenarios cover Settings validation, legacy records, automatic address and port changes, atomic replacements, unchanged endpoint writes, deletion, malformed addresses, IPv6 bindings, browser Origin rejection and both protocols while Android Settings stays in front:
 

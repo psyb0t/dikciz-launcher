@@ -2,6 +2,24 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.30.0] - 2026-10-25
+
+### Added
+
+- Per-conversation read-only phone access with filtered tool discovery and a trusted executor flag blocking mutations, direct write-tool calls and permission prompts.
+- Shared provider connections with an API-backed model dropdown and independent model, token, reasoning, compaction and timeout settings for every conversation.
+- Chat settings/configure commands shared by native, HTTP, WebSocket, MCP and scripting bindings, with an in-place database upgrade preserving existing providers, encrypted keys and history.
+
+### Fixed
+
+- Retain failed, cancelled and interrupted chat requests and completed tool results in later context, with explicit unknown outcomes for interrupted calls.
+- Return rejected documentation requests as recoverable chat tool errors and explain the distinction between tool discovery, execution and resource discovery.
+- Exclude queued future messages from the active chat turn's context.
+
+### Migration
+
+Existing profiles keep their model and token defaults. The chat database upgrades in place and retains encrypted keys, messages and event rules. Model and token edits now belong to each conversation. Read-only mode defaults to off; once enabled, changing models or providers retains it.
+
 ## [0.29.1] - 2026-10-24
 
 ### Fixed

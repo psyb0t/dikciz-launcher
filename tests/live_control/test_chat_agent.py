@@ -11,6 +11,7 @@ from . import *
 from .test_native_data import native_call, PROTOCOLS
 
 TURN_TIMEOUT = 40
+PROVIDER_PORT_ATTEMPTS = 8
 LOGGER = logging.getLogger(__name__)
 FIXTURE_TEXT = "# Streaming answer\n\n**Bold text** and a list:\n\n- first\n- second\n\n```python\nprint('fixture')\n```\n\n| Name | Value |\n| --- | --- |\n| fixture | ready |\n"
 
@@ -29,20 +30,26 @@ def provider_reverse(*arguments):
 @pytest.fixture
 def provider_endpoint():
     records = []
-    script = {"mode": "text", "delay": 0.002, "text": FIXTURE_TEXT, "conversation": None, "tools": []}
+    script = {"mode": "text", "delay": 0.002, "text": FIXTURE_TEXT, "conversation": None, "tools": [], "wrapper_calls": [], "models": ["fixture-model"]}
 
     class Handler(http.server.BaseHTTPRequestHandler):
         def log_message(self, _format, *args):
             return
 
         def do_GET(self):
+            if script["mode"] == "models_unauthorized":
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"error":{"message":"Fixture model catalogue unavailable"}}')
+                return
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             if self.headers.get("anthropic-version"):
-                response = {"data": [{"id": "fixture-model", "type": "model", "display_name": "Fixture model", "created_at": "2020-01-01T00:00:00Z"}], "first_id": "fixture-model", "last_id": "fixture-model", "has_more": False}
+                response = {"data": [{"id": model, "type": "model", "display_name": model, "created_at": "2020-01-01T00:00:00Z"} for model in script["models"]], "first_id": next(iter(script["models"]), None), "last_id": next(iter(reversed(script["models"])), None), "has_more": False}
             else:
-                response = {"object": "list", "data": [{"id": "fixture-model", "object": "model", "created": 1, "owned_by": "fixture"}]}
+                response = {"object": "list", "data": [{"id": model, "object": "model", "created": 1, "owned_by": "fixture"} for model in script["models"]]}
             self.wfile.write(json.dumps(response).encode())
 
         def do_POST(self):
@@ -81,12 +88,13 @@ def provider_endpoint():
             def chunk(delta, finish=None):
                 self.event({"id": "fixture-completion", "object": "chat.completion.chunk", "created": 1,
                             "model": "fixture-model", "choices": [{"index": 0, "delta": delta, "finish_reason": finish}]})
-            tools = script["tools"]
+            tools = script["wrapper_calls"] or script["tools"]
             tool_results = sum(message.get("role") == "tool" for message in body.get("messages", []))
             if tools and tool_results < len(tools) and not summary:
                 name, arguments = tools[tool_results]
-                encoded = json.dumps({"name": name, "arguments_json": json.dumps(arguments)})
-                chunk({"role": "assistant", "tool_calls": [{"index": 0, "id": "fixture-call-" + str(tool_results), "type": "function", "function": {"name": "phone_call", "arguments": encoded[:7]}}]})
+                wrapper = name if script["wrapper_calls"] else "phone_call"
+                encoded = json.dumps(arguments if script["wrapper_calls"] else {"name": name, "arguments_json": json.dumps(arguments)})
+                chunk({"role": "assistant", "tool_calls": [{"index": 0, "id": "fixture-call-" + str(tool_results), "type": "function", "function": {"name": wrapper, "arguments": encoded[:7]}}]})
                 chunk({"tool_calls": [{"index": 0, "function": {"arguments": encoded[7:]}}]})
                 chunk({}, "tool_calls")
             else:
@@ -114,12 +122,13 @@ def provider_endpoint():
                 self.event({"type": "content_block_stop", "index": index}, "content_block_stop")
                 index += 1
             tool_results = sum(block.get("type") == "tool_result" for message in body.get("messages", []) for block in message.get("content", []) if isinstance(block, dict))
-            tools = script["tools"]
+            tools = script["wrapper_calls"] or script["tools"]
             reason = "end_turn"
             if tools and tool_results < len(tools):
                 name, arguments = tools[tool_results]
-                encoded = json.dumps({"name": name, "arguments_json": json.dumps(arguments)})
-                self.event({"type": "content_block_start", "index": index, "content_block": {"type": "tool_use", "id": "fixture-call", "name": "phone_call", "input": {}}}, "content_block_start")
+                wrapper = name if script["wrapper_calls"] else "phone_call"
+                encoded = json.dumps(arguments if script["wrapper_calls"] else {"name": name, "arguments_json": json.dumps(arguments)})
+                self.event({"type": "content_block_start", "index": index, "content_block": {"type": "tool_use", "id": "fixture-call-" + str(tool_results), "name": wrapper, "input": {}}}, "content_block_start")
                 for fragment in (encoded[:8], encoded[8:]):
                     self.event({"type": "content_block_delta", "index": index, "delta": {"type": "input_json_delta", "partial_json": fragment}}, "content_block_delta")
                 reason = "tool_use"
@@ -139,8 +148,19 @@ def provider_endpoint():
     started = False
     mapped = False
     try:
-        provider_reverse("--no-rebind", endpoint, endpoint)
-        mapped = True
+        for attempt in range(PROVIDER_PORT_ATTEMPTS):
+            try:
+                provider_reverse("--no-rebind", endpoint, endpoint)
+                mapped = True
+                break
+            except subprocess.CalledProcessError as exception:
+                if "Address already in use" not in exception.stderr or attempt + 1 == PROVIDER_PORT_ATTEMPTS:
+                    raise
+                LOGGER.warning("fixture_provider_port_collision", extra={"attempt": attempt + 1})
+                server.server_close()
+                server = http.server.ThreadingHTTPServer(("0.0.0.0", 0), Handler)
+                endpoint = "tcp:" + str(server.server_port)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         started = True
         yield f"http://127.0.0.1:{server.server_port}/v1", script, records
@@ -174,6 +194,26 @@ def wait_turn(identifier, expected="complete"):
             return observed
         time.sleep(0.1)
     raise AssertionError(f"Chat turn did not settle: {observed!r}")
+
+
+def assert_tool_pairing(body):
+    pending = set()
+    for message in body["messages"]:
+        if message["role"] == "tool":
+            assert message["tool_call_id"] in pending
+            pending.remove(message["tool_call_id"])
+            continue
+        content = message.get("content", [])
+        content = content if isinstance(content, list) else []
+        results = [part for part in content if isinstance(part, dict) and part.get("type") == "tool_result"]
+        for result in results:
+            assert result["tool_use_id"] in pending
+            pending.remove(result["tool_use_id"])
+        assert not pending, message
+        calls = message.get("tool_calls", [])
+        pending.update(call["id"] for call in calls)
+        pending.update(part["id"] for part in content if isinstance(part, dict) and part.get("type") == "tool_use")
+    assert not pending
 
 
 def send(identifier, text="Read the fixture", request_key=None):
@@ -623,12 +663,10 @@ def test_chat_agent_provider_settings_native_ui(websocket_control, provider_endp
         chat("show", conversationId=identifier)
         direct_tap(wait_for_physical_description_bounds("Chat provider settings"))
         direct_tap(wait_for_physical_button_bounds("Add provider"))
-        for description, value in (("Profile name", name), ("API base URL", endpoint),
-                ("API key. Blank retains it for the same host and protocol", "EXAMPLE-DO-NOT-USE"), ("Model ID", "fixture-model")):
+        for description, value in (("Provider name", name), ("API base URL", endpoint),
+                ("API key. Blank retains it for the same host and protocol", "EXAMPLE-DO-NOT-USE")):
             direct_enter_text(field(description), value)
             direct_hide_keyboard()
-        direct_tap(field("Context policy: drop-oldest or summarize"))
-        direct_tap(wait_for_physical_text_bounds("summarize"))
         run_device_operation("screenshot")
         shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "chat-provider-settings.png")
         direct_tap(wait_for_physical_button_bounds("Save"))
@@ -640,7 +678,7 @@ def test_chat_agent_provider_settings_native_ui(websocket_control, provider_endp
                 break
             time.sleep(0.1)
         assert len(saved) == 1 and saved[0]["baseUrl"] == endpoint
-        assert saved[0]["model"] == "fixture-model" and saved[0]["compaction"] == "summarize"
+        assert saved[0]["model"] == "" and saved[0]["compaction"] == "drop-oldest"
         assert "apiKey" not in saved[0]
     finally:
         cleanup(identifier)
@@ -671,3 +709,414 @@ def test_chat_agent_deleting_visible_conversation_clears_panel(websocket_control
             cleanup(identifier)
         else:
             chat("hide")
+
+
+@pytest.mark.parametrize("provider", ["openai", "anthropic"])
+@pytest.mark.parametrize("wrapper,arguments,code", [
+    ("phone_resource", {"uri": "dikciz://docs/missing-section"}, "resource_not_found"),
+    ("phone_resources", {"cursor": "invalid-cursor"}, "validation_failed"),
+    ("phone_tools", {"name": "dikciz_device_state", "arguments_json": "{}"}, "validation_failed"),
+    ("phone_call", {"name": "dikciz_device_state", "arguments_json": "{"}, "validation_failed"),
+    ("missing_wrapper", {}, "unknown_tool"),
+    ("phone_call", {"name": "dikciz_nonexistent_tool", "arguments_json": "{}"}, "unknown_tool"),
+])
+def test_chat_agent_recovery_wrapper_errors(websocket_control, provider_endpoint, provider, wrapper, arguments, code):
+    endpoint, script, records = provider_endpoint
+    script["wrapper_calls"] = [(wrapper, arguments), ("phone_call", {"name": "dikciz_device_state", "arguments_json": "{}"})]
+    script["text"] = "Recovered after the rejected tool request."
+    _, identifier = conversation(endpoint, provider)
+    try:
+        send(identifier)
+        rows = wait_turn(identifier)
+        tools = [row for row in rows if row["role"] == "tool"]
+        assert len(tools) == 2
+        first = json.loads(json.loads(tools[0]["blocks"])[0]["text"])
+        assert first["isError"] is True
+        assert first.get("structuredContent", first)["code"] == code
+        assert "batteryLevel" in tools[1]["blocks"]
+        if wrapper == "phone_tools":
+            assert "phone_call" in first["message"]
+        assert len(records) == 3
+        assert_tool_pairing(records[-1]["body"])
+        assert json.loads(rows[-1]["blocks"])[0]["text"] == script["text"]
+    finally:
+        cleanup(identifier)
+
+
+@pytest.mark.parametrize("provider", ["openai", "anthropic"])
+@pytest.mark.parametrize("policy", ["drop-oldest", "summarize"])
+@pytest.mark.parametrize("failure", ["unauthorized", "broken", "rounds", "cancelled"])
+def test_chat_agent_recovery_failed_turn_context(websocket_control, provider_endpoint, provider, policy, failure):
+    endpoint, script, records = provider_endpoint
+    options = {"compaction": policy}
+    if failure == "rounds":
+        options["maximumRounds"] = 1
+        script["tools"] = [("dikciz_device_state", {})]
+    else:
+        script["mode"] = failure if failure != "cancelled" else "text"
+    if failure == "cancelled":
+        script["delay"] = 0.03
+        script["text"] = "Pending answer " * 100
+    profile, identifier = conversation(endpoint, provider, **options)
+    marker = "Remember fixture marker " + uuid.uuid4().hex + " café"
+    try:
+        send(identifier, marker)
+        if failure == "cancelled":
+            deadline = time.monotonic() + TURN_TIMEOUT
+            while not records and time.monotonic() < deadline:
+                time.sleep(0.1)
+            assert records
+            chat("stop", conversationId=identifier)
+        wait_turn(identifier, "cancelled" if failure == "cancelled" else "failed")
+        if failure == "rounds":
+            chat("profileSave", profile={**profile, "maximumRounds": 32})
+        script.update(mode="text", tools=[], text="Continuing the earlier request.", delay=0.002)
+        before = len(records)
+        send(identifier, "Continue from my earlier request")
+        rows = wait_turn(identifier)
+        body = records[before]["body"]
+        assert_tool_pairing(body)
+        assert marker in json.dumps(body["messages"], ensure_ascii=False)
+        assert len(records) == before + 1
+        if failure == "rounds":
+            assert "batteryLevel" in json.dumps(body["messages"])
+            assert len([row for row in rows if row["role"] == "tool"]) == 1
+        assert json.loads(rows[-1]["blocks"])[0]["text"] == script["text"]
+    finally:
+        cleanup(identifier)
+
+
+@pytest.mark.parametrize("provider", ["openai", "anthropic"])
+def test_chat_agent_recovery_interrupted_tool_has_unknown_outcome(websocket_control, provider_endpoint, provider):
+    endpoint, script, records = provider_endpoint
+    script["tools"] = [("dikciz_device_state", {}), ("dikciz_shell", {"root": False, "command": "sleep 30", "timeoutMilliseconds": 35000})]
+    _, identifier = conversation(endpoint, provider)
+    try:
+        send(identifier, "Remember the interrupted fixture request")
+        deadline = time.monotonic() + TURN_TIMEOUT
+        while time.monotonic() < deadline:
+            rows = chat("read", conversationId=identifier)["messages"]["items"]
+            if rows and rows[-1]["role"] == "tool" and rows[-1]["state"] == "executing":
+                blocks = json.loads(rows[-1]["blocks"])
+                if blocks[0]["name"] == "phone_call" and len([row for row in rows if row["role"] == "tool"]) == 2:
+                    break
+            time.sleep(0.1)
+        else:
+            raise AssertionError("Fixture shell never reached executing state")
+        run_device_operation("app-stop", PACKAGE_NAME=DIKCIZ_DEBUG_PACKAGE)
+        script.update(tools=[], text="Inspecting earlier outcomes before continuing.")
+        run_device_operation("home-start", PACKAGE_NAME=DIKCIZ_DEBUG_PACKAGE)
+        wait_chat_ready()
+        before = len(records)
+        send(identifier, "Continue without repeating the interrupted command")
+        wait_turn(identifier)
+        body = records[before]["body"]
+        assert_tool_pairing(body)
+        encoded = json.dumps(body["messages"])
+        assert "Remember the interrupted fixture request" in encoded
+        assert "batteryLevel" in encoded
+        assert "tool_outcome_unknown" in encoded
+        assert len(records) == before + 1
+    finally:
+        cleanup(identifier)
+
+
+@pytest.mark.parametrize("provider", ["openai", "anthropic"])
+def test_chat_agent_recovery_cancelled_queue_retains_owner_text(websocket_control, provider_endpoint, provider):
+    endpoint, script, records = provider_endpoint
+    script.update(delay=0.03, text="Pending fixture response " * 100)
+    _, identifier = conversation(endpoint, provider)
+    marker = "Queued fixture request " + uuid.uuid4().hex
+    try:
+        send(identifier, "Start the first fixture turn")
+        deadline = time.monotonic() + TURN_TIMEOUT
+        while not records and time.monotonic() < deadline:
+            time.sleep(0.1)
+        assert records
+        send(identifier, marker)
+        chat("stop", conversationId=identifier)
+        rows = wait_turn(identifier, "cancelled")
+        assert rows[-1]["role"] == "user"
+        script.update(delay=0.002, text="Continuing after cancellation.")
+        before = len(records)
+        send(identifier, "Remember my queued request")
+        wait_turn(identifier)
+        assert marker in json.dumps(records[before]["body"]["messages"])
+    finally:
+        cleanup(identifier)
+
+
+@pytest.mark.parametrize("provider", ["openai", "anthropic"])
+@pytest.mark.parametrize("policy", ["drop-oldest", "summarize"])
+def test_chat_agent_recovery_queued_history_keeps_trailing_results(websocket_control, provider_endpoint, provider, policy):
+    endpoint, script, records = provider_endpoint
+    script.update(delay=1, text="Fixture acknowledged.", tools=[("dikciz_device_info", {})])
+    options = {"compaction": policy}
+    if policy == "summarize":
+        options.update(contextTokens=12000, maxOutputTokens=512, summaryOutputTokens=256, safetyMarginTokens=256)
+    _, identifier = conversation(endpoint, provider, **options)
+    marker = "Queued fixture marker " + uuid.uuid4().hex
+    try:
+        send(identifier, "Inspect the fixture device. " + "fixture " * 250)
+        deadline = time.monotonic() + TURN_TIMEOUT
+        while not records and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert records
+        send(identifier, marker)
+        script["delay"] = 0.002
+        rows = wait_turn(identifier)
+        owners = [row for row in rows if row["role"] == "user"]
+        tools = [row for row in rows if row["role"] == "tool"]
+        assert len(owners) == 2 and len(tools) == 1
+        assert owners[1]["id"] < tools[0]["id"], "Fixture did not queue before the first tool result"
+        assert marker not in json.dumps(records[1]["body"]["messages"])
+        second = records[2]["body"]
+        assert_tool_pairing(second)
+        assert "versionName" in json.dumps(second["messages"])
+        if policy == "summarize":
+            script["tools"] = []
+            send(identifier, "Continue the fixture. " + "context " * 375)
+            wait_turn(identifier)
+            assert chat("read", conversationId=identifier)["conversation"]["summary"]
+            assert marker in json.dumps(records[-1]["body"]["messages"])
+            assert_tool_pairing(records[-1]["body"])
+    finally:
+        cleanup(identifier)
+
+
+@pytest.mark.parametrize("provider", ["openai", "anthropic"])
+@pytest.mark.parametrize("entrypoint", PROTOCOLS)
+def test_chat_provider_models_connection_without_model(websocket_control, provider_endpoint, entrypoint, provider):
+    endpoint, script, _ = provider_endpoint
+    script["models"] = ["fixture-small", "fixture-large"]
+    before = len(chat("profiles")["profiles"])
+    profile = chat("profileSave", entrypoint, profile={"name": "Shared fixture", "protocol": provider, "baseUrl": endpoint, "apiKey": "EXAMPLE-DO-NOT-USE"})
+    identifier = chat("create", entrypoint, profileId=profile["id"])["id"]
+    try:
+        assert {m["id"] for m in chat("models", entrypoint, profileId=profile["id"])["models"]} == set(script["models"])
+        native_call(entrypoint, "chatControl", {"action": "send", "conversationId": identifier, "text": "No selected model", "requestKey": str(uuid.uuid4())}, error="validation_failed")
+        assert chat("read", entrypoint, conversationId=identifier)["messages"]["items"] == []
+        chat("configure", entrypoint, conversationId=identifier, settings={"model": "fixture-small", "contextTokens": 32768, "maxOutputTokens": 1024})
+        settings = chat("settings", entrypoint, conversationId=identifier)["settings"]
+        assert settings["model"] == "fixture-small" and settings["maxOutputTokens"] == 1024
+        chat("configure", entrypoint, conversationId=identifier, settings={"model": "fixture-large"})
+        assert chat("settings", entrypoint, conversationId=identifier)["settings"]["maxOutputTokens"] == 1024
+        assert len(chat("profiles")["profiles"]) == before + 1
+        assert "EXAMPLE-DO-NOT-USE" not in json.dumps(chat("read", entrypoint, conversationId=identifier))
+    finally:
+        cleanup(identifier)
+
+
+@pytest.mark.parametrize("provider", ["openai", "anthropic"])
+def test_chat_provider_models_independent_requests(websocket_control, provider_endpoint, provider):
+    endpoint, script, records = provider_endpoint
+    script["text"] = "Fixture response."
+    profile, first = conversation(endpoint, provider)
+    second = chat("create", profileId=profile["id"])["id"]
+    try:
+        chat("configure", conversationId=first, settings={"model": "fixture-small", "contextTokens": 32768, "maxOutputTokens": 512, "reasoning": "low"})
+        chat("configure", conversationId=second, settings={"model": "fixture-large", "contextTokens": 65536, "maxOutputTokens": 1024, "reasoning": "high"})
+        for identifier, model, output, effort in [(first,"fixture-small",512,"low"),(second,"fixture-large",1024,"high")]:
+            send(identifier)
+            wait_turn(identifier)
+            body=records[-1]["body"]
+            assert body["model"] == model
+            assert body.get("max_tokens",body.get("max_completion_tokens")) == output
+            if provider == "openai": assert body["reasoning_effort"] == effort
+            else: assert body["output_config"]["effort"] == effort
+            assert records[-1]["usedFixtureKey"]
+        chat("configure", conversationId=first, settings={"model": "fixture-large"})
+        assert chat("read", conversationId=first)["settings"]["maxOutputTokens"] == 512
+        assert chat("read", conversationId=second)["settings"]["maxOutputTokens"] == 1024
+        assert next(p for p in chat("profiles")["profiles"] if p["id"] == profile["id"])["model"] == "fixture-model"
+    finally:
+        cleanup(first); cleanup(second)
+
+
+def test_chat_provider_models_settings_validation_is_atomic(websocket_control, provider_endpoint):
+    _, identifier = conversation(provider_endpoint[0])
+    try:
+        chat("configure", conversationId=identifier, settings={"model":"fixture-small", "maxOutputTokens": 512})
+        previous=chat("settings", conversationId=identifier)
+        for patch in [{"apiKey":"EXAMPLE-DO-NOT-USE"},{"baseUrl":"https://example.test"},{"protocol":"anthropic"},{"unexpected":True},{"contextTokens":None},{"maxOutputTokens":-1},{"maxOutputTokens":131072},{"maxOutputTokens":1.5},{"thinkingTokens":1024}]:
+            native_call("http","chatControl",{"action":"configure","conversationId":identifier,"settings":patch},error="validation_failed")
+            assert chat("settings",conversationId=identifier)==previous
+        native_call("http","chatControl",{"action":"configure","conversationId":identifier},error="validation_failed")
+        native_call("http","chatControl",{"action":"configure","conversationId":identifier,"settings":None},error="validation_failed")
+        send(identifier); wait_turn(identifier)
+        native_call("http","restart"); wait_chat_ready()
+        assert chat("settings",conversationId=identifier)==previous
+    finally:
+        cleanup(identifier)
+
+
+
+def test_chat_provider_models_native_dropdown_and_tokens(websocket_control, provider_endpoint):
+    endpoint, script, records = provider_endpoint
+    script.update(models=["fixture-model","fixture-alternate"], text="Fixture answer.")
+    profile, identifier = conversation(endpoint)
+    try:
+        chat("show",conversationId=identifier)
+        wait_for_physical_description_bounds("Chat model")
+        direct_tap(physical_description_bounds("Chat model"))
+        try:
+            target = wait_for_physical_text_bounds("fixture-alternate")
+        except AssertionError:
+            run_device_operation("screenshot")
+            shutil.copyfile(ARTIFACT_DIRECTORY/"screenshot.png", ARTIFACT_DIRECTORY/"chat-model-dropdown-failed.png")
+            raise
+        run_device_operation("screenshot")
+        shutil.copyfile(ARTIFACT_DIRECTORY/"screenshot.png", ARTIFACT_DIRECTORY/"chat-model-dropdown.png")
+        direct_tap(target)
+        deadline=time.monotonic()+TURN_TIMEOUT
+        while chat("settings",conversationId=identifier)["settings"]["model"]!="fixture-alternate" and time.monotonic()<deadline:
+            time.sleep(0.1)
+        assert chat("settings",conversationId=identifier)["settings"]["model"]=="fixture-alternate"
+        direct_tap(wait_for_physical_description_bounds("Chat model settings"))
+        direct_tap(wait_for_physical_description_bounds("Read-only phone access"))
+        direct_enter_text(wait_for_physical_description_bounds("Total context tokens"),"65536")
+        direct_hide_keyboard()
+        direct_enter_text(physical_description_bounds("Maximum output and reserved reply tokens"),"1024")
+        direct_hide_keyboard()
+        run_device_operation("screenshot")
+        shutil.copyfile(ARTIFACT_DIRECTORY/"screenshot.png",ARTIFACT_DIRECTORY/"chat-model-settings.png")
+        direct_tap(wait_for_physical_button_bounds("Save"))
+        deadline=time.monotonic()+TURN_TIMEOUT
+        while chat("settings",conversationId=identifier)["settings"]["maxOutputTokens"]!=1024 and time.monotonic()<deadline:
+            time.sleep(0.1)
+        selected=chat("settings",conversationId=identifier)["settings"]
+        assert selected["contextTokens"]==65536 and selected["maxOutputTokens"]==1024
+        assert selected["readOnly"] is True
+        send(identifier);wait_turn(identifier)
+        assert records[-1]["body"]["model"]=="fixture-alternate"
+        assert records[-1]["body"]["max_completion_tokens"]==1024
+        assert next(p for p in chat("profiles")["profiles"] if p["id"]==profile["id"])["maxOutputTokens"]==4096
+    finally:
+        cleanup(identifier)
+
+
+def test_chat_provider_models_busy_and_provider_change(websocket_control,provider_endpoint):
+    endpoint,script,records=provider_endpoint
+    profile,identifier=conversation(endpoint)
+    other=chat("profileSave",profile={"name":"Other fixture","protocol":"openai","baseUrl":endpoint,"model":"fixture-other"})
+    try:
+        chat("configure",conversationId=identifier,settings={"model":"fixture-selected","maxOutputTokens":512,"readOnly":True})
+        before=chat("settings",conversationId=identifier)
+        script.update(text="Pending fixture response "*100,delay=0.03)
+        send(identifier)
+        deadline=time.monotonic()+TURN_TIMEOUT
+        while not records and time.monotonic()<deadline:time.sleep(0.1)
+        assert records
+        native_call("mcp","chatControl",{"action":"configure","conversationId":identifier,"settings":{"model":"fixture-other","readOnly":False}},error="chat_busy")
+        assert chat("settings",conversationId=identifier)==before
+        chat("stop",conversationId=identifier);wait_turn(identifier,"cancelled")
+        deadline=time.monotonic()+TURN_TIMEOUT
+        while chat("status")["busy"] and time.monotonic()<deadline:time.sleep(0.1)
+        chat("configure",conversationId=identifier,profileId=other["id"])
+        selected=chat("settings",conversationId=identifier)
+        assert selected["settings"]["model"]=="fixture-other"
+        assert selected["settings"]["maxOutputTokens"]==4096 and selected["overrides"]=={"readOnly":True}
+        assert selected["settings"]["readOnly"] is True
+    finally:
+        cleanup(identifier)
+
+
+
+@pytest.mark.parametrize("provider", ["openai", "anthropic"])
+def test_chat_read_only_executor(websocket_control, provider_endpoint, provider):
+    endpoint, script, records = provider_endpoint
+    path = "/sdcard/Dikciz/chat-readonly-" + uuid.uuid4().hex + ".txt"
+    _, identifier = conversation(endpoint, provider)
+    writes = [
+        ("dikciz_file_write", {"path": path, "dataBase64": "eA==", "overwrite": True}),
+        ("dikciz_file_write", {"path": path, "dataBase64": "eA==", "readOnly": False}),
+        ("dikciz_shell", {"root": False, "command": "echo x", "timeoutMilliseconds": 1000}),
+        ("dikciz_chat", {"action": "configure", "conversationId": identifier, "settings": {"readOnly": False}}),
+        ("dikciz_device_info", {"autoRequestPermissions": True}),
+        ("dikciz_restart", {}),
+        ("dikciz_job_start", {}),
+        ("dikciz_automation_dispatch", {}),
+        ("dikciz_request_device_access", {"requirement": "contacts"}),
+    ]
+    script.update(text="Read-only fixture finished.", tools=writes + [("dikciz_device_state", {})])
+    try:
+        assert chat("settings", conversationId=identifier)["settings"]["readOnly"] is False
+        chat("configure", conversationId=identifier, settings={"readOnly": True})
+        send(identifier)
+        rows = wait_turn(identifier)
+        tools = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
+        assert len(tools) == len(writes) + 1
+        for result in tools[:-1]:
+            assert result["isError"] is True
+            assert result.get("structuredContent", result)["code"] == "read_only_violation"
+        assert "batteryLevel" in json.dumps(tools[-1])
+        assert chat("settings", conversationId=identifier)["settings"]["readOnly"] is True
+        native_call("http", "fileRead", {"path": path}, error="file_not_found")
+        assert_tool_pairing(records[-1]["body"])
+        chat("configure", conversationId=identifier, settings={"readOnly": False})
+        script["tools"] = [("dikciz_file_write", {"path": path, "dataBase64": "eA=="})]
+        # A new conversation avoids counting tool results from the earlier turn.
+        writable = chat("create", profileId=chat("read", conversationId=identifier)["conversation"]["profile_id"])["id"]
+        try:
+            send(writable)
+            results = wait_turn(writable)
+            assert len([row for row in results if row["role"] == "tool"]) == 1
+            assert native_call("http", "fileRead", {"path": path})["dataBase64"] == "eA=="
+        finally:
+            cleanup(writable)
+            native_call("http", "fileManage", {"action": "delete", "path": path})
+    finally:
+        cleanup(identifier)
+
+
+@pytest.mark.parametrize("entrypoint", PROTOCOLS)
+def test_chat_read_only_discovery_and_validation(websocket_control, provider_endpoint, entrypoint):
+    endpoint, script, _ = provider_endpoint
+    _, identifier = conversation(endpoint)
+    try:
+        previous = chat("settings", conversationId=identifier)
+        for value in [None, "true", 1, {}, []]:
+            native_call(entrypoint, "chatControl", {"action": "configure", "conversationId": identifier, "settings": {"readOnly": value}}, error="validation_failed")
+            assert chat("settings", conversationId=identifier) == previous
+        chat("configure", entrypoint, conversationId=identifier, settings={"readOnly": True})
+        chat("configure", entrypoint, conversationId=identifier, settings={"model": "fixture-alternate"})
+        assert chat("settings", conversationId=identifier)["settings"]["readOnly"] is True
+        script.update(text="Discovery done.", wrapper_calls=[("phone_tools", {"query": "file"}), ("phone_tools", {"query": "shell"}), ("phone_resources", {})])
+        send(identifier)
+        rows = wait_turn(identifier)
+        results = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
+        assert "dikciz_file_read" in json.dumps(results[0])
+        assert "dikciz_file_write" not in json.dumps(results[0])
+        assert all(tool["annotations"]["readOnlyHint"] for result in results[:2] for tool in result["tools"])
+        assert "dikciz_shell" not in {tool["name"] for tool in results[1]["tools"]}
+        assert all("autoRequestPermissions" not in tool["inputSchema"]["properties"] for result in results[:2] for tool in result["tools"])
+        assert "resources" in results[2]
+        native_call("http", "restart")
+        wait_chat_ready()
+        assert chat("settings", conversationId=identifier)["settings"]["readOnly"] is True
+    finally:
+        cleanup(identifier)
+
+
+
+def test_chat_provider_models_manual_fallback(websocket_control, provider_endpoint):
+    endpoint, script, records = provider_endpoint
+    script.update(mode="models_unauthorized", text="Manual model accepted.")
+    profile = chat("profileSave", profile={"name": "Manual fixture", "protocol": "openai", "baseUrl": endpoint})
+    identifier = chat("create", profileId=profile["id"])["id"]
+    try:
+        chat("show", conversationId=identifier)
+        direct_tap(wait_for_physical_button_bounds("Close"))
+        direct_tap(wait_for_physical_description_bounds("Chat model settings"))
+        direct_enter_text(wait_for_physical_description_bounds("Model ID"), "fixture-manual")
+        direct_hide_keyboard()
+        direct_tap(wait_for_physical_button_bounds("Save"))
+        deadline = time.monotonic() + TURN_TIMEOUT
+        while chat("settings", conversationId=identifier)["settings"]["model"] != "fixture-manual" and time.monotonic() < deadline:
+            time.sleep(0.1)
+        assert chat("settings", conversationId=identifier)["settings"]["model"] == "fixture-manual"
+        send(identifier)
+        wait_turn(identifier)
+        assert records[-1]["body"]["model"] == "fixture-manual"
+    finally:
+        cleanup(identifier)

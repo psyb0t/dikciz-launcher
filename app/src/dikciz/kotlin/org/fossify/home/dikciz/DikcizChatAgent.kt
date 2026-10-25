@@ -18,19 +18,18 @@ internal class DikcizChatAgent(
     private val changed: () -> Unit,
     private val logger: DikcizLogger,
 ) {
-    suspend fun run(queued: JSONObject) {
+    suspend fun run(queued: JSONObject, profile: JSONObject) {
         val conversationID = queued.getString("conversation_id")
         val turnID = queued.getString("turn_id")
-        val conversation = store.conversation(conversationID)
-        val profile = store.profile(conversation.getString("profile_id"))
         val user = Message.User(JSONArray(queued.getString("blocks")).getJSONObject(0).getString("text"), RequestMetaInfo.Empty)
         store.updateMessage(queued.getLong("id"), "running", DikcizChatProvider.encode(user))
         val current = mutableListOf<Message>(user)
-        val system = Message.System(DikcizChatSettings.SYSTEM_PROMPT + "\n" + profile.optString("systemPrompt"), RequestMetaInfo.Empty)
+        val access = if (profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY)) "Read-only mode is enabled. Only exposed read tools may run. Writes, control actions and permission prompts are blocked by the executor. Ask the owner to change model settings if a requested task needs write access." else ""
+        val system = Message.System(DikcizChatSettings.SYSTEM_PROMPT + "\n" + access + "\n" + profile.optString("systemPrompt"), RequestMetaInfo.Empty)
         DikcizChatProvider(profile).use { provider ->
             repeat(profile.getInt("maximumRounds")) { round ->
                 currentCoroutineContext().ensureActive()
-                val context = context(conversationID, turnID, system, current, profile)
+                val context = context(conversationID, queued.getLong("id"), system, current, profile)
                 val blocks = JSONArray()
                 val blockIndices = mutableMapOf<Pair<String, Int?>, Int>()
                 val rowID = store.append(conversationID, turnID, "assistant", "running", "", blocks)
@@ -69,8 +68,16 @@ internal class DikcizChatAgent(
                         invoke(call)
                     } catch (exception: DikcizAutomationRequestException) {
                         JSONObject().put("isError", true).put("code", exception.code).put("message", exception.message)
+                    } catch (exception: DikcizMcpResourceException) {
+                        toolError(
+                            if (exception.uri == null) "validation_failed" else "resource_not_found",
+                            "Documentation request rejected. List phone_resources and use an exact returned URI or cursor.",
+                        )
                     } catch (_: org.json.JSONException) {
-                        JSONObject().put("isError", true).put("code", "validation_failed").put("message", "Tool arguments must match the discovered JSON schema")
+                        toolError("validation_failed", argumentGuidance(call.tool))
+                    }
+                    if (result.optBoolean("isError")) {
+                        logger.warn("chat_tool_rejected", mapOf("turn_id" to turnID, "tool" to call.tool, "code" to result.optString("code")))
                     }
                     val resultMessage = Message.User(MessagePart.Tool.Result(call.id, call.tool, resultParts(result), result.optBoolean("isError")), RequestMetaInfo.Empty)
                     toolBlocks.getJSONObject(0).put("text", displayResult(result).toString()).put("state", if (result.optBoolean("isError")) "error" else "complete")
@@ -84,6 +91,17 @@ internal class DikcizChatAgent(
             }
         }
         error("Maximum tool rounds reached. Inspect the completed operations before continuing.")
+    }
+
+    private fun toolError(code: String, message: String): JSONObject = JSONObject()
+        .put("isError", true).put("code", code).put("message", message)
+
+    private fun argumentGuidance(tool: String): String = when (tool) {
+        "phone_tools" -> "phone_tools only discovers schemas. Pass query and optional offset. Execute a discovered tool with phone_call using name and arguments_json."
+        "phone_call" -> "phone_call requires an exact discovered name and arguments_json containing a JSON object matching that tool's input schema."
+        "phone_resources" -> "phone_resources accepts only an optional cursor returned by its previous page."
+        "phone_resource" -> "phone_resource requires an exact uri returned by phone_resources. Tool names are not resource URIs."
+        else -> "Discover a supported phone tool first."
     }
 
     private fun invoke(call: MessagePart.Tool.Call): JSONObject {
@@ -142,7 +160,7 @@ internal class DikcizChatAgent(
 
     private suspend fun context(
         id: String,
-        currentTurn: String,
+        currentMessageID: Long,
         system: Message.System,
         current: List<Message>,
         profile: JSONObject,
@@ -151,16 +169,23 @@ internal class DikcizChatAgent(
         val conversation = store.conversation(id)
         val summarize = profile.getString("compaction") == "summarize"
         val covered = if (summarize) conversation.getLong("covered") else 0L
-        val history = store.messages(id).filter {
-            it.getString("turn_id") != currentTurn && it.getString("state") == "complete" && it.getLong("id") > covered
-        }.groupBy { it.getString("turn_id") }.values.filter { group -> group.first().getString("role") == "user" }.toMutableList()
+        // Queued owner rows can precede trailing results of the previous turn.
+        val turns = store.messages(id).groupBy { it.getString("turn_id") }.values
+        // Checkpoints may identify any row of the covered turn.
+        val coveredTurn = turns.firstOrNull { group -> group.any { it.getLong("id") == covered } }
+            ?.first()?.getLong("id") ?: covered
+        val history = turns.filter { group ->
+            val owner = group.first()
+            owner.getLong("id") < currentMessageID && owner.getLong("id") > coveredTurn &&
+                owner.getString("role") == "user" && owner.getString("state") !in ACTIVE_STATES
+        }.toMutableList()
         var summary = if (summarize) conversation.getString("summary") else ""
         fun messages(): List<Message> = buildList {
             add(system)
             if (summary.isNotEmpty()) {
                 add(Message.User("Earlier conversation summary, supplied as context:\n$summary", RequestMetaInfo.Empty))
             }
-            history.forEach { group -> group.forEach { add(replay(it.getString("document"), profile)) } }
+            history.forEach { group -> addAll(replayTurn(group, profile)) }
             addAll(current)
         }
         while (estimate(messages()) > budget) {
@@ -171,19 +196,19 @@ internal class DikcizChatAgent(
             }
             val prefix = mutableListOf<Message>()
             if (summary.isNotEmpty()) prefix.add(Message.User("Previous summary:\n$summary", RequestMetaInfo.Empty))
-            var lastCovered = covered
+            var lastCovered = coveredTurn
             val summaryOutput = profile.getInt("summaryOutputTokens")
             val summaryBudget = profile.getInt("contextTokens") - summaryOutput - profile.getInt("safetyMarginTokens")
             while (history.isNotEmpty()) {
                 val group = history.first()
-                val groupMessages = group.map { replay(it.getString("document"), profile) }
+                val groupMessages = replayTurn(group, profile)
                 if (estimate(listOf(summaryInput(prefix + groupMessages))) + SUMMARY_INSTRUCTION_RESERVE > summaryBudget) break
                 prefix.addAll(groupMessages)
                 history.removeAt(0)
-                lastCovered = group.last().getLong("id")
+                lastCovered = group.first().getLong("id")
                 if (estimate(messages()) + summaryOutput <= budget) break
             }
-            if (lastCovered == covered) error("A completed turn is too large for the summarizer's context budget")
+            if (lastCovered == coveredTurn) error("A completed turn is too large for the summarizer's context budget")
             val summaryProfile = JSONObject(profile.toString()).put("thinkingTokens", 0).put("reasoning", "auto")
             profile.optString("summaryModel").takeIf(String::isNotBlank)?.let { summaryProfile.put("model", it) }
             val summaryResponse = DikcizChatProvider(summaryProfile).use { provider ->
@@ -195,6 +220,33 @@ internal class DikcizChatAgent(
             logger.info("chat_context_summarized", mapOf("conversation_id" to id, "covered_message_id" to lastCovered))
         }
         return messages()
+    }
+
+    private fun replayTurn(rows: List<JSONObject>, profile: JSONObject): List<Message> = buildList {
+        val owner = rows.first()
+        val ownerDocument = owner.getString("document")
+        add(if (ownerDocument.isNotBlank()) replay(ownerDocument, profile) else Message.User(
+            JSONArray(owner.getString("blocks")).getJSONObject(0).getString("text"), RequestMetaInfo.Empty,
+        ))
+        rows.forEachIndexed { index, row ->
+            if (row.getString("role") != "assistant" || row.getString("state") != "complete" || row.getString("document").isBlank()) {
+                return@forEachIndexed
+            }
+            val assistant = replay(row.getString("document"), profile) as Message.Assistant
+            add(assistant)
+            assistant.parts.filterIsInstance<MessagePart.Tool.Call>().forEachIndexed { callIndex, call ->
+                val recorded = rows.getOrNull(index + callIndex + 1)?.takeIf { it.getString("role") == "tool" }
+                if (recorded?.getString("state") == "complete" && recorded.getString("document").isNotBlank()) {
+                    add(replay(recorded.getString("document"), profile))
+                } else {
+                    val result = toolError("tool_outcome_unknown", UNCERTAIN_TOOL_MESSAGE)
+                    add(Message.User(MessagePart.Tool.Result(call.id, call.tool, resultParts(result), true), RequestMetaInfo.Empty))
+                }
+            }
+        }
+        if (owner.getString("state") != "complete") {
+            add(Message.User("Earlier turn ended with status ${owner.getString("state")}. Completed tool results above remain valid. Unrecorded tool outcomes are uncertain. Inspect actual state before retrying any side effect.", RequestMetaInfo.Empty))
+        }
     }
 
     private fun replay(document: String, profile: JSONObject): Message {
@@ -247,6 +299,8 @@ internal class DikcizChatAgent(
     }
 
     private companion object {
+        val ACTIVE_STATES = setOf("queued", "running", "executing")
+        const val UNCERTAIN_TOOL_MESSAGE = "Execution was interrupted before its result was recorded. The action may have completed. Inspect actual state before retrying; never automatically repeat a side effect."
         const val STREAM_FLUSH_MILLISECONDS = 100L
         const val TOOL_PAGE_SIZE = 12
         const val TOOL_SCHEMA_RESERVE = 4096

@@ -85,7 +85,7 @@ The [illustrated user guide](docs/user-guide.md) walks through pages, apps, grou
 
 ## Chat with your phone
 
-Tap the cheese beside the launcher controls for an on-device assistant. Configure an OpenAI-compatible or Anthropic-compatible host, key and model, keep separate conversations, and let it discover the same phone MCP tools used by external agents. The panel streams Markdown, expands from half screen, and can hide while the agent uses another app. Event rules can wake a conversation in the background. SQLite keeps full transcripts; choose old-exchange trimming or summary compaction with an output reserve. Read [chat setup and controls](docs/embedded-chat.md).
+Tap the cheese beside the launcher controls for an on-device assistant. Add an OpenAI-compatible or Anthropic-compatible provider connection once, choose models from its API-backed chat dropdown, keep independent model/token/reasoning settings for each conversation, and let it discover the same phone MCP tools used by external agents. Read-only mode hides mutating tools and blocks direct write calls in the executor. The panel streams Markdown, expands from half screen, and can hide while the agent uses another app. Event rules can wake a conversation in the background. SQLite keeps full transcripts; choose old-exchange trimming or summary compaction with an output reserve. Read [chat setup and controls](docs/embedded-chat.md).
 
 ## Configure it
 

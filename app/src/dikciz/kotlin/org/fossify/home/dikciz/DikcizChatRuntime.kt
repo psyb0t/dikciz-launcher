@@ -33,7 +33,7 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
     private val lastEvents = mutableMapOf<String, Long>()
     private val queueLock = Any()
     @Volatile private var configuredRules = emptyList<JSONObject>()
-    @Volatile private var ownerMcp: ((String, JSONObject) -> JSONObject)? = null
+    @Volatile private var ownerMcp: ((String, JSONObject, Boolean) -> JSONObject)? = null
     @Volatile private var active: Job? = null
     @Volatile private var activeConversation: String? = null
     @Volatile private var activeTurnID: String? = null
@@ -66,7 +66,7 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
         }
     }
 
-    fun attachMcp(call: ((String, JSONObject) -> JSONObject)?) { ownerMcp = call }
+    fun attachMcp(call: ((String, JSONObject, Boolean) -> JSONObject)?) { ownerMcp = call }
     fun observe(observer: () -> Unit) { observers.add(observer) }
     fun unobserve(observer: () -> Unit) { observers.remove(observer) }
     fun changed() { handler.post { observers.forEach { it() } } }
@@ -110,22 +110,21 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
             "profiles" -> JSONObject().put("profiles", store.profiles())
             "profileSave" -> store.saveProfile(DikcizChatSettings.validate(request.getJSONObject("profile")))
             "models" -> discoverModels(request.getString("profileId"))
-            "create" -> store.createConversation(request.getString("profileId"), request.optString("title", "New conversation"))
+            "create" -> store.createConversation(request.getString("profileId"), request.optString("title", "New conversation"), request.optJSONObject("settings") ?: JSONObject())
             "list" -> DikcizNativeCommands.page(store.conversations(), request)
             "read" -> {
                 val conversation = store.conversation(id)
                 val messages = DikcizNativeCommands.page(store.displayMessages(id), request)
-                JSONObject().put("conversation", conversation).put("messages", messages)
+                JSONObject().put("conversation", conversation).put("messages", messages).put("settings", store.settings(id).getJSONObject("settings"))
             }
             "rename" -> {
                 store.updateConversation(id, ContentValues().apply { put("title", request.getString("title")) })
                 store.conversation(id)
             }
-            "configure" -> {
+            "settings" -> store.settings(id)
+            "configure" -> synchronized(queueLock) {
                 requireIdle(id)
-                store.profile(request.getString("profileId"))
-                store.updateConversation(id, ContentValues().apply { put("profile_id", request.getString("profileId")) })
-                store.conversation(id)
+                store.configure(id, request.optString("profileId").takeIf(String::isNotBlank), request.optJSONObject("settings") ?: JSONObject())
             }
             "delete" -> {
                 requireIdle(id)
@@ -137,9 +136,8 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
                 context.startForegroundService(Intent(context, DikcizAutomationService::class.java))
                 JSONObject().put("deleted", true)
             }
-            "send" -> {
-                val conversation = store.conversation(id)
-                store.profile(conversation.getString("profile_id"))
+            "send" -> synchronized(queueLock) {
+                store.effectiveProfile(id, requireModel = true)
                 val result = store.enqueue(id, request.getString("text"), request.getString("requestKey"), "owner")
                 DikcizChatService.start(context)
                 result
@@ -191,6 +189,7 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
 
     private fun saveRules(id: String, rules: JSONArray): JSONObject {
         store.conversation(id)
+        if (rules.length() > 0) store.effectiveProfile(id, requireModel = true)
         if (rules.length() > MAXIMUM_RULES) DikcizNativeCommands.invalid("Too many event rules")
         val config = HomeConfigStore(context).loadOrCreate()
         val identities = mutableSetOf<String>()
@@ -268,12 +267,13 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
         var credential = ""
         logger.info("chat_turn_started", mapOf("turn_id" to turnID))
         try {
-            val profile = store.profile(store.conversation(id).getString("profile_id"))
+            val profile = store.effectiveProfile(id, requireModel = true)
             credential = profile.optString("apiKey")
+            val readOnly = profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY)
             withTimeout(profile.getLong("timeoutMilliseconds")) {
                 DikcizChatAgent(store, { method, params ->
-                    ownerMcp?.invoke(method, params) ?: DikcizNativeCommands.failure("chat_mcp_unavailable", "Open Dikciz Home to reconnect its local MCP tools")
-                }, ::changed, logger).run(queued)
+                    ownerMcp?.invoke(method, params, readOnly) ?: DikcizNativeCommands.failure("chat_mcp_unavailable", "Open Dikciz Home to reconnect its local MCP tools")
+                }, ::changed, logger).run(queued, profile)
             }
         } catch (exception: TimeoutCancellationException) {
             store.interruptTurn(turnID, "failed")

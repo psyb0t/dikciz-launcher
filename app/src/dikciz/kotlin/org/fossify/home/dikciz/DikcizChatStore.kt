@@ -23,13 +23,17 @@ internal class DikcizChatStore(context: Context) : SQLiteOpenHelper(context, DAT
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE profiles (id TEXT PRIMARY KEY, document TEXT NOT NULL, credential TEXT NOT NULL)")
-        db.execSQL("CREATE TABLE conversations (id TEXT PRIMARY KEY, title TEXT NOT NULL, profile_id TEXT NOT NULL REFERENCES profiles(id), summary TEXT NOT NULL DEFAULT '', covered INTEGER NOT NULL DEFAULT 0, unread INTEGER NOT NULL DEFAULT 0, subscriptions TEXT NOT NULL DEFAULT '[]', updated INTEGER NOT NULL)")
+        db.execSQL("CREATE TABLE conversations (id TEXT PRIMARY KEY, title TEXT NOT NULL, profile_id TEXT NOT NULL REFERENCES profiles(id), summary TEXT NOT NULL DEFAULT '', covered INTEGER NOT NULL DEFAULT 0, unread INTEGER NOT NULL DEFAULT 0, subscriptions TEXT NOT NULL DEFAULT '[]', settings TEXT NOT NULL DEFAULT '{}', updated INTEGER NOT NULL)")
         db.execSQL("CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, turn_id TEXT NOT NULL, role TEXT NOT NULL, state TEXT NOT NULL, document TEXT NOT NULL DEFAULT '', blocks TEXT NOT NULL DEFAULT '[]', request_key TEXT UNIQUE)")
         db.execSQL("CREATE INDEX messages_conversation ON messages(conversation_id,id)")
         db.execSQL("CREATE INDEX messages_pending ON messages(state,id)")
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion == 1 && newVersion == 2) {
+            db.execSQL("ALTER TABLE conversations ADD COLUMN settings TEXT NOT NULL DEFAULT '{}'")
+            return
+        }
         error("Unsupported chat database upgrade: $oldVersion to $newVersion")
     }
 
@@ -68,11 +72,11 @@ internal class DikcizChatStore(context: Context) : SQLiteOpenHelper(context, DAT
         return safe
     }
 
-    fun createConversation(profileID: String, title: String): JSONObject {
-        profile(profileID)
+    fun createConversation(profileID: String, title: String, settings: JSONObject = JSONObject()): JSONObject {
+        DikcizChatSettings.resolve(profile(profileID), settings)
         val id = UUID.randomUUID().toString()
         writableDatabase.insertOrThrow("conversations", null, ContentValues().apply {
-            put("id", id); put("title", title); put("profile_id", profileID); put("updated", System.currentTimeMillis())
+            put("id", id); put("title", title); put("profile_id", profileID); put("settings", settings.toString()); put("updated", System.currentTimeMillis())
         })
         return conversation(id)
     }
@@ -81,6 +85,36 @@ internal class DikcizChatStore(context: Context) : SQLiteOpenHelper(context, DAT
 
     fun conversation(id: String): JSONObject = rows("SELECT * FROM conversations WHERE id=?", arrayOf(id)).firstOrNull()
         ?: DikcizNativeCommands.failure("chat_conversation_missing", "Conversation does not exist")
+
+    fun effectiveProfile(id: String, requireModel: Boolean = false): JSONObject {
+        val conversation = conversation(id)
+        return DikcizChatSettings.resolve(
+            profile(conversation.getString("profile_id")), JSONObject(conversation.getString("settings")), requireModel,
+        )
+    }
+
+    fun settings(id: String): JSONObject {
+        val current = conversation(id)
+        val profile = effectiveProfile(id)
+        return JSONObject().put("settings", DikcizChatSettings.execution(profile))
+            .put("overrides", JSONObject(current.getString("settings")))
+            .put("profileId", current.getString("profile_id")).put("protocol", profile.getString("protocol"))
+    }
+
+    @Synchronized
+    fun configure(id: String, profileID: String?, patch: JSONObject): JSONObject {
+        val current = conversation(id)
+        val selected = profileID ?: current.getString("profile_id")
+        val overrides = if (selected != current.getString("profile_id")) {
+            JSONObject().put(DikcizChatSettings.KEY_READ_ONLY, effectiveProfile(id).getBoolean(DikcizChatSettings.KEY_READ_ONLY))
+        } else {
+            JSONObject(current.getString("settings"))
+        }
+        patch.keys().forEach { name -> overrides.put(name, patch.get(name)) }
+        DikcizChatSettings.resolve(profile(selected), overrides)
+        updateConversation(id, ContentValues().apply { put("profile_id", selected); put("settings", overrides.toString()) })
+        return conversation(id)
+    }
 
     fun messages(id: String): List<JSONObject> {
         conversation(id)
@@ -184,7 +218,7 @@ internal class DikcizChatStore(context: Context) : SQLiteOpenHelper(context, DAT
 
     private companion object {
         const val DATABASE = "dikciz-chat.sqlite"
-        const val VERSION = 1
+        const val VERSION = 2
         const val KEY_ALIAS = "dikciz-chat-credentials"
         const val CIPHER = "AES/GCM/NoPadding"
         const val TAG_BITS = 128
