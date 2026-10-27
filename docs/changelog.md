@@ -2,6 +2,12 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.30.2] - 2026-10-27
+
+### Fixed
+
+- Update Android Lab to 0.15.0, using Ubuntu tool images with a fixed package snapshot so clean CI builds no longer depend on obsolete Alpine package pins.
+
 ## [0.30.1] - 2026-10-27
 
 ### Added
