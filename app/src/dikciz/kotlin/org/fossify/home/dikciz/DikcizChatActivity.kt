@@ -16,6 +16,9 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.Spinner
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -316,7 +319,16 @@ internal class DikcizChatActivity : Activity() {
     }
 
     private fun editProfile(existing: JSONObject?) {
-        val initial = existing ?: JSONObject().put("protocol", "openai").put("baseUrl", "https://api.openai.com/v1")
+        val initial = existing ?: JSONObject()
+            .put("name", PROVIDER_TEMPLATES.first().label)
+            .put("protocol", PROVIDER_TEMPLATES.first().protocol)
+            .put("baseUrl", PROVIDER_TEMPLATES.first().baseUrl)
+        var selectedTemplate = PROVIDER_TEMPLATES.indexOfFirst {
+            it.baseUrl != null && it.baseUrl == initial.optString("baseUrl").trimEnd('/') &&
+                it.protocol == initial.optString("protocol")
+        }.takeIf { it >= 0 } ?: PROVIDER_TEMPLATES.lastIndex
+        var customUrl = if (selectedTemplate == PROVIDER_TEMPLATES.lastIndex) initial.optString("baseUrl") else ""
+        var customProtocol = initial.optString("protocol", "openai")
         val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)) }
         val inputs = linkedMapOf<String, EditText>()
         val fields = listOf(
@@ -341,6 +353,46 @@ internal class DikcizChatActivity : Activity() {
                 }
                 body.addView(this)
             }
+        }
+        val templatePicker = Spinner(this).apply {
+            contentDescription = "Provider template"
+            adapter = ArrayAdapter(
+                this@DikcizChatActivity,
+                android.R.layout.simple_spinner_dropdown_item,
+                PROVIDER_TEMPLATES.map { it.label },
+            )
+            setSelection(selectedTemplate)
+        }
+        body.addView(textView().apply { text = "Provider template"; textSize = 12f; setTextColor(MUTED) }, 0)
+        body.addView(templatePicker, 1)
+        fun updateConnectionFields() {
+            val isCustom = PROVIDER_TEMPLATES[selectedTemplate].baseUrl == null
+            inputs.getValue("protocol").isEnabled = isCustom
+            inputs.getValue("baseUrl").isEnabled = isCustom
+        }
+        updateConnectionFields()
+        templatePicker.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (position == selectedTemplate) return
+                val previous = PROVIDER_TEMPLATES[selectedTemplate]
+                if (previous.baseUrl == null) {
+                    customUrl = inputs.getValue("baseUrl").text.toString()
+                    customProtocol = inputs.getValue("protocol").text.toString()
+                }
+                val selected = PROVIDER_TEMPLATES[position]
+                val name = inputs.getValue("name")
+                if (name.text.isBlank() || name.text.toString() == previous.label) {
+                    name.setText(if (selected.baseUrl == null) "" else selected.label)
+                }
+                inputs.getValue("protocol").setText(selected.protocol ?: customProtocol)
+                inputs.getValue("baseUrl").setText(selected.baseUrl ?: customUrl)
+                // A typed key must not follow a template switch to another endpoint.
+                inputs.getValue("apiKey").setText("")
+                selectedTemplate = position
+                updateConnectionFields()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
         }
         val scroller = ScrollView(this).apply { contentDescription = "Chat provider form"; addView(body) }
         val dialog = AlertDialog.Builder(this).setTitle("Provider settings").setView(scroller)
@@ -456,7 +508,14 @@ internal class DikcizChatActivity : Activity() {
         }
     }
 
+    private data class ProviderTemplate(val label: String, val protocol: String?, val baseUrl: String?)
+
     private companion object {
+        val PROVIDER_TEMPLATES = listOf(
+            ProviderTemplate("OpenAI", "openai", "https://api.openai.com/v1"),
+            ProviderTemplate("Anthropic", "anthropic", "https://api.anthropic.com/v1"),
+            ProviderTemplate("Custom", null, null),
+        )
         const val BACKGROUND = 0xFF111725.toInt()
         const val ACCENT = 0xFFF6C85F.toInt()
         const val ERROR = 0xFFFF9696.toInt()

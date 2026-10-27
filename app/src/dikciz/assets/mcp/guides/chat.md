@@ -12,6 +12,8 @@ Actions:
 - `status`, `show`, `fullscreen`, `hide`; show/fullscreen accept conversationId.
 - `subscribe` with conversationId/rules. Read guides/chat-events.
 
+The native Add provider form offers OpenAI, Anthropic and Custom templates. Standard templates fill the official base URL and protocol. Custom accepts your own base URL and either compatible protocol. Templates are form shortcuts; profileSave still takes name/protocol/baseUrl/apiKey. Switching templates clears a key typed into the form.
+
 Profile example, replace placeholders:
 
 ```json

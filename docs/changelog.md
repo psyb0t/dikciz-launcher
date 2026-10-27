@@ -2,6 +2,12 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.30.1] - 2026-10-27
+
+### Added
+
+- OpenAI, Anthropic and Custom templates in the chat provider form, with standard URLs and protocols filled automatically and editable connection fields for custom hosts.
+
 ## [0.30.0] - 2026-10-25
 
 ### Added

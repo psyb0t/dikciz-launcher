@@ -6,7 +6,7 @@ The native panel renders streamed Markdown, including headings, lists, code fenc
 
 ## Connect a provider
 
-Open **Settings**, then **Add provider**. Enter a provider name, protocol, API base URL and API key once. Create or select a conversation using that connection, then use the **Chat model** dropdown to choose from its API catalogue. **Refresh chat models** fetches the current list again. Each conversation can choose a different model from the same provider without copying its connection or key. If discovery is unavailable or a private model is not listed, enter its exact ID under **Model settings**. A conversation without a model cannot send messages or enable event rules.
+Open **Settings**, then **Add provider**. Choose **OpenAI**, **Anthropic** or **Custom** from **Provider template**. OpenAI and Anthropic fill their standard API base URL and protocol. Custom lets you enter your own HTTP or HTTPS base URL and choose the compatible protocol. Enter the API key and save the connection. Switching templates clears any key typed into the form; existing saved keys still follow the host/protocol retention rules below. Create or select a conversation using that connection, then use the **Chat model** dropdown to choose from its API catalogue. **Refresh chat models** fetches the current list again. Each conversation can choose a different model from the same provider without copying its connection or key. If discovery is unavailable or a private model is not listed, enter its exact ID under **Model settings**. A conversation without a model cannot send messages or enable event rules.
 
 | Setting | Behavior |
 | --- | --- |
