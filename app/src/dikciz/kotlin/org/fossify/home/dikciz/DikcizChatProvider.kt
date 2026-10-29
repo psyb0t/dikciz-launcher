@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.collect
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -63,10 +65,44 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
         OpenAILLMClient(profile.optString("apiKey"), OpenAIClientSettings(baseUrl = baseURL, timeoutConfig = timeout), factory)
     }
 
-    suspend fun models(): JSONArray = JSONArray(client.models().map { candidate ->
-        JSONObject().put("id", candidate.id).put("contextTokens", candidate.contextLength)
-            .put("maxOutputTokens", candidate.maxOutputTokens)
-    })
+    suspend fun models(): JSONArray = withTimeout(profile.getLong("timeoutMilliseconds")) {
+        val headers = if (isAnthropic) mapOf(
+            "x-api-key" to profile.optString("apiKey"),
+            "anthropic-version" to AnthropicClientSettings().apiVersion,
+        ) else mapOf("Authorization" to "Bearer ${profile.optString("apiKey")}")
+        val discovery = factory.create(
+            clientName = "dikciz-model-discovery",
+            baseUrl = baseURL,
+            headers = headers,
+            queryParameters = emptyMap(),
+            requestTimeoutMillis = timeout.requestTimeoutMillis,
+            connectTimeoutMillis = timeout.connectTimeoutMillis,
+            socketTimeoutMillis = timeout.socketTimeoutMillis,
+            json = Json { ignoreUnknownKeys = true },
+        )
+        val models = linkedMapOf<String, JSONObject>()
+        val cursors = mutableSetOf<String>()
+        var parameters = emptyMap<String, String>()
+        try {
+            repeat(MAXIMUM_MODEL_PAGES) {
+                val page = JSONObject(discovery.get("v1/models", JsonObject::class, parameters).toString())
+                val data = page.getJSONArray("data")
+                require(data.length() <= MAXIMUM_MODELS) { "Model page is too large" }
+                for (index in 0 until data.length()) {
+                    val model = DikcizChatModelLimits.providerModel(data.getJSONObject(index))
+                    models[model.getString("id")] = model
+                }
+                require(models.size <= MAXIMUM_MODELS) { "Too many provider models" }
+                if (!page.optBoolean("has_more", false)) return@withTimeout JSONArray(models.values.toList())
+                val cursor = page.optString("last_id").ifBlank { data.optJSONObject(data.length() - 1)?.optString("id").orEmpty() }
+                require(cursor.isNotBlank() && cursor.length <= 2048 && cursors.add(cursor)) { "Invalid model page cursor" }
+                parameters = mapOf((if (isAnthropic) "after_id" else "after") to cursor)
+            }
+            error("Too many model pages")
+        } finally {
+            discovery.close()
+        }
+    }
 
     suspend fun stream(
         messages: List<Message>,
@@ -181,6 +217,8 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
     override fun close() { client.close(); transport.close() }
 
     companion object {
+        private const val MAXIMUM_MODEL_PAGES = 20
+        private const val MAXIMUM_MODELS = 2000
         private const val CONNECTION_TIMEOUT_MILLISECONDS = 60000L
         val JSON = Json { ignoreUnknownKeys = true }
         fun identity(profile: JSONObject): String = profile.getString("protocol") + ":" + profile.getString("baseUrl").trimEnd('/') + ":" + profile.getString("model")

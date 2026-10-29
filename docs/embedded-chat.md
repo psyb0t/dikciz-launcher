@@ -8,14 +8,18 @@ The native panel renders streamed Markdown, including headings, lists, code fenc
 
 Open **Settings**, then **Add provider**. Choose **OpenAI**, **Anthropic** or **Custom** from **Provider template**. OpenAI and Anthropic fill their standard API base URL and protocol. Custom lets you enter your own HTTP or HTTPS base URL and choose the compatible protocol. Enter the API key and save the connection. Switching templates clears any key typed into the form; existing saved keys still follow the host/protocol retention rules below. Create or select a conversation using that connection, then use the **Chat model** dropdown to choose from its API catalogue. **Refresh chat models** fetches the current list again. Each conversation can choose a different model from the same provider without copying its connection or key. If discovery is unavailable or a private model is not listed, enter its exact ID under **Model settings**. A conversation without a model cannot send messages or enable event rules.
 
+Model limits come first from provider discovery, then from the bundled exact-ID catalog. OpenAI's Models API does not report token limits, so its documented models use that catalog. Anthropic and compatible hosts can supply context and output metadata directly. Unknown IDs show unavailable limits and keep manual budgets. Discovery follows all bounded model pages; refreshing discovery or opening a conversation never rewrites its saved budgets. Cached provider limits survive launcher restarts and are invalidated when the connection is edited.
+
+The native model settings show the known context/output ceilings. Selecting a model or typing a known ID fills its context size. The editable reply reserve stays at the current value when it fits; it is reduced when needed to leave room for the safety margin and summary. An inherited thinking budget that no longer fits is disabled. Providing explicit context/output values in `create` or `configure` keeps those values. Re-selecting a known model without token fields restores its context default. A separate documented input ceiling also bounds outbound chat and summary requests.
+
 | Setting | Behavior |
 | --- | --- |
 | Protocol | `openai` uses streaming Chat Completions; `anthropic` uses streaming Messages. These are wire protocols, including compatible hosts. |
 | API base URL | Owner-selected HTTP or HTTPS host, optionally ending in `/v1`. Use HTTPS for public providers. HTTP supports private local/VPN endpoints. Credentials in the URL, query strings and fragments are rejected; redirects are disabled. |
 | API key | Stored separately from public profile data, encrypted with Android Keystore AES-GCM. Reads omit it. Blank in an existing profile's UI retains the key. An explicit empty `apiKey` in the API clears it. Changing host or protocol without explicitly supplying a replacement clears the old key. |
 | Read-only phone access | Boolean `readOnly`, default `false`. Filters tool discovery and enforces access in the executor for this conversation. |
-| Model ID | Per-conversation model selected in the API-backed dropdown or entered manually. Model changes retain that conversation's budgets; discovery metadata never silently overwrites them. |
-| Total context tokens | Combined input and output allowance, default `131072`. Set it to the actual model limit. |
+| Model ID | Per-conversation model selected in the API-backed dropdown or entered manually. Selecting a known model fills its context window and clamps the current reply reserve to its output ceiling and available input space. Explicit context/output values in the same request win. Unknown models retain the current budgets. |
+| Total context tokens | Combined input and output allowance, filled from known model limits when selecting a model. Unknown models start at `131072`; manual values remain editable. |
 | Maximum output | Actual provider output cap and reserved reply allowance, default `4096`. |
 | Context policy | `drop-oldest` or `summarize`. See below. |
 | Summary model | Optional model ID at the same provider. Blank uses the chat model. It must support the configured context size. |

@@ -8,6 +8,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import java.security.KeyStore
+import java.security.MessageDigest
 import java.util.UUID
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -17,6 +18,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal class DikcizChatStore(context: Context) : SQLiteOpenHelper(context, DATABASE, null, VERSION) {
+    private val modelLimits = DikcizChatModelLimits(context)
+
     init { setWriteAheadLoggingEnabled(true) }
 
     override fun onConfigure(db: SQLiteDatabase) { db.setForeignKeyConstraintsEnabled(true) }
@@ -27,14 +30,17 @@ internal class DikcizChatStore(context: Context) : SQLiteOpenHelper(context, DAT
         db.execSQL("CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, turn_id TEXT NOT NULL, role TEXT NOT NULL, state TEXT NOT NULL, document TEXT NOT NULL DEFAULT '', blocks TEXT NOT NULL DEFAULT '[]', request_key TEXT UNIQUE)")
         db.execSQL("CREATE INDEX messages_conversation ON messages(conversation_id,id)")
         db.execSQL("CREATE INDEX messages_pending ON messages(state,id)")
+        createModelCatalog(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        if (oldVersion == 1 && newVersion == 2) {
-            db.execSQL("ALTER TABLE conversations ADD COLUMN settings TEXT NOT NULL DEFAULT '{}'")
-            return
-        }
-        error("Unsupported chat database upgrade: $oldVersion to $newVersion")
+        check(oldVersion in 1..2 && newVersion == VERSION) { "Unsupported chat database upgrade: $oldVersion to $newVersion" }
+        if (oldVersion < 2) db.execSQL("ALTER TABLE conversations ADD COLUMN settings TEXT NOT NULL DEFAULT '{}'")
+        createModelCatalog(db)
+    }
+
+    private fun createModelCatalog(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE model_catalog (profile_id TEXT PRIMARY KEY REFERENCES profiles(id), endpoint TEXT NOT NULL, document TEXT NOT NULL)")
     }
 
     fun recoverInterruptedTurns() {
@@ -51,6 +57,7 @@ internal class DikcizChatStore(context: Context) : SQLiteOpenHelper(context, DAT
         return JSONObject(row.getString("document")).put("apiKey", decrypt(row.getString("credential")))
     }
 
+    @Synchronized
     fun saveProfile(document: JSONObject): JSONObject {
         val safe = JSONObject(document.toString())
         val id = safe.optString("id").ifBlank { UUID.randomUUID().toString() }
@@ -69,14 +76,51 @@ internal class DikcizChatStore(context: Context) : SQLiteOpenHelper(context, DAT
             values.put("id", id)
             writableDatabase.insertOrThrow("profiles", null, values)
         }
+        writableDatabase.delete("model_catalog", "profile_id=?", arrayOf(id))
         return safe
     }
 
+    @Synchronized
+    fun rememberModels(profileID: String, expectedEndpoint: String, models: JSONArray): JSONArray {
+        val provider = profile(profileID)
+        if (endpoint(provider) != expectedEndpoint) DikcizNativeCommands.failure("chat_profile_changed", "Provider changed during discovery. Refresh its models.")
+        writableDatabase.insertWithOnConflict("model_catalog", null, ContentValues().apply {
+            put("profile_id", profileID); put("endpoint", expectedEndpoint); put("document", models.toString())
+        }, SQLiteDatabase.CONFLICT_REPLACE).also { check(it != -1L) { "Could not save model discovery" } }
+        return JSONArray((0 until models.length()).map { index ->
+            val model = models.getJSONObject(index)
+            modelLimits.describe(provider.getString("protocol"), model.getString("id"), model)
+        })
+    }
+
+    fun endpoint(provider: JSONObject): String {
+        val keyFingerprint = MessageDigest.getInstance("SHA-256").digest(provider.optString("apiKey").toByteArray())
+            .joinToString("") { "%02x".format(it) }
+        return listOf(provider.getString("protocol"), provider.getString("baseUrl"), keyFingerprint).joinToString("\n")
+    }
+
+    fun limits(provider: JSONObject, model: String = provider.optString("model")): JSONObject {
+        val cached = rows("SELECT document FROM model_catalog WHERE profile_id=? AND endpoint=?", arrayOf(provider.getString("id"), endpoint(provider)))
+            .firstOrNull()?.let { JSONArray(it.getString("document")) }
+        val discovered = cached?.let { data -> (0 until data.length()).map(data::getJSONObject).firstOrNull { it.getString("id") == model } }
+        return modelLimits.describe(provider.getString("protocol"), model, discovered)
+    }
+
+    fun inputBudget(provider: JSONObject, output: Int): Int {
+        val known = limits(provider)
+        val context = minOf(provider.getInt("contextTokens"), DikcizChatModelLimits.positive(known.opt("contextTokens")) ?: provider.getInt("contextTokens"))
+        val input = DikcizChatModelLimits.positive(known.opt("maxInputTokens")) ?: context
+        return minOf(context - output, input) - provider.getInt("safetyMarginTokens")
+    }
+
     fun createConversation(profileID: String, title: String, settings: JSONObject = JSONObject()): JSONObject {
-        DikcizChatSettings.resolve(profile(profileID), settings)
+        val provider = profile(profileID)
+        val requested = JSONObject(settings.toString()).put("model", settings.opt("model") ?: provider.optString("model"))
+        val selected = modelLimits.selection(provider, requested, limits(provider, requested.optString("model")))
+        DikcizChatSettings.resolve(provider, selected)
         val id = UUID.randomUUID().toString()
         writableDatabase.insertOrThrow("conversations", null, ContentValues().apply {
-            put("id", id); put("title", title); put("profile_id", profileID); put("settings", settings.toString()); put("updated", System.currentTimeMillis())
+            put("id", id); put("title", title); put("profile_id", profileID); put("settings", selected.toString()); put("updated", System.currentTimeMillis())
         })
         return conversation(id)
     }
@@ -99,6 +143,7 @@ internal class DikcizChatStore(context: Context) : SQLiteOpenHelper(context, DAT
         return JSONObject().put("settings", DikcizChatSettings.execution(profile))
             .put("overrides", JSONObject(current.getString("settings")))
             .put("profileId", current.getString("profile_id")).put("protocol", profile.getString("protocol"))
+            .put("modelLimits", limits(profile))
     }
 
     @Synchronized
@@ -110,8 +155,12 @@ internal class DikcizChatStore(context: Context) : SQLiteOpenHelper(context, DAT
         } else {
             JSONObject(current.getString("settings"))
         }
-        patch.keys().forEach { name -> overrides.put(name, patch.get(name)) }
-        DikcizChatSettings.resolve(profile(selected), overrides)
+        val provider = profile(selected)
+        val initial = JSONObject(provider.toString())
+        overrides.keys().forEach { name -> initial.put(name, overrides.get(name)) }
+        val requested = modelLimits.selection(initial, patch, limits(provider, patch.optString("model", initial.optString("model"))))
+        requested.keys().forEach { name -> overrides.put(name, requested.get(name)) }
+        DikcizChatSettings.resolve(provider, overrides)
         updateConversation(id, ContentValues().apply { put("profile_id", selected); put("settings", overrides.toString()) })
         return conversation(id)
     }
@@ -218,7 +267,7 @@ internal class DikcizChatStore(context: Context) : SQLiteOpenHelper(context, DAT
 
     private companion object {
         const val DATABASE = "dikciz-chat.sqlite"
-        const val VERSION = 2
+        const val VERSION = 3
         const val KEY_ALIAS = "dikciz-chat-credentials"
         const val CIPHER = "AES/GCM/NoPadding"
         const val TAG_BITS = 128

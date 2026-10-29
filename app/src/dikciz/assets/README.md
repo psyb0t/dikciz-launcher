@@ -6,6 +6,7 @@ These assets provide the starter home and authoring libraries packaged with the 
 | --- | --- |
 | `config.json` | Complete starter document that `HomeConfigStore` expands into root, page, widget, script and automation files. |
 | `web/page-api.js` | Native bridge API injected into HTML widget documents. |
+| `chat-model-limits.json` | Exact-ID token limits with source links for chat discovery and automatic model settings. Provider metadata takes precedence. |
 | `mcp/` | Small documentation resources served from an exact catalog, beginning with [the task index](mcp/index.md). These remain packaged assets rather than editable runtime copies. |
 | `widget-library/` | Complete packages that the picker adds as new HTML widgets with their own native grid placement. |
 | `themes/` | Bundled theme JSON discovered and installed by `DikcizThemeStore`. |

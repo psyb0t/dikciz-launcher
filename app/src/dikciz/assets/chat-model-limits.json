@@ -1,0 +1,566 @@
+{
+  "verifiedAt": "2026-10-28T10:44:29.666147+00:00",
+  "openai": {
+    "chat-latest": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/chat-latest",
+      "maxInputTokens": 272000
+    },
+    "codex-mini-latest": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 100000,
+      "source": "https://developers.openai.com/api/docs/models/codex-mini-latest"
+    },
+    "gpt-3.5-turbo": {
+      "contextTokens": 16385,
+      "maxOutputTokens": 4096,
+      "source": "https://developers.openai.com/api/docs/models/gpt-3.5-turbo"
+    },
+    "gpt-4": {
+      "contextTokens": 8192,
+      "maxOutputTokens": 8192,
+      "source": "https://developers.openai.com/api/docs/models/gpt-4"
+    },
+    "gpt-4-turbo": {
+      "contextTokens": 128000,
+      "maxOutputTokens": 4096,
+      "source": "https://developers.openai.com/api/docs/models/gpt-4-turbo"
+    },
+    "gpt-4-turbo-preview": {
+      "contextTokens": 128000,
+      "maxOutputTokens": 4096,
+      "source": "https://developers.openai.com/api/docs/models/gpt-4-turbo-preview"
+    },
+    "gpt-4.1": {
+      "contextTokens": 1047576,
+      "maxOutputTokens": 32768,
+      "source": "https://developers.openai.com/api/docs/models/gpt-4.1"
+    },
+    "gpt-4.1-2025-04-14": {
+      "contextTokens": 1047576,
+      "maxOutputTokens": 32768,
+      "source": "https://developers.openai.com/api/docs/models/gpt-4.1"
+    },
+    "gpt-4.1-mini": {
+      "contextTokens": 1047576,
+      "maxOutputTokens": 32768,
+      "source": "https://developers.openai.com/api/docs/models/gpt-4.1-mini"
+    },
+    "gpt-4.1-mini-2025-04-14": {
+      "contextTokens": 1047576,
+      "maxOutputTokens": 32768,
+      "source": "https://developers.openai.com/api/docs/models/gpt-4.1-mini"
+    },
+    "gpt-4.1-nano": {
+      "contextTokens": 1047576,
+      "maxOutputTokens": 32768,
+      "source": "https://developers.openai.com/api/docs/models/gpt-4.1-nano"
+    },
+    "gpt-4.5-preview": {
+      "contextTokens": 128000,
+      "maxOutputTokens": 16384,
+      "source": "https://developers.openai.com/api/docs/models/gpt-4.5-preview"
+    },
+    "gpt-4o": {
+      "contextTokens": 128000,
+      "maxOutputTokens": 16384,
+      "source": "https://developers.openai.com/api/docs/models/gpt-4o"
+    },
+    "gpt-4o-2024-08-06": {
+      "contextTokens": 128000,
+      "maxOutputTokens": 16384,
+      "source": "https://developers.openai.com/api/docs/models/gpt-4o"
+    },
+    "gpt-4o-2024-11-20": {
+      "contextTokens": 128000,
+      "maxOutputTokens": 16384,
+      "source": "https://developers.openai.com/api/docs/models/gpt-4o"
+    },
+    "gpt-4o-mini": {
+      "contextTokens": 128000,
+      "maxOutputTokens": 16384,
+      "source": "https://developers.openai.com/api/docs/models/gpt-4o-mini"
+    },
+    "gpt-4o-mini-2024-07-18": {
+      "contextTokens": 128000,
+      "maxOutputTokens": 16384,
+      "source": "https://developers.openai.com/api/docs/models/gpt-4o-mini"
+    },
+    "gpt-4o-mini-search-preview": {
+      "contextTokens": 128000,
+      "maxOutputTokens": 16384,
+      "source": "https://developers.openai.com/api/docs/models/gpt-4o-mini-search-preview"
+    },
+    "gpt-4o-search-preview": {
+      "contextTokens": 128000,
+      "maxOutputTokens": 16384,
+      "source": "https://developers.openai.com/api/docs/models/gpt-4o-search-preview"
+    },
+    "gpt-5": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5",
+      "maxInputTokens": 272000
+    },
+    "gpt-5-2025-08-07": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5",
+      "maxInputTokens": 272000
+    },
+    "gpt-5-chat-latest": {
+      "contextTokens": 128000,
+      "maxOutputTokens": 16384,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5-chat-latest",
+      "maxInputTokens": 272000
+    },
+    "gpt-5-codex": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5-codex",
+      "maxInputTokens": 272000
+    },
+    "gpt-5-mini": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5-mini",
+      "maxInputTokens": 272000
+    },
+    "gpt-5-mini-2025-08-07": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5-mini",
+      "maxInputTokens": 272000
+    },
+    "gpt-5-nano": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5-nano",
+      "maxInputTokens": 272000
+    },
+    "gpt-5-nano-2025-08-07": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5-nano",
+      "maxInputTokens": 272000
+    },
+    "gpt-5-pro": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 272000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5-pro"
+    },
+    "gpt-5-pro-2025-10-06": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 272000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5-pro"
+    },
+    "gpt-5.1": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.1"
+    },
+    "gpt-5.1-2025-11-13": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.1"
+    },
+    "gpt-5.1-chat-latest": {
+      "contextTokens": 128000,
+      "maxOutputTokens": 16384,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.1-chat-latest",
+      "maxInputTokens": 272000
+    },
+    "gpt-5.1-codex": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.1-codex"
+    },
+    "gpt-5.1-codex-max": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.1-codex-max"
+    },
+    "gpt-5.1-codex-mini": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.1-codex-mini"
+    },
+    "gpt-5.2": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.2"
+    },
+    "gpt-5.2-2025-12-11": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.2"
+    },
+    "gpt-5.2-chat-latest": {
+      "contextTokens": 128000,
+      "maxOutputTokens": 16384,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.2-chat-latest",
+      "maxInputTokens": 272000
+    },
+    "gpt-5.2-codex": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.2-codex",
+      "maxInputTokens": 272000
+    },
+    "gpt-5.2-pro": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.2-pro"
+    },
+    "gpt-5.2-pro-2025-12-11": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.2-pro"
+    },
+    "gpt-5.3-chat-latest": {
+      "contextTokens": 128000,
+      "maxOutputTokens": 16384,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.3-chat-latest",
+      "maxInputTokens": 272000
+    },
+    "gpt-5.3-codex": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.3-codex",
+      "maxInputTokens": 272000
+    },
+    "gpt-5.4": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.4"
+    },
+    "gpt-5.4-2026-03-05": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.4"
+    },
+    "gpt-5.4-mini": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.4-mini",
+      "maxInputTokens": 272000
+    },
+    "gpt-5.4-mini-2026-03-17": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.4-mini",
+      "maxInputTokens": 272000
+    },
+    "gpt-5.4-nano": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.4-nano",
+      "maxInputTokens": 272000
+    },
+    "gpt-5.4-nano-2026-03-17": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.4-nano",
+      "maxInputTokens": 272000
+    },
+    "gpt-5.4-pro": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.4-pro"
+    },
+    "gpt-5.4-pro-2026-03-05": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.4-pro"
+    },
+    "gpt-5.5": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.5"
+    },
+    "gpt-5.5-2026-04-23": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.5"
+    },
+    "gpt-5.5-pro": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.5-pro"
+    },
+    "gpt-5.5-pro-2026-04-23": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.5-pro"
+    },
+    "gpt-5.6-cyber": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-cyber",
+      "maxInputTokens": 272000
+    },
+    "gpt-5.6-luna": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+      "maxInputTokens": 922000
+    },
+    "gpt-5.6-sol": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+      "maxInputTokens": 922000
+    },
+    "gpt-5.6-terra": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+      "maxInputTokens": 922000
+    },
+    "gpt-6-astra": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-6-astra",
+      "maxInputTokens": 922000
+    },
+    "gpt-6-luna": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-6-luna",
+      "maxInputTokens": 922000
+    },
+    "gpt-6-sol": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-6-sol",
+      "maxInputTokens": 922000
+    },
+    "gpt-6.1-sol": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-6.1-sol",
+      "maxInputTokens": 922000
+    },
+    "gpt-6.1-terra": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-6.1-terra",
+      "maxInputTokens": 922000
+    },
+    "gpt-daybreak-blue-latest": {
+      "contextTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-daybreak-blue-latest",
+      "maxInputTokens": 922000
+    },
+    "gpt-daybreak-red-latest": {
+      "contextTokens": 400000,
+      "maxOutputTokens": 128000,
+      "source": "https://developers.openai.com/api/docs/models/gpt-daybreak-red-latest",
+      "maxInputTokens": 272000
+    },
+    "gpt-oss-120b": {
+      "contextTokens": 131072,
+      "maxOutputTokens": 131072,
+      "source": "https://developers.openai.com/api/docs/models/gpt-oss-120b"
+    },
+    "gpt-oss-20b": {
+      "contextTokens": 131072,
+      "maxOutputTokens": 131072,
+      "source": "https://developers.openai.com/api/docs/models/gpt-oss-20b"
+    },
+    "o1": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 100000,
+      "source": "https://developers.openai.com/api/docs/models/o1"
+    },
+    "o1-mini": {
+      "contextTokens": 128000,
+      "maxOutputTokens": 65536,
+      "source": "https://developers.openai.com/api/docs/models/o1-mini"
+    },
+    "o1-preview": {
+      "contextTokens": 128000,
+      "maxOutputTokens": 32768,
+      "source": "https://developers.openai.com/api/docs/models/o1-preview"
+    },
+    "o1-pro": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 100000,
+      "source": "https://developers.openai.com/api/docs/models/o1-pro"
+    },
+    "o3": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 100000,
+      "source": "https://developers.openai.com/api/docs/models/o3"
+    },
+    "o3-2025-04-16": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 100000,
+      "source": "https://developers.openai.com/api/docs/models/o3"
+    },
+    "o3-deep-research": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 100000,
+      "source": "https://developers.openai.com/api/docs/models/o3-deep-research"
+    },
+    "o3-mini": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 100000,
+      "source": "https://developers.openai.com/api/docs/models/o3-mini"
+    },
+    "o3-pro": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 100000,
+      "source": "https://developers.openai.com/api/docs/models/o3-pro"
+    },
+    "o3-pro-2025-06-10": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 100000,
+      "source": "https://developers.openai.com/api/docs/models/o3-pro"
+    },
+    "o4-mini": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 100000,
+      "source": "https://developers.openai.com/api/docs/models/o4-mini"
+    },
+    "o4-mini-deep-research": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 100000,
+      "source": "https://developers.openai.com/api/docs/models/o4-mini-deep-research"
+    }
+  },
+  "anthropic": {
+    "claude-fable-5": {
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+    },
+    "claude-haiku-4-5": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 64000,
+      "source": "https://github.com/JetBrains/koog/blob/1.3.0/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt"
+    },
+    "claude-sonnet-4-0": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 64000,
+      "source": "https://github.com/JetBrains/koog/blob/1.3.0/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt"
+    },
+    "claude-sonnet-4-5": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 64000,
+      "source": "https://github.com/JetBrains/koog/blob/1.3.0/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt"
+    },
+    "claude-sonnet-4-6": {
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+    },
+    "claude-sonnet-5": {
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+    },
+    "claude-opus-4-0": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 32000,
+      "source": "https://github.com/JetBrains/koog/blob/1.3.0/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt"
+    },
+    "claude-opus-4-1": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 32000,
+      "source": "https://github.com/JetBrains/koog/blob/1.3.0/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt"
+    },
+    "claude-opus-4-5": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 64000,
+      "source": "https://github.com/JetBrains/koog/blob/1.3.0/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt"
+    },
+    "claude-opus-4-6": {
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+    },
+    "claude-opus-4-7": {
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+    },
+    "claude-opus-4-8": {
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+    },
+    "claude-opus-5": {
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+    },
+    "claude-fable-5-1": {
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+    },
+    "claude-mythos-5-1": {
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+    },
+    "claude-mythos-5": {
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+    },
+    "claude-opus-5-5": {
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+    },
+    "claude-sonnet-5-5": {
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+    },
+    "claude-haiku-5-5": {
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+    },
+    "claude-mythos-preview": {
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+    },
+    "claude-haiku-4-5-20251001": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 64000,
+      "source": "https://github.com/JetBrains/koog/blob/1.3.0/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt"
+    },
+    "claude-sonnet-4-20250514": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 64000,
+      "source": "https://github.com/JetBrains/koog/blob/1.3.0/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt"
+    },
+    "claude-sonnet-4-5-20250929": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 64000,
+      "source": "https://github.com/JetBrains/koog/blob/1.3.0/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt"
+    },
+    "claude-opus-4-20250514": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 32000,
+      "source": "https://github.com/JetBrains/koog/blob/1.3.0/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt"
+    },
+    "claude-opus-4-1-20250805": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 32000,
+      "source": "https://github.com/JetBrains/koog/blob/1.3.0/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt"
+    },
+    "claude-opus-4-5-20251101": {
+      "contextTokens": 200000,
+      "maxOutputTokens": 64000,
+      "source": "https://github.com/JetBrains/koog/blob/1.3.0/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt"
+    }
+  }
+}

@@ -165,7 +165,7 @@ internal class DikcizChatAgent(
         current: List<Message>,
         profile: JSONObject,
     ): List<Message> {
-        val budget = profile.getInt("contextTokens") - profile.getInt("maxOutputTokens") - profile.getInt("safetyMarginTokens")
+        val budget = store.inputBudget(profile, profile.getInt("maxOutputTokens"))
         val conversation = store.conversation(id)
         val summarize = profile.getString("compaction") == "summarize"
         val covered = if (summarize) conversation.getLong("covered") else 0L
@@ -198,7 +198,9 @@ internal class DikcizChatAgent(
             if (summary.isNotEmpty()) prefix.add(Message.User("Previous summary:\n$summary", RequestMetaInfo.Empty))
             var lastCovered = coveredTurn
             val summaryOutput = profile.getInt("summaryOutputTokens")
-            val summaryBudget = profile.getInt("contextTokens") - summaryOutput - profile.getInt("safetyMarginTokens")
+            val summaryProfile = JSONObject(profile.toString()).put("thinkingTokens", 0).put("reasoning", "auto")
+            profile.optString("summaryModel").takeIf(String::isNotBlank)?.let { summaryProfile.put("model", it) }
+            val summaryBudget = store.inputBudget(summaryProfile, summaryOutput)
             while (history.isNotEmpty()) {
                 val group = history.first()
                 val groupMessages = replayTurn(group, profile)
@@ -209,8 +211,6 @@ internal class DikcizChatAgent(
                 if (estimate(messages()) + summaryOutput <= budget) break
             }
             if (lastCovered == coveredTurn) error("A completed turn is too large for the summarizer's context budget")
-            val summaryProfile = JSONObject(profile.toString()).put("thinkingTokens", 0).put("reasoning", "auto")
-            profile.optString("summaryModel").takeIf(String::isNotBlank)?.let { summaryProfile.put("model", it) }
             val summaryResponse = DikcizChatProvider(summaryProfile).use { provider ->
                 provider.stream(listOf(Message.System(SUMMARY_PROMPT, RequestMetaInfo.Empty), summaryInput(prefix)), { _, _, _, _ -> }, false, summaryOutput)
             }

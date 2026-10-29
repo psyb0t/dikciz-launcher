@@ -2,6 +2,13 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.30.3] - 2026-10-29
+
+### Added
+
+- Automatic context limits for known OpenAI and Anthropic models, provider metadata with an offline model catalog, persisted model discovery and editable per-conversation token budgets.
+- Known model ceilings in native chat settings and shared settings responses, with output reserves and input ceilings respected during compaction.
+
 ## [0.30.2] - 2026-10-27
 
 ### Fixed

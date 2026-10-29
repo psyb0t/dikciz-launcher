@@ -6,6 +6,7 @@ import os
 import subprocess
 import threading
 import uuid
+import urllib.parse
 
 from . import *
 from .test_native_data import native_call, PROTOCOLS
@@ -46,10 +47,22 @@ def provider_endpoint():
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
+            entries = [dict(model) if isinstance(model, dict) else {"id": model} for model in script["models"]]
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            cursor = next(iter(query.get("after_id", query.get("after", []))), None)
+            script.setdefault("model_requests", []).append({"cursor": cursor})
+            start = next((index + 1 for index, model in enumerate(entries) if model["id"] == cursor), 0)
+            page_size = script.get("model_page_size", len(entries))
+            selected = entries[start:start + page_size]
             if self.headers.get("anthropic-version"):
-                response = {"data": [{"id": model, "type": "model", "display_name": model, "created_at": "2020-01-01T00:00:00Z"} for model in script["models"]], "first_id": next(iter(script["models"]), None), "last_id": next(iter(reversed(script["models"])), None), "has_more": False}
+                data = [{"type": "model", "display_name": model["id"], "created_at": "2020-01-01T00:00:00Z", **model} for model in selected]
             else:
-                response = {"object": "list", "data": [{"id": model, "object": "model", "created": 1, "owned_by": "fixture"} for model in script["models"]]}
+                data = [{"object": "model", "created": 1, "owned_by": "fixture", **model} for model in selected]
+            response = {"data": data, "has_more": start + len(selected) < len(entries)}
+            if selected:
+                response.update(first_id=selected[0]["id"], last_id=selected[-1]["id"])
+            if script.get("model_repeat_cursor"):
+                response.update(has_more=True, last_id="repeated-cursor")
             self.wfile.write(json.dumps(response).encode())
 
         def do_POST(self):

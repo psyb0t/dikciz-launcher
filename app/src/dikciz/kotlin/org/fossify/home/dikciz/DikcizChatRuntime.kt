@@ -180,7 +180,11 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
     private fun discoverModels(profileID: String): JSONObject {
         val profile = store.profile(profileID)
         return try {
-            runBlocking(Dispatchers.IO) { DikcizChatProvider(profile).use { JSONObject().put("models", it.models()) } }
+            runBlocking(Dispatchers.IO) {
+                DikcizChatProvider(profile).use {
+                    JSONObject().put("models", store.rememberModels(profileID, store.endpoint(profile), it.models()))
+                }
+            }
         } catch (exception: Exception) {
             logger.warn("chat_model_discovery_failed", mapOf("error_class" to exception.javaClass.simpleName))
             DikcizNativeCommands.failure("chat_provider_error", "Model discovery failed (${exception.javaClass.simpleName}). Check the host, protocol and API key, or enter a model ID manually.")

@@ -2,6 +2,8 @@ package org.fossify.home.dikciz
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.text.Editable
+import android.text.TextWatcher
 import android.text.InputType
 import android.view.Gravity
 import android.widget.ArrayAdapter
@@ -31,6 +33,8 @@ internal class DikcizChatModelControls(
         gravity = Gravity.START or Gravity.CENTER_VERTICAL
         setOnClickListener { openModels() }
     }
+    private val limits = DikcizChatModelLimits(activity)
+    private var modelRows = emptyMap<String, JSONObject>()
     private var modelNames = emptyList<String>()
     private val dropdown = ListPopupWindow(activity).apply {
         anchorView = picker
@@ -69,6 +73,7 @@ internal class DikcizChatModelControls(
         requested = false
         dropdown.dismiss()
         modelNames = emptyList()
+        modelRows = emptyMap()
     }
 
     fun update(id: String?, provider: String?, settings: JSONObject?) {
@@ -102,7 +107,8 @@ internal class DikcizChatModelControls(
         command(JSONObject().put("action", "models").put("profileId", provider)) { result ->
             if (generation != requestGeneration || conversation() != id || selectedProvider != provider) return@command
             val models = result.getJSONArray("models")
-            val names = (0 until models.length()).map { models.getJSONObject(it).getString("id") }.distinct().sorted()
+            modelRows = (0 until models.length()).map(models::getJSONObject).associateBy { it.getString("id") }
+            val names = modelRows.keys.sorted()
             modelNames = names
             dropdown.setAdapter(ArrayAdapter(activity, android.R.layout.simple_dropdown_item_1line, names))
             if (showDropdown && names.isNotEmpty()) openModels()
@@ -113,11 +119,11 @@ internal class DikcizChatModelControls(
         val id = conversation() ?: return
         command(JSONObject().put("action", "settings").put("conversationId", id)) { result ->
             if (conversation() != id) return@command
-            settingsDialog(id, result.getJSONObject("settings"), result.getString("protocol"))
+            settingsDialog(id, result.getJSONObject("settings"), result.getString("protocol"), result.getJSONObject("modelLimits"))
         }
     }
 
-    private fun settingsDialog(id: String, initial: JSONObject, protocol: String) {
+    private fun settingsDialog(id: String, initial: JSONObject, protocol: String, initialLimits: JSONObject) {
         val body = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)) }
         val readOnly = CheckBox(activity).apply {
             text = "Read-only phone access"
@@ -167,6 +173,40 @@ internal class DikcizChatModelControls(
             inputs[name] = input
             body.addView(input)
         }
+        val limitInfo = TextView(activity).apply {
+            setTextColor(MUTED)
+            textSize = 12f
+            contentDescription = "Known model token limits"
+        }
+        body.addView(limitInfo, 0)
+        fun showLimits(known: JSONObject) {
+            val context = DikcizChatModelLimits.positive(known.opt("contextTokens"))
+            val output = DikcizChatModelLimits.positive(known.opt("maxOutputTokens"))
+            limitInfo.text = if (context == null && output == null) {
+                "Model limits unavailable. Set token budgets manually."
+            } else {
+                "Known limits: context ${context ?: "unknown"}, output ${output ?: "unknown"}. Reply reserve stays editable."
+            }
+        }
+        showLimits(initialLimits)
+        var previousModel = initial.optString("model")
+        inputs.getValue("model").addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(text: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(text: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(text: Editable?) {
+                val model = text.toString()
+                if (model == previousModel) return
+                previousModel = model
+                val known = limits.describe(protocol, model, modelRows[model])
+                showLimits(known)
+                val current = JSONObject(initial.toString())
+                for (field in NUMBER_FIELDS) inputs[field]?.text?.toString()?.toIntOrNull()?.let { current.put(field, it) }
+                val selected = limits.selection(current, JSONObject().put("model", model), known)
+                for (field in listOf("contextTokens", "maxOutputTokens", "thinkingTokens")) {
+                    if (selected.has(field)) inputs.getValue(field).setText(selected.get(field).toString())
+                }
+            }
+        })
         val scroller = ScrollView(activity).apply { contentDescription = "Chat model settings form"; addView(body) }
         val dialog = AlertDialog.Builder(activity).setTitle("Model and token settings").setView(scroller)
             .setPositiveButton("Save", null).setNegativeButton("Cancel", null).create()
