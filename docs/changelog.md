@@ -2,6 +2,25 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.30.7] - 2026-11-02
+
+### Added
+
+- Public Android SDK discovery and typed calls through MCP, HTTP, WebSocket, HTML and Lua, with exact overloads, object handles, callbacks and process-scoped idempotency keys. Android permissions and documented bridge restrictions still apply.
+- SIM own-number reads with per-number availability and targeted permission review. Missing number access preserves the existing SIM metadata.
+- Packaged MCP guides for SDK calls, SIM access and assistant tool contracts.
+
+### Changed
+
+- Separate chat quick tasks from the transcript with outlined buttons, a divider and a padded message viewport.
+- Include the installed tool schema in rejected assistant calls and distinguish saved conversation access from temporary screen-explanation restrictions.
+
+### Fixed
+
+- Read-only agents cannot discover write tools or unaudited SDK members. Forced writes and permission prompts fail before execution, including mutations attempted through the SDK read command.
+- A settings patch containing only readOnly:true can restrict an active conversation immediately. Each tool call rechecks access; other settings changes still require stopping the turn.
+- Screen explanations preserve the conversation access setting, so a temporary read-only turn does not disable writes for later ordinary messages.
+
 ## [0.30.6] - 2026-11-02
 
 ### Added

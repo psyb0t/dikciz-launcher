@@ -1,13 +1,14 @@
 """Native chat geometry, keyboard, empty state and notification presentation."""
 
 import shutil
+import threading
 import time
 
 from . import *
 from . import test_chat_agent as agent
 from .test_chat_agent import provider_endpoint
-from .test_chat_background import chat_notification_access, active_notification, LONG_RESPONSE
-from .ui import direct_tap, direct_enter_text, direct_hide_keyboard, physical_nodes, physical_description_text, wait_for_physical_description_bounds, wait_for_physical_text_bounds
+from .test_chat_background import chat_notification_access, active_notification, hide_chat, ACTIVE_TITLE, LONG_RESPONSE
+from .ui import direct_tap, direct_enter_text, direct_hide_keyboard, physical_nodes, node_bounds, physical_description_text, wait_for_physical_description_bounds, wait_for_physical_text_bounds
 
 
 def capture(name):
@@ -15,8 +16,28 @@ def capture(name):
     shutil.copyfile(agent.ARTIFACT_DIRECTORY / "screenshot.png", agent.ARTIFACT_DIRECTORY / name)
 
 
+def expand_working_notification():
+    deadline = time.monotonic() + agent.TURN_TIMEOUT
+    while time.monotonic() < deadline:
+        nodes = physical_nodes()
+        if any(node.get("text") == "Stop" for node in nodes):
+            return
+        for parent in reversed(nodes):
+            descendants = list(parent.iter("node"))
+            if not any(node.get("text") == ACTIVE_TITLE for node in descendants):
+                continue
+            expand = next((node for node in descendants if node.get("content-desc") == "Expand"
+                           and node.get("resource-id") == "android:id/expand_button"), None)
+            if expand is not None:
+                direct_tap(node_bounds(expand))
+                break
+        time.sleep(0.1)
+    raise AssertionError("The working notification did not expose Stop after expansion")
+
+
 def test_chat_presentation_sheet_keyboard_and_notification(websocket_control, provider_endpoint, chat_notification_access):
     _, script, _ = provider_endpoint
+    text_gate = threading.Event()
     _, identifier = agent.conversation(provider_endpoint[0])
     old_keyboard = agent.device_command("settings get secure show_ime_with_hard_keyboard").strip()
     script.update(text="# Ready when you are\n\n**Markdown works while streaming.**\n\n- Inspect a screen\n- Build a widget\n- Stop from the notification\n\n| Control | Purpose |\n| --- | --- |\n| Tune | Model settings |\n| Arrow | Send a message |")
@@ -49,17 +70,19 @@ def test_chat_presentation_sheet_keyboard_and_notification(websocket_control, pr
         assert physical_description_text("Chat message") == "Draft stays here"
         capture("chat-sheet-keyboard.png")
         direct_hide_keyboard()
-        script.update(text=LONG_RESPONSE, delay=0.04)
+        script.update(text=LONG_RESPONSE, delay=0.04, text_gate=text_gate)
         agent.send(identifier, "Keep working while the panel is hidden.")
-        agent.chat("hide")
+        hide_chat()
         active_notification()
         agent.device_command("cmd statusbar expand-notifications")
+        expand_working_notification()
         stop_bounds = wait_for_physical_text_bounds("Stop")
         capture("chat-progress-notification.png")
         direct_tap(stop_bounds)
         agent.wait_turn(identifier, "cancelled")
         agent.device_command("cmd statusbar collapse")
     finally:
+        text_gate.set()
         if old_keyboard == "null":
             agent.device_command("settings delete secure show_ime_with_hard_keyboard")
         else:

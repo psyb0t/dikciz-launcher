@@ -1,0 +1,42 @@
+[
+  {
+    "group": "com.linkedin.dexmaker",
+    "name": "dexmaker",
+    "version": "2.28.6",
+    "artifact": "dexmaker-2.28.6.jar",
+    "sha256": "fdb1d3632c66694ed4cd3445cd86da70286f93b55d613e30361abec6d23404ac",
+    "url": "https://repo.maven.apache.org/maven2/com/linkedin/dexmaker/dexmaker/2.28.6/dexmaker-2.28.6.jar"
+  },
+  {
+    "group": "com.linkedin.dexmaker",
+    "name": "dexmaker",
+    "version": "2.28.6",
+    "artifact": "dexmaker-2.28.6.pom",
+    "sha256": "55908b1a653507317704c4738bcc52df09d755ee446a7f00aaa3dbf6d9160ccb",
+    "url": "https://repo.maven.apache.org/maven2/com/linkedin/dexmaker/dexmaker/2.28.6/dexmaker-2.28.6.pom"
+  },
+  {
+    "group": "com.linkedin.dexmaker",
+    "name": "dexmaker",
+    "version": "2.28.6",
+    "artifact": "dexmaker-2.28.6.module",
+    "sha256": "ab57600b8a453d5f91cb603075b7870ace6d050e3a2b58cdd63462c4987f5e35",
+    "url": "https://repo.maven.apache.org/maven2/com/linkedin/dexmaker/dexmaker/2.28.6/dexmaker-2.28.6.module"
+  },
+  {
+    "group": "com.jakewharton.android.repackaged",
+    "name": "dalvik-dx",
+    "version": "9.0.0_r3",
+    "artifact": "dalvik-dx-9.0.0_r3.jar",
+    "sha256": "b29c1c21e52ed6238cd3fed39d880a17ecf2360118604548cea8821be6801e1c",
+    "url": "https://repo.maven.apache.org/maven2/com/jakewharton/android/repackaged/dalvik-dx/9.0.0_r3/dalvik-dx-9.0.0_r3.jar"
+  },
+  {
+    "group": "com.jakewharton.android.repackaged",
+    "name": "dalvik-dx",
+    "version": "9.0.0_r3",
+    "artifact": "dalvik-dx-9.0.0_r3.pom",
+    "sha256": "d2db0401ef7ce6e83bf2d5fcd0129625d16dbf5181d4901dde037d40f218aafb",
+    "url": "https://repo.maven.apache.org/maven2/com/jakewharton/android/repackaged/dalvik-dx/9.0.0_r3/dalvik-dx-9.0.0_r3.pom"
+  }
+]

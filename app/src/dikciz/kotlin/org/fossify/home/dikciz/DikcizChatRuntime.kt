@@ -147,8 +147,11 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
             }
             "settings" -> store.settings(id)
             "configure" -> synchronized(queueLock) {
-                requireIdle(id)
-                store.configure(id, request.optString("profileId").takeIf(String::isNotBlank), request.optJSONObject("settings") ?: JSONObject())
+                val settings = request.optJSONObject("settings") ?: JSONObject()
+                val restrictOnly = !request.has("profileId") && settings.length() == 1 &&
+                    settings.opt(DikcizChatSettings.KEY_READ_ONLY) == true
+                if (!restrictOnly) requireIdle(id)
+                store.configure(id, request.optString("profileId").takeIf(String::isNotBlank), settings)
             }
             "delete" -> {
                 requireIdle(id)
@@ -320,10 +323,10 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
             val screenTask = JSONArray(queued.getString("blocks")).getJSONObject(0)
                 .optJSONObject(DikcizChatTasks.KEY_TASK)?.optString(DikcizChatTasks.KEY_KIND) == DikcizChatTasks.EXPLAIN_SCREEN
             val readOnly = screenTask || profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY)
-            if (screenTask) profile.put(DikcizChatSettings.KEY_READ_ONLY, true)
             withTimeout(profile.getLong("timeoutMilliseconds")) {
                 DikcizChatAgent(store, { method, params ->
-                    ownerMcp?.invoke(method, params, readOnly) ?: DikcizNativeCommands.failure("chat_mcp_unavailable", "Open Dikciz Home to reconnect its local MCP tools")
+                    val currentReadOnly = readOnly || store.effectiveProfile(id).getBoolean(DikcizChatSettings.KEY_READ_ONLY)
+                    ownerMcp?.invoke(method, params, currentReadOnly) ?: DikcizNativeCommands.failure("chat_mcp_unavailable", "Open Dikciz Home to reconnect its local MCP tools")
                 }, ::changed, logger, ::captureTaskScreen, ::reportActivity).run(queued, profile)
             }
         } catch (exception: TimeoutCancellationException) {

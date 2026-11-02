@@ -25,6 +25,8 @@ from typing import Any, Iterator
 
 MAXIMUM_HARDWARE_TIMEOUT_MILLISECONDS = 300_000
 HARDWARE_COMMAND_TIMEOUTS = {
+    "androidApiRead": ("timeoutMilliseconds", 30000),
+    "androidApiInvoke": ("timeoutMilliseconds", 30000),
     "microphoneStreamStart": ("startupTimeoutMilliseconds", 30000),
     "microphoneStreamRead": ("waitMilliseconds", 0),
     "ussdRequest": ("timeoutMilliseconds", 30000),
@@ -52,6 +54,8 @@ HARDWARE_COMMAND_TIMEOUTS = {
     "speechSpeak": ("timeoutMilliseconds", 30000),
 }
 HARDWARE_MCP_COMMANDS = {
+    "dikciz_android_api_read": "androidApiRead",
+    "dikciz_android_api_invoke": "androidApiInvoke",
     "dikciz_microphone_stream_start": "microphoneStreamStart",
     "dikciz_microphone_stream_read": "microphoneStreamRead",
     "dikciz_ussd_request": "ussdRequest",

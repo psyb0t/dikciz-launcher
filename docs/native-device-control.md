@@ -77,7 +77,7 @@ Read permitted SMS history through `contentQuery` resource `sms`. Android can sa
 
 | Command | MCP tool | Behavior |
 | --- | --- | --- |
-| `simList` | `dikciz_sim_list` | Active subscription IDs, slots, display/carrier names and default SMS SIM. No numbers or private SIM identifiers. |
+| `simList` | `dikciz_sim_list` | Active subscription IDs, slots, display/carrier names, own phone numbers with availability status, and default SMS SIM. Private SIM identifiers are not returned. |
 | `callControl` | `dikciz_call_control` | `action` is `state`, `place`, `answer` or `end`. Place requires `recipient` and reports acceptance, not connection. Android may restrict call control by role. |
 | `clipboardGet` | `dikciz_clipboard_get` | Plain text and availability. Android can restrict background reads. |
 | `clipboardSet` | `dikciz_clipboard_set` | Required plain `text`, including an empty string. |
@@ -85,6 +85,10 @@ Read permitted SMS history through `contentQuery` resource `sms`. Android can sa
 | `notificationsList` | `dikciz_notifications_list` | Current notification text and short-lived action tokens through the connected listener. |
 | `mediaSessionsList` | `dikciz_media_sessions_list` | Active packages, playback state, position and bounded track metadata. |
 | `deviceState` | `dikciz_device_state` | Screen/keyguard, battery/charging, power save, volume, ringer and connectivity state. |
+
+`simList` adds `phoneNumber` (string or null) and `phoneNumberStatus` for each subscription. Status is `available`, `unavailable` when Android supplies no number or its telephony service is temporarily unavailable, `permission_required`, `access_denied` for an Android restriction, or `unsupported`. `phoneNumberPermissionGranted` reports the runtime grant independently of whether Android supplies a number. It uses `SubscriptionManager.getPhoneNumber(subscriptionId)` on Android 13+ and the subscription number on older Android. Carrier data is not guaranteed present, correctly formatted or verified; an empty result is never replaced with an invented value.
+
+Listing SIM metadata requires `READ_PHONE_STATE`; numbers additionally require `READ_PHONE_NUMBERS`. Missing number access preserves SIM metadata and adds the shared `permissionRequest` for `phoneNumbers`. `autoRequestPermissions:true` opts into owner review for those read permissions, without requesting call placement or answering access. Explicit recovery is `requestDeviceAccess` with `requirementId:"phoneNumbers"`. Retry after the actual grant. These results and recovery apply to MCP, HTTP, WebSocket, HTML and Lua through the shared executor.
 
 SIM, notification and media lists accept page fields. Existing typed actions control notifications, media, volume, intents and locking. Existing subscriptions provide sensors, live location, Health Connect, Bluetooth and other events programmatically.
 

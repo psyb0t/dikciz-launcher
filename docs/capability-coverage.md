@@ -23,12 +23,16 @@ This table describes dedicated Dikciz operations. Generic intents, shell and Acc
 | Notifications | Listing, content events, plain actions, dismiss, snooze and inline reply | Additional Android notification-policy capabilities. |
 | Media | Session listing/events and typed controls | Network playback, platform-wide routing and richer external-session controls. |
 | Contacts/calendar | Bounded provider queries, writes and atomic same-provider batches | Additional provider fields/resources when explicitly supported. |
-| SMS/telephony | SMS history, tracked idempotent SMS sends, SIM inventory, call state/place/answer/end, call-history reads and one-shot USSD with callback/deadline outcomes | MMS, interactive USSD, richer call lifecycle/in-call controls and radio diagnostics. |
+| SMS/telephony | SMS history, tracked idempotent SMS sends, SIM inventory and own-number reads with explicit availability, call state/place/answer/end, call-history reads and one-shot USSD with callback/deadline outcomes | MMS, interactive USSD, richer call lifecycle/in-call controls and radio diagnostics. |
 | Files | Paginated listing, chunk read/write, directory creation, binary HTTP transfer, stat/copy/move/delete/search and credential-path restrictions | Document-provider workflows and recursive copy. |
 | Packages | App discovery/icons/actions, package inspection, standalone APK install/status and launcher handoff | Split APKs, install cancellation and richer component inspection. |
 | Display/UI | Launcher and actual-display screenshots, semantic/Accessibility controls and gestures | Screen video/streaming and OCR/barcode/document recognition. |
 | Operations | Persistent WebSocket events, Lua/background sources, shell streams, per-operation statuses and durable command jobs with idempotency, cancellation and reconnectable results, plus process-owned automation-event replay | General command-progress delivery and durable event acknowledgements. |
 | SOS | Location and tracked SMS primitives | Contact selection, missed check-ins, explicit trigger/cancel and coordinated emergency workflow. |
+
+## Public SDK coverage
+
+The [SDK bridge](android-sdk.md) supplements the dedicated operations above with a pinned public API catalogue, typed exact-overload calls, object handles and callback proxies. Discovery reports runtime availability and bridge exclusions. Read-only conversations hide write tools and members, while execution rejects forged writes before permissions or invocation. This inventory does not relabel dedicated remaining features as fully implemented or device-tested.
 
 ## Platform-restricted work
 

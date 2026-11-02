@@ -173,6 +173,11 @@ internal enum class DikcizDeviceAccessRequirement(
         DikcizDeviceAccessKind.RuntimePermission,
         R.string.dikciz_automation_grant_heart_rate_sensor,
     ),
+    PhoneNumbers(
+        "phoneNumbers",
+        DikcizDeviceAccessKind.RuntimePermission,
+        R.string.dikciz_device_access_phone_numbers,
+    ),
 }
 
 internal data class DikcizDeviceAccessEntry(
@@ -329,6 +334,11 @@ internal object DikcizDeviceAccess {
             DikcizDeviceAccessRequirement.Calendar -> listOf(
                 Manifest.permission.READ_CALENDAR,
                 Manifest.permission.WRITE_CALENDAR,
+            )
+
+            DikcizDeviceAccessRequirement.PhoneNumbers -> listOf(
+                Manifest.permission.READ_PHONE_STATE,
+                Manifest.permission.READ_PHONE_NUMBERS,
             )
 
             DikcizDeviceAccessRequirement.Telephony -> listOf(

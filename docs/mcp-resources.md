@@ -6,7 +6,7 @@ Dikciz packages short operating guides and recipes in the APK. MCP clients can d
 
 Initialization advertises `capabilities.resources: {}` and instructions pointing to the index. `resources/list` returns at most eight descriptors, each with `uri`, `name`, `title`, `description`, `mimeType` and UTF-8 byte `size`. Follow the opaque `nextCursor` until it is absent. Do not synthesize or alter cursors.
 
-Call `resources/read` with one exact URI. It returns one `text/markdown` content record. Every section is at most 4096 UTF-8 bytes. A read does not bundle linked sections automatically. The 51 resources include connection, permissions, UI, apps, pages, HTML, Lua, events, files, shell, logs, security, native Android data, sensors, location, camera, microphone, speech and focused recipes. Separate resources cover feature access and typed actions for state/events, device operations and Accessibility. The contact/SMS recipe covers direct lookup, SIM selection, duplicate protection and receipts. The custom-event example splits setup, Lua source and HTML source into separate resources.
+Call `resources/read` with one exact URI. It returns one `text/markdown` content record. Every section is at most 4096 UTF-8 bytes. A read does not bundle linked sections automatically. The 54 resources include connection, permissions, UI, apps, pages, HTML, Lua, events, files, shell, logs, security, native Android data, sensors, location, camera, microphone, speech and focused recipes. Separate resources cover feature access and typed actions for state/events, device operations and Accessibility. The contact/SMS recipe covers direct lookup, SIM selection, duplicate protection and receipts. The custom-event example splits setup, Lua source and HTML source into separate resources.
 
 ```json
 {"method":"resources/read","params":{"uri":"dikciz://docs/recipes/event-setup"}}
@@ -14,7 +14,7 @@ Call `resources/read` with one exact URI. It returns one `text/markdown` content
 
 This shows the method and parameters only. A real request needs the JSON-RPC envelope and its protocol mode: modern request metadata/routing headers, or a negotiated legacy session. Existing clients handle those details. `resources/templates/list` returns an empty template list. These packaged resources do not advertise subscriptions or list-change notifications.
 
-Chat has separate resources for [operation](../app/src/dikciz/assets/mcp/guides/chat.md), [context budgets](../app/src/dikciz/assets/mcp/guides/chat-context.md) and [event rules](../app/src/dikciz/assets/mcp/guides/chat-events.md).
+SIM reads have a dedicated [numbers and permissions guide](../app/src/dikciz/assets/mcp/guides/sim.md). The assistant has a [tool-contract and access guide](../app/src/dikciz/assets/mcp/guides/chat-tools.md). Chat also has separate resources for [operation](../app/src/dikciz/assets/mcp/guides/chat.md), [context budgets](../app/src/dikciz/assets/mcp/guides/chat-context.md) and [event rules](../app/src/dikciz/assets/mcp/guides/chat-events.md).
 
 ## Use the supplied client
 
@@ -37,3 +37,5 @@ Resource requests use the existing bearer, browser-Origin and protocol-mode chec
 These are MCP resource methods. HTTP and WebSocket command APIs retain the shared command contract described in [automation control](automation-control.md). See [connection setup](automation-control.md#connect-without-usb) and the [source map](../app/src/dikciz/README.md) for transport and implementation details.
 
 Speech recognition and hardware controls have separate focused guides. Read `dikciz://docs/guides/speech` for recognition modes and cancellation, or `dikciz://docs/guides/hardware-controls` for torch, vibration, settings and device inventories.
+
+The [public SDK resource](../app/src/dikciz/assets/mcp/guides/android-sdk.md) covers exact signatures, typed values, callbacks, runtime restrictions and both read-only enforcement layers.

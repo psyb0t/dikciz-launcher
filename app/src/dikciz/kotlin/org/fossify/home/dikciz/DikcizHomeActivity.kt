@@ -271,12 +271,24 @@ class DikcizHomeActivity : Activity() {
             override fun execute(command: DikcizAutomationCommand): JSONObject {
                 return try {
                     DikcizActivityLaunches.capture { executeAutomationCommand(command) }.also { result ->
+                        if (command.type == DikcizNativeCommands.TYPE_SIM_LIST &&
+                            !result.optBoolean(DikcizSimSubscriptions.KEY_NUMBER_PERMISSION_GRANTED)
+                        ) {
+                            result.put(DikcizPermissionRequests.KEY_RECOVERY,
+                                permissionRequests.request(DikcizDeviceAccessRequirement.PhoneNumbers, command.autoRequestPermissions))
+                        }
                         if (result.optString("state") == "permission_required" && command.type == DikcizFileCommands.TYPE_APK_INSTALL) {
                             result.put(DikcizPermissionRequests.KEY_RECOVERY, permissionRequests.request(DikcizDeviceAccessRequirement.InstallPackages, command.autoRequestPermissions))
                         }
                     }
                 } catch (exception: DikcizAutomationRequestException) {
-                    val recovery = permissionRequests.forFailure(exception.code, command.autoRequestPermissions)
+                    val recovery = if (command.type == DikcizNativeCommands.TYPE_SIM_LIST &&
+                        exception.code == DikcizSimSubscriptions.ERROR_PHONE_STATE_PERMISSION
+                    ) {
+                        permissionRequests.request(DikcizDeviceAccessRequirement.PhoneNumbers, command.autoRequestPermissions)
+                    } else {
+                        permissionRequests.forFailure(exception.code, command.autoRequestPermissions)
+                    }
                     if (recovery == null) throw exception
                     throw DikcizAutomationRequestException(exception.code, exception.message.orEmpty(), recovery)
                 }

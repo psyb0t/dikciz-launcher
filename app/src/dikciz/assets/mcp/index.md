@@ -1,8 +1,10 @@
 # Dikciz task index
 
-Fetch sections as needed with resources/read and the exact URI. Each is at most 4 KiB. Follow resources/list nextCursor, eight entries per page. Content ships with this APK; tools/list and dikciz_control_status describe its commands and limits.
+Read one section at a time. Follow resources/list nextCursor; use tools/list for schemas.
 
 ## Guides
+
+- [SDK](dikciz://docs/guides/android-sdk): public APIs and access.
 
 - [Connection](dikciz://docs/guides/connect): addresses, authentication and sessions.
 - [Discovery](dikciz://docs/guides/discovery): versions and response envelopes.
@@ -19,6 +21,9 @@ Fetch sections as needed with resources/read and the exact URI. Each is at most 
 - [Shell](dikciz://docs/guides/shell): deadlines, privileges and streaming.
 - [Logs](dikciz://docs/guides/logging): diagnosis and retention.
 - [Security](dikciz://docs/guides/security): access boundaries and credentials.
+
+- [SIM numbers](dikciz://docs/guides/sim): numbers and access.
+- [Chat contracts](dikciz://docs/guides/chat-tools): parameters and access.
 
 - [Native data](dikciz://docs/guides/native-data): contacts, SMS, calendars, calls and system state.
 
@@ -63,4 +68,4 @@ Chat: [operation](dikciz://docs/guides/chat), [context](dikciz://docs/guides/cha
 - [Restart and reconnect](dikciz://docs/recipes/restart).
 - [Change listener endpoints](dikciz://docs/recipes/listener).
 
-Verify saved state, the current window or terminal operation status. Permission prompts require owner review and explicit retry.
+Verify actual outcomes. Permission prompts need owner review and explicit retry.

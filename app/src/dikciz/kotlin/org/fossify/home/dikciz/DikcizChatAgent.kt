@@ -35,11 +35,12 @@ internal class DikcizChatAgent(
         val user = Message.User(parts, RequestMetaInfo.Empty)
         store.updateMessage(queued.getLong("id"), "running", DikcizChatProvider.encode(user))
         val current = mutableListOf<Message>(user)
-        val access = if (profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY)) "Read-only mode is enabled. Only exposed read tools may run. Writes, control actions and permission prompts are blocked by the executor. Ask the owner to change model settings if a requested task needs write access." else ""
-        val system = Message.System(DikcizChatSettings.SYSTEM_PROMPT + "\n" + access + "\n" + profile.optString("systemPrompt") + "\n" + DikcizChatTasks.instructions(task), RequestMetaInfo.Empty)
         DikcizChatProvider(profile).use { provider ->
             repeat(profile.getInt("maximumRounds")) { round ->
                 currentCoroutineContext().ensureActive()
+                val access = accessContext(profile, task, conversationID)
+                val system = Message.System(DikcizChatSettings.SYSTEM_PROMPT + "\n" + profile.optString("systemPrompt") +
+                    "\n" + DikcizChatTasks.instructions(task) + "\nCurrent launcher access context:\n" + access, RequestMetaInfo.Empty)
                 val context = context(conversationID, queued.getLong("id"), system, current, profile)
                 val blocks = JSONArray()
                 val blockIndices = mutableMapOf<Pair<String, Int?>, Int>()
@@ -78,7 +79,7 @@ internal class DikcizChatAgent(
                     currentCoroutineContext().ensureActive()
                     val toolBlocks = JSONArray().put(JSONObject().put("kind", "toolResult").put("name", call.tool).put("text", "Executing"))
                     val resultRow = store.append(conversationID, turnID, "tool", "executing", "", toolBlocks)
-                    val result = try {
+                    val rawResult = try {
                         invoke(call)
                     } catch (exception: DikcizAutomationRequestException) {
                         JSONObject().put("isError", true).put("code", exception.code).put("message", exception.message)
@@ -90,6 +91,7 @@ internal class DikcizChatAgent(
                     } catch (_: org.json.JSONException) {
                         toolError("validation_failed", argumentGuidance(call.tool))
                     }
+                    val result = withToolContract(call, rawResult)
                     if (result.optBoolean("isError")) {
                         logger.warn("chat_tool_rejected", mapOf("turn_id" to turnID, "tool" to call.tool, "code" to result.optString("code")))
                     }
@@ -105,6 +107,34 @@ internal class DikcizChatAgent(
             }
         }
         error("Maximum tool rounds reached. Inspect the completed operations before continuing.")
+    }
+
+    private fun accessContext(profile: JSONObject, task: JSONObject?, conversationID: String): JSONObject {
+        val savedReadOnly = store.effectiveProfile(conversationID).getBoolean(DikcizChatSettings.KEY_READ_ONLY)
+        val startedReadOnly = profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY)
+        val screenTask = task?.optString(DikcizChatTasks.KEY_KIND) == DikcizChatTasks.EXPLAIN_SCREEN
+        return JSONObject()
+            .put("conversationReadOnly", savedReadOnly)
+            .put("turnReadOnly", savedReadOnly || screenTask || startedReadOnly)
+            .put("reason", if (savedReadOnly) "conversation_setting" else if (screenTask) "screen_explanation" else if (startedReadOnly) "turn_started_read_only" else "writable_conversation")
+            .put("writeAccessResumesNextTurn", (screenTask || startedReadOnly) && !savedReadOnly)
+    }
+
+    private fun withToolContract(call: MessagePart.Tool.Call, result: JSONObject): JSONObject {
+        if (call.tool != "phone_call" || !result.optBoolean("isError")) return result
+        val arguments = try {
+            DikcizChatToolArguments.parse(call.args)
+        } catch (_: org.json.JSONException) {
+            return result
+        }
+        val name = arguments.opt("name") as? String ?: return result
+        val tools = mcp("tools/list", JSONObject()).getJSONArray("tools")
+        val descriptor = (0 until tools.length()).map(tools::getJSONObject).firstOrNull { it.getString("name") == name }
+        if (descriptor == null) {
+            return result.put("guidance", "This tool is not exposed for the current turn. Discover available tools with phone_tools; do not invent a replacement name or assume Android permission is missing.")
+        }
+        return result.put("toolContract", descriptor)
+            .put("guidance", "This is the current installed tool contract. Follow its inputSchema, including required fields, types, enums and nested objects. Correct validation errors before retrying. For permission or execution errors, follow the actual returned status; inspect uncertain outcomes before repeating any side effect.")
     }
 
     private fun toolError(code: String, message: String): JSONObject = JSONObject()

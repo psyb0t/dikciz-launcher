@@ -112,7 +112,7 @@ internal class DikcizPermissionRequests(
             DikcizFileCommands.ERROR_ACCESS_DENIED -> DikcizDeviceAccessRequirement.SharedStorage
             "device_admin_inactive" -> DikcizDeviceAccessRequirement.DeviceAdministration
             "root_unavailable" -> return request(DikcizDeviceAccessRequirement.RootShell, autoShow)
-            else -> return null
+            else -> DikcizDeviceAccessRequirement.entries.firstOrNull { code == "native_permission_" + it.persistedValue } ?: return null
         }
         if (DikcizDeviceAccess.state(context, requirement) != DikcizDeviceAccessState.NeedsSetup) return null
         return request(requirement, autoShow)

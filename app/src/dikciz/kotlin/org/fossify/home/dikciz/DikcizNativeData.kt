@@ -21,13 +21,14 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.telecom.TelecomManager
-import android.telephony.SubscriptionManager
 import org.json.JSONObject
 
 internal class DikcizNativeData(
     private val context: Context,
     private val logger: DikcizLogger,
 ) {
+    private val androidSdk = DikcizAndroidSdkBridge.get(context, logger)
+    private val simSubscriptions = DikcizSimSubscriptions(context, logger)
     private val bluetoothControl = DikcizBluetoothControl(context, logger)
     private val gattControl = DikcizGattControl(context, logger, bluetoothControl::permittedAdapter)
     private val nfcControl = DikcizNfcControl(context, logger)
@@ -54,6 +55,7 @@ internal class DikcizNativeData(
         DikcizNativeCommands.validate(command.type, command.request, true)
         try {
             val result = when (command.type) {
+                in DikcizAndroidSdkCommands.TYPES -> androidSdk.execute(command)
                 DikcizChatCommands.TYPE -> {
                     DikcizChatCommands.validate(command.request)
                     DikcizChatRuntime.get(context).execute(command.request)
@@ -83,7 +85,7 @@ internal class DikcizNativeData(
                 DikcizNativeCommands.TYPE_BATCH -> content.write(command.request, true)
                 DikcizNativeCommands.TYPE_SMS_SEND -> DikcizSmsStatus.send(context, command.request)
                 DikcizNativeCommands.TYPE_SMS_STATUS -> DikcizSmsStatus.status(context, command.request)
-                DikcizNativeCommands.TYPE_SIM_LIST -> subscriptions(command.request)
+                DikcizNativeCommands.TYPE_SIM_LIST -> simSubscriptions.read(command.request)
                 DikcizNativeCommands.TYPE_CALL -> call(command.request)
                 DikcizNativeCommands.TYPE_CLIPBOARD_GET -> clipboard()
                 DikcizNativeCommands.TYPE_CLIPBOARD_SET -> {
@@ -136,18 +138,6 @@ internal class DikcizNativeData(
             logger.error("native_command_failed", mapOf("command_type" to command.type, "error_class" to exception.javaClass.simpleName))
             throw DikcizAutomationRequestException(DikcizNativeCommands.ERROR_FAILED, "Android native operation failed; no success is confirmed").apply { initCause(exception) }
         }
-    }
-
-    private fun subscriptions(request: JSONObject): JSONObject {
-        if (context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
-                    DikcizNativeCommands.failure("native_permission_telephony", "Android phone permission is required")
-                }
-        val items = context.getSystemService(SubscriptionManager::class.java)?.activeSubscriptionInfoList.orEmpty().map { info ->
-            JSONObject().put("subscriptionId", info.subscriptionId).put("slotIndex", info.simSlotIndex)
-                .put("displayName", info.displayName?.toString()?.take(DikcizNativeCommands.MAXIMUM_TEXT) ?: JSONObject.NULL)
-                .put("carrierName", info.carrierName?.toString()?.take(DikcizNativeCommands.MAXIMUM_TEXT) ?: JSONObject.NULL)
-        }.sortedBy { it.getInt("subscriptionId") }
-        return DikcizNativeCommands.page(items, request).put("defaultSmsSubscriptionId", SubscriptionManager.getDefaultSmsSubscriptionId())
     }
 
     @Suppress("DEPRECATION")

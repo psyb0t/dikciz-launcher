@@ -18,7 +18,7 @@ Contact lookup:
 
 `dikciz_content_batch` applies up to 32 operations atomically within one provider. Optional `backReferences` maps foreign-key columns to earlier create-operation indices. Native discovery lists allowed relationships. Preserve unrelated user records.
 
-Other tools: `dikciz_sim_list`, `dikciz_call_control`, `dikciz_clipboard_get`, `dikciz_clipboard_set`, `dikciz_location_get`, `dikciz_notifications_list`, `dikciz_media_sessions_list`, `dikciz_device_state`. SIM, notification and media lists accept page fields.
+[Own SIM numbers](dikciz://docs/guides/sim): direct reads and availability. Other tools: `dikciz_call_control`, `dikciz_clipboard_get`, `dikciz_clipboard_set`, `dikciz_location_get`, `dikciz_notifications_list`, `dikciz_media_sessions_list`, `dikciz_device_state`. SIM, notification and media lists accept page fields.
 
 Location returns recent cached data or waits for a bounded fresh fix, including source, age and optional place name. timeoutMilliseconds=0 reads cache only. Android can restrict background clipboard reads and call operations. Direct sensor samples and capture commands are described in [Hardware](dikciz://docs/guides/hardware). Background event subscriptions remain available.
 

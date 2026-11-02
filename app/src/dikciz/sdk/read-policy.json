@@ -1,0 +1,174 @@
+{
+  "version": 1,
+  "default": "write",
+  "members": {
+    "java.lang.String": [
+      "length()",
+      "isEmpty()",
+      "charAt(int)",
+      "substring(int)",
+      "substring(int,int)"
+    ],
+    "java.lang.Math": [
+      "abs(int)",
+      "abs(long)",
+      "abs(double)",
+      "max(int,int)",
+      "min(int,int)",
+      "sqrt(double)",
+      "pow(double,double)"
+    ],
+    "android.os.SystemClock": [
+      "elapsedRealtime()",
+      "elapsedRealtimeNanos()",
+      "uptimeMillis()"
+    ],
+    "android.os.BatteryManager": [
+      "getIntProperty(int)",
+      "getLongProperty(int)",
+      "isCharging()",
+      "computeChargeTimeRemaining()"
+    ],
+    "android.telephony.SubscriptionManager": [
+      "getPhoneNumber(int)",
+      "getActiveSubscriptionInfoList()",
+      "getDefaultSmsSubscriptionId()",
+      "getDefaultVoiceSubscriptionId()",
+      "getActiveSubscriptionInfoCount()"
+    ],
+    "android.telephony.SubscriptionInfo": [
+      "getNumber()",
+      "getSubscriptionId()",
+      "getSimSlotIndex()",
+      "getCarrierName()",
+      "getDisplayName()",
+      "getCountryIso()",
+      "isEmbedded()"
+    ],
+    "android.content.Context": [
+      "getSystemService(java.lang.String)",
+      "getSystemService(java.lang.Class)",
+      "getContentResolver()",
+      "getPackageName()",
+      "getPackageManager()",
+      "getResources()",
+      "getApplicationContext()",
+      "getMainExecutor()"
+    ],
+    "android.app.ActivityManager": [
+      "getMemoryInfo(android.app.ActivityManager.MemoryInfo)",
+      "getMemoryClass()",
+      "getLargeMemoryClass()",
+      "isLowRamDevice()",
+      "getRunningAppProcesses()"
+    ],
+    "android.app.ActivityManager.MemoryInfo": [
+      "new()"
+    ],
+    "android.os.Debug": [
+      "getNativeHeapAllocatedSize()",
+      "getNativeHeapSize()",
+      "getNativeHeapFreeSize()",
+      "getPss()",
+      "threadCpuTimeNanos()"
+    ],
+    "android.os.Debug.MemoryInfo": [
+      "new()",
+      "getTotalPss()",
+      "getTotalPrivateDirty()",
+      "getTotalSharedDirty()",
+      "getMemoryStat(java.lang.String)",
+      "getMemoryStats()"
+    ],
+    "android.net.ConnectivityManager": [
+      "getActiveNetwork()",
+      "getNetworkCapabilities(android.net.Network)",
+      "isActiveNetworkMetered()"
+    ],
+    "android.net.NetworkCapabilities": [
+      "hasTransport(int)",
+      "hasCapability(int)",
+      "getLinkDownstreamBandwidthKbps()",
+      "getLinkUpstreamBandwidthKbps()"
+    ],
+    "android.hardware.SensorManager": [
+      "getSensorList(int)",
+      "getDynamicSensorList(int)",
+      "getDefaultSensor(int)",
+      "getDefaultSensor(int,boolean)"
+    ],
+    "android.hardware.Sensor": [
+      "getName()",
+      "getVendor()",
+      "getType()",
+      "getStringType()",
+      "getVersion()",
+      "getResolution()",
+      "getMaximumRange()",
+      "getPower()",
+      "getMinDelay()",
+      "getMaxDelay()",
+      "isWakeUpSensor()"
+    ],
+    "android.view.accessibility.AccessibilityManager": [
+      "isEnabled()",
+      "isTouchExplorationEnabled()"
+    ],
+    "android.os.StatFs": [
+      "new(java.lang.String)",
+      "getAvailableBytes()",
+      "getTotalBytes()",
+      "getFreeBytes()",
+      "getBlockSizeLong()"
+    ]
+  },
+  "fields": {
+    "android.os.Build": [
+      "*"
+    ],
+    "android.os.Build.VERSION": [
+      "*"
+    ],
+    "android.Manifest.permission": [
+      "*"
+    ],
+    "android.app.ActivityManager.MemoryInfo": [
+      "*"
+    ],
+    "android.os.Debug.MemoryInfo": [
+      "*"
+    ],
+    "android.content.pm.PackageInfo": [
+      "*"
+    ],
+    "android.content.pm.ApplicationInfo": [
+      "*"
+    ]
+  },
+  "blockedClasses": [
+    "java.lang.ClassLoader",
+    "java.lang.Runtime",
+    "java.lang.ProcessBuilder",
+    "java.lang.reflect.AccessibleObject",
+    "java.lang.reflect.Method",
+    "java.lang.reflect.Constructor",
+    "java.lang.reflect.Field",
+    "java.io.ObjectInputStream",
+    "java.io.ObjectOutputStream",
+    "dalvik.system.DexClassLoader",
+    "dalvik.system.InMemoryDexClassLoader"
+  ],
+  "blockedMembers": {
+    "java.lang.Class": [
+      "forName(java.lang.String)",
+      "forName(java.lang.String,boolean,java.lang.ClassLoader)",
+      "newInstance()"
+    ],
+    "java.lang.System": [
+      "exit(int)",
+      "load(java.lang.String)",
+      "loadLibrary(java.lang.String)",
+      "setSecurityManager(java.lang.SecurityManager)"
+    ]
+  }
+}

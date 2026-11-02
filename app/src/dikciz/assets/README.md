@@ -4,6 +4,7 @@ These assets provide the starter home and authoring libraries packaged with the 
 
 | Path | Runtime role |
 | --- | --- |
+| `android-sdk/` | Generated pinned public SDK class/member catalogue. Regenerate through `make dikciz-android-sdk`; see [SDK bridge](../../../../docs/android-sdk.md). |
 | `config.json` | Complete starter document that `HomeConfigStore` expands into root, page, widget, script and automation files. |
 | `web/page-api.js` | Native bridge API injected into HTML widget documents. |
 | `chat-model-limits.json` | Exact-ID token limits with source links for chat discovery and automatic model settings. Provider metadata takes precedence. |

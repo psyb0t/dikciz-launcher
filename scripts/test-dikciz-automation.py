@@ -471,11 +471,13 @@ NATIVE_COMMAND_FIELDS["speechSynthesize"] = NATIVE_COMMAND_FIELDS["speechSpeak"]
 NATIVE_COMMAND_FIELDS.update({"usbRequestAccess": ("deviceId",), "usbTransfer": ("deviceId", "kind", "interfaceIndex", "endpointAddress", "requestType", "request", "value", "index", "length", "dataBase64", "timeoutMilliseconds")})
 NATIVE_COMMAND_FIELDS.update({"jobStart": ("command", "idempotencyKey", "retentionHours"), "jobStatus": ("jobId",), "jobsList": ("offset", "limit"), "jobCancel": ("jobId",)})
 NATIVE_COMMAND_FIELDS.update({"notificationManage": ("action", "notificationKey", "actionToken", "text", "durationMilliseconds"), "fileManage": ("action", "path", "destination", "recursive", "query", "maximumEntries", "offset", "limit")})
+NATIVE_COMMAND_FIELDS.update({'androidApiDiscover': ('className', 'query', 'limit', 'offset'), 'androidApiRead': ('className', 'member', 'target', 'arguments', 'thread', 'timeoutMilliseconds'), 'androidApiInvoke': ('className', 'member', 'target', 'arguments', 'thread', 'timeoutMilliseconds', 'idempotencyKey'), 'androidApiObjects': ('objectRef', 'afterSequence', 'limit', 'offset'), 'androidApiRelease': ('objectRef', 'close'), 'androidApiCallback': ('className', 'returns', 'constructor', 'arguments')})
 NATIVE_READ_COMMANDS = {
     "nativeDataStatus", "contentQuery", "smsStatus", "simList", "clipboardGet",
     "sensorReadings", "cameraList", "speechVoices",
     "locationGet", "notificationsList", "mediaSessionsList", "deviceState", "appIcon",
 }
+NATIVE_READ_COMMANDS.update({"androidApiDiscover", "androidApiRead", "androidApiObjects"})
 NATIVE_READ_COMMANDS.update({"shellSessionRead", "shellSessionsList"})
 NATIVE_READ_COMMANDS.update({"speechLanguages", "speechModelStatus"})
 NATIVE_READ_COMMANDS.update({"jobStatus", "jobsList", "geocode", "gnssStatus", "nfcRead", "bluetoothScan"})
@@ -494,6 +496,7 @@ NATIVE_MCP_TOOLS = {
     "deviceState": "dikciz_device_state",
     "appIcon": "dikciz_app_icon",
 }
+NATIVE_MCP_TOOLS.update({'androidApiDiscover': 'dikciz_android_api_discover', 'androidApiRead': 'dikciz_android_api_read', 'androidApiInvoke': 'dikciz_android_api_invoke', 'androidApiObjects': 'dikciz_android_api_objects', 'androidApiRelease': 'dikciz_android_api_release', 'androidApiCallback': 'dikciz_android_api_callback'})
 NATIVE_MCP_TOOLS.update({"eventJournalStatus": "dikciz_event_journal_status", "eventJournalRead": "dikciz_event_journal_read", "eventJournalConfigure": "dikciz_event_journal_configure"})
 NATIVE_MCP_TOOLS.update({"microphoneStreamStart": "dikciz_microphone_stream_start", "microphoneStreamRead": "dikciz_microphone_stream_read", "microphoneStreamStop": "dikciz_microphone_stream_stop", "microphoneStreamsList": "dikciz_microphone_streams_list", "microphoneStreamForget": "dikciz_microphone_stream_forget"})
 NATIVE_MCP_TOOLS["ussdRequest"] = "dikciz_ussd_request"

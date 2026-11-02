@@ -28,6 +28,7 @@ readonly -a PRESERVED_FILE_PATHS=(
     .gitleaks.toml
     .dockerignore
     .fossify/README.md
+    gradle/dikciz-sdk-dependencies.json
     AGENTS.md
     CONTRIBUTING.md
     PLAN.md

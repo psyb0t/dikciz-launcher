@@ -26,6 +26,7 @@ These pytest scenarios exercise real Android UI and forwarded WebSocket, MCP and
 | `test_feedback_controls.py` | Torch callbacks and waveform/predefined haptics with real vibration-service state and cancellation. |
 | `test_event_replay.py` | Actual bus event replay, cursor/filter pagination, loss, retention, long polling, restart, revoked Android access and local bindings. |
 | `test_shell_sessions.py` | Incremental replay, binary output, process cancellation, capacity and HTML/Lua consumers. |
+| `test_sim_numbers_and_chat_contract.py` | Direct SIM numbers, targeted permission recovery and pagination across transports; live rejected-call schemas and current saved/temporary access context for both providers. |
 | `test_native_data.py` | Native provider CRUD, pagination, rollback, validation, permission recovery, SIM/state access, SMS duplicate protection and Lua/HTML commands. |
 | `test_device_files.py` | Filesystem pagination, binary transfers, HTTP security, CLI results and actual Android APK install/cancel outcomes. |
 | `test_goblin_starter.py` | Real Lua threshold/rearm/cooldown behavior, speech completion, native WebView audio/Stop, packaged picker and bounded outdoor-weather success/failure. |
@@ -70,3 +71,5 @@ DIKCIZ_GUIDE_CAPTURE=true make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=tes
 ```
 
 Images remain under `.android-lab/shared/artifacts/showcase-guide/`. Inspect them before copying them into `docs/images/user-guide/`. The regular deterministic suite leaves this live-provider capture disabled. Provider failures fail the capture rather than publishing placeholder weather.
+
+`test_android_sdk.py` exercises public SDK discovery and execution across HTTP, WebSocket and MCP, including exact argument contracts, read-only rejection before handle resolution, idempotency, callbacks and paginated results. Mock OpenAI/Anthropic conversations check tool visibility and executor denial independently.

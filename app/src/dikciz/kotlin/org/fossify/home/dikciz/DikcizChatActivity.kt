@@ -115,15 +115,21 @@ internal class DikcizChatActivity : Activity() {
         modelControls = DikcizChatModelControls(this, { conversationID }) { request, completed -> command(request, completed) }
         panel.addView(modelControls.view)
         val tasks = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        tasks.addView(button("Make me a widget", "Make me a widget") { widgetTask() }, LinearLayout.LayoutParams(0, dp(36), 1f).apply { rightMargin = dp(6) })
-        tasks.addView(button("Explain this screen", "Explain this screen") {
+        tasks.addView(taskButton("Make me a widget") { widgetTask() }, LinearLayout.LayoutParams(0, dp(44), 1f).apply { rightMargin = dp(8) })
+        tasks.addView(taskButton("Explain this screen") {
             startTask(DikcizChatTasks.EXPLAIN_SCREEN, composer.text.toString().ifBlank { DikcizChatTasks.DEFAULT_SCREEN_QUESTION })
-        }, LinearLayout.LayoutParams(0, dp(36), 1f))
-        panel.addView(tasks)
+        }, LinearLayout.LayoutParams(0, dp(44), 1f))
+        panel.addView(tasks, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+        panel.addView(View(this).apply { setBackgroundColor(PANEL_EDGE) },
+            LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(8) })
         val content = FrameLayout(this)
         scroll = ChatScrollView(this).apply {
             isFillViewport = true
             contentDescription = "Chat messages"
+            setPadding(0, dp(8), 0, dp(8))
+            clipToPadding = true
+            isVerticalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
             onReadingOlder = { followLatest = false; updateLatest() }
             onUserScroll = {
                 if (height + scrollY >= getChildAt(0).height - dp(32)) followLatest = true
@@ -525,6 +531,16 @@ internal class DikcizChatActivity : Activity() {
             GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(ASSISTANT_BUBBLE) }, null)
         setPadding(dp(8), 0, dp(8), 0); textSize = 12f; setTextColor(ACCENT)
         setOnClickListener { action() }
+    }
+
+    private fun taskButton(label: String, action: () -> Unit) = button(label, label, action).apply {
+        setTextColor(FOREGROUND)
+        background = RippleDrawable(ColorStateList.valueOf(BUTTON_RIPPLE),
+            GradientDrawable().apply {
+                cornerRadius = dp(10).toFloat()
+                setColor(BACKGROUND)
+                setStroke(dp(1), PANEL_EDGE)
+            }, null)
     }
 
     private inner class MessageView {

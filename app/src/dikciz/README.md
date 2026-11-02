@@ -32,6 +32,8 @@ All Kotlin files below live in `kotlin/org/fossify/home/dikciz/`.
 | `DikcizHtmlWidgetLibrary.kt` | Validates and installs complete WebView templates. |
 | `DikcizAutomationControlPlane.kt`, `DikcizMcpControlPlane.kt` | Serve WebSocket, Streamable HTTP MCP and HTTP JSON commands through one `DikcizAutomationTarget`. |
 | `DikcizControlStatus.kt`, `DikcizAutomationStatus.kt` | Describe the command protocol and Android capabilities for discovery. |
+| `DikcizAndroidSdkCommands.kt`, `DikcizAndroidSdkCatalogue.kt`, `DikcizAndroidSdkBridge.kt`, `DikcizAndroidSdkValues.kt` | Shared exact-overload SDK execution, pinned discovery, typed values, handles, callbacks and member-level read-only checks. See [SDK bridge](../../../docs/android-sdk.md). |
+| `DikcizSimSubscriptions.kt`, `DikcizSimPhoneNumber.kt` | Read active SIM metadata and own numbers, preserving partial results and classifying lookup outcomes without logging numbers. |
 | `DikcizChatActivity.kt`, `DikcizChatModelControls.kt`, `DikcizChatCommands.kt` | Native resizable Markdown chat, API-backed model dropdown, per-conversation settings and shared command schema. |
 | `DikcizChatTasks.kt` | Widget-authoring and screen-explanation task instructions, with persisted queue metadata and read-only screen execution. |
 | `DikcizChatRuntime.kt`, `DikcizChatAgent.kt`, `DikcizChatService.kt` | Serialized persistent queue, tool loop, context selection, event routing, live activity notifications, turn-bound Stop and reply notifications. |

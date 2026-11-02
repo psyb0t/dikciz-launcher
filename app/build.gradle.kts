@@ -1,6 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.konan.properties.Properties
+import java.security.MessageDigest
 import java.io.FileInputStream
 
 plugins {
@@ -163,6 +164,8 @@ detekt {
 dependencies {
     implementation(libs.fossify.commons)
     add("dikcizImplementation", "org.luaj:luaj-jse:3.0.1")
+    add("dikcizImplementation", "com.linkedin.dexmaker:dexmaker:2.28.6")
+    add("dikcizImplementation", "com.jakewharton.android.repackaged:dalvik-dx:9.0.0_r3")
     add("dikcizImplementation", "androidx.health.connect:connect-client:1.1.0")
     add("dikcizImplementation", "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     add("dikcizImplementation", "at.favre.lib:bcrypt:0.10.2")
@@ -179,4 +182,38 @@ dependencies {
     implementation(libs.bundles.room)
     ksp(libs.androidx.room.compiler)
     detektPlugins(libs.compose.detekt)
+}
+
+
+// Keep checksum verification scoped to the SDK bridge dependencies and Dikciz variants.
+val dikcizSdkDependencyHashes = mapOf(
+    "com.linkedin.dexmaker:dexmaker:2.28.6" to "fdb1d3632c66694ed4cd3445cd86da70286f93b55d613e30361abec6d23404ac",
+    "com.jakewharton.android.repackaged:dalvik-dx:9.0.0_r3" to "b29c1c21e52ed6238cd3fed39d880a17ecf2360118604548cea8821be6801e1c",
+)
+listOf("DikcizDebug", "DikcizRelease", "DikcizMinified").forEach { variant ->
+    val verification = tasks.register("verify${variant}SdkDependencies") {
+        doLast {
+            val runtime = variant.replaceFirstChar { it.lowercase() } + "RuntimeClasspath"
+            val artifacts = configurations.getByName(runtime).resolvedConfiguration.resolvedArtifacts
+            val seen = mutableSetOf<String>()
+            artifacts.forEach { artifact ->
+                val coordinate = artifact.moduleVersion.id.toString()
+                val expected = dikcizSdkDependencyHashes[coordinate] ?: return@forEach
+                val digest = MessageDigest.getInstance("SHA-256")
+                artifact.file.inputStream().use { input ->
+                    val buffer = ByteArray(8192)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        digest.update(buffer, 0, count)
+                    }
+                }
+                val actual = digest.digest().joinToString("") { "%02x".format(it) }
+                check(actual == expected) { "SDK bridge dependency checksum mismatch: $coordinate" }
+                seen.add(coordinate)
+            }
+            check(seen == dikcizSdkDependencyHashes.keys) { "SDK bridge dependency version or artifact is missing" }
+        }
+    }
+    tasks.matching { it.name == "pre${variant}Build" }.configureEach { dependsOn(verification) }
 }

@@ -282,7 +282,7 @@ version: ## Print the launcher repository version
 release-apk: ensure-dev-image ## Build the signed Dikciz release APK into dist/ (needs SIGNING_KEY_ALIAS, SIGNING_KEY_PASSWORD, SIGNING_STORE_PASSWORD)
 	@[[ "$(DIKCIZ_RELEASE_KEYSTORE)" != /* && "$(DIKCIZ_RELEASE_KEYSTORE)" != *..* ]] || { printf '%s\n' "DIKCIZ_RELEASE_KEYSTORE must be a workspace-relative path" >&2; exit 1; }
 	@$(subst -w /work,-e SIGNING_KEY_ALIAS -e SIGNING_KEY_PASSWORD -e SIGNING_STORE_PASSWORD -e SIGNING_STORE_FILE=/work/$(DIKCIZ_RELEASE_KEYSTORE) -e DIKCIZ_RELEASE_CERT_SHA256=$(DIKCIZ_RELEASE_CERT_SHA256) -w /work,$(DEV_RUN)) bash scripts/dikciz-release-apk.sh "$(DIKCIZ_RELEASE_APK)"
-test-tooling: audit-compose dikciz-command-docs-test ## Check lab contracts, command docs and reversible upstream refresh
+test-tooling: audit-compose dikciz-command-docs-test dikciz-android-sdk-test ## Check lab contracts, command docs and reversible upstream refresh
 	@$(DEV_RUN) bash scripts/test-upstream-refresh.sh
 check-images: emulator-ready ## Check both local lab images, installing the pinned release once the SDK license is accepted
 build: GRADLE_TASK := :app:assembleDikcizDebug
@@ -1068,3 +1068,18 @@ test-vnc: emulator-ready ## Boot web VNC, verify the private VNC path, then stop
 
 clean: ensure-dev-image ## Remove only ignored Android lab build artifacts
 	@ANDROID_LAB_DEV_IMAGE=$(DEV_IMAGE) ANDROID_LAB_EMULATOR_IMAGE=$(EMULATOR_IMAGE) ANDROID_LAB_UID=$(UID) ANDROID_LAB_GID=$(GID) $(DEV_RUN) android-lab clean
+
+.PHONY: dikciz-android-sdk dikciz-android-sdk-test
+
+dikciz-android-sdk: ensure-dev-image ## Generate the pinned public Android SDK catalogue
+	@$(DEV_RUN) python3 scripts/generate-dikciz-android-sdk.py $(if $(ANDROID_SDK_SOURCE),--input $(ANDROID_SDK_SOURCE))
+
+dikciz-android-sdk-test: ensure-dev-image ## Test SDK signature parsing and read-policy generation
+	@$(DEV_RUN) python3 -m pytest -q tests/android_sdk
+
+.PHONY: dikciz-sdk-tooling-test
+
+dikciz-sdk-tooling-test: ensure-dev-image ## Check SDK scripts, source refresh preservation and catalogue generation
+	@$(DEV_RUN) bash scripts/lint.sh
+	@$(DEV_RUN) bash scripts/test-upstream-refresh.sh
+	@$(DEV_RUN) python3 -m pytest -q tests/android_sdk

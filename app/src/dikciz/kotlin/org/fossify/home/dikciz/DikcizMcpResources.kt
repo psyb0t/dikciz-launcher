@@ -118,6 +118,9 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
         private val DEFINITIONS = listOf(
             "index" to "Start here",
             "guides/chat" to "On-device assistant",
+            "guides/chat-tools" to "Assistant tool contracts and access",
+            "guides/android-sdk" to "Public Android SDK contracts and execution",
+            "guides/sim" to "SIM subscriptions and own phone numbers",
             "guides/chat-context" to "Assistant context and output budgets",
             "guides/chat-events" to "Event-driven conversations",
             "guides/connect" to "Connect to the phone",

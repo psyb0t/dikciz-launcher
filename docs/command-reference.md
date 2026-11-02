@@ -2,7 +2,7 @@
 
 <!-- Regenerate with make dikciz-command-docs from captured tools/list discovery. -->
 
-This reference contains 129 discovered MCP tools and their complete input schemas. Discovery from the installed build is authoritative. Transport-independent procedures, Android permissions and results are described in the [automation guide](automation-control.md), [documentation index](index.md) and focused task guides. MCP tools use the same ordinary commands as HTTP, WebSocket, HTML and Lua.
+This reference contains 135 discovered MCP tools and their complete input schemas. Discovery from the installed build is authoritative. Transport-independent procedures, Android permissions and results are described in the [automation guide](automation-control.md), [documentation index](index.md) and focused task guides. MCP tools use the same ordinary commands as HTTP, WebSocket, HTML and Lua.
 
 Schemas include nested fields, required values, defaults and bounds. autoRequestPermissions requests owner review; it never grants access or retries the operation. Inspect returned state and errors before continuing.
 
@@ -90,6 +90,274 @@ Place one new top-level item in the first fitting free cells of the selected pag
   "required": [
     "widgetType"
   ]
+}
+```
+
+## dikciz_android_api_callback
+
+Create a public SDK interface callback that records typed invocations for androidApiObjects. returns maps exact callback overload ids to constant return values; unspecified non-void callbacks are rejected. No scripts run on Binder threads. Register with a writable SDK call and unregister before releasing. Public non-final SDK callback classes use a generated subclass. Constructor defaults to new(); select an exact SDK constructor when arguments are needed.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "className": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "Exact public className from androidApiDiscover."
+    },
+    "returns": {
+      "type": "object"
+    },
+    "constructor": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "Exact SDK constructor id, defaults to new()."
+    },
+    "arguments": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {},
+      "description": "Required ordered arguments, including explicit nulls. Use {objectRef:ID}, {className:SDK_CLASS}, {bytesBase64:BASE64}, {long:DECIMAL} or {arrayType:SDK_TYPE,values:[...]}. No inferred overloads or nested calls."
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "className"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_android_api_discover
+
+Discover pinned public Android SDK classes, exact signatures, permission annotations and runtime availability. No API is invoked. Omit className for a page of classes; supply it for members, including inherited overloads. Read-only callers see only approved read members. Unknown members default to write access. Discovery is a catalogue, not a claim that Android grants every permission or supports every hardware feature.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200,
+      "default": 50
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000,
+      "default": 0
+    },
+    "className": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "Optional exact class, otherwise list classes."
+    },
+    "query": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "Case-insensitive literal class/member filter."
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## dikciz_android_api_invoke
+
+Invoke a public SDK method, constructor or field read/set with writable access. Select an exact discovered member. Set a mutable field with set:NAME and one argument. Android permissions, roles, hardware and foreground restrictions still apply. Raw filesystem, private app storage, reflection and dynamic code APIs are excluded; use the dedicated protected file/shell APIs. Wrap long operations in jobStart. No automatic replay after process death.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "className": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "Exact public className from androidApiDiscover."
+    },
+    "member": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "Exact discovered overload id, including parameter types. Constructors use new(...); fields use field:NAME."
+    },
+    "timeoutMilliseconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 300000,
+      "default": 30000
+    },
+    "thread": {
+      "type": "string",
+      "maxLength": 16,
+      "description": "auto, main or background. Auto follows SDK MainThread/UiThread annotations."
+    },
+    "target": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "Omit for constructors and static members. Otherwise context, activity, service:NAME or an objectRef from a previous result."
+    },
+    "arguments": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {},
+      "description": "Required ordered arguments, including explicit nulls. Use {objectRef:ID}, {className:SDK_CLASS}, {bytesBase64:BASE64}, {long:DECIMAL} or {arrayType:SDK_TYPE,values:[...]}. No inferred overloads or nested calls."
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "maxLength": 80,
+      "description": "Unique process-scoped key. Same payload returns its original result; changed payload fails. For durable submission use jobStart."
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "className",
+    "member",
+    "arguments",
+    "idempotencyKey"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_android_api_objects
+
+Read one page of process-owned SDK object handles, indexed array/list/map/text contents or callback events for objectRef. Poll using afterSequence. Handles and callback events do not survive process restart. Callbacks never execute commands automatically.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200,
+      "default": 50
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000,
+      "default": 0
+    },
+    "objectRef": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "Optional callback handle."
+    },
+    "afterSequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## dikciz_android_api_read
+
+Invoke one explicitly approved SDK read operation. Always rejects mutating or unaudited members with read_only_violation before resolving arguments or invoking Android, even outside read-only conversations. Discover the exact member and parameter list first. Permission annotations are advisory; Android remains authoritative.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "className": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "Exact public className from androidApiDiscover."
+    },
+    "member": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "Exact discovered overload id, including parameter types. Constructors use new(...); fields use field:NAME."
+    },
+    "timeoutMilliseconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 300000,
+      "default": 30000
+    },
+    "thread": {
+      "type": "string",
+      "maxLength": 16,
+      "description": "auto, main or background. Auto follows SDK MainThread/UiThread annotations."
+    },
+    "target": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "Omit for constructors and static members. Otherwise context, activity, service:NAME or an objectRef from a previous result."
+    },
+    "arguments": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {},
+      "description": "Required ordered arguments, including explicit nulls. Use {objectRef:ID}, {className:SDK_CLASS}, {bytesBase64:BASE64}, {long:DECIMAL} or {arrayType:SDK_TYPE,values:[...]}. No inferred overloads or nested calls."
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "className",
+    "member",
+    "arguments"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_android_api_release
+
+Release one SDK object handle. close=true explicitly calls AutoCloseable.close when supported. Unregister listeners and stop hardware sessions through their SDK cleanup methods before release. Release does not pretend to undo Android side effects.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "objectRef": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "Object handle."
+    },
+    "close": {
+      "type": "boolean",
+      "default": false
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "objectRef"
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -3333,7 +3601,7 @@ Stop a stream owned by the same MCP session.
 
 ## dikciz_sim_list
 
-List active SIM subscription IDs, slots and default SMS subscription, using granted phone-state access.
+Read active SIM subscriptions and own phone numbers directly, without opening Settings. Returns subscriptionId, slotIndex, displayName, carrierName, nullable phoneNumber and phoneNumberStatus (available, unavailable, permission_required, access_denied or unsupported), plus defaultSmsSubscriptionId and phoneNumberPermissionGranted. Requires READ_PHONE_STATE; numbers additionally need READ_PHONE_NUMBERS. Missing number permission preserves SIM metadata and returns targeted permissionRequest; autoRequestPermissions opts into owner review. Android may not supply a number. Follow hasMore for pagination.
 
 ```json
 {
