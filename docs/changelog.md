@@ -2,6 +2,12 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.30.5] - 2026-11-02
+
+### Fixed
+
+- Pin Android Lab 0.16.0 so fresh builds use the signed Ubuntu archive and security repositories over HTTPS instead of the unavailable snapshot service. Package downloads retry transient failures and incomplete index updates fail before installation.
+
 ## [0.30.4] - 2026-11-02
 
 ### Added
