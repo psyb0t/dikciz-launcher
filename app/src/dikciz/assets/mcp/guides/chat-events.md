@@ -13,3 +13,7 @@ Rules run while chat is hidden and persist across restart. They can create paid 
 Hidden events/replies increment unread state. Notifications open the conversation if Android allows notifications. Read the transcript for real outcomes; an event being queued does not prove tool completion. Clear with rules:[] to disable listeners. Stop cancels turns, not subscriptions. The agent may create its own rules with this same tool when the owner requests automation.
 
 Foreground service lifetime depends on active work/rules. Android force-stop, revoked grants and system restrictions can interrupt it. Active or executing work becomes interrupted after process death and is not automatically replayed. Review effects before retrying.
+
+Active work updates one quiet notification with its current phase and a Stop action. Tap it to reopen the exact running conversation. Stop cancels that conversation's active/queued turns, preserves completed effects and leaves subscriptions enabled. Old turn notifications cannot stop newer work. Notification permission/channel settings control visibility; chat-panel Stop remains available. Progress omits prompts, arguments and screen contents.
+
+Home posts a separate quiet Open chat shortcut while idle. An owner tap opens half-screen chat over the current app; Explain this screen then captures that underlying app. The shortcut needs notification permission and its Chat shortcut channel, not another running service or overlay permission for the tap. Opening it does not send a message.

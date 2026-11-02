@@ -44,6 +44,10 @@ internal object DikcizNotificationActionRegistry {
 
     fun tokens(notification: StatusBarNotification): List<String> = synchronized(this) {
         removeExpiredEntries(SystemClock.elapsedRealtime())
+        if (notification.notification.actions.isNullOrEmpty()) {
+            removeLocked(notification.key)
+            return@synchronized emptyList()
+        }
         val current = tokensByNotificationKey[notification.key].orEmpty().filter(entries::containsKey)
         if (current.isNotEmpty()) return@synchronized current
         replace(notification)

@@ -39,6 +39,7 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
     @Volatile private var active: Job? = null
     @Volatile private var activeConversation: String? = null
     @Volatile private var activeTurnID: String? = null
+    @Volatile private var activityText = "Thinking"
     @Volatile var visibleConversation: String? = null
         private set
     @Volatile private var activity = WeakReference<DikcizChatActivity>(null)
@@ -56,7 +57,8 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
                             store.updateMessage(queued.getLong("id"), "running")
                             activeConversation = queued.getString("conversation_id")
                             activeTurnID = queued.getString("turn_id")
-                            scope.launch(start = CoroutineStart.LAZY) { runTurn(queued) }.also { active = it; it.start() }
+                            activityText = "Thinking"
+                            scope.launch(start = CoroutineStart.LAZY) { runTurn(queued) }.also { active = it; it.start(); changed() }
                         }
                     } ?: break
                     turn.join()
@@ -76,6 +78,26 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
     fun busy(): Boolean = active != null || store.nextQueued() != null
     fun setWindowMode(full: Boolean) { fullScreen = full }
     fun hasRules(): Boolean = configuredRules.isNotEmpty()
+
+    data class Progress(val conversationID: String?, val turnID: String?, val text: String)
+
+    fun progress(): Progress = synchronized(queueLock) {
+        Progress(activeConversation, activeTurnID, activityText)
+    }
+
+    fun stopTurn(conversationID: String, turnID: String) {
+        synchronized(queueLock) {
+            // A notification from an earlier turn must never cancel a newer one.
+            if (activeConversation != conversationID || activeTurnID != turnID) return
+            execute(JSONObject().put("action", "stop").put("conversationId", conversationID))
+        }
+    }
+
+    private fun reportActivity(text: String) {
+        if (activityText == text) return
+        activityText = text
+        changed()
+    }
 
     private fun refreshRules() {
         configuredRules = store.conversations().filter { JSONArray(it.getString("subscriptions")).length() > 0 }
@@ -167,6 +189,7 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
                 synchronized(queueLock) {
                     store.messages(id).filter { it.getString("state") == "queued" }.forEach { store.updateMessage(it.getLong("id"), "cancelled") }
                     if (activeConversation == id) {
+                        reportActivity("Stopping")
                         activeTurnID?.let { store.interruptTurn(it, "cancelled") }
                         active?.cancel()
                     }
@@ -301,7 +324,7 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
             withTimeout(profile.getLong("timeoutMilliseconds")) {
                 DikcizChatAgent(store, { method, params ->
                     ownerMcp?.invoke(method, params, readOnly) ?: DikcizNativeCommands.failure("chat_mcp_unavailable", "Open Dikciz Home to reconnect its local MCP tools")
-                }, ::changed, logger, ::captureTaskScreen).run(queued, profile)
+                }, ::changed, logger, ::captureTaskScreen, ::reportActivity).run(queued, profile)
             }
         } catch (exception: TimeoutCancellationException) {
             store.interruptTurn(turnID, "failed")
@@ -317,9 +340,10 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
             store.append(id, turnID, "assistant", "failed", "", JSONArray().put(JSONObject().put("kind", "error").put("text", message.ifBlank { "Agent turn failed" })))
             logger.error("chat_turn_failed", mapOf("turn_id" to turnID, "error_class" to exception.javaClass.simpleName))
         } finally {
+            val outcome = store.messages(id).firstOrNull { it.getLong("id") == queued.getLong("id") }?.optString("state")
             if (visibleConversation != id) {
                 store.markUnread(id)
-                DikcizChatService.notifyReply(context, id)
+                DikcizChatService.notifyReply(context, id, outcome)
             }
             val block = JSONArray(queued.getString("blocks")).getJSONObject(0)
             if (block.optJSONObject(DikcizChatTasks.KEY_TASK)?.optString(DikcizChatTasks.KEY_KIND) == DikcizChatTasks.EXPLAIN_SCREEN &&
@@ -339,6 +363,7 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
     }
 
     private suspend fun captureTaskScreen(): JSONObject {
+        reportActivity("Reading the screen")
         withContext(Dispatchers.Main) { activity.get()?.finish() }
         withTimeout(SCREEN_HIDE_TIMEOUT_MILLISECONDS) {
             while (activity.get() != null) delay(SCREEN_HIDE_POLL_MILLISECONDS)

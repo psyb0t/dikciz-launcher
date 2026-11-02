@@ -5,6 +5,8 @@ import android.app.AlertDialog
 import android.text.Editable
 import android.text.TextWatcher
 import android.text.InputType
+import android.text.TextUtils
+import android.content.res.ColorStateList
 import android.view.Gravity
 import android.widget.ArrayAdapter
 import android.widget.ListPopupWindow
@@ -28,7 +30,12 @@ internal class DikcizChatModelControls(
         contentDescription = "Chat model"
         text = "Choose a model ▾"
         setTextColor(FOREGROUND)
-        textSize = 14f
+        textSize = 13f
+        setSingleLine()
+        ellipsize = TextUtils.TruncateAt.END
+        minimumWidth = 0
+        minWidth = 0
+        backgroundTintList = ColorStateList.valueOf(MODEL_SURFACE)
         isAllCaps = false
         gravity = Gravity.START or Gravity.CENTER_VERTICAL
         setOnClickListener { openModels() }
@@ -54,18 +61,27 @@ internal class DikcizChatModelControls(
     private var requested = false
 
     init {
-        view.addView(picker, LinearLayout.LayoutParams(0, -2, 1f))
+        view.addView(picker, LinearLayout.LayoutParams(0, dp(40), 1f))
         view.addView(Button(activity).apply {
             text = "↻"
+            setTextColor(FOREGROUND)
+            backgroundTintList = ColorStateList.valueOf(MODEL_SURFACE)
+            minimumWidth = 0
+            minWidth = 0
             contentDescription = "Refresh chat models"
             setOnClickListener { loadModels() }
-        }, LinearLayout.LayoutParams(dp(44), dp(44)))
+        }, LinearLayout.LayoutParams(dp(44), dp(40)))
         view.addView(Button(activity).apply {
-            text = "Model settings"
+            text = "Tune"
+            isAllCaps = false
+            setTextColor(FOREGROUND)
+            backgroundTintList = ColorStateList.valueOf(MODEL_SURFACE)
+            minimumWidth = 0
+            minWidth = 0
             contentDescription = "Chat model settings"
             textSize = 11f
             setOnClickListener { editSettings() }
-        }, LinearLayout.LayoutParams(-2, dp(44)))
+        }, LinearLayout.LayoutParams(dp(64), dp(40)))
     }
 
     fun invalidate() {
@@ -235,6 +251,7 @@ internal class DikcizChatModelControls(
     private fun dp(value: Int): Int = (value * activity.resources.displayMetrics.density).toInt()
 
     private companion object {
+        private const val MODEL_SURFACE = 0xFF22231F.toInt()
         const val MINIMUM_DROPDOWN_WIDTH_DP = 240
         val NUMBER_FIELDS = setOf("contextTokens", "maxOutputTokens", "summaryOutputTokens", "thinkingTokens", "maximumRounds", "timeoutMilliseconds", "safetyMarginTokens")
         val CHOICES = mapOf(

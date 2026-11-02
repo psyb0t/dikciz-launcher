@@ -17,3 +17,5 @@ Stop cancels generation. Timeout/max-round exhaustion is visible in failed messa
 Anthropic thinking signatures, omitted-text blocks and redacted blocks are preserved for tool continuations and later turns. Opaque thinking stays opaque. Screenshot images use each provider's supported content format.
 
 Later turns retain failed, cancelled and interrupted owner requests and completed tool outcomes under either context policy. Unrecorded tool outcomes receive a matching tool_outcome_unknown result for context, never automatic execution. Inspect actual state before retrying a side effect. Pending later requests are excluded from the current context.
+
+Empty tool arguments become `{}`. Malformed nonempty arguments are rejected without execution. Replay preserves rejected text and recorded outcomes in valid JSON, including old conversations after restart. It never reruns past actions.

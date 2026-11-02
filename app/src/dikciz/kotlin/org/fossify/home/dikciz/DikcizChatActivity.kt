@@ -10,6 +10,7 @@ import android.graphics.drawable.RippleDrawable
 import android.content.res.ColorStateList
 import android.os.Bundle
 import android.text.InputType
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -54,6 +55,8 @@ internal class DikcizChatActivity : Activity() {
     private lateinit var latest: Button
     private lateinit var title: Button
     private lateinit var status: TextView
+    private lateinit var stop: Button
+    private lateinit var emptyState: TextView
     private lateinit var markwon: Markwon
     private lateinit var modelControls: DikcizChatModelControls
     private val rendered = mutableMapOf<Long, MessageView>()
@@ -76,31 +79,46 @@ internal class DikcizChatActivity : Activity() {
         root = FrameLayout(this).apply { setBackgroundColor(DIM); setOnClickListener { finish() } }
         panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(BACKGROUND)
-            setPadding(dp(12), dp(8), dp(12), dp(8))
+            background = GradientDrawable().apply {
+                cornerRadii = floatArrayOf(dp(24).toFloat(), dp(24).toFloat(), dp(24).toFloat(), dp(24).toFloat(), 0f, 0f, 0f, 0f)
+                setColor(BACKGROUND)
+                setStroke(dp(1), PANEL_EDGE)
+            }
+            setPadding(dp(16), dp(8), dp(16), dp(12))
             isClickable = true
         }
         root.addView(panel, FrameLayout.LayoutParams(-1, -1, Gravity.BOTTOM))
+        panel.addView(View(this).apply {
+            background = GradientDrawable().apply { cornerRadius = dp(2).toFloat(); setColor(MUTED) }
+        }, LinearLayout.LayoutParams(dp(32), dp(3)).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = dp(6) })
         val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        title = button("Dikciz", "Choose conversation") { chooseConversation() }
+        title = button("Dikciz", "Choose conversation") { chooseConversation() }.apply {
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            textSize = 18f
+            typeface = Typeface.DEFAULT_BOLD
+            setSingleLine()
+            ellipsize = TextUtils.TruncateAt.END
+            background = null
+            setTextColor(FOREGROUND)
+        }
         header.addView(title, LinearLayout.LayoutParams(0, dp(44), 1f))
-        header.addView(button("+", "New conversation") { newConversation() })
-        header.addView(button("Settings", "Chat provider settings") { chooseProfile() })
+        header.addView(button("+", "New conversation") { newConversation() }, LinearLayout.LayoutParams(dp(44), dp(44)))
+        header.addView(button("⚙", "Chat provider settings") { chooseProfile() }, LinearLayout.LayoutParams(dp(44), dp(44)))
         header.addView(button("↕", "Expand or reduce chat") {
             fullScreen = !fullScreen
             resize()
-        })
-        header.addView(button("×", "Hide Dikciz chat") { finish() })
+        }, LinearLayout.LayoutParams(dp(44), dp(44)))
+        header.addView(button("×", "Hide Dikciz chat") { finish() }, LinearLayout.LayoutParams(dp(44), dp(44)))
         panel.addView(header)
         status = textView().apply { textSize = 11f; setTextColor(MUTED); contentDescription = "Chat agent status" }
-        panel.addView(status)
+
         modelControls = DikcizChatModelControls(this, { conversationID }) { request, completed -> command(request, completed) }
         panel.addView(modelControls.view)
         val tasks = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        tasks.addView(button("Make me a widget", "Make me a widget") { widgetTask() }, LinearLayout.LayoutParams(0, dp(44), 1f))
+        tasks.addView(button("Make me a widget", "Make me a widget") { widgetTask() }, LinearLayout.LayoutParams(0, dp(36), 1f).apply { rightMargin = dp(6) })
         tasks.addView(button("Explain this screen", "Explain this screen") {
             startTask(DikcizChatTasks.EXPLAIN_SCREEN, composer.text.toString().ifBlank { DikcizChatTasks.DEFAULT_SCREEN_QUESTION })
-        }, LinearLayout.LayoutParams(0, dp(44), 1f))
+        }, LinearLayout.LayoutParams(0, dp(36), 1f))
         panel.addView(tasks)
         val content = FrameLayout(this)
         scroll = ChatScrollView(this).apply {
@@ -115,12 +133,24 @@ internal class DikcizChatActivity : Activity() {
         messages = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scroll.addView(messages, FrameLayout.LayoutParams(-1, -2))
         content.addView(scroll, FrameLayout.LayoutParams(-1, -1))
+        emptyState = textView().apply {
+            text = "🧀\nWhat shall we do?\n\nAsk a question, make a widget, or explore your phone."
+            gravity = Gravity.CENTER
+            textSize = 18f
+            setTextColor(MUTED)
+            setPadding(dp(24), dp(16), dp(24), dp(16))
+            contentDescription = "Empty chat"
+        }
+        content.addView(emptyState, FrameLayout.LayoutParams(-1, -1))
         latest = button("Latest ↓", "Jump to latest message") { followLatest = true; scrollLatest(); updateLatest() }
         content.addView(latest, FrameLayout.LayoutParams(-2, dp(44), Gravity.BOTTOM or Gravity.END))
         panel.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
+        panel.addView(status, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4); bottomMargin = dp(4) })
         val controls = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         composer = EditText(this).apply {
-            hint = "Ask Dikciz to do something"
+            hint = "Message Dikciz…"
+            textSize = 16f
+            minHeight = dp(48)
             contentDescription = "Chat message"
             setTextColor(FOREGROUND); setHintTextColor(MUTED)
             background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(ASSISTANT_BUBBLE) }
@@ -129,8 +159,15 @@ internal class DikcizChatActivity : Activity() {
             maxLines = 4
         }
         controls.addView(composer, LinearLayout.LayoutParams(0, -2, 1f))
-        controls.addView(button("Send", "Send chat message") { send() })
-        controls.addView(button("Stop", "Stop agent turn") { conversationID?.let { command(JSONObject().put("action", "stop").put("conversationId", it)) } })
+        controls.addView(button("↑", "Send chat message") { send() }.apply {
+            textSize = 24f
+            setTextColor(BACKGROUND)
+            backgroundTintList = ColorStateList.valueOf(ACCENT)
+        }, LinearLayout.LayoutParams(dp(48), dp(48)).apply { leftMargin = dp(8) })
+        stop = button("■", "Stop agent turn") {
+            conversationID?.let { command(JSONObject().put("action", "stop").put("conversationId", it)) }
+        }.apply { setTextColor(ERROR) }
+        controls.addView(stop, LinearLayout.LayoutParams(dp(48), dp(48)).apply { leftMargin = dp(4) })
         panel.addView(controls)
         setContentView(root)
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
@@ -205,7 +242,13 @@ internal class DikcizChatActivity : Activity() {
                 if (id != conversationID) return@launch
                 title.text = state.first?.getString("title") ?: "Dikciz"
                 modelControls.update(id, state.first?.getString("profile_id"), state.third)
-                status.text = (if (state.third?.optBoolean(DikcizChatSettings.KEY_READ_ONLY) == true) "Read-only · " else "") + if (runtime.busy()) "Agent working · tools and replies appear here" else "Your phone assistant · tap Settings to configure a provider"
+                val progress = runtime.progress()
+                val working = id != null && progress.conversationID == id
+                status.text = (if (state.third?.optBoolean(DikcizChatSettings.KEY_READ_ONLY) == true) "Read-only · " else "") +
+                    if (working) progress.text else "Ready"
+                stop.visibility = if (working) View.VISIBLE else View.GONE
+                emptyState.visibility = if (state.second.isEmpty()) View.VISIBLE else View.GONE
+
                 val anchor = (0 until messages.childCount).map(messages::getChildAt).firstOrNull { it.bottom > scroll.scrollY }
                 val anchorOffset = anchor?.let { scroll.scrollY - it.top } ?: 0
                 for (row in state.second) {
@@ -470,13 +513,16 @@ internal class DikcizChatActivity : Activity() {
     private fun updateLatest() { latest.visibility = if (followLatest) View.GONE else View.VISIBLE }
     private fun scrollLatest() { scroll.post { if (followLatest && !scroll.userDragging) scroll.scrollTo(0, messages.height) } }
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
-    private fun textView() = TextView(this).apply { setTextColor(FOREGROUND); textSize = 15f; setPadding(0, dp(4), 0, dp(4)) }
+    private fun textView() = TextView(this).apply { setTextColor(FOREGROUND); textSize = 16f; setLineSpacing(dp(3).toFloat(), 1f); setPadding(0, dp(4), 0, dp(4)) }
     private fun button(label: String, description: String, action: () -> Unit) = Button(this).apply {
         text = label; contentDescription = description; minWidth = 0; minimumWidth = 0
         isAllCaps = false
+        minimumHeight = dp(44)
+        setSingleLine()
+        ellipsize = TextUtils.TruncateAt.END
         backgroundTintList = null
         background = RippleDrawable(ColorStateList.valueOf(BUTTON_RIPPLE),
-            GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(OWNER_BUBBLE) }, null)
+            GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(ASSISTANT_BUBBLE) }, null)
         setPadding(dp(8), 0, dp(8), 0); textSize = 12f; setTextColor(ACCENT)
         setOnClickListener { action() }
     }
@@ -510,7 +556,14 @@ internal class DikcizChatActivity : Activity() {
                     markwon.setMarkdown(view, text)
                 } else if (kind == "tool" || kind == "toolResult" || kind == "reasoning") {
                     view.typeface = Typeface.MONOSPACE; view.textSize = 12f; view.setTextColor(MUTED)
-                    val label = if (kind == "reasoning") "Reasoning" else if (kind == "toolResult") "Tool result" else "Tool call"
+                    val label = if (kind == "reasoning") "Reasoning" else if (kind == "toolResult") {
+                        "Result · " + entry.optString("name", "Phone tool").removePrefix("dikciz_").replace('_', ' ')
+                    } else {
+                        val tool = if (entry.optString("text").startsWith("{")) {
+                            try { JSONObject(text).optString("name", "Phone tool") } catch (_: org.json.JSONException) { "Preparing tool" }
+                        } else "Preparing tool"
+                        "Tool · " + tool.removePrefix("dikciz_").replace('_', ' ')
+                    }
                     val expanded = view.tag == true
                     view.text = if (expanded) "$label\n$text" else "$label ▸"
                     view.setOnClickListener { view.tag = view.tag != true; previous = ""; bind(row) }
@@ -551,12 +604,13 @@ internal class DikcizChatActivity : Activity() {
             ProviderTemplate("Anthropic", "anthropic", "https://api.anthropic.com/v1"),
             ProviderTemplate("Custom", null, null),
         )
-        const val BACKGROUND = 0xFF111725.toInt()
+        const val PANEL_EDGE = 0xFF343430.toInt()
+        const val BACKGROUND = 0xFF151614.toInt()
         const val ACCENT = 0xFFF6C85F.toInt()
         const val ERROR = 0xFFFF9696.toInt()
         const val DIM = 0x55000000
-        const val OWNER_BUBBLE = 0xFF27334B.toInt()
-        const val ASSISTANT_BUBBLE = 0xFF192131.toInt()
+        const val OWNER_BUBBLE = 0xFF333126.toInt()
+        const val ASSISTANT_BUBBLE = 0xFF22231F.toInt()
         const val BUTTON_RIPPLE = 0x44F6C85F
         val SETTING_CHOICES = mapOf(
             "protocol" to arrayOf("openai", "anthropic"),

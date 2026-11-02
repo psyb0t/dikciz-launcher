@@ -116,8 +116,9 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
         var metadata = ResponseMetaInfo.Empty
         var finishReason: String? = null
         var ended = false
+        val requestMessages = DikcizChatToolArguments.forProvider(messages)
         client.executeStreaming(
-            Prompt(if (isAnthropic) messages else openAIImages(messages), "dikciz-chat", parameters(maximumOutput)),
+            Prompt(if (isAnthropic) requestMessages else openAIImages(requestMessages), "dikciz-chat", parameters(maximumOutput)),
             model,
             if (withTools) TOOLS else emptyList(),
         ).collect { frame ->
@@ -138,8 +139,9 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
                 }
                 is StreamFrame.ToolCallDelta -> onBlock("tool", frame.index, frame.content.orEmpty(), false)
                 is StreamFrame.ToolCallComplete -> {
-                    parts["tool" to frame.index] = MessagePart.Tool.Call(frame.id, frame.name, frame.content)
-                    onBlock("tool", frame.index, JSONObject().put("id", frame.id).put("name", frame.name).put("arguments", frame.content).toString(), true)
+                    val arguments = DikcizChatToolArguments.incoming(frame.content)
+                    parts["tool" to frame.index] = MessagePart.Tool.Call(frame.id, frame.name, arguments)
+                    onBlock("tool", frame.index, JSONObject().put("id", frame.id).put("name", frame.name).put("arguments", arguments).toString(), true)
                 }
                 is StreamFrame.End -> {
                     ended = true

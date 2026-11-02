@@ -18,6 +18,7 @@ internal class DikcizChatAgent(
     private val changed: () -> Unit,
     private val logger: DikcizLogger,
     private val captureTaskScreen: suspend () -> JSONObject,
+    private val progress: (String) -> Unit,
 ) {
     suspend fun run(queued: JSONObject, profile: JSONObject) {
         val conversationID = queued.getString("conversation_id")
@@ -44,7 +45,10 @@ internal class DikcizChatAgent(
                 val blockIndices = mutableMapOf<Pair<String, Int?>, Int>()
                 val rowID = store.append(conversationID, turnID, "assistant", "running", "", blocks)
                 var lastFlush = 0L
+                progress("Thinking")
                 val response = provider.stream(context, { kind, index, text, complete ->
+                    if (kind == "text") progress("Writing a reply")
+                    if (kind == "reasoning") progress("Thinking")
                     val position = blockIndices.getOrPut(kind to index) {
                         blocks.put(JSONObject().put("kind", kind).put("text", ""))
                         blocks.length() - 1
@@ -115,7 +119,19 @@ internal class DikcizChatAgent(
     }
 
     private fun invoke(call: MessagePart.Tool.Call): JSONObject {
-        val arguments = JSONObject(call.args)
+        val arguments = DikcizChatToolArguments.forExecution(call)
+        progress(when (call.tool) {
+            "phone_tools" -> "Finding phone tools"
+            "phone_resources", "phone_resource" -> "Reading documentation"
+            "phone_call" -> when (arguments.getString("name")) {
+                "dikciz_app_action" -> "Opening or controlling an app"
+                "dikciz_display_screenshot", "dikciz_accessibility_snapshot" -> "Reading the screen"
+                "dikciz_accessibility_action", "dikciz_tap" -> "Interacting with the screen"
+                else -> arguments.getString("name").takeIf { TOOL_NAME.matches(it) }
+                    ?.let { "Using " + it.removePrefix("dikciz_").replace('_', ' ') } ?: "Checking a phone tool"
+            }
+            else -> "Checking a tool request"
+        })
         return when (call.tool) {
             "phone_tools" -> {
                 val query = arguments.getString("query")
@@ -129,7 +145,7 @@ internal class DikcizChatAgent(
                     .put("hasMore", offset.toLong() + TOOL_PAGE_SIZE < matches.size).put("nextOffset", offset + TOOL_PAGE_SIZE)
             }
             "phone_call" -> mcp("tools/call", JSONObject().put("name", arguments.getString("name"))
-                .put("arguments", JSONObject(arguments.getString("arguments_json"))))
+                .put("arguments", DikcizChatToolArguments.parse(arguments.getString("arguments_json"))))
             "phone_resources" -> mcp("resources/list", JSONObject().apply { arguments.optString("cursor").takeIf(String::isNotEmpty)?.let { put("cursor", it) } })
             "phone_resource" -> mcp("resources/read", JSONObject().put("uri", arguments.getString("uri")))
             else -> JSONObject().put("isError", true).put("code", "unknown_tool").put("message", "Discover a supported phone tool first")
@@ -293,7 +309,7 @@ internal class DikcizChatAgent(
 
     private fun estimate(messages: List<Message>): Int {
         var bytes = TOOL_SCHEMA_RESERVE.toLong()
-        messages.forEach { message ->
+        DikcizChatToolArguments.forProvider(messages).forEach { message ->
             bytes += MESSAGE_FRAME_RESERVE
             message.parts.forEach { part -> bytes += when (part) {
                 is MessagePart.Text -> part.text.toByteArray(Charsets.UTF_8).size
@@ -309,6 +325,7 @@ internal class DikcizChatAgent(
     }
 
     private companion object {
+        val TOOL_NAME = Regex("[a-z][a-z0-9_]{0,79}")
         val ACTIVE_STATES = setOf("queued", "running", "executing")
         const val UNCERTAIN_TOOL_MESSAGE = "Execution was interrupted before its result was recorded. The action may have completed. Inspect actual state before retrying; never automatically repeat a side effect."
         const val STREAM_FLUSH_MILLISECONDS = 100L

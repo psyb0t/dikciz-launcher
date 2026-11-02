@@ -34,8 +34,9 @@ All Kotlin files below live in `kotlin/org/fossify/home/dikciz/`.
 | `DikcizControlStatus.kt`, `DikcizAutomationStatus.kt` | Describe the command protocol and Android capabilities for discovery. |
 | `DikcizChatActivity.kt`, `DikcizChatModelControls.kt`, `DikcizChatCommands.kt` | Native resizable Markdown chat, API-backed model dropdown, per-conversation settings and shared command schema. |
 | `DikcizChatTasks.kt` | Widget-authoring and screen-explanation task instructions, with persisted queue metadata and read-only screen execution. |
-| `DikcizChatRuntime.kt`, `DikcizChatAgent.kt`, `DikcizChatService.kt` | Serialized persistent queue, tool loop, context selection, event routing and foreground/reply notifications. |
+| `DikcizChatRuntime.kt`, `DikcizChatAgent.kt`, `DikcizChatService.kt` | Serialized persistent queue, tool loop, context selection, event routing, live activity notifications, turn-bound Stop and reply notifications. |
 | `DikcizChatStore.kt`, `DikcizChatSettings.kt`, `DikcizChatProvider.kt`, `DikcizChatAnthropicStream.kt` | SQLite transcripts, Keystore-encrypted credentials, validated budgets and Koog provider/SSE adapters. See [embedded chat](../../../docs/embedded-chat.md). |
+| `DikcizChatToolArguments.kt` | Normalizes empty provider calls, rejects non-object arguments before execution and makes old tool history safe for provider replay without discarding recorded outcomes. |
 | `DikcizMcpResources.kt` | Maps exact documentation URIs to packaged Markdown, validates resource parameters and paginates the fixed catalog. |
 | `DikcizDeviceAccessActivity.kt` | Owns the separate full-access setup task, recomputes Android grants on resume and exposes its active controls to the existing Home command target. |
 | `DikcizPermissionRequests.kt` | Validates permission-recovery options, persists targeted owner reviews and posts permission notifications without replaying commands. |

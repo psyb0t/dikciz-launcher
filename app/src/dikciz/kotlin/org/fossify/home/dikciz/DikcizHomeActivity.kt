@@ -352,9 +352,15 @@ class DikcizHomeActivity : Activity() {
         openRequestedDeviceAccessSetup()
     }
 
+    override fun onResume() {
+        super.onResume()
+        DikcizChatService.showShortcut(applicationContext)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        DikcizChatService.showShortcut(applicationContext)
         mainHandler.post { if (!isFinishing && !isDestroyed) showPendingPermissionRequest() }
         hasPendingDefaultHomePageSelection = isLauncherHomeIntent()
         dikcizLogger.info(

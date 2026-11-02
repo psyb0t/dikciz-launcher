@@ -13,6 +13,7 @@ from .test_native_data import native_call, PROTOCOLS
 
 TURN_TIMEOUT = 40
 PROVIDER_PORT_ATTEMPTS = 8
+PROVIDER_GATE_TIMEOUT = TURN_TIMEOUT * 3
 LOGGER = logging.getLogger(__name__)
 FIXTURE_TEXT = "# Streaming answer\n\n**Bold text** and a list:\n\n- first\n- second\n\n```python\nprint('fixture')\n```\n\n| Name | Value |\n| --- | --- |\n| fixture | ready |\n"
 
@@ -97,6 +98,11 @@ def provider_endpoint():
             self.wfile.flush()
             time.sleep(script["delay"])
 
+        def wait_for_text(self):
+            gate = script.get("text_gate")
+            if gate is not None and not gate.wait(PROVIDER_GATE_TIMEOUT):
+                raise TimeoutError("Fixture text gate was not released")
+
         def openai(self, body, text, summary):
             def chunk(delta, finish=None):
                 self.event({"id": "fixture-completion", "object": "chat.completion.chunk", "created": 1,
@@ -107,10 +113,16 @@ def provider_endpoint():
                 name, arguments = tools[tool_results]
                 wrapper = name if script["wrapper_calls"] else "phone_call"
                 encoded = json.dumps(arguments if script["wrapper_calls"] else {"name": name, "arguments_json": json.dumps(arguments)})
-                chunk({"role": "assistant", "tool_calls": [{"index": 0, "id": "fixture-call-" + str(tool_results), "type": "function", "function": {"name": wrapper, "arguments": encoded[:7]}}]})
-                chunk({"tool_calls": [{"index": 0, "function": {"arguments": encoded[7:]}}]})
+                fragments = script.get("argument_chunks", [encoded[:7], encoded[7:]])
+                function = {"name": wrapper}
+                if fragments:
+                    function["arguments"] = fragments[0]
+                chunk({"role": "assistant", "tool_calls": [{"index": 0, "id": "fixture-call-" + str(tool_results), "type": "function", "function": function}]})
+                for fragment in fragments[1:]:
+                    chunk({"tool_calls": [{"index": 0, "function": {"arguments": fragment}}]})
                 chunk({}, "tool_calls")
             else:
+                self.wait_for_text()
                 chunk({"role": "assistant"})
                 for offset in range(0, len(text), 3):
                     chunk({"content": text[offset:offset+3]})
@@ -142,10 +154,11 @@ def provider_endpoint():
                 wrapper = name if script["wrapper_calls"] else "phone_call"
                 encoded = json.dumps(arguments if script["wrapper_calls"] else {"name": name, "arguments_json": json.dumps(arguments)})
                 self.event({"type": "content_block_start", "index": index, "content_block": {"type": "tool_use", "id": "fixture-call-" + str(tool_results), "name": wrapper, "input": {}}}, "content_block_start")
-                for fragment in (encoded[:8], encoded[8:]):
+                for fragment in script.get("argument_chunks", [encoded[:8], encoded[8:]]):
                     self.event({"type": "content_block_delta", "index": index, "delta": {"type": "input_json_delta", "partial_json": fragment}}, "content_block_delta")
                 reason = "tool_use"
             else:
+                self.wait_for_text()
                 self.event({"type": "content_block_start", "index": index, "content_block": {"type": "text", "text": ""}}, "content_block_start")
                 for offset in range(0, len(text), 3):
                     self.event({"type": "content_block_delta", "index": index, "delta": {"type": "text_delta", "text": text[offset:offset+3]}}, "content_block_delta")

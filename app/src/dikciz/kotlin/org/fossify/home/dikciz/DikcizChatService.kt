@@ -16,18 +16,17 @@ import android.net.Uri
 import org.fossify.home.R
 
 internal class DikcizChatService : Service() {
+    private lateinit var runtime: DikcizChatRuntime
+    private var displayedProgress: DikcizChatRuntime.Progress? = null
+    private val observer: () -> Unit = { updateProgress() }
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         channels(this)
-        val notification = Notification.Builder(this, CHANNEL_ACTIVE)
-            .setSmallIcon(R.drawable.dikciz_brand_mark)
-            .setContentTitle("Dikciz agent")
-            .setContentText("Handling your conversations and configured events")
-            .setContentIntent(openChat(this, null))
-            .setOngoing(true)
-            .build()
+        runtime = DikcizChatRuntime.get(this)
+        runtime.observe(observer)
+        val notification = progressNotification(runtime.progress())
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(NOTIFICATION_ACTIVE, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
@@ -36,7 +35,12 @@ internal class DikcizChatService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val runtime = DikcizChatRuntime.get(this)
+        if (intent?.action == ACTION_STOP) {
+            val conversationID = intent.getStringExtra("conversationId")
+            val turnID = intent.getStringExtra("turnId")
+            if (conversationID != null && turnID != null) runtime.stopTurn(conversationID, turnID)
+        }
+        updateProgress()
         if (!runtime.busy() && !runtime.hasRules()) {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
@@ -46,11 +50,70 @@ internal class DikcizChatService : Service() {
         return START_STICKY
     }
 
+    override fun onDestroy() {
+        runtime.unobserve(observer)
+        super.onDestroy()
+    }
+
+    private fun updateProgress() {
+        val progress = runtime.progress()
+        if (displayedProgress == progress) return
+        displayedProgress = progress
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ACTIVE, progressNotification(progress))
+    }
+
+    private fun progressNotification(progress: DikcizChatRuntime.Progress): Notification {
+        val working = progress.conversationID != null && progress.turnID != null
+        val builder = Notification.Builder(this, CHANNEL_ACTIVE)
+            .setSmallIcon(R.drawable.dikciz_brand_mark)
+            .setContentTitle(if (working) "Dikciz is working" else "Dikciz event listener")
+            .setContentText(if (working) progress.text else "Waiting for your configured events")
+            .setContentIntent(openChat(this, progress.conversationID))
+            .setOnlyAlertOnce(true)
+            .setShowWhen(false)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .setOngoing(true)
+        if (working) {
+            val stop = PendingIntent.getService(this, 0,
+                Intent(this, DikcizChatService::class.java)
+                    .setAction(ACTION_STOP)
+                    .setData(Uri.parse("dikciz-chat-stop:" + progress.turnID))
+                    .putExtra("conversationId", progress.conversationID)
+                    .putExtra("turnId", progress.turnID),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            builder.addAction(Notification.Action.Builder(null, "Stop", stop).build())
+                .setProgress(0, 0, true)
+        }
+        return builder.build()
+    }
+
     companion object {
+        private const val ACTION_STOP = "org.fossify.home.dikciz.chat.STOP"
         private const val CHANNEL_ACTIVE = "dikciz-chat-active"
         private const val CHANNEL_REPLIES = "dikciz-chat-replies"
+        private const val CHANNEL_SHORTCUT = "dikciz-chat-shortcut"
         private const val NOTIFICATION_ACTIVE = 78001
         private const val NOTIFICATION_REPLY = 78002
+        private const val NOTIFICATION_SHORTCUT = 78003
+
+        fun showShortcut(context: Context) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) return
+            channels(context)
+            val open = openChat(context, null)
+            context.getSystemService(NotificationManager::class.java).notify(NOTIFICATION_SHORTCUT,
+                Notification.Builder(context, CHANNEL_SHORTCUT)
+                    .setSmallIcon(R.drawable.dikciz_brand_mark)
+                    .setContentTitle("Dikciz chat")
+                    .setContentText("Open chat over your current app")
+                    .setContentIntent(open)
+                    .addAction(Notification.Action.Builder(null, "Open chat", open).build())
+                    .setOngoing(true)
+                    .setOnlyAlertOnce(true)
+                    .setShowWhen(false)
+                    .build())
+        }
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, DikcizChatService::class.java))
@@ -61,13 +124,17 @@ internal class DikcizChatService : Service() {
             if (!runtime.busy() && !runtime.hasRules()) context.stopService(Intent(context, DikcizChatService::class.java))
         }
 
-        fun notifyReply(context: Context, conversationID: String) {
+        fun notifyReply(context: Context, conversationID: String, outcome: String?) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
             channels(context)
             context.getSystemService(NotificationManager::class.java).notify(conversationID, NOTIFICATION_REPLY,
                 Notification.Builder(context, CHANNEL_REPLIES)
                     .setSmallIcon(R.drawable.dikciz_brand_mark)
-                    .setContentTitle("Dikciz has a reply")
+                    .setContentTitle(when (outcome) {
+                        "cancelled" -> "Dikciz stopped"
+                        "failed", "interrupted" -> "Dikciz needs attention"
+                        else -> "Dikciz has a reply"
+                    })
                     .setContentText("Open your conversation to read it")
                     .setContentIntent(openChat(context, conversationID))
                     .setAutoCancel(true)
@@ -80,6 +147,7 @@ internal class DikcizChatService : Service() {
 
         private fun channels(context: Context) {
             val manager = context.getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(NotificationChannel(CHANNEL_SHORTCUT, "Chat shortcut", NotificationManager.IMPORTANCE_LOW))
             manager.createNotificationChannel(NotificationChannel(CHANNEL_ACTIVE, "Agent activity", NotificationManager.IMPORTANCE_LOW))
             manager.createNotificationChannel(NotificationChannel(CHANNEL_REPLIES, "Agent replies", NotificationManager.IMPORTANCE_DEFAULT))
         }

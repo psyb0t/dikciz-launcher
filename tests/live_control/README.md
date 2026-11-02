@@ -30,6 +30,10 @@ These pytest scenarios exercise real Android UI and forwarded WebSocket, MCP and
 | `test_device_files.py` | Filesystem pagination, binary transfers, HTTP security, CLI results and actual Android APK install/cancel outcomes. |
 | `test_goblin_starter.py` | Real Lua threshold/rearm/cooldown behavior, speech completion, native WebView audio/Stop, packaged picker and bounded outdoor-weather success/failure. |
 | `test_chat_agent.py` | Fake OpenAI/Anthropic HTTP/SSE boundaries with real Android SQLite, shared MCP tool execution, context policies, event turns, cancellation and native streaming Markdown UI. |
+| `test_chat_shortcut.py` | Idle notification entry over another app with overlay access denied, first-run setup and capture of the underlying screen. |
+| `test_chat_presentation.py` | Native half/fullscreen geometry, keyboard draft preservation, idle controls and notification screenshots. |
+| `test_chat_background.py` | Real Android progress notifications, exact-conversation navigation and Stop during background work. |
+| `test_chat_tool_arguments.py` | Empty/missing/fragmented provider arguments, strict JSON rejection, continued turns and real SQLite legacy-history replay after restart with recorded write outcomes. |
 | `test_chat_quick_tasks.py` | Generated HTML source/state and renderer acknowledgements, captured external screens, read-only execution, task retries, cancellation and native buttons through fake provider boundaries. |
 | `test_mcp_resources.py` | Resource discovery, every section read, bounded pagination, protocol errors, authentication/session gates, CLI reads and execution of the packaged event recipe. |
 | `test_remote_device_control.py` | Production-client restart, instance/version inspection, external-display capture, validation and delayed port-conflict recovery. |

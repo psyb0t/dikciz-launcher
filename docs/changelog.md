@@ -2,6 +2,24 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.30.6] - 2026-11-02
+
+### Added
+
+- A quiet persistent Open chat notification for opening the half-screen assistant over another app while idle, without an extra running service.
+- Live assistant activity notifications with a Stop action and direct return to the running conversation. Stale notification actions cannot cancel a newer turn.
+
+### Changed
+
+- Redesign the chat sheet with a compact model toolbar, readable header actions, an empty state and a clearer composer. Tool records show their names before expansion.
+
+### Fixed
+
+- Empty streamed tool arguments now become an empty JSON object, allowing no-argument tool calls to complete with OpenAI and Anthropic providers.
+- Existing conversations with empty or malformed saved tool arguments can continue after update or restart. Provider replay preserves rejected text and recorded outcomes without repeating completed operations.
+- Tool wrappers reject malformed JSON, non-object inputs, unsupported fields and wrong parameter types before native execution. Rejected requests remain recoverable within the conversation.
+- Notification discovery clears removed action tokens immediately when an updated notification has no actions.
+
 ## [0.30.5] - 2026-11-02
 
 ### Fixed
