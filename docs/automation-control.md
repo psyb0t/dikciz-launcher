@@ -14,7 +14,7 @@ Both listeners default to device loopback. Set their listen address and ports th
 
 ## On-device assistant
 
-`chatControl` and MCP `dikciz_chat` manage the same provider connections, per-conversation model/token settings, queue, event rules and panel used by the native cheese button. Sends report queue state; poll the transcript and actual tool outcomes. The agent discovers and invokes existing MCP handlers in process. See [chat setup, actions and context budgets](embedded-chat.md).
+`chatControl` and MCP `dikciz_chat` manage the same provider connections, per-conversation model/token settings, queue, event rules and panel used by the native cheese button. Sends report queue state; poll the transcript and actual tool outcomes. The agent discovers and invokes existing MCP handlers in process. The shared `task` action offers widget creation on the current page and read-only screen explanation with automatic chat dismissal and display capture. See [chat setup, actions and context budgets](embedded-chat.md).
 
 ## Direct Android data
 

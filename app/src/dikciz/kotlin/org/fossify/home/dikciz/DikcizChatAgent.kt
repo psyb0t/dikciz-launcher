@@ -17,15 +17,25 @@ internal class DikcizChatAgent(
     private val mcp: (String, JSONObject) -> JSONObject,
     private val changed: () -> Unit,
     private val logger: DikcizLogger,
+    private val captureTaskScreen: suspend () -> JSONObject,
 ) {
     suspend fun run(queued: JSONObject, profile: JSONObject) {
         val conversationID = queued.getString("conversation_id")
         val turnID = queued.getString("turn_id")
-        val user = Message.User(JSONArray(queued.getString("blocks")).getJSONObject(0).getString("text"), RequestMetaInfo.Empty)
+        val block = JSONArray(queued.getString("blocks")).getJSONObject(0)
+        val task = block.optJSONObject(DikcizChatTasks.KEY_TASK)
+        val parts = mutableListOf<MessagePart.RequestPart>(MessagePart.Text(block.getString("text")))
+        if (task?.optString(DikcizChatTasks.KEY_KIND) == DikcizChatTasks.WIDGET) {
+            parts.add(MessagePart.Text("Task target data: $task"))
+        }
+        if (task?.optString(DikcizChatTasks.KEY_KIND) == DikcizChatTasks.EXPLAIN_SCREEN) {
+            parts.addAll(resultParts(captureTaskScreen()))
+        }
+        val user = Message.User(parts, RequestMetaInfo.Empty)
         store.updateMessage(queued.getLong("id"), "running", DikcizChatProvider.encode(user))
         val current = mutableListOf<Message>(user)
         val access = if (profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY)) "Read-only mode is enabled. Only exposed read tools may run. Writes, control actions and permission prompts are blocked by the executor. Ask the owner to change model settings if a requested task needs write access." else ""
-        val system = Message.System(DikcizChatSettings.SYSTEM_PROMPT + "\n" + access + "\n" + profile.optString("systemPrompt"), RequestMetaInfo.Empty)
+        val system = Message.System(DikcizChatSettings.SYSTEM_PROMPT + "\n" + access + "\n" + profile.optString("systemPrompt") + "\n" + DikcizChatTasks.instructions(task), RequestMetaInfo.Empty)
         DikcizChatProvider(profile).use { provider ->
             repeat(profile.getInt("maximumRounds")) { round ->
                 currentCoroutineContext().ensureActive()

@@ -2,6 +2,17 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.30.4] - 2026-11-02
+
+### Added
+
+- Native Make me a widget and Explain this screen actions, shared through the chat command on every ordinary entrypoint.
+- Persistent page targets for generated widgets and screen capture before provider requests, with read-only execution for screen explanations and automatic chat reopening.
+
+### Fixed
+
+- Restore MCP documentation resource discovery by keeping the packaged chat guide within its section-size limit.
+
 ## [0.30.3] - 2026-10-29
 
 ### Added

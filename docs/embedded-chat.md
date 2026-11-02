@@ -4,6 +4,22 @@ Tap the cheese beside the launcher controls to open chat. It starts at half heig
 
 The native panel renders streamed Markdown, including headings, lists, code fences, tables and strikethrough. Reasoning and tool records expand on a tap. Scrolling up stops automatic scrolling; **Latest** resumes it. The panel resizes above the keyboard. Conversation selection, creation, renaming, provider changes and deletion are available from its header. Stop a busy conversation before changing its provider or deleting it.
 
+## Quick tasks
+
+**Make me a widget** opens a description field. Describe the result, then tap **Create**. Dikciz saves the current page identity with the queued request and asks the selected model to build a complete HTML/CSS/JavaScript document with independent widget state through the existing phone tools. It preserves existing content and reports missing, locked or full pages. Widget creation requires writable conversation access. Inspect the generated widget and tool results; the model can fail or leave a partial result.
+
+**Explain this screen** uses an optional question from the composer. It hides chat, waits for dismissal, captures the visible Android display and reads its accessibility tree before contacting the provider. The capture becomes an image attachment in the private chat transcript. This turn exposes and executes only read-only tools even if the conversation normally permits writes. It does not change that conversation's saved access setting. Chat requests reopening when the turn finishes; Android background-activity restrictions still apply. A new screen task is rejected while other assistant work is active, so it cannot silently capture a much later screen. Missing screenshot access fails visibly without a provider request. Secure windows, lock screens and Android capture limits still apply.
+
+These shortcuts use the configured model and can incur API usage. Screen explanation requires a model that accepts image input. Captured screen data goes to that provider and remains in the private conversation history. Opening chat from Home explains Home; to inspect another app, open that app and request the task through the remote API or show chat over it through the shared visibility command.
+
+All ordinary entrypoints accept the same task request:
+
+```json
+{"action":"task","task":"widget","conversationId":"CONVERSATION_ID","requestKey":"UNIQUE_REQUEST_KEY","text":"Create a small editable note widget."}
+```
+
+Use `task: "explainScreen"` with an optional `text` question for screen explanation. HTTP adds `type: "chatControl"`; MCP uses `dikciz_chat`. The response reports queue identity, not completion. Poll `read`. Reusing a key with the same task and text returns the existing turn without recapture or generation; changed content returns `chat_request_conflict`. Capture and tool failures remain in the transcript. Cancelling a screen task does not request reopening.
+
 ## Connect a provider
 
 Open **Settings**, then **Add provider**. Choose **OpenAI**, **Anthropic** or **Custom** from **Provider template**. OpenAI and Anthropic fill their standard API base URL and protocol. Custom lets you enter your own HTTP or HTTPS base URL and choose the compatible protocol. Enter the API key and save the connection. Switching templates clears any key typed into the form; existing saved keys still follow the host/protocol retention rules below. Create or select a conversation using that connection, then use the **Chat model** dropdown to choose from its API catalogue. **Refresh chat models** fetches the current list again. Each conversation can choose a different model from the same provider without copying its connection or key. If discovery is unavailable or a private model is not listed, enter its exact ID under **Model settings**. A conversation without a model cannot send messages or enable event rules.
@@ -95,6 +111,7 @@ Use WebSocket `chatControl`, HTTP `/v1/automation` with `type: "chatControl"`, M
 | `configure` | Patch `settings` and/or change `profileId` for an idle `conversationId`. Settings accept model and execution fields only. A provider change retains read-only access and clears other prior overrides before applying the patch. |
 | `delete` | Delete an idle conversation and its messages/rules. |
 | `send` | `conversationId`, `text`, unique `requestKey`. Returns queue identity and state. Reusing the key with the same text returns the existing turn; different text fails with `chat_request_conflict`. |
+| `task` | `conversationId`, `requestKey`, and `task` (`widget` or `explainScreen`). Widget creation requires `text`; screen explanation accepts an optional question. See Quick tasks. |
 | `stop` | Cancel active and queued work for `conversationId`. Completed effects remain completed. |
 | `subscribe` | Replace `rules` for `conversationId`. |
 | `show` / `fullscreen` / `hide` | Control the panel independently of running work. `show` accepts optional `conversationId` and `fullScreen`. |

@@ -96,6 +96,12 @@ internal class DikcizChatActivity : Activity() {
         panel.addView(status)
         modelControls = DikcizChatModelControls(this, { conversationID }) { request, completed -> command(request, completed) }
         panel.addView(modelControls.view)
+        val tasks = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        tasks.addView(button("Make me a widget", "Make me a widget") { widgetTask() }, LinearLayout.LayoutParams(0, dp(44), 1f))
+        tasks.addView(button("Explain this screen", "Explain this screen") {
+            startTask(DikcizChatTasks.EXPLAIN_SCREEN, composer.text.toString().ifBlank { DikcizChatTasks.DEFAULT_SCREEN_QUESTION })
+        }, LinearLayout.LayoutParams(0, dp(44), 1f))
+        panel.addView(tasks)
         val content = FrameLayout(this)
         scroll = ChatScrollView(this).apply {
             isFillViewport = true
@@ -231,6 +237,35 @@ internal class DikcizChatActivity : Activity() {
         followLatest = true
         command(JSONObject().put("action", "send").put("conversationId", id).put("text", text)
             .put("requestKey", UUID.randomUUID().toString())) { composer.setText("") }
+    }
+
+    private fun widgetTask() {
+        if (conversationID == null) { newConversation(); return }
+        val input = EditText(this).apply {
+            hint = "Describe what your widget should do"
+            contentDescription = "Widget request"
+            setText(composer.text)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+        }
+        val dialog = AlertDialog.Builder(this).setTitle("Make me a widget").setView(input)
+            .setPositiveButton("Create", null).setNegativeButton("Cancel", null).create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                if (input.text.isBlank()) { input.error = "Describe the widget"; return@setOnClickListener }
+                startTask(DikcizChatTasks.WIDGET, input.text.toString())
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
+    }
+
+    private fun startTask(task: String, text: String) {
+        val id = conversationID ?: run { newConversation(); return }
+        followLatest = true
+        command(JSONObject().put("action", DikcizChatTasks.ACTION).put("task", task)
+            .put("conversationId", id).put("text", text).put("requestKey", UUID.randomUUID().toString())) {
+            composer.setText("")
+        }
     }
 
     private fun command(request: JSONObject, completed: (JSONObject) -> Unit = {}) {

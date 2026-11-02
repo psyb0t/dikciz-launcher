@@ -187,20 +187,26 @@ internal class DikcizChatStore(context: Context) : SQLiteOpenHelper(context, DAT
     }
 
     @Synchronized
-    fun enqueue(id: String, text: String, requestKey: String, source: String): JSONObject {
+    fun enqueue(id: String, text: String, requestKey: String, source: String, task: JSONObject? = null): JSONObject {
         conversation(id)
         val key = "$id:$requestKey"
         rows("SELECT id,turn_id,state,blocks FROM messages WHERE request_key=?", arrayOf(key)).firstOrNull()?.let {
-            if (JSONArray(it.getString("blocks")).getJSONObject(0).getString("text") != text) {
+            val previous = JSONArray(it.getString("blocks")).getJSONObject(0)
+            if (previous.getString("text") != text || previous.optString("source") != source ||
+                previous.optJSONObject(DikcizChatTasks.KEY_TASK)?.optString(DikcizChatTasks.KEY_KIND) != task?.optString(DikcizChatTasks.KEY_KIND)
+            ) {
                 DikcizNativeCommands.failure("chat_request_conflict", "The request key already belongs to a different message")
             }
             it.remove("blocks")
             return it
         }
         val turnID = UUID.randomUUID().toString()
-        val rowID = append(id, turnID, "user", "queued", "", JSONArray().put(JSONObject().put("kind", "text").put("text", text).put("source", source)), key)
+        val rowID = append(id, turnID, "user", "queued", "", JSONArray().put(JSONObject().put("kind", "text").put("text", text).put("source", source).apply { task?.let { put(DikcizChatTasks.KEY_TASK, it) } }), key)
         return JSONObject().put("id", rowID).put("turn_id", turnID).put("state", "queued")
     }
+
+    fun request(id: String, requestKey: String): JSONObject? =
+        rows("SELECT id FROM messages WHERE request_key=?", arrayOf("$id:$requestKey")).firstOrNull()
 
     fun nextQueued(): JSONObject? = rows("SELECT * FROM messages WHERE state='queued' ORDER BY id LIMIT 1").firstOrNull()
 

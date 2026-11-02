@@ -16,6 +16,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -135,6 +137,25 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
                 DikcizChatService.refresh(context)
                 context.startForegroundService(Intent(context, DikcizAutomationService::class.java))
                 JSONObject().put("deleted", true)
+            }
+            DikcizChatTasks.ACTION -> synchronized(queueLock) {
+                val profile = store.effectiveProfile(id, requireModel = true)
+                val kind = request.getString("task")
+                if (kind == DikcizChatTasks.WIDGET && profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY)) {
+                    DikcizNativeCommands.failure("read_only_violation", "Widget creation requires writable phone access")
+                }
+                val text = request.optString("text", DikcizChatTasks.DEFAULT_SCREEN_QUESTION)
+                val task = JSONObject().put(DikcizChatTasks.KEY_KIND, kind)
+                if (kind == DikcizChatTasks.WIDGET) {
+                    task.put(DikcizChatTasks.KEY_PAGE, HomeConfigStore(context).loadOrCreate().selectedPageID)
+                }
+                val existing = store.request(id, request.getString("requestKey"))
+                if (existing == null && kind == DikcizChatTasks.EXPLAIN_SCREEN && busy()) {
+                    DikcizNativeCommands.failure("chat_busy", "Wait for the assistant to finish before capturing the current screen")
+                }
+                val result = store.enqueue(id, text, request.getString("requestKey"), "task", task)
+                DikcizChatService.start(context)
+                result
             }
             "send" -> synchronized(queueLock) {
                 store.effectiveProfile(id, requireModel = true)
@@ -273,11 +294,14 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
         try {
             val profile = store.effectiveProfile(id, requireModel = true)
             credential = profile.optString("apiKey")
-            val readOnly = profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY)
+            val screenTask = JSONArray(queued.getString("blocks")).getJSONObject(0)
+                .optJSONObject(DikcizChatTasks.KEY_TASK)?.optString(DikcizChatTasks.KEY_KIND) == DikcizChatTasks.EXPLAIN_SCREEN
+            val readOnly = screenTask || profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY)
+            if (screenTask) profile.put(DikcizChatSettings.KEY_READ_ONLY, true)
             withTimeout(profile.getLong("timeoutMilliseconds")) {
                 DikcizChatAgent(store, { method, params ->
                     ownerMcp?.invoke(method, params, readOnly) ?: DikcizNativeCommands.failure("chat_mcp_unavailable", "Open Dikciz Home to reconnect its local MCP tools")
-                }, ::changed, logger).run(queued, profile)
+                }, ::changed, logger, ::captureTaskScreen).run(queued, profile)
             }
         } catch (exception: TimeoutCancellationException) {
             store.interruptTurn(turnID, "failed")
@@ -297,12 +321,44 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
                 store.markUnread(id)
                 DikcizChatService.notifyReply(context, id)
             }
+            val block = JSONArray(queued.getString("blocks")).getJSONObject(0)
+            if (block.optJSONObject(DikcizChatTasks.KEY_TASK)?.optString(DikcizChatTasks.KEY_KIND) == DikcizChatTasks.EXPLAIN_SCREEN &&
+                store.messages(id).firstOrNull { it.getLong("id") == queued.getLong("id") }?.optString("state") != "cancelled"
+            ) {
+                handler.post {
+                    try {
+                        execute(JSONObject().put("action", "show").put("conversationId", id))
+                    } catch (exception: Exception) {
+                        logger.warn("chat_task_reopen_failed", mapOf("error_class" to exception.javaClass.simpleName))
+                    }
+                }
+            }
             logger.debug("chat_turn_finished", mapOf("turn_id" to turnID, "duration_ms" to android.os.SystemClock.elapsedRealtime() - started))
             changed()
         }
     }
 
+    private suspend fun captureTaskScreen(): JSONObject {
+        withContext(Dispatchers.Main) { activity.get()?.finish() }
+        withTimeout(SCREEN_HIDE_TIMEOUT_MILLISECONDS) {
+            while (activity.get() != null) delay(SCREEN_HIDE_POLL_MILLISECONDS)
+        }
+        delay(SCREEN_TRANSITION_MILLISECONDS)
+        val call = ownerMcp ?: DikcizNativeCommands.failure("chat_mcp_unavailable", "Open Dikciz Home to reconnect its local MCP tools")
+        val screenshot = call("tools/call", JSONObject().put("name", "dikciz_display_screenshot").put("arguments", JSONObject()), true)
+        if (screenshot.optBoolean("isError")) {
+            DikcizNativeCommands.failure("screen_capture_failed", "Screen capture failed. Enable Dikciz cross-app automation in Android Accessibility settings and retry. Secure windows and Android screenshot limits still apply.")
+        }
+        val snapshot = call("tools/call", JSONObject().put("name", "dikciz_accessibility_snapshot").put("arguments", JSONObject()), true)
+        screenshot.getJSONArray("content").put(JSONObject().put("type", "text").put("text", snapshot.toString()))
+        logger.info("chat_task_screen_captured")
+        return screenshot
+    }
+
     companion object {
+        private const val SCREEN_HIDE_TIMEOUT_MILLISECONDS = 3000L
+        private const val SCREEN_HIDE_POLL_MILLISECONDS = 50L
+        private const val SCREEN_TRANSITION_MILLISECONDS = 350L
         private const val MAXIMUM_RULES = 32
         private val RULE_ID_PATTERN = Regex("[A-Za-z0-9][A-Za-z0-9_.-]{0,79}")
         private const val MAXIMUM_PROMPT = 32768
