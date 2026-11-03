@@ -1,5 +1,7 @@
 # Dikciz scripting tutorial
 
+For installation, the starter home, AI chat, remote connections and Android hardware, start with the [complete Dikciz tutorial](tutorial.md). This guide is the hands-on HTML and Lua companion.
+
 Dikciz has two ways to make the home react to the phone. HTML widgets draw and handle visible interaction. Lua scripts run in the background when an event arrives. Both use the same event bus, page and widget addresses, action executor, Android access state, and logs.
 
 This tutorial builds one small pipeline that you can copy and extend:

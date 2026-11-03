@@ -2,6 +2,18 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.30.8] - 2026-11-03
+
+### Added
+
+- An illustrated tutorial covering installation, home editing, provider and model setup, read-only chat, remote connections, Lua events, Android tools and SDK calls.
+- A complete HTML template gallery and captured command results, with emulator hardware limits and provider failures identified.
+
+### Changed
+
+- Refresh launcher screenshots with the current controls, populated weather and calendar data, a saved voice note and device measurements.
+- Link the tutorial from the README, documentation index and scripting guide.
+
 ## [0.30.7] - 2026-11-02
 
 ### Added

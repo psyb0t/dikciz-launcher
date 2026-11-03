@@ -164,6 +164,7 @@ Start with the [documentation index](docs/index.md) for every guide and the [cov
 
 | Guide | Covers |
 | --- | --- |
+| [Tutorial](docs/tutorial.md) | Illustrated setup, editable home, AI chat, remote control, events, hardware and SDK calls. |
 | [User guide](docs/user-guide.md) | Installation, Android access, navigation and native editing, with screenshots. |
 | [On-device chat](docs/embedded-chat.md) | Provider profiles, streaming Markdown, conversations, context budgets and event-driven agents. |
 | [Configuration](docs/dikciz-configuration.md) | Public files, validation, reload behavior, themes and logs. |
