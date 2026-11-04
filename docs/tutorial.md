@@ -51,7 +51,7 @@ The bundled home has four pages. Some data needs a grant or an explicit refresh;
 
 Weather can use permitted phone location when no city is set. Check the age and error state of fetched data. Whole-phone CPU counters may be protected even when ordinary permissions are granted; CPU frequency is not CPU utilization.
 
-The library includes eighteen complete HTML templates, including Live sensors, BTC and economic news, app search, notes and combined dashboards. Six Lua examples start disabled: low-battery and charging reminders, lock-on-demand, and the London, heat and speed rules. The [starter catalog](starter-home.md) describes every template, trigger, data source and cleanup behavior.
+The library includes nineteen complete HTML templates, including Live sensors, BTC and economic news, app search, notes and combined dashboards. Six Lua examples start disabled: low-battery and charging reminders, lock-on-demand, and the London, heat and speed rules. The [starter catalog](starter-home.md) describes every template, trigger, data source and cleanup behavior.
 
 **Check:** visit all four pages. Try one manual Goblin effect and stop it. Do not enable background rules until you have reviewed their source and triggers.
 
@@ -400,7 +400,7 @@ For a specific failure, use the [documentation index](index.md), [command schema
 These captures show the bundled documents as separate WebViews. The starter above shows the normal mixed-size layout. Data sources, required access and intended spans are listed in the [template catalog](starter-home.md#complete-bundled-widget-catalog). Action templates wait for a tap; a screenshot of their controls does not prove the effect ran.
 
 <details>
-<summary>Show all eighteen complete HTML templates</summary>
+<summary>Show the captured HTML templates</summary>
 
 <p><a href="images/tutorial/template-agenda.png"><img src="images/tutorial/template-agenda.png" alt="Agenda" width="280"></a><br>Agenda</p>
 
@@ -438,4 +438,14 @@ These captures show the bundled documents as separate WebViews. The starter abov
 
 <p><a href="images/tutorial/template-voice-notes.png"><img src="images/tutorial/template-voice-notes.png" alt="Voice notes" width="280"></a><br>Voice notes</p>
 
+The optional [Vehicle console](device-connections.md#vehicle-document) adds a paired-adapter dashboard. Its documented capture uses an explicit deterministic adapter fixture.
+
 </details>
+
+## Inspect activity and preserve a setup
+
+Use Settings, Activity & resources to inspect callers, failures and resource measurements. Pause a script, HTML widget or chat event rule there. Create an encrypted backup, preview its counts and confirm the exact archive before replacing home and chat history. See [the guide](backups.md).
+
+## Companion workflows
+
+See [the focused companion guide](companion.md) for the new shared commands, native screens, required access and actual outcome states.

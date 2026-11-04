@@ -75,3 +75,7 @@ Reference: [Android SpeechRecognizer](https://developer.android.com/reference/an
 ## Languages and recognition models
 
 Use speechLanguages for provider language inventory, speechModelDownload for an explicit download request and speechModelStatus for current progress. Android version and provider support apply. See [language and model management](speech-models.md) for pagination, consent, scheduled/available states and timeout behavior.
+
+## Partial results and existing recordings
+
+Use speechStreamStart/Read/Stop for provider partial callbacks, or speechTranscribeFile for an explicit recording upload to a saved OpenAI-compatible transcription provider. See [the guide](visual-streams.md).

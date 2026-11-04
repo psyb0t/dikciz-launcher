@@ -41,6 +41,7 @@ Current four-page starter on the emulator, with live London weather, sample cale
 | [On-device chat](#chat-with-your-phone) | [Provider setup, tools and event rules](docs/embedded-chat.md) |
 | [Configuration](#configure-it) | [Remote control](#inspect-and-control-it-remotely), [Android capabilities](#android-capabilities), [logs](#logs-and-failure-reporting) |
 | [Build and run](#run-it) | [Fossify updates](#fossify-source-updates), [verification](#verification) |
+| [Activity and backups](#activity-recovery-and-backups) | [Operations](docs/operations.md), [encrypted restore](docs/backups.md), [live images and speech](docs/visual-streams.md) |
 | [Documentation](#documentation) | [Agent integrations](#agent-integrations), [upstream](#upstream) |
 
 ## Install it
@@ -50,7 +51,7 @@ Download the signed `dikciz-launcher-vX.Y.Z.apk` from [GitHub Releases](https://
 1. Install the APK and open Dikciz. For an ADB installation, use `adb install -r dikciz-launcher-vX.Y.Z.apk`.
 2. Choose Dikciz as Android's default Home app.
 3. Tap **Grant file access**, allow shared-storage access in Android, and return to Dikciz. It creates the starter home in `/sdcard/Dikciz/`.
-4. Open **Settings**, **Automation**, **Set up full device access** for features that need additional Android access. You choose which permissions and special access to grant. Cross-app UI control needs **Dikciz cross-app automation** enabled in Android Accessibility settings.
+4. Open **Settings**, **Getting started** for Android access, widget templates, assistant setup and remote control. Choose **Review Android access** for features that need additional grants. You choose which permissions and special access to grant. Cross-app UI control needs **Dikciz cross-app automation** enabled in Android Accessibility settings.
 
 Dikciz reopens after an APK update when it is the default Home app or has **Draw over other apps** access. If Android prevents automatic reopening, tap the **Dikciz updated** notification or open the app. This also restarts the remote listeners. See [update recovery](docs/remote-device-control.md#recover-after-an-apk-update).
 
@@ -73,7 +74,7 @@ The starter combines everyday launcher controls with programmable widgets. **Hom
 
 ## Bundled widgets and scripts
 
-The eighteen complete HTML templates cover **Time and weather**, **Most used apps**, **Agenda**, **Voice notes**, **Device status**, **Goblin control**, **Home dashboard**, **System dashboard**, **Live sensors**, **BTC and economic news**, **Clock and search**, **Find an app**, **Quick note**, **Android app settings**, **Android display settings**, **Lock screen**, **Post a notification** and **Dikciz diagnostics**. Add copies from the widget picker and edit their full HTML, CSS, JavaScript and saved state. The [complete catalog](docs/starter-home.md#complete-bundled-widget-catalog) explains every template and its data sources.
+The nineteen complete HTML templates cover **Time and weather**, **Most used apps**, **Agenda**, **Voice notes**, **Device status**, **Goblin control**, **Home dashboard**, **System dashboard**, **Live sensors**, **BTC and economic news**, **Clock and search**, **Find an app**, **Quick note**, **Android app settings**, **Android display settings**, **Lock screen**, **Post a notification**, **Dikciz diagnostics** and **Vehicle console**. Add copies from the widget picker and edit their full HTML, CSS, JavaScript and saved state. The [complete catalog](docs/starter-home.md#complete-bundled-widget-catalog) explains every template and its data sources.
 
 Six Lua examples ship disabled: **Low battery reminder**, **Unplug at 80 percent**, **Lock screen on demand**, **Goblin London**, **Goblin heat** and **Goblin speed**. The goblin rules announce London arrival, complain above 35 Celsius outdoors, and yell above 80 km/h GPS speed. Their saved cooldowns and rearm thresholds prevent constant repetition. The Goblin page lets you preview the voices, say "peen goes in vageen", flash the torch and play synthesized alien sounds. Enable scripts individually in Settings; read [triggers, permissions and weather setup](docs/starter-home.md#optional-lua-utilities).
 
@@ -86,6 +87,10 @@ The [illustrated user guide](docs/user-guide.md) walks through pages, apps, grou
 ## Chat with your phone
 
 Tap the cheese beside the launcher controls for an on-device assistant. Add an OpenAI-compatible or Anthropic-compatible provider connection once, choose models from its API-backed chat dropdown, keep independent model/token/reasoning settings for each conversation, and let it discover the same phone MCP tools used by external agents. Read-only mode hides mutating tools and blocks direct write calls in the executor. The panel streams Markdown, expands from half screen, and can hide while the agent uses another app. Its quiet **Open chat** notification also opens it over any app while the assistant is idle. Event rules can wake a conversation in the background. A live notification shows its activity, reopens the exact chat on a tap and offers **Stop**. SQLite keeps full transcripts; choose old-exchange trimming or summary compaction with an output reserve. Use **Make me a widget** to generate a complete widget on the current page, or **Explain this screen** to capture the screen behind chat and ask for a read-only explanation. Read [chat setup and controls](docs/embedded-chat.md).
+
+## Safety, journeys and devices
+
+Open **Settings**, **Safety, journeys and devices** for inactive contact plans, opt-in missed check-ins/SOS, geofences, recorded routes, retained Bluetooth/USB/NFC connections, image OCR/barcodes/PDFs, Health Connect records and Android-approved Wi-Fi flows. All use the shared phone APIs. [Read the setup and limits](docs/companion.md) before enabling background work. The optional Vehicle console template reads a paired ELM327 adapter. Chat also offers five [read-only routines](docs/assistant-routines.md).
 
 ## Configure it
 
@@ -128,6 +133,12 @@ Use [direct Android data commands](docs/native-device-control.md) for contact lo
 ## Android capabilities
 
 Direct commands cover sensors, location/geocoding, JPEG capture, microphone recording and [live PCM streaming](docs/microphone-streams.md), audio playback, speech synthesis/recognition, torch, vibration and selected settings. Bluetooth supports discovery, pairing requests, RFCOMM and GATT transactions; NFC supports tag discovery, NDEF and raw transactions; USB supports owner access and transfers. Wi-Fi supports cached and requested scans with freshness metadata. File management, notification replies and durable jobs use the same command target. All ordinary bindings share the same executor and Android access. [Hardware controls](docs/hardware-controls.md), [speech recognition](docs/speech-recognition.md) and the [command reference](docs/command-reference.md) document fields and results. The [Android access reference](docs/android-access.md) maps features to grants and execution limits. The [public SDK bridge](docs/android-sdk.md) adds pinned class/overload discovery, typed invocation, handles and callbacks, with both read-only protections. The [coverage table](docs/capability-coverage.md) states dedicated coverage and platform restrictions. A catalogue entry does not imply permission or tested hardware support.
+
+## Activity, recovery and backups
+
+Open **Settings**, **Activity & resources** for command history, caller identity, outcomes and measured process resource use. Pause scripts, HTML widgets, chat event rules or live captures from there. Metadata excludes command arguments and results. The [operations guide](docs/operations.md) covers measurement limits, cancellation and the visual rule editor.
+
+[Encrypted backups](docs/backups.md) preserve home assets, widget state, scripts, conversations and provider settings, with optional API keys. Preview before replacing data; remote authentication and listener settings stay on the destination. [Live images and speech](docs/visual-streams.md) adds camera/display JPEG streams, provider partial transcripts and recorded-file transcription. Event history and acknowledged consumer cursors persist across restarts.
 
 ## Logs and failure reporting
 
@@ -188,5 +199,7 @@ claude --plugin-dir .agents
 The [agent integration guide](docs/agent-integrations.md) covers client setup, secrets and plugin configuration. The [Android Lab skill](.agents/skills/dikciz-android-lab/SKILL.md) covers source builds and emulator work. After APK release, tag publishing selects only the operating skill for ClawHub. Marketplace listing is separate from the phone connection.
 
 ## Upstream
+
+Image recognition bundles Google ML Kit SDKs and models with separate [terms and metrics disclosure](docs/dependency-licenses.md).
 
 Dikciz is based on [Fossify Launcher](https://github.com/FossifyOrg/Launcher) and distributed under the [GNU General Public License v3.0](LICENSE).

@@ -67,6 +67,32 @@ def provider_endpoint():
             self.wfile.write(json.dumps(response).encode())
 
         def do_POST(self):
+            if self.path.endswith("/audio/transcriptions"):
+                from email import policy
+                from email.parser import BytesParser
+                raw = self.rfile.read(int(self.headers["Content-Length"]))
+                document = BytesParser(policy=policy.default).parsebytes(
+                    ("Content-Type: " + self.headers["Content-Type"] + "\r\nMIME-Version: 1.0\r\n\r\n").encode() + raw)
+                fields = {part.get_param("name", header="Content-Disposition"): part.get_payload(decode=True)
+                          for part in document.iter_parts()}
+                records.append({"path": self.path, "audioFields": fields,
+                                "usedFixtureKey": self.headers.get("Authorization") == "Bearer EXAMPLE-DO-NOT-USE"})
+                if script["mode"] == "transcription_redirect":
+                    self.send_response(307)
+                    self.send_header("Location", "/unexpected-redirect")
+                    self.end_headers()
+                    return
+                if script["mode"] == "transcription_delay":
+                    time.sleep(2)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                text = "x" * 262145 if script["mode"] == "transcription_large" else "Fixture audio transcript"
+                try:
+                    self.wfile.write(json.dumps({"text": text}).encode())
+                except (BrokenPipeError, ConnectionResetError):
+                    LOGGER.debug("fixture_transcription_client_disconnected")
+                return
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             records.append({"path": self.path, "body": body, "usedFixtureKey": self.headers.get("Authorization") == "Bearer EXAMPLE-DO-NOT-USE" or self.headers.get("x-api-key") == "EXAMPLE-DO-NOT-USE"})
             if script["mode"] in ("unauthorized", "rate_limit"):
@@ -689,9 +715,12 @@ def test_chat_agent_provider_settings_native_ui(websocket_control, provider_endp
         chat("show", conversationId=identifier)
         direct_tap(wait_for_physical_description_bounds("Chat provider settings"))
         direct_tap(wait_for_physical_button_bounds("Add provider"))
+        direct_tap(wait_for_physical_description_bounds("Provider template"))
+        direct_tap(wait_for_physical_text_bounds("Custom"))
         for description, value in (("Provider name", name), ("API base URL", endpoint),
                 ("API key. Blank retains it for the same host and protocol", "EXAMPLE-DO-NOT-USE")):
-            direct_enter_text(field(description), value)
+            visible_description = None if description.startswith("API key.") else description
+            direct_enter_text(field(description), value, description=visible_description)
             direct_hide_keyboard()
         run_device_operation("screenshot")
         shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "chat-provider-settings.png")
@@ -1063,6 +1092,18 @@ def test_chat_read_only_executor(websocket_control, provider_endpoint, provider)
         ("dikciz_job_start", {}),
         ("dikciz_automation_dispatch", {}),
         ("dikciz_request_device_access", {"requirement": "contacts"}),
+        ("dikciz_resource_control", {"target": "widget", "id": "missing", "pageId": "home"}),
+        ("dikciz_activity_cancel", {"activityId": str(uuid.uuid4())}),
+        ("dikciz_backup_create", {"passphrase": "EXAMPLE-DO-NOT-USE"}),
+        ("dikciz_backup_preview", {}),
+        ("dikciz_backup_restore", {}),
+        ("dikciz_image_stream_start", {"source": "camera"}),
+        ("dikciz_image_stream_stop", {}),
+        ("dikciz_speech_stream_start", {}),
+        ("dikciz_speech_stream_stop", {}),
+        ("dikciz_speech_transcribe_file", {}),
+        ("dikciz_automation_rule_save", {}),
+        ("dikciz_automation_rule_delete", {"id": "missing"}),
     ]
     script.update(text="Read-only fixture finished.", tools=writes + [("dikciz_device_state", {})])
     try:

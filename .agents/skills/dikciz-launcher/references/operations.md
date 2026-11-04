@@ -39,3 +39,24 @@ Use shellSessionStart, shellSessionRead, shellSessionStop, shellSessionsList and
 ## Live microphone audio
 
 Use microphoneStreamStart/Read/Stop, microphoneStreamsList and microphoneStreamForget for shared PCM16 capture and cursor replay. Start while Dikciz is foreground; the dedicated microphone foreground service can continue behind another app. Inspect historyGap, terminal state and hardwareReleaseConfirmed. Owner Stop is available through its notification, subject to Android notification access. Read [microphone streams](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/microphone-streams.md) or MCP resource dikciz://docs/guides/microphone-streams. Audio is process-owned memory; explicit saves or durable jobs may persist returned samples. This does not capture cellular calls.
+
+
+## Activity and recovery
+
+Use activityRead for bounded persistent command metadata and resourceUsage for measured process and executor-thread counters. Read measurement scope before attributing costs. Android does not expose per-widget battery drain. Prefer subsystem stop commands; activityCancel only requests thread interruption. resourceControl pauses script, widget, conversation, imageStream or speechStream targets by exact id; widgets also need pageId. Legacy scriptId remains accepted alone.
+
+Event replay persists across process death. Use eventConsumerRead with a stable consumer name, handle its events, then acknowledge nextCursor through eventConsumerAck. Check historyGap/lostEvents first. Acknowledgement does not execute effects; retain idempotency keys for retried writes.
+
+Visual automationRulePreview compiles and simulates Lua without controlling Android. automationRuleSave stores a disabled-by-default rule; enabled=true explicitly activates it. Discover nested rule schemas before composing requests. Owner authority is required for administration, with independent read-only enforcement in chat.
+
+## Activity, backup and live media
+
+Use activityRead for persistent command metadata and resourceUsage for measured CPU/network plus scripts, widgets and conversations. resourceControl pauses a selected resource; cancellation never rolls back completed work. See [operations](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/operations.md).
+
+Use backupCreate, backupsList, backupPreview and backupRestore for encrypted home/chat snapshots. Restore needs previewId, exact sha256 and confirm=true; automation remains disabled by default. Authentication and listener settings are excluded. See [backups](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/backups.md).
+
+Use imageStreamStart/Read/Stop for camera/display JPEG frames; speechStreamStart/Read/Stop for provider partial transcripts; speechTranscribeFile for explicit upload of a recording to a saved OpenAI-compatible provider. Discover exact schemas, inspect terminal state and hardwareReleaseConfirmed, then forget retained sessions. See [live media](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/visual-streams.md) or resources dikciz://docs/guides/visual-streams and dikciz://docs/guides/backups.
+
+## Companion operations
+
+Read [companion workflows](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/companion.md) or MCP resource dikciz://docs/guides/companion before safety/journey, retained hardware, image/health/Wi-Fi, routine or split-install work. These use the same validated executor and permission recovery through every ordinary binding. SOS saving/preview never arms or sends; arm/trigger needs exact contacts, explicit confirmation and owner grants. Cancel cannot recall SMS. Poll receipt keys. Retained hardware has timeouts/expiry and writes can have partial effects. Read healthRecordsCatalogue for exact record shapes. Wi-Fi saving is not connection; local hotspot is not tethering. APK staging is not installation. Built-in routine turns force read-only visibility and executor enforcement. Companion SQLite plans/routes are currently outside portable home/chat backups.

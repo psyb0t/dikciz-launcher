@@ -25,6 +25,7 @@ def native_call(protocol, command, arguments=None, error=None, allowed_errors=No
          "--host", AUTOMATION_HOST, "--port", str(port), "--arguments", json.dumps(arguments or {}),
          "--log-file", "/tmp/dikciz-native-client.log"], capture_output=True, text=True, timeout=45,
     )
+    assert completed.stdout.strip(), (completed.returncode, completed.stderr)
     response = json.loads(completed.stdout)
     if error is not None or (allowed_errors is not None and completed.returncode != 0):
         assert completed.returncode != 0, response

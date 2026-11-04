@@ -470,7 +470,9 @@ internal class DikcizMcpControlPlane(
         return when (method) {
             "tools/list" -> toolsListResult(readOnly)
             "tools/call" -> try {
-                callTool(JSONObject().put("params", params), null, readOnly, remote = false)
+                DikcizOperations.withDefaultActor("chat") {
+                    callTool(JSONObject().put("params", params), null, readOnly, remote = false)
+                }
             } catch (exception: McpHttpException) {
                 toolFailure(exception.message.orEmpty(), exception.reason)
             }

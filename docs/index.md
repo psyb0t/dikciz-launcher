@@ -37,6 +37,10 @@ Start with the [README](../README.md) for installation, or choose the task below
 | Connect Claude Code, Codex and other agents | [Agent integrations](agent-integrations.md) |
 | Search offline documentation, recipes, tool schemas and owner collections | [Offline search](search.md) |
 | Fetch short guides and recipes through MCP | [MCP resources](mcp-resources.md) |
+| Use safety plans, journeys, connections, vision, health and Wi-Fi | [Phone companion](companion.md) |
+| Inspect activity, pause resources and build visual rules | [Operations](operations.md) |
+| Create encrypted portable snapshots | [Backup and restore](backups.md) |
+| Stream camera/display frames, partial speech or transcribe recordings | [Live images and speech](visual-streams.md) |
 | Submit, poll and cancel durable commands | [Command jobs](command-jobs.md) |
 | Dismiss, snooze and reply to notifications | [Notification management](notification-management.md) |
 | Look up every discovered MCP input schema | [Command reference](command-reference.md) |
@@ -49,3 +53,5 @@ Start with the [README](../README.md) for installation, or choose the task below
 A transport reply proves only what its result states. Accepted intents are not verified app launches; submitted SMS is not carrier delivery; an install session is not a completed installation; submitted torch/vibration is not measured physical output. Read the terminal status or observed effect documented for that operation.
 
 Android permissions, special access, roles, hardware, foreground state and system privilege are independent checks. A manifest declaration is not an implementation or grant. Missing capability is explicit. Root shell is optional privileged access, not a portable replacement for ordinary Android APIs.
+
+[Activity, resources and visual rules](operations.md) covers command history, resource measurements, interruption and simulated rule testing.

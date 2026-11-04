@@ -23,7 +23,7 @@ internal class DikcizSpeechRecognition(context: Context) {
     private val main = Handler(Looper.getMainLooper())
     private val current = AtomicReference<Session?>()
 
-    private class Session {
+    private class Session(val owner: String?) {
         val complete = CountDownLatch(1)
         val destroyed = CountDownLatch(1)
         val result = AtomicReference<JSONObject?>()
@@ -38,8 +38,9 @@ internal class DikcizSpeechRecognition(context: Context) {
             .put("defaultMode", MODE_ON_DEVICE)
     }
 
-    fun stop(): JSONObject {
+    fun stop(owner: String? = null): JSONObject {
         val session = current.get() ?: return JSONObject().put("state", "idle")
+        if (owner != null && session.owner != owner) return JSONObject().put("state", "idle")
         main.post { finish(session, "speech_cancelled") }
         if (!session.destroyed.await(CLEANUP_TIMEOUT, TimeUnit.MILLISECONDS)) {
             DikcizNativeCommands.failure("speech_cleanup_timeout", "Speech cancellation is still pending on Android")
@@ -47,15 +48,20 @@ internal class DikcizSpeechRecognition(context: Context) {
         return JSONObject().put("state", "cancelled")
     }
 
-    fun recognize(request: JSONObject): JSONObject {
+    fun requireCaptureAccess() {
         DikcizNativeCommands.requirePermission(context, Manifest.permission.RECORD_AUDIO, "cameraAndMicrophone")
         val process = ActivityManager.RunningAppProcessInfo()
         ActivityManager.getMyMemoryState(process)
         if (process.importance > ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
             DikcizNativeCommands.failure("capture_foreground_required", "Open Dikciz before microphone speech recognition")
         }
+    }
+
+    fun recognize(request: JSONObject, onPartial: ((JSONObject) -> Unit)? = null, owner: String? = null): JSONObject {
+        if (Thread.currentThread().isInterrupted) throw InterruptedException("Speech request interrupted")
+        requireCaptureAccess()
         val mode = request.optString("mode", MODE_ON_DEVICE)
-        val session = Session()
+        val session = Session(owner)
         DikcizMediaCapture.acquireMicrophone()
         if (!current.compareAndSet(null, session)) {
             DikcizMediaCapture.releaseMicrophone()
@@ -83,7 +89,13 @@ internal class DikcizSpeechRecognition(context: Context) {
                     override fun onBufferReceived(buffer: ByteArray) = Unit
                     override fun onEndOfSpeech() = Unit
                     override fun onEvent(eventType: Int, params: Bundle) = Unit
-                    override fun onPartialResults(partialResults: Bundle) = Unit
+                    override fun onPartialResults(partialResults: Bundle) {
+                        if (current.get() !== session || session.error.get() != null) return
+                        val matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
+                            .take(MAXIMUM_ALTERNATIVES).map { it.take(MAXIMUM_TRANSCRIPT) }
+                        if (matches.isNotEmpty()) onPartial?.invoke(JSONObject().put("event", "partial")
+                            .put("text", matches.first()).put("alternatives", JSONArray(matches)))
+                    }
                     override fun onError(error: Int) { finish(session, errorCode(error)) }
                     override fun onResults(results: Bundle) {
                         if (current.get() !== session) return
@@ -106,7 +118,7 @@ internal class DikcizSpeechRecognition(context: Context) {
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
                     .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                     .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, MAXIMUM_ALTERNATIVES)
-                    .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+                    .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, onPartial != null)
                     .putExtra(RecognizerIntent.EXTRA_LANGUAGE, request.optString("language", Locale.getDefault().toLanguageTag()))
                 recognizer.startListening(intent)
             } catch (exception: SecurityException) {

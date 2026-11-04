@@ -87,7 +87,7 @@ internal class DikcizChatAgent(
                     val toolBlocks = JSONArray().put(JSONObject().put("kind", "toolResult").put("name", call.tool).put("text", "Executing"))
                     val resultRow = store.append(conversationID, turnID, "tool", "executing", "", toolBlocks)
                     val rawResult = try {
-                        invoke(call)
+                        DikcizOperations.withActor("chat:" + conversationID) { invoke(call) }
                     } catch (exception: DikcizAutomationRequestException) {
                         JSONObject().put("isError", true).put("code", exception.code).put("message", exception.message)
                     } catch (exception: DikcizMcpResourceException) {
@@ -119,12 +119,12 @@ internal class DikcizChatAgent(
     private fun accessContext(profile: JSONObject, task: JSONObject?, conversationID: String): JSONObject {
         val savedReadOnly = store.effectiveProfile(conversationID).getBoolean(DikcizChatSettings.KEY_READ_ONLY)
         val startedReadOnly = profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY)
-        val screenTask = task?.optString(DikcizChatTasks.KEY_KIND) == DikcizChatTasks.EXPLAIN_SCREEN
+        val screenTask = DikcizChatTasks.requiresReadOnly(task)
         return JSONObject()
             .put("toolCatalogueRevision", toolCatalogueRevision)
             .put("conversationReadOnly", savedReadOnly)
             .put("turnReadOnly", savedReadOnly || screenTask || startedReadOnly)
-            .put("reason", if (savedReadOnly) "conversation_setting" else if (screenTask) "screen_explanation" else if (startedReadOnly) "turn_started_read_only" else "writable_conversation")
+            .put("reason", if (savedReadOnly) "conversation_setting" else if (screenTask) "read_only_task" else if (startedReadOnly) "turn_started_read_only" else "writable_conversation")
             .put("writeAccessResumesNextTurn", (screenTask || startedReadOnly) && !savedReadOnly)
     }
 

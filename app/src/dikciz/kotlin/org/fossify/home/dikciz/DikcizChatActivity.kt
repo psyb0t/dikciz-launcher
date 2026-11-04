@@ -306,6 +306,7 @@ internal class DikcizChatActivity : Activity() {
             }
         }
         dialog.show()
+        DikcizUiStyle.dialog(dialog)
     }
 
     private fun startTask(task: String, text: String) {
@@ -330,7 +331,7 @@ internal class DikcizChatActivity : Activity() {
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
-                AlertDialog.Builder(this@DikcizChatActivity).setTitle("Dikciz chat").setMessage(exception.message ?: "Operation failed").setPositiveButton("Close", null).show()
+                AlertDialog.Builder(this@DikcizChatActivity).setTitle("Dikciz chat").setMessage(exception.message ?: "Operation failed").setPositiveButton("Close", null).show().also(DikcizUiStyle::dialog)
             }
         }
     }
@@ -341,34 +342,47 @@ internal class DikcizChatActivity : Activity() {
             .setItems(records.map { "${it.getString("title")} (${it.getInt("unread")} unread)" }.toTypedArray()) { _, index -> selectConversation(records[index].getString("id")) }
             .setNeutralButton("Events") { _, _ -> editEvents() }
             .setPositiveButton("Manage") { _, _ -> manageConversation() }
-            .setNegativeButton("Close", null).show()
+            .setNegativeButton("Close", null).show().also(DikcizUiStyle::dialog)
     }
 
     private fun manageConversation() {
         val id = conversationID ?: return
         AlertDialog.Builder(this).setTitle("Manage conversation")
-            .setItems(arrayOf("Rename", "Change provider", "Delete")) { _, action ->
+            .setItems(arrayOf("Rename", "Change provider", "Delete", "Run a routine")) { _, action ->
                 when (action) {
                     0 -> {
                         val editor = EditText(this).apply { setText(runtime.store.conversation(id).getString("title")) }
                         AlertDialog.Builder(this).setTitle("Conversation title").setView(editor)
                             .setPositiveButton("Save") { _, _ -> command(JSONObject().put("action", "rename").put("conversationId", id).put("title", editor.text.toString())) }
-                            .setNegativeButton("Cancel", null).show()
+                            .setNegativeButton("Cancel", null).show().also(DikcizUiStyle::dialog)
                     }
                     1 -> {
                         val profiles = runtime.store.profiles()
                         AlertDialog.Builder(this).setTitle("Conversation provider")
                             .setItems((0 until profiles.length()).map { profiles.getJSONObject(it).getString("name") }.toTypedArray()) { _, index ->
                                 command(JSONObject().put("action", "configure").put("conversationId", id).put("profileId", profiles.getJSONObject(index).getString("id")))
-                            }.show()
+                            }.show().also(DikcizUiStyle::dialog)
                     }
+                    3 -> chooseRoutine()
                     2 -> AlertDialog.Builder(this).setTitle("Delete this conversation?")
                         .setMessage("This removes its transcript and event rules.")
                         .setPositiveButton("Delete") { _, _ ->
                             command(JSONObject().put("action", "delete").put("conversationId", id))
-                        }.setNegativeButton("Cancel", null).show()
+                        }.setNegativeButton("Cancel", null).show().also(DikcizUiStyle::dialog)
                 }
-            }.show()
+            }.show().also(DikcizUiStyle::dialog)
+    }
+
+    private fun chooseRoutine() {
+        val routines = DikcizAssistantRoutines.routines
+        AlertDialog.Builder(this).setTitle("Read-only routines")
+            .setItems(routines.map { it.title + "\n" + it.description }.toTypedArray()) { _, index ->
+                val routine = routines[index]
+                AlertDialog.Builder(this).setTitle(routine.title)
+                    .setMessage(routine.description + "\n\nThis turn can only read. Missing Android access stays explicit.")
+                    .setPositiveButton("Run") { _, _ -> startTask(routine.id, "Run " + routine.title + ".") }
+                    .setNegativeButton("Cancel", null).show().also(DikcizUiStyle::dialog)
+            }.setNegativeButton("Close", null).show().also(DikcizUiStyle::dialog)
     }
 
     private fun selectConversation(id: String) {
@@ -392,14 +406,14 @@ internal class DikcizChatActivity : Activity() {
         AlertDialog.Builder(this).setTitle("Provider for new conversation")
             .setItems((0 until profiles.length()).map { profiles.getJSONObject(it).getString("name") }.toTypedArray()) { _, index ->
                 command(JSONObject().put("action", "create").put("profileId", profiles.getJSONObject(index).getString("id"))) { selectConversation(it.getString("id")) }
-            }.show()
+            }.show().also(DikcizUiStyle::dialog)
     }
 
     private fun chooseProfile() {
         val profiles = runtime.store.profiles()
         AlertDialog.Builder(this).setTitle("Provider profiles")
             .setItems((0 until profiles.length()).map { profiles.getJSONObject(it).getString("name") }.toTypedArray()) { _, index -> editProfile(profiles.getJSONObject(index)) }
-            .setPositiveButton("Add provider") { _, _ -> editProfile(null) }.setNegativeButton("Close", null).show()
+            .setPositiveButton("Add provider") { _, _ -> editProfile(null) }.setNegativeButton("Close", null).show().also(DikcizUiStyle::dialog)
     }
 
     private fun editProfile(existing: JSONObject?) {
@@ -432,7 +446,7 @@ internal class DikcizChatActivity : Activity() {
                     setOnClickListener {
                         val available = if (name == "reasoning" && inputs["protocol"]?.text.toString() == "anthropic") choices.filter { it != "minimal" } else choices.toList()
                         AlertDialog.Builder(this@DikcizChatActivity).setTitle(label)
-                            .setItems(available.toTypedArray()) { _, index -> setText(available[index]) }.show()
+                            .setItems(available.toTypedArray()) { _, index -> setText(available[index]) }.show().also(DikcizUiStyle::dialog)
                     }
                 }
                 body.addView(this)
@@ -488,6 +502,7 @@ internal class DikcizChatActivity : Activity() {
             }
         }
         dialog.show()
+        DikcizUiStyle.dialog(dialog)
     }
 
     private fun profileDocument(initial: JSONObject, inputs: Map<String, EditText>): JSONObject {
@@ -513,7 +528,7 @@ internal class DikcizChatActivity : Activity() {
             .setView(editor).setPositiveButton("Save") { _, _ ->
                 try { command(JSONObject().put("action", "subscribe").put("conversationId", id).put("rules", JSONArray(editor.text.toString()))) }
                 catch (_: org.json.JSONException) { status.text = "Event rules must be a JSON array" }
-            }.setNegativeButton("Cancel", null).show()
+            }.setNegativeButton("Cancel", null).show().also(DikcizUiStyle::dialog)
     }
 
     private fun updateLatest() { latest.visibility = if (followLatest) View.GONE else View.VISIBLE }

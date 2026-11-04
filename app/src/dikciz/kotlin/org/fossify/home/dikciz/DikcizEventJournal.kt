@@ -7,11 +7,15 @@ import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** Process-owned replay records only events that the automation bus actually dispatches. */
+/** Durable replay records only events that the automation bus actually dispatches. */
 internal object DikcizEventJournal {
     const val TYPE_STATUS = "eventJournalStatus"
     const val TYPE_READ = "eventJournalRead"
     const val TYPE_CONFIGURE = "eventJournalConfigure"
+    const val TYPE_CONSUMER_READ = "eventConsumerRead"
+    const val TYPE_CONSUMER_ACK = "eventConsumerAck"
+    const val TYPE_CONSUMERS = "eventConsumersList"
+    const val TYPE_CONSUMER_FORGET = "eventConsumerForget"
     private const val DEFAULT_EVENTS = 2048
     private const val DEFAULT_BUFFER = 8_388_608
     private const val DEFAULT_RETENTION = 60
@@ -21,7 +25,8 @@ internal object DikcizEventJournal {
     private const val MAXIMUM_CURSOR = 9_007_199_254_740_991L
     private const val MAXIMUM_FILTERS = 32
     private val lock = Object()
-    private val journalId = UUID.randomUUID().toString()
+    private var journalId = UUID.randomUUID().toString()
+    private var storage: DikcizEventStorage? = null
     private val entries = ArrayDeque<Entry>()
     private var maximumEvents = DEFAULT_EVENTS
     private var bufferBytes = DEFAULT_BUFFER
@@ -42,6 +47,40 @@ internal object DikcizEventJournal {
         val omitted: Boolean,
     )
 
+    fun attach(context: Context) = synchronized(lock) {
+        if (storage != null) return@synchronized
+        val saved = DikcizEventStorage(context.applicationContext)
+        val state = saved.state()
+        journalId = state.getString("journalId")
+        nextSequence = state.getLong("nextSequence")
+        maximumEvents = state.optInt("maximumEvents", DEFAULT_EVENTS)
+        bufferBytes = state.optInt("bufferBytes", DEFAULT_BUFFER)
+        retentionMinutes = state.optInt("retentionMinutes", DEFAULT_RETENTION)
+        for (document in saved.entries()) {
+            val entry = Entry(document.getLong("sequence"), document.getString("name"),
+                document.getLong("capturedAt"), document.getString("serialized"), document.getInt("bytes"),
+                DikcizAutomationEventType.valueOf(document.getString("eventType")),
+                document.optString("precision").takeIf(String::isNotEmpty)?.let(DikcizLocationPrecision::valueOf),
+                if (document.isNull("sensorType")) null else document.getInt("sensorType"), document.getBoolean("omitted"))
+            entries.addLast(entry)
+            retainedBytes += entry.bytes
+        }
+        storage = saved
+        prune()
+    }
+
+    private fun persist(entry: Entry? = null) {
+        val document = entry?.let {
+            JSONObject().put("sequence", it.sequence).put("name", it.name).put("capturedAt", it.capturedAt)
+                .put("serialized", it.serialized).put("bytes", it.bytes).put("eventType", it.type.name)
+                .put("precision", it.precision?.name ?: "").put("sensorType", it.sensorType ?: JSONObject.NULL)
+                .put("omitted", it.omitted)
+        }
+        storage?.save(JSONObject().put("journalId", journalId).put("nextSequence", nextSequence)
+            .put("maximumEvents", maximumEvents).put("bufferBytes", bufferBytes).put("retentionMinutes", retentionMinutes),
+            document, firstSequence())
+    }
+
     fun append(event: DikcizAutomationEvent) {
         val document = event.toDocument().toString()
         val bytes = document.toByteArray(Charsets.UTF_8).size
@@ -55,27 +94,50 @@ internal object DikcizEventJournal {
                 document
             }
             val entry = Entry(
-                sequence, event.name, SystemClock.elapsedRealtime(), serialized, serialized.toByteArray(Charsets.UTF_8).size,
+                sequence, event.name, System.currentTimeMillis(), serialized, serialized.toByteArray(Charsets.UTF_8).size,
                 event.type, event.locationPrecision,
                 if (event.type == DikcizAutomationEventType.Sensor) event.payload.optInt("sensorType", -1) else null,
                 omitted,
             )
             entries.addLast(entry)
             retainedBytes += entry.bytes
-            prune()
+            prune(persistChanges = false)
+            persist(entry.takeIf { it.sequence >= firstSequence() })
             lock.notifyAll()
         }
     }
 
     fun execute(context: Context, logger: DikcizLogger, type: String, request: JSONObject): JSONObject {
         if (type == TYPE_READ) return read(context, logger, request)
+        if (type == TYPE_CONSUMER_READ) {
+            val cursor = synchronized(lock) { requireNotNull(storage).cursor(request.getString("name")) }
+            val replay = JSONObject(request.toString()).put("journalId", journalId).put("cursor", cursor)
+            validate(TYPE_READ, replay)
+            return read(context, logger, replay)
+                .put("consumer", request.getString("name")).put("acknowledgedCursor", cursor)
+        }
         synchronized(lock) {
+            if (type == TYPE_CONSUMERS) {
+                val rows = requireNotNull(storage).consumers()
+                return DikcizNativeCommands.page(rows, request).put("total", rows.size)
+            }
+            if (type == TYPE_CONSUMER_ACK) {
+                val cursor = request.getLong("cursor")
+                if (cursor >= nextSequence) DikcizNativeCommands.invalid("Cannot acknowledge a future event")
+                requireNotNull(storage).acknowledge(request.getString("name"), cursor)
+                return JSONObject().put("name", request.getString("name")).put("cursor", cursor).put("journalId", journalId)
+            }
+            if (type == TYPE_CONSUMER_FORGET) {
+                requireNotNull(storage).forget(request.getString("name"))
+                return JSONObject().put("name", request.getString("name")).put("forgotten", true)
+            }
             if (type == TYPE_CONFIGURE) {
                 maximumEvents = request.optInt("maximumEvents", maximumEvents)
                 bufferBytes = request.optInt("bufferBytes", bufferBytes)
                 retentionMinutes = request.optInt("retentionMinutes", retentionMinutes)
             }
             prune()
+            if (type == TYPE_CONFIGURE) persist()
             lock.notifyAll()
             return status()
         }
@@ -102,7 +164,7 @@ internal object DikcizEventJournal {
                 val remaining = deadline - SystemClock.elapsedRealtime()
                 if (gap || matching || remaining <= 0) break
                 val untilExpiry = entries.peekFirst()?.let {
-                    it.capturedAt + retentionMinutes * MINUTE_MILLISECONDS - SystemClock.elapsedRealtime()
+                    it.capturedAt + retentionMinutes * MINUTE_MILLISECONDS - System.currentTimeMillis()
                 } ?: remaining
                 lock.wait(minOf(remaining, maxOf(1L, untilExpiry)))
             }
@@ -141,13 +203,15 @@ internal object DikcizEventJournal {
 
     private fun firstSequence(): Long = entries.peekFirst()?.sequence ?: nextSequence
 
-    private fun prune() {
-        val oldest = SystemClock.elapsedRealtime() - retentionMinutes * MINUTE_MILLISECONDS
+    private fun prune(persistChanges: Boolean = true) {
+        val previousFirst = firstSequence()
+        val oldest = System.currentTimeMillis() - retentionMinutes * MINUTE_MILLISECONDS
         while (entries.isNotEmpty() &&
             (entries.size > maximumEvents || retainedBytes > bufferBytes || entries.first.capturedAt <= oldest)) {
             retainedBytes -= entries.removeFirst().bytes
             evictedEvents++
         }
+        if (persistChanges && previousFirst != firstSequence()) persist()
     }
 
     private fun status(): JSONObject = JSONObject()
@@ -155,7 +219,7 @@ internal object DikcizEventJournal {
         .put("retainedEvents", entries.size).put("retainedBytes", retainedBytes).put("evictedEvents", evictedEvents)
         .put("maximumEvents", maximumEvents).put("bufferBytes", bufferBytes).put("retentionMinutes", retentionMinutes)
         .put("maximumEventBytes", MAXIMUM_EVENT_BYTES).put("maximumPageBytes", MAXIMUM_PAGE_BYTES)
-        .put("persistence", "process")
+        .put("persistence", "sqlite")
 
     private val LIMITS = mapOf(
         "maximumEvents" to integer(1, 16384),
@@ -163,8 +227,21 @@ internal object DikcizEventJournal {
         "retentionMinutes" to integer(1, 1440),
     )
     val DEFINITIONS = listOf(
+        DikcizNativeCommands.Definition(TYPE_CONSUMER_READ, "dikciz_event_consumer_read",
+            "Read durable events after a named consumer's last acknowledged cursor. Reading never acknowledges. Reconnects and process restarts retain the epoch and cursor. Inspect historyGap before continuing. Owner only.",
+            mapOf("name" to text(80), "limit" to integer(1, 200), "waitMilliseconds" to integer(0, 30000),
+                "eventTypes" to JSONObject().put("type", "array").put("minItems", 1).put("maxItems", MAXIMUM_FILTERS)
+                    .put("uniqueItems", true).put("items", text(128))), setOf("name")),
+        DikcizNativeCommands.Definition(TYPE_CONSUMER_ACK, "dikciz_event_consumer_ack",
+            "Persist a named consumer cursor after successful handling. Cursor must not move backwards or beyond the last dispatched event. Does not run actions. Owner only.",
+            mapOf("name" to text(80), "cursor" to integer(0, MAXIMUM_CURSOR)), setOf("name", "cursor"), readOnly = false),
+        DikcizNativeCommands.Definition(TYPE_CONSUMERS, "dikciz_event_consumers_list",
+            "List durable named event consumer cursors. Owner only.", mapOf("limit" to integer(1, 200), "offset" to integer(0, 1000000))),
+        DikcizNativeCommands.Definition(TYPE_CONSUMER_FORGET, "dikciz_event_consumer_forget",
+            "Delete one consumer's acknowledgement. A subsequent read starts at zero and may report an expired history gap. Owner only.",
+            mapOf("name" to text(80)), setOf("name"), readOnly = false),
         DikcizNativeCommands.Definition(TYPE_STATUS, "dikciz_event_journal_status",
-            "Read process-owned automation-event replay epoch, cursors, retention and memory limits. Reading does not activate native subscriptions.", emptyMap()),
+            "Read durable automation-event replay epoch, cursors, retention and memory limits. Reading does not activate native subscriptions.", emptyMap()),
         DikcizNativeCommands.Definition(TYPE_READ, "dikciz_event_journal_read",
             "Replay actual automation events after cursor in the required journalId epoch. Optional exact eventTypes filters, bounded long polling and pagination work across every ordinary binding. Inspect historyGap/lostEvents and per-event omitted markers. Current Android source access is rechecked before returning retained payloads.",
             mapOf("journalId" to text(36), "cursor" to integer(0, MAXIMUM_CURSOR).put("default", 0),
@@ -173,12 +250,17 @@ internal object DikcizEventJournal {
                 "eventTypes" to JSONObject().put("type", "array").put("minItems", 1).put("maxItems", MAXIMUM_FILTERS)
                     .put("uniqueItems", true).put("items", text(128))), setOf("journalId")),
         DikcizNativeCommands.Definition(TYPE_CONFIGURE, "dikciz_event_journal_configure",
-            "Adjust process-owned replay count, byte and age limits. Defaults are 2048 events, 8 MiB and 60 minutes. Lower limits immediately evict old history; limits reset on process death. Does not change native sensor/location subscriptions.",
+            "Adjust durable replay count, byte and age limits. Defaults are 2048 events, 8 MiB and 60 minutes. Lower limits immediately evict old history; limits persist across process death. Does not change native sensor/location subscriptions.",
             LIMITS, readOnly = false),
     )
-    val TYPES = setOf(TYPE_STATUS, TYPE_READ, TYPE_CONFIGURE)
+    val TYPES = setOf(TYPE_STATUS, TYPE_READ, TYPE_CONFIGURE, TYPE_CONSUMER_READ, TYPE_CONSUMER_ACK, TYPE_CONSUMERS, TYPE_CONSUMER_FORGET)
 
     fun validate(type: String, request: JSONObject) {
+        if (type in setOf(TYPE_CONSUMER_READ, TYPE_CONSUMER_ACK, TYPE_CONSUMER_FORGET)) {
+            if (!Regex("[A-Za-z0-9][A-Za-z0-9_.-]{0,79}").matches(request.getString("name"))) {
+                DikcizNativeCommands.invalid("Invalid event consumer name")
+            }
+        }
         if (type != TYPE_READ) return
         val id = request.getString("journalId")
         if (!Regex("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}").matches(id)) {

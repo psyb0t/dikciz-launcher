@@ -73,6 +73,7 @@ internal const val DIKCIZ_AUTOMATION_SERVICE_ACTION_STOP = "org.fossify.home.dik
 internal class DikcizAutomationService : Service(), SensorEventListener, LocationListener {
     private lateinit var homeConfigStore: HomeConfigStore
     private lateinit var logger: DikcizLogger
+    private var latestStartID = 0
     private var broadcastReceiverRegistered = false
     private var packageLifecycleReceiverRegistered = false
     private var calendarEventObserverRegistered = false
@@ -184,13 +185,14 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        latestStartID = startId
+        val foregroundReady = startForegroundForConfiguration(configuration)
         if (intent?.action == DIKCIZ_AUTOMATION_SERVICE_ACTION_STOP) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
+            if (stopSelfResult(startId)) stopForeground(STOP_FOREGROUND_REMOVE)
             return START_NOT_STICKY
         }
         val recoveringPackageUpdate = intent?.action == DikcizPackageUpdateReceiver.ACTION_RECOVER_SERVICES
-        if (!startForegroundForConfiguration(configuration)) {
+        if (!foregroundReady) {
             if (recoveringPackageUpdate) {
                 DikcizPackageUpdateReceiver.resumeLauncher(this)
             }
@@ -199,9 +201,12 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
             // startForegroundService, so the only way out is to stop now.
             // Staying alive without a foreground notification makes the
             // platform kill the whole launcher process at the deadline.
-            stopSelf()
+            stopSelfResult(latestStartID)
             return START_NOT_STICKY
         }
+        DikcizOperations.attach(applicationContext)
+        DikcizEventJournal.attach(applicationContext)
+        DikcizBackups.attach(applicationContext)
         if (recoveringPackageUpdate) {
             // Promote before Home queues heavy startup on this same main thread.
             logger.info(EVENT_PACKAGE_UPDATE_FOREGROUND_READY)
@@ -333,14 +338,21 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
 
     private fun reconfigure() {
         val loadedConfiguration = try {
+            DikcizBackups.recover(applicationContext)
             homeConfigStore.loadOrCreate()
+        } catch (exception: DikcizAutomationRequestException) {
+            logger.error("backup_recovery_failed", mapOf(FIELD_ERROR_CLASS to exception::class.java.simpleName))
+            unregisterSources()
+            unregisterLocation()
+            stopSelfResult(latestStartID)
+            return
         } catch (exception: HomeConfigException) {
             logger.warn(
                 EVENT_CONFIGURATION_REJECTED,
                 mapOf(FIELD_ERROR_CLASS to exception::class.java.simpleName),
             )
             if (configuration == null) {
-                stopSelf()
+                stopSelfResult(latestStartID)
             }
             return
         }
@@ -352,7 +364,7 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
             unregisterSources()
             unregisterLocation()
             unregisterConfigurationObservers()
-            stopSelf()
+            stopSelfResult(latestStartID)
             return
         }
         unregisterSources()
@@ -360,7 +372,7 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
         if (!startForegroundForConfiguration(loadedConfiguration)) {
             unregisterSources()
             unregisterLocation()
-            stopSelf()
+            stopSelfResult(latestStartID)
             return
         }
         registerSystemReceiver(loadedConfiguration)

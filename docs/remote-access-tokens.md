@@ -45,8 +45,9 @@ All three network transports use the same procedure:
 | `catalog` | `action` | Available permission IDs, titles and descriptions. |
 | `list` | `action` | Token metadata, never secrets or digests. |
 | `create` | `action`, `name`, `permissions` | Metadata plus `token`, returned once. |
-| `update` | `action`, `id`; at least one of `name`, `permissions`, `enabled` | Updated metadata. |
-| `revoke` | `action`, `id` | Remaining metadata. Revocation is permanent. |
+| `update` | `action`, `id`; at least one of `name`, `permissions`, `enabled`, `expiresAt`, `requestsPerMinute`, `smsAddresses` | Updated metadata. |
+| revoke | action, id | Remaining metadata. Revocation is permanent. |
+| rotate | action, id | Replacement token, returned once. The old secret stops working immediately; identity and grants remain. |
 
 HTTP/WebSocket use command `remoteTokens`; MCP uses `dikciz_remote_tokens`. Example arguments, sent with an existing owner credential:
 
@@ -54,9 +55,17 @@ HTTP/WebSocket use command `remoteTokens`; MCP uses `dikciz_remote_tokens`. Exam
 {"action":"create","name":"Sensor dashboard","permissions":["sensors.read"]}
 ```
 
+Create and update also accept expiresAt (epoch milliseconds, zero for no expiry), requestsPerMinute (0 to 10,000, zero for unlimited), and smsAddresses (up to 64 unique exact addresses; empty allows all). Omitted update fields retain their values. Expired credentials fail authentication, including on established connections. Rotation preserves expiry and limits.
+
+When smsAddresses is nonempty, an SMS history query must include filter.address with one exact permitted address. A send must use an exact permitted recipient. An unrestricted query is denied before Android provider access. This filter does not grant SMS reads or sends by itself.
+
+The request limit counts accepted ordinary commands across all network entrypoints in a rolling minute. The remote_rate_limited error rejects excess commands before execution. Usage survives process restart. Token metadata includes lastUsedAt (null until an accepted command), expired, and configured limits. Discovery and handshake requests do not consume this command allowance.
+
+Call remoteAccessInfo to inspect your own effective grants, expiry, request limit and exact SMS address restrictions before choosing query arguments. The native manager offers expiry choices, limits, SMS address restrictions and rotation. Copy a rotated secret before closing the copy screen.
+
 Names contain 1 to 80 printable characters. At most 32 tokens may exist, including disabled tokens. Grants must be known, nonempty and unique. Unknown fields are rejected. Each token has a public ID, display name, grant list, enabled flag and creation timestamp in epoch milliseconds.
 
-Updates and revocations take effect on the next authorization check without restarting listeners. In-flight side effects cannot be rolled back. Streams stop when their authorization monitor fails. Reconnect WebSocket after editing its token and initialize a fresh MCP session when changing credentials. MCP sessions are bound to the authenticated identity; another valid token cannot reuse or delete them.
+Updates and revocations take effect on the next authorization check without restarting listeners. In-flight side effects cannot be rolled back. Connection-bound streams stop when their authorization monitor fails. Accepted process-owned capture sessions or jobs need their dedicated stop command or owner notification; revocation does not undo previously accepted work. Reconnect WebSocket after editing its token and initialize a fresh MCP session when changing credentials. MCP sessions are bound to the authenticated identity; another valid token cannot reuse or delete them.
 
 Revoke every token before disabling or clearing authentication. Disabled tokens still count because opening the listeners would bypass their restrictions. Replacing the owner password preserves tokens. After the last token is revoked, the existing enable/disable and phone password-clear flows work normally.
 

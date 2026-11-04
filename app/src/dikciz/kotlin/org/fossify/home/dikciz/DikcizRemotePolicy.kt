@@ -12,6 +12,7 @@ internal class DikcizRemoteAccess(
     val id: String,
     val name: String,
     val permissions: Set<String>,
+    val rules: DikcizTokenRules = DikcizTokenRules(),
     private val current: () -> Boolean,
 ) {
     val isOwner: Boolean get() = DikcizRemotePolicy.OWNER in permissions
@@ -21,12 +22,12 @@ internal class DikcizRemoteAccess(
     }
     fun requireCommand(type: String, request: JSONObject? = null) {
         requireCurrent()
-        if (!DikcizRemotePolicy.permits(this, type, request)) {
-            throw DikcizAutomationRequestException(DikcizRemotePolicy.ERROR_DENIED, "This token does not grant access to this operation")
+        if (!DikcizRemotePolicy.permits(this, type, request) || !rules.permits(type, request)) {
+            throw DikcizAutomationRequestException(DikcizRemotePolicy.ERROR_DENIED, "This token does not grant access to this operation. Read remoteAccessInfo for grants and exact SMS address restrictions.")
         }
     }
-    fun toJson() = JSONObject().put(DikcizRemotePolicy.KEY_ID, id).put(DikcizRemotePolicy.KEY_NAME, name).put("owner", isOwner)
-        .put(DikcizRemotePolicy.KEY_PERMISSIONS, JSONArray(permissions.sorted()))
+    fun toJson() = rules.write(JSONObject().put(DikcizRemotePolicy.KEY_ID, id).put(DikcizRemotePolicy.KEY_NAME, name).put("owner", isOwner)
+        .put(DikcizRemotePolicy.KEY_PERMISSIONS, JSONArray(permissions.sorted())))
 }
 
 internal object DikcizRemotePolicy {
@@ -65,6 +66,7 @@ internal object DikcizRemotePolicy {
     const val ACTION_CREATE = "create"
     const val ACTION_UPDATE = "update"
     const val ACTION_REVOKE = "revoke"
+    const val ACTION_ROTATE = "rotate"
     const val KEY_ID = "id"
     const val KEY_NAME = "name"
     const val KEY_PERMISSIONS = "permissions"
@@ -132,17 +134,17 @@ internal object DikcizRemotePolicy {
 
     val DEFINITIONS = listOf(
         DikcizNativeCommands.Definition(TYPE_INFO, "dikciz_remote_access_info",
-            "Read the verified caller identity and effective remote-token grants. Local owner bindings need no bearer token. Does not return credentials or verifiers.", emptyMap()),
+            "Read the verified caller identity, effective grants, expiresAt, requestsPerMinute and exact smsAddresses restrictions. Restricted SMS reads require filter.address. Local owner bindings need no bearer token. Does not return credentials or verifiers.", emptyMap()),
         DikcizNativeCommands.Definition(TYPE_TOKENS, "dikciz_remote_tokens",
-            "Owner-only remote access-token administration. catalog lists finite permission grants. list returns metadata; create requires name and permissions and returns its generated token once. update requires id and optional name/permissions/enabled; revoke requires id. Authentication must be enabled before creating tokens. Existing tokens, including disabled tokens, prevent disabling or clearing authentication. Local owner bindings and full-owner credentials can administer tokens. Scoped credentials cannot.",
+            "Owner-only remote access-token administration. catalog lists finite permission grants. list returns metadata; create requires name and permissions and returns its generated token once. update requires id and optional name/permissions/enabled/expiry/rate/SMS-address rules; rotate requires id and returns a replacement token once, invalidating the previous secret immediately; revoke requires id. Optional expiresAt is epoch milliseconds (0 means none), requestsPerMinute is 0..10000 (0 means unlimited), and smsAddresses is an exact address allowlist. Restricted SMS reads require filter.address. Authentication must be enabled before creating tokens. Existing tokens, including disabled tokens, prevent disabling or clearing authentication. Local owner bindings and full-owner credentials can administer tokens. Scoped credentials cannot.",
             mapOf(
-                KEY_ACTION to text(16).put("enum", JSONArray(listOf(ACTION_CATALOG, ACTION_LIST, ACTION_CREATE, ACTION_UPDATE, ACTION_REVOKE))),
+                KEY_ACTION to text(16).put("enum", JSONArray(listOf(ACTION_CATALOG, ACTION_LIST, ACTION_CREATE, ACTION_UPDATE, ACTION_REVOKE, ACTION_ROTATE))),
                 KEY_ID to text(ID_CHARACTERS).put("pattern", "^[a-f0-9]{16}$"),
                 KEY_NAME to text(MAXIMUM_NAME_CHARACTERS).put("minLength", 1),
                 KEY_PERMISSIONS to JSONObject().put(KEY_TYPE, "array").put("minItems", 1).put("maxItems", PERMISSION_IDS.size)
                     .put("uniqueItems", true).put("items", text(64).put("enum", JSONArray(PERMISSION_IDS.sorted()))),
                 KEY_ENABLED to JSONObject().put(KEY_TYPE, "boolean"),
-            ), setOf(KEY_ACTION), readOnly = false),
+            ) + DikcizTokenRules.FIELDS, setOf(KEY_ACTION), readOnly = false),
     )
 
     fun catalogue() = JSONArray(GRANTS.map {
@@ -153,17 +155,18 @@ internal object DikcizRemotePolicy {
         val action = request.optString(KEY_ACTION)
         val fields = when (action) {
             ACTION_CATALOG, ACTION_LIST -> setOf(KEY_ACTION)
-            ACTION_CREATE -> setOf(KEY_ACTION, KEY_NAME, KEY_PERMISSIONS)
-            ACTION_UPDATE -> setOf(KEY_ACTION, KEY_ID, KEY_NAME, KEY_PERMISSIONS, KEY_ENABLED)
-            ACTION_REVOKE -> setOf(KEY_ACTION, KEY_ID)
+            ACTION_CREATE -> setOf(KEY_ACTION, KEY_NAME, KEY_PERMISSIONS) + DikcizTokenRules.KEYS
+            ACTION_UPDATE -> setOf(KEY_ACTION, KEY_ID, KEY_NAME, KEY_PERMISSIONS, KEY_ENABLED) + DikcizTokenRules.KEYS
+            ACTION_REVOKE, ACTION_ROTATE -> setOf(KEY_ACTION, KEY_ID)
             else -> DikcizNativeCommands.invalid("Unknown access-token action")
         }
         if (request.keys().asSequence().any { it !in fields && it !in setOf(KEY_TYPE, KEY_REQUEST_ID) }) DikcizNativeCommands.invalid()
         if (action in setOf(ACTION_CREATE, ACTION_UPDATE) && request.has(KEY_NAME)) validateName(request.getString(KEY_NAME))
         if (action == ACTION_CREATE && (!request.has(KEY_NAME) || !request.has(KEY_PERMISSIONS))) DikcizNativeCommands.invalid("create requires name and permissions")
-        if (action in setOf(ACTION_UPDATE, ACTION_REVOKE) && !ID_PATTERN.matches(request.optString(KEY_ID))) DikcizNativeCommands.invalid("Invalid token ID")
+        if (action in setOf(ACTION_UPDATE, ACTION_REVOKE, ACTION_ROTATE) && !ID_PATTERN.matches(request.optString(KEY_ID))) DikcizNativeCommands.invalid("Invalid token ID")
         if (action == ACTION_UPDATE && fields.minus(setOf(KEY_ACTION, KEY_ID)).none(request::has)) DikcizNativeCommands.invalid("Provide a token update")
         if (request.has(KEY_PERMISSIONS)) permissionSet(request.getJSONArray(KEY_PERMISSIONS))
+        DikcizTokenRules.parse(request)
     }
     fun validateName(name: String) {
         if (name.isBlank() || name.length > MAXIMUM_NAME_CHARACTERS || name.any(Char::isISOControl)) DikcizNativeCommands.invalid("Token name must contain 1 to 80 printable characters")

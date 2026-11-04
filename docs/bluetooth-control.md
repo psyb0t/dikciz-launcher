@@ -36,3 +36,7 @@ Optional `mtu` is 23 through 517; the result reports the negotiated value when A
 ```
 
 Discovery can return no devices. Successful GATT/RFCOMM exchange needs a compatible external peer. See [hardware inventories](hardware-controls.md), [USB](usb-control.md) and [command schemas](command-reference.md).
+
+## Companion workflows
+
+See [the focused companion guide](device-connections.md) for the new shared commands, native screens, required access and actual outcome states.

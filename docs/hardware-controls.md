@@ -51,3 +51,7 @@ Bluetooth, USB, Wi-Fi and audio inventories accept `limit` (1 through 200, defau
 ```
 
 See [Bluetooth transactions](bluetooth-control.md), [NFC tags](nfc-control.md), [audio playback](audio-playback.md), [sensor and capture commands](native-device-control.md#sensors-camera-microphone-and-speech), [speech recognition](speech-recognition.md) and the [capability coverage](capability-coverage.md).
+
+## Live camera and display frames
+
+Use imageStreamStart/Read/Stop for bounded JPEG preview and Accessibility display capture with owner Stop and cursor replay. See [the guide](visual-streams.md).

@@ -125,6 +125,15 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
         private const val KEY_SIZE = "size"
         private val DEFINITIONS = listOf(
             "index" to "Start here",
+            "guides/companion" to "Safety, journeys and devices",
+            "guides/journeys" to "Safety and journeys",
+            "guides/connections" to "Retained Bluetooth, USB and NFC",
+            "guides/vision" to "Local images and documents",
+            "guides/health" to "Health Connect records",
+            "guides/wifi-networks" to "Wi-Fi approval and local hotspot",
+            "guides/routines" to "Read-only assistant routines",
+            "guides/apk-sets" to "APK sets and cancellation",
+
             "guides/chat" to "On-device assistant",
             "guides/chat-tools" to "Assistant tool contracts and access",
             "guides/android-sdk" to "Public Android SDK contracts and execution",
@@ -146,6 +155,9 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
             "guides/lua" to "Lua automation",
             "guides/events" to "Custom events",
             "guides/event-replay" to "Replay automation events",
+            "guides/backups" to "Encrypted backup and restore",
+            "guides/visual-streams" to "Live images and speech",
+            "guides/operations" to "Activity, resources and recovery",
             "guides/video" to "Camera video recording",
             "guides/ussd" to "Native USSD requests",
             "guides/files" to "Files and APKs",

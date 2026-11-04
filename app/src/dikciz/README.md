@@ -6,11 +6,15 @@ This source set adds the Dikciz home, public configuration, scripting and local 
 
 | Path | Purpose |
 | --- | --- |
-| `proguard-rules.pro` | Preserves LuaJ library classes and constructors used through reflection in minified builds. |
+| `proguard-rules.pro` | Preserves LuaJ reflection targets and manifest-discovered ML Kit registrar constructors in minified builds. |
 | `AndroidManifest.xml` | Registers the Dikciz Home activity, permissions, services and receivers, and replaces the inherited Main activity declaration. |
 | `kotlin/org/fossify/home/dikciz/` | Dikciz implementation, retaining the Fossify Kotlin namespace. |
 | `res/` | Native home layout, controls, labels, appearance and Android service metadata. |
 | `assets/` | [Bundled starter, web API, complete widget templates, themes and fonts](assets/README.md). |
+
+## Companion boundary
+
+DikcizCompanionActivity uses the shared command target for safety, places, journeys, retained hardware, image processing, Health Connect and Wi-Fi. DikcizCompanionStore owns private plans and route history. DikcizJourneyService and DikcizConnectionsService own visible background lifetimes and Stop controls. DikcizForegroundActivity tracks actual interactive permission contexts. DikcizAssistantRoutines persists read-only task metadata through ordinary chat/event execution. DikcizVision bounds model work and resources; DikcizPackageCommands extends the existing PackageInstaller path. See [companion workflows](../../../docs/companion.md) for states, limits and storage exclusions.
 
 ## Main classes
 
@@ -54,7 +58,7 @@ All Kotlin files below live in `kotlin/org/fossify/home/dikciz/`.
 | `DikcizCommandJobs.kt`, `DikcizShellSessions.kt`, `DikcizShellStreams.kt` | Own durable command results and process-owned incremental shell sessions; the stream runner owns process groups and cleanup. |
 | `DikcizSpeechRecognition.kt`, `DikcizSpeechOutput.kt`, `DikcizSpeechModels.kt` | Adapt recognition, synthesis, voice/language discovery and model callbacks with deadlines and explicit outcomes. |
 | `DikcizUssdControl.kt` | Observe one native carrier USSD request with explicit voice-SIM selection and uncancellable timeout semantics. |
-| `DikcizEventJournal.kt`, `DikcizEventReplayAccess.kt` | Replay dispatched automation events with bounded process-owned history, epoch-bound cursors and current Android source-access checks. |
+| `DikcizEventJournal.kt`, `DikcizEventStorage.kt`, `DikcizEventReplayAccess.kt` | Replay bounded SQLite event history with persistent acknowledged consumer cursors and current Android source-access checks. |
 | `DikcizTorchControl.kt`, `DikcizHapticsControl.kt` | Observe torch state with bounded callbacks and submit finite haptics through the shared native registry. |
 | `DikcizMediaCapture.kt`, `DikcizCameraControls.kt`, `DikcizCameraVideo.kt`, `DikcizAudioPlayback.kt`, `DikcizMicrophoneSession.kt` | Capture media with requested controls and actual frame metadata, and manage local playback/recording. Recognition and recorders share microphone ownership. |
 | `DikcizMicrophoneStream.kt`, `DikcizMicrophoneStreams.kt`, `DikcizMicrophoneCaptureService.kt`, `DikcizBoundedReplay.kt` | Own foreground-service PCM capture, bounded cursor replay, notification stop and shared microphone cleanup. |
@@ -72,7 +76,7 @@ Notification, media, clipboard, SMS, Health Connect and Device Administration in
 
 ## Boundaries and invariants
 
-The [complete bundled widget/script catalog](../../../docs/starter-home.md) describes the four starter pages, eighteen complete HTML templates and six disabled Lua examples. Goblin effects use existing native commands; its heat rule consumes weather events emitted by its visible WebView.
+The [complete bundled widget/script catalog](../../../docs/starter-home.md) describes the four starter pages, nineteen complete HTML templates and six disabled Lua examples. Goblin effects use existing native commands; its heat rule consumes weather events emitted by its visible WebView.
 
 Keep product changes in this source set or a Dikciz-specific combined source set. Shared Fossify source sets remain replaceable. [The Gradle integration](../../build.gradle.kts) selects the Dikciz application ID and derives its version from the root `VERSION`; the [Fossify overlays](../../../.fossify/README.md) carry those changes across source refreshes.
 
@@ -93,3 +97,11 @@ Filesystem commands use direct file I/O with bounded reads and writes. They are 
 The [flavour JVM tests](../testDikciz/README.md) cover grid rules. The [live control suite](../../../tests/live_control/README.md) covers Android UI, persistence and public control behavior.
 
 Remote restart runs only after its successful response is flushed, then recreates the activity without killing the process. Failed listener binds retry with a 30-second steady delay after the initial fast attempts. Accessibility display capture runs off the UI thread, closes hardware buffers and drops late results. The [remote device guide](../../../docs/remote-device-control.md) owns the public recovery and privilege contract.
+
+## Operational state
+
+DikcizOperations owns the private metadata history, token quota counters and resource inventory. DikcizOperationsActivity provides activity filtering and resource pause confirmations. DikcizUiCommands sends native feature actions through the shared executor; DikcizUiStyle owns native dialog colors, fields and touch targets.
+
+DikcizAutomationRules compiles and simulates generated Lua; DikcizAutomationRuleEditor creates and reopens its saved definitions. DikcizBackups validates encrypted archives, protects plaintext staging from file APIs, coordinates public-file rollback with the chat SQLite commit marker, and recovers before Home or background automation loads configuration. DikcizBackupSettings supplies preview and confirmation. See [operations](../../../docs/operations.md) and [backups](../../../docs/backups.md).
+
+DikcizCameraPreview reuses a Camera2 capture session. DikcizImageStreams and DikcizImageCaptureService own bounded JPEG replay and foreground owner Stop. DikcizSpeechStreams replays recognition partial/final callbacks; DikcizFileTranscription uploads an explicit saved recording with the chosen provider credential. See [live images and speech](../../../docs/visual-streams.md).

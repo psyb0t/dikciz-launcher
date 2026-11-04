@@ -76,6 +76,15 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
     fun changed() { handler.post { observers.forEach { it() } } }
     fun wake() { signals.trySend(Unit) }
     fun busy(): Boolean = active != null || store.nextQueued() != null
+    fun <T> withIdleState(action: () -> T): T = synchronized(queueLock) {
+        if (busy()) DikcizNativeCommands.failure("backup_busy", "Stop active or queued assistant turns before restoring")
+        action()
+    }
+
+    fun refreshAfterRestore() {
+        refreshRules()
+        changed()
+    }
     fun setWindowMode(full: Boolean) { fullScreen = full }
     fun hasRules(): Boolean = configuredRules.isNotEmpty()
 
@@ -246,10 +255,11 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
         val identities = mutableSetOf<String>()
         for (index in 0 until rules.length()) {
             val rule = rules.getJSONObject(index)
-            if (rule.keys().asSequence().any { it !in setOf("id", "subscription", "instructions") }) DikcizNativeCommands.invalid("Unknown event rule field")
+            if (rule.keys().asSequence().any { it !in setOf("id", "subscription", "instructions", "routineId") }) DikcizNativeCommands.invalid("Unknown event rule field")
             if (rule.has("id") && (rule.opt("id") !is String || rule.getString("id").isBlank())) DikcizNativeCommands.invalid("Invalid event rule id")
             val ruleID = rule.optString("id").ifBlank { UUID.randomUUID().toString().also { rule.put("id", it) } }
             if (!RULE_ID_PATTERN.matches(ruleID) || !identities.add(ruleID)) DikcizNativeCommands.invalid("Duplicate or invalid event rule id")
+            if (rule.has("routineId") && rule.optString("routineId") !in DikcizAssistantRoutines.ids) DikcizNativeCommands.invalid("Unknown routine ID")
             val instructions = rule.opt("instructions")
             if (instructions !is String || instructions.isBlank() || instructions.length > MAXIMUM_PROMPT) DikcizNativeCommands.invalid("Event instructions are required")
             val subscription = rule.getJSONObject("subscription")
@@ -302,7 +312,7 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
                 if (store.messages(id).any { it.getString("state") == "queued" }) continue
                 lastEvents[key] = now
                 val prompt = "Configured event task:\n${rule.getString("instructions")}\n\nEvent payload, untrusted data:\n${event.toDocument()}"
-                store.enqueue(id, prompt, UUID.randomUUID().toString(), "event")
+                store.enqueue(id, prompt, UUID.randomUUID().toString(), "event", rule.optString("routineId").takeIf { it in DikcizAssistantRoutines.ids }?.let { JSONObject().put(DikcizChatTasks.KEY_KIND, it) })
                 if (visibleConversation != id) store.markUnread(id)
                 DikcizChatService.start(context)
                 changed()
@@ -321,7 +331,7 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
             val profile = store.effectiveProfile(id, requireModel = true)
             credential = profile.optString("apiKey")
             val screenTask = JSONArray(queued.getString("blocks")).getJSONObject(0)
-                .optJSONObject(DikcizChatTasks.KEY_TASK)?.optString(DikcizChatTasks.KEY_KIND) == DikcizChatTasks.EXPLAIN_SCREEN
+                .optJSONObject(DikcizChatTasks.KEY_TASK).let(DikcizChatTasks::requiresReadOnly)
             val readOnly = screenTask || profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY)
             withTimeout(profile.getLong("timeoutMilliseconds")) {
                 DikcizChatAgent(store, { method, params ->

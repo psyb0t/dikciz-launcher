@@ -73,71 +73,133 @@ internal class DikcizApkInstaller(
         return state
     }
 
-    private fun stage(file: File, size: Long, sessionID: Int, expectedChecksum: String?, initial: JSONObject) {
+    @Synchronized
+    @Suppress("DEPRECATION")
+    fun installSet(request: JSONObject): JSONObject {
+        val files = request.getJSONArray("apks")
+        val inputs = (0 until files.length()).map { index ->
+            val item = files.getJSONObject(index)
+            val file = DikcizFileCommands.file(item)
+            if (!file.isFile || !file.canRead() || file.length() !in MINIMUM_APK_BYTES..MAXIMUM_APK_BYTES) throw failure(ERROR_INVALID_APK)
+            FileInputStream(file).use {
+                val bytes = ByteArray(ZIP_SIGNATURE.size)
+                if (it.read(bytes) != bytes.size || !bytes.contentEquals(ZIP_SIGNATURE)) throw failure(ERROR_INVALID_APK)
+            }
+            val checksum = item.optString("sha256").takeIf { it.isNotEmpty() }
+            if (checksum != null && !Regex("[a-fA-F0-9]{64}").matches(checksum)) DikcizNativeCommands.invalid("Invalid APK checksum")
+            StagedInput(file, file.length(), checksum, if (index == 0) "base.apk" else "split-" + index + ".apk")
+        }
+        if (inputs.map { it.file.canonicalPath }.distinct().size != inputs.size) DikcizNativeCommands.invalid("APK paths must be unique")
+        val total = inputs.sumOf { it.size }
+        if (total > MAXIMUM_SET_BYTES) DikcizNativeCommands.invalid("APK set exceeds 1 GiB")
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES else android.content.pm.PackageManager.GET_SIGNATURES
+        val base = context.packageManager.getPackageArchiveInfo(inputs.first().file.path, flags) ?: throw failure(ERROR_INVALID_APK)
+        val signatures = signing(base)
+        for (input in inputs.drop(1)) {
+            val info = context.packageManager.getPackageArchiveInfo(input.file.path, flags) ?: continue
+            val sameVersion = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode == base.longVersionCode else info.versionCode == base.versionCode
+            if (info.packageName != base.packageName || !sameVersion || signing(info) != signatures) throw failure(ERROR_INVALID_APK)
+        }
+        if (!context.packageManager.canRequestPackageInstalls()) return JSONObject().put(KEY_STATE,STATE_PERMISSION_REQUIRED).put(KEY_PACKAGE_NAME,base.packageName).put(KEY_SETTINGS_OPENED,false)
         val installer = context.packageManager.packageInstaller
-        var committed = false
+        if (installer.mySessions.size >= MAXIMUM_ACTIVE_SESSIONS) throw failure(ERROR_INSTALL_BUSY)
+        val parameters = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+            setSize(total); setAppPackageName(base.packageName)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED)
+        }
+        val id=installer.createSession(parameters)
+        val state=JSONObject().put(DikcizFileCommands.KEY_SESSION_ID,id).put(KEY_PACKAGE_NAME,base.packageName)
+            .put(KEY_STATE,STATE_PREPARING).put(KEY_UPDATED_AT,System.currentTimeMillis()).put("apkCount",inputs.size)
+        try { save(context,id,state,logger) } catch (exception: Exception) { installer.abandonSession(id); throw exception }
+        stagingWorkers.execute { stageSet(inputs,id,state) }
+        return state
+    }
+
+    @Suppress("DEPRECATION")
+    private fun signing(info: android.content.pm.PackageInfo): List<String> {
+        val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.signingInfo?.apkContentsSigners else info.signatures
+        return signatures.orEmpty().map { MessageDigest.getInstance(SHA256_ALGORITHM).digest(it.toByteArray()).joinToString("") { byte -> "%02x".format(byte) } }.sorted()
+    }
+
+    fun cancel(request: JSONObject): JSONObject = synchronized(stagingGate) {
+        val id=request.getInt(DikcizFileCommands.KEY_SESSION_ID)
+        val state=load(context,id,logger) ?: throw failure(ERROR_UNKNOWN_INSTALL)
+        if (state.optString(KEY_STATE) in setOf(STATE_SUCCEEDED,STATE_FAILED,STATE_CANCELLED)) return@synchronized state.put("cancellationAccepted",false)
+        val installer=context.packageManager.packageInstaller
+        if (installer.mySessions.none { it.sessionId==id }) return@synchronized state.put("cancellationAccepted",false).put("reason","session_no_longer_cancellable")
+        cancelledSessions.add(id)
+        try { installer.abandonSession(id) }
+        catch (exception: RuntimeException) { cancelledSessions.remove(id); throw exception }
+        val wasPending=state.optString(KEY_STATE)==STATE_PENDING_USER_ACTION
+        state.put(KEY_STATE,STATE_CANCELLED).put("cancellationAccepted",true).put(KEY_UPDATED_AT,System.currentTimeMillis())
+            .put("confirmationMayRemainOpen",wasPending)
+        if (wasPending) state.put("instructions","Android may leave its confirmation visible after session cancellation. Close that confirmation before starting another install.")
+        save(context,id,state,logger)
+        state
+    }
+
+    private data class StagedInput(val file: File, val size: Long, val checksum: String?, val name: String)
+    private fun stage(file: File, size: Long, sessionID: Int, expectedChecksum: String?, initial: JSONObject) {
+        stageSet(listOf(StagedInput(file,size,expectedChecksum,APK_SESSION_FILE_NAME)),sessionID,initial)
+    }
+    private fun stageSet(inputs: List<StagedInput>, sessionID: Int, initial: JSONObject) {
+        val installer=context.packageManager.packageInstaller
+        var committed=false
         try {
             installer.openSession(sessionID).use { session ->
-                val digest = MessageDigest.getInstance(SHA256_ALGORITHM)
-                var copied = 0L
-                FileInputStream(file).use { input ->
-                    session.openWrite(APK_SESSION_FILE_NAME, 0L, size).use { output ->
-                        val buffer = ByteArray(DikcizFileCommands.DEFAULT_CHUNK_BYTES)
-                        while (true) {
-                            val count = input.read(buffer)
-                            if (count < 0) break
-                            copied += count
-                            if (copied > size || copied > MAXIMUM_APK_BYTES) throw failure(ERROR_INVALID_APK)
-                            digest.update(buffer, 0, count)
-                            output.write(buffer, 0, count)
+                val hashes=org.json.JSONArray()
+                var total=0L
+                for (input in inputs) {
+                    if (cancelledSessions.contains(sessionID)) return
+                    val digest=MessageDigest.getInstance(SHA256_ALGORITHM)
+                    var copied=0L
+                    input.file.inputStream().use { source ->
+                        session.openWrite(input.name,0,input.size).use { output ->
+                            val buffer=ByteArray(DikcizFileCommands.DEFAULT_CHUNK_BYTES)
+                            while (true) {
+                                if (cancelledSessions.contains(sessionID)) return
+                                val count=source.read(buffer)
+                                if (count<0) break
+                                copied+=count
+                                if (copied>input.size) throw failure(ERROR_INVALID_APK)
+                                digest.update(buffer,0,count); output.write(buffer,0,count)
+                            }
+                            if (copied!=input.size) throw failure(ERROR_INVALID_APK)
+                            session.fsync(output)
                         }
-                        if (copied != size) throw failure(ERROR_INVALID_APK)
-                        session.fsync(output)
                     }
+                    val checksum=digest.digest().joinToString("") { "%02x".format(it) }
+                    if (input.checksum!=null && !input.checksum.equals(checksum,true)) throw failure(ERROR_CHECKSUM_MISMATCH)
+                    hashes.put(JSONObject().put("name",input.name).put("sha256",checksum).put("bytes",copied))
+                    total+=copied
                 }
-                val checksum = digest.digest().joinToString(EMPTY_STRING) { byte -> HEX_BYTE_FORMAT.format(byte) }
-                if (expectedChecksum != null && expectedChecksum.lowercase(Locale.ROOT) != checksum) {
-                    throw failure(ERROR_CHECKSUM_MISMATCH)
+                synchronized(stagingGate) {
+                    if (cancelledSessions.contains(sessionID)) return
+                    val state=JSONObject(initial.toString()).put(KEY_STATE,STATE_SUBMITTED).put(KEY_BYTES,total)
+                        .put("apks",hashes).put(KEY_UPDATED_AT,System.currentTimeMillis())
+                    if (inputs.size==1) state.put(DikcizFileCommands.KEY_SHA256,hashes.getJSONObject(0).getString("sha256"))
+                    save(context,sessionID,state,logger)
+                    val callback=Intent(context,DikcizApkInstallReceiver::class.java).setAction(ACTION_INSTALL_STATUS).putExtra(EXTRA_SESSION_ID,sessionID)
+                    val flags=PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT>=Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
+                    session.commit(PendingIntent.getBroadcast(context,sessionID,callback,flags).intentSender)
+                    committed=true
+                    logger.info(EVENT_INSTALL_SUBMITTED,mapOf(DikcizFileCommands.KEY_SESSION_ID to sessionID))
                 }
-                val state = JSONObject(initial.toString())
-                    .put(DikcizFileCommands.KEY_SHA256, checksum)
-                    .put(KEY_BYTES, copied)
-                    .put(KEY_STATE, STATE_SUBMITTED)
-                    .put(KEY_UPDATED_AT, System.currentTimeMillis())
-                save(context, sessionID, state, logger)
-                val callback = Intent(context, DikcizApkInstallReceiver::class.java)
-                    .setAction(ACTION_INSTALL_STATUS)
-                    .putExtra(EXTRA_SESSION_ID, sessionID)
-                val flags = PendingIntent.FLAG_UPDATE_CURRENT or
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
-                val pendingIntent = PendingIntent.getBroadcast(context, sessionID, callback, flags)
-                session.commit(pendingIntent.intentSender)
-                committed = true
-                logger.info(EVENT_INSTALL_SUBMITTED, mapOf(DikcizFileCommands.KEY_SESSION_ID to sessionID))
             }
         } catch (exception: Exception) {
-            // Binder and staging failures must leave a terminal, pollable install outcome.
-            val code = (exception as? DikcizAutomationRequestException)?.code ?: ERROR_STAGING_FAILED
-            logger.error(EVENT_STAGING_FAILED, mapOf(KEY_REASON to code, DikcizFileCommands.KEY_SESSION_ID to sessionID))
-            val state = JSONObject(initial.toString())
-                .put(KEY_STATE, STATE_FAILED)
-                .put(KEY_REASON, code)
-                .put(KEY_UPDATED_AT, System.currentTimeMillis())
-            try {
-                save(context, sessionID, state, logger)
-            } catch (saveException: DikcizAutomationRequestException) {
-                logger.error(EVENT_STATUS_WRITE_FAILED)
+            if (!cancelledSessions.contains(sessionID)) {
+                val code=(exception as? DikcizAutomationRequestException)?.code ?: ERROR_STAGING_FAILED
+                logger.error(EVENT_STAGING_FAILED,mapOf(KEY_REASON to code,DikcizFileCommands.KEY_SESSION_ID to sessionID))
+                try { save(context,sessionID,JSONObject(initial.toString()).put(KEY_STATE,STATE_FAILED).put(KEY_REASON,code).put(KEY_UPDATED_AT,System.currentTimeMillis()),logger) }
+                catch (saveException: DikcizAutomationRequestException) { logger.error(EVENT_STATUS_WRITE_FAILED) }
             }
         } finally {
             if (!committed) {
-                try {
-                    installer.abandonSession(sessionID)
-                } catch (exception: IllegalArgumentException) {
-                    logger.warn(EVENT_SESSION_ABANDON_FAILED)
-                } catch (exception: SecurityException) {
-                    logger.warn(EVENT_SESSION_ABANDON_FAILED)
-                }
+                try { installer.abandonSession(sessionID) }
+                catch (exception: IllegalArgumentException) { logger.debug(EVENT_SESSION_ABANDON_FAILED) }
+                catch (exception: SecurityException) { logger.warn(EVENT_SESSION_ABANDON_FAILED) }
             }
+            cancelledSessions.remove(sessionID)
         }
     }
 
@@ -177,6 +239,9 @@ internal class DikcizApkInstaller(
         private const val PREFERENCES_NAME = "dikciz-apk-installs"
         private const val MINIMUM_APK_BYTES = 4L
         private const val MAXIMUM_APK_BYTES = 512L * 1024 * 1024
+        private const val MAXIMUM_SET_BYTES = 1024L * 1024 * 1024
+        private val stagingGate = Any()
+        private val cancelledSessions = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
         private const val MAXIMUM_ACTIVE_SESSIONS = 2
         private const val MAXIMUM_STORED_SESSIONS = 64
         private const val MAXIMUM_MESSAGE_CHARACTERS = 1024
@@ -234,6 +299,7 @@ internal class DikcizApkInstaller(
             val sessionID = intent.getIntExtra(EXTRA_SESSION_ID, -1)
             val state = load(context, sessionID, logger) ?: return
             val code = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
+            if (state.optString(KEY_STATE) == STATE_CANCELLED && code == PackageInstaller.STATUS_PENDING_USER_ACTION) return
             val outcome = when (code) {
                 PackageInstaller.STATUS_PENDING_USER_ACTION -> STATE_PENDING_USER_ACTION
                 PackageInstaller.STATUS_SUCCESS -> STATE_SUCCEEDED

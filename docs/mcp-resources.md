@@ -6,7 +6,7 @@ Dikciz packages short operating guides and recipes in the APK. MCP clients can d
 
 Initialization advertises `capabilities.resources: {}` and instructions pointing to the index. `resources/list` returns at most eight descriptors, each with `uri`, `name`, `title`, `description`, `mimeType` and UTF-8 byte `size`. Follow the opaque `nextCursor` until it is absent. Do not synthesize or alter cursors.
 
-Call `resources/read` with one exact URI. It returns one `text/markdown` content record. Every guide in the browsable catalog is at most 4096 UTF-8 bytes. Search also returns manual sections under `dikciz://docs/library/`, each bounded to 12000 characters. A read does not bundle linked sections automatically. The 55 browsable resources include connection, permissions, UI, apps, pages, HTML, Lua, events, files, shell, logs, security, native Android data, sensors, location, camera, microphone, speech and focused recipes. Separate resources cover feature access and typed actions for state/events, device operations and Accessibility. The contact/SMS recipe covers direct lookup, SIM selection, duplicate protection and receipts. The custom-event example splits setup, Lua source and HTML source into separate resources.
+Call `resources/read` with one exact URI. It returns one `text/markdown` content record. Every guide in the browsable catalog is at most 4096 UTF-8 bytes. Search also returns manual sections under `dikciz://docs/library/`, each bounded to 12000 characters. A read does not bundle linked sections automatically. The 66 browsable resources include connection, permissions, UI, apps, pages, HTML, Lua, events, files, shell, logs, security, native Android data, sensors, location, camera, microphone, speech and focused recipes. Separate resources cover feature access and typed actions for state/events, device operations and Accessibility. The contact/SMS recipe covers direct lookup, SIM selection, duplicate protection and receipts. The custom-event example splits setup, Lua source and HTML source into separate resources.
 
 ```json
 {"method":"resources/read","params":{"uri":"dikciz://docs/recipes/event-setup"}}
@@ -39,3 +39,9 @@ These are MCP resource methods. Search and full-text reads also have shared HTTP
 Speech recognition and hardware controls have separate focused guides. Read `dikciz://docs/guides/speech` for recognition modes and cancellation, or `dikciz://docs/guides/hardware-controls` for torch, vibration, settings and device inventories.
 
 The [public SDK resource](../app/src/dikciz/assets/mcp/guides/android-sdk.md) covers exact signatures, typed values, callbacks, runtime restrictions and both read-only enforcement layers.
+
+## Operations and recovery guides
+
+Short resources dikciz://docs/guides/operations, dikciz://docs/guides/backups and dikciz://docs/guides/visual-streams cover activity, visual rules, encrypted restore, image/speech replay and recorded-file transcription. See [the guide](operations.md).
+
+The [companion index](../app/src/dikciz/assets/mcp/guides/companion.md) links eight focused sections for safety/journeys, device connections, image recognition, health, Wi-Fi, routines and APK sets.

@@ -47,6 +47,8 @@
         android:maxSdkVersion="35" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
@@ -71,6 +73,37 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.WRITE_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" />
+    <uses-permission android:name="android.permission.health.WRITE_DISTANCE" />
+    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.WRITE_ACTIVE_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.WRITE_TOTAL_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.WRITE_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_SLEEP" />
+    <uses-permission android:name="android.permission.health.WRITE_SLEEP" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+    <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />
+    <uses-permission android:name="android.permission.health.READ_HEIGHT" />
+    <uses-permission android:name="android.permission.health.WRITE_HEIGHT" />
+    <uses-permission android:name="android.permission.health.READ_HYDRATION" />
+    <uses-permission android:name="android.permission.health.WRITE_HYDRATION" />
+    <uses-permission android:name="android.permission.health.READ_BODY_FAT" />
+    <uses-permission android:name="android.permission.health.WRITE_BODY_FAT" />
+    <uses-permission android:name="android.permission.health.READ_BODY_TEMPERATURE" />
+    <uses-permission android:name="android.permission.health.WRITE_BODY_TEMPERATURE" />
+    <uses-permission android:name="android.permission.health.READ_BLOOD_PRESSURE" />
+    <uses-permission android:name="android.permission.health.WRITE_BLOOD_PRESSURE" />
+    <uses-permission android:name="android.permission.health.READ_BLOOD_GLUCOSE" />
+    <uses-permission android:name="android.permission.health.WRITE_BLOOD_GLUCOSE" />
+    <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
+    <uses-permission android:name="android.permission.health.WRITE_OXYGEN_SATURATION" />
+    <uses-permission android:name="android.permission.health.READ_FLOORS_CLIMBED" />
+    <uses-permission android:name="android.permission.health.WRITE_FLOORS_CLIMBED" />
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
     <uses-permission
@@ -107,6 +140,12 @@
         android:roundIcon="@mipmap/dikciz_launcher_icon"
         tools:replace="android:icon,android:label,android:roundIcon">
         <receiver android:name=".dikciz.DikcizUsbPermissionReceiver" android:exported="false" />
+        <receiver android:name=".dikciz.DikcizJourneyAlarmReceiver" android:exported="false" />
+        <activity android:name=".dikciz.DikcizCompanionActivity" android:exported="false" android:theme="@style/LauncherTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".dikciz.DikcizWifiApprovalActivity" android:exported="false" android:theme="@style/LauncherTheme" />
+        <activity android:name=".dikciz.DikcizHealthAccessActivity" android:exported="false" android:theme="@style/LauncherTheme" />
+        <service android:name=".dikciz.DikcizJourneyService" android:exported="false" android:foregroundServiceType="location" />
+        <service android:name=".dikciz.DikcizConnectionsService" android:exported="false" android:foregroundServiceType="connectedDevice" />
         <!--
             Dikciz ships none of Fossify's screens. They run Fossify's own home,
             settings and "fake version" check, so every entry point is removed and
@@ -144,6 +183,12 @@
         <activity-alias android:name=".activities.SplashActivity.Brown" tools:node="remove" />
         <activity-alias android:name=".activities.SplashActivity.Blue_grey" tools:node="remove" />
         <activity-alias android:name=".activities.SplashActivity.Grey_black" tools:node="remove" />
+
+        <activity
+            android:name=".dikciz.DikcizOperationsActivity"
+            android:exported="false"
+            android:label="Activity and resources"
+            android:theme="@style/LauncherTheme" />
 
         <activity
             android:name=".dikciz.DikcizDeviceAccessActivity"
@@ -230,6 +275,13 @@
             android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Owner-configured phone assistant conversations and automation event processing" />
+        </service>
+        <service
+            android:name=".dikciz.DikcizImageCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="camera|specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Owner-started bounded camera and display frame streaming with an explicit Stop action" />
         </service>
         <service
             android:name=".dikciz.DikcizMicrophoneCaptureService"

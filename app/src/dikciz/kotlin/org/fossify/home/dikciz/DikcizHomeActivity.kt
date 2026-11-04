@@ -198,6 +198,10 @@ class DikcizHomeActivity : Activity() {
         setContentView(R.layout.activity_dikciz_home)
         bindViews()
         prepareStartupBrand(savedInstanceState)
+        DikcizForegroundActivity.attach(application)
+        DikcizBackups.attach(applicationContext)
+        DikcizOperations.attach(applicationContext)
+        DikcizEventJournal.attach(applicationContext)
         homeConfigStore = HomeConfigStore(this)
         dikcizThemeStore = DikcizThemeStore(this, homeConfigStore.themeDirectory)
         dikcizLogger = DikcizLogger(LOG_TAG, homeConfigStore.logDirectory)
@@ -278,7 +282,7 @@ class DikcizHomeActivity : Activity() {
                             result.put(DikcizPermissionRequests.KEY_RECOVERY,
                                 permissionRequests.request(DikcizDeviceAccessRequirement.PhoneNumbers, command.autoRequestPermissions))
                         }
-                        if (result.optString("state") == "permission_required" && command.type == DikcizFileCommands.TYPE_APK_INSTALL) {
+                        if (result.optString("state") == "permission_required" && command.type in setOf(DikcizFileCommands.TYPE_APK_INSTALL, DikcizPackageCommands.INSTALL_SET)) {
                             result.put(DikcizPermissionRequests.KEY_RECOVERY, permissionRequests.request(DikcizDeviceAccessRequirement.InstallPackages, command.autoRequestPermissions))
                         }
                     }
@@ -325,7 +329,7 @@ class DikcizHomeActivity : Activity() {
         )
         DikcizLocalCommands.attach(
             automationInstanceID,
-            { request, _ -> automationControlPlane.executeLocalCommand(request) },
+            { request, source -> DikcizOperations.withActor(source) { automationControlPlane.executeLocalCommand(request) } },
             automationTarget::responseSent,
         )
         mcpControlPlane = DikcizMcpControlPlane(
@@ -364,6 +368,12 @@ class DikcizHomeActivity : Activity() {
         }
         reloadConfiguration(true)
         startLauncherServicesIfReady()
+        if (!isSafeMode) {
+            try { DikcizJourneys.resume(applicationContext) }
+            catch (exception: DikcizAutomationRequestException) {
+                dikcizLogger.warn("journey_resume_rejected", mapOf("code" to exception.code))
+            }
+        }
         val chat = DikcizChatRuntime.get(applicationContext)
         if (!isSafeMode && (chat.busy() || chat.hasRules())) DikcizChatService.start(applicationContext)
         openRequestedDeviceAccessSetup()
@@ -1096,6 +1106,12 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun configurationForCurrentMode(): HomeConfiguration {
+        try {
+            DikcizBackups.recover(applicationContext)
+        } catch (exception: Exception) {
+            dikcizLogger.error("backup_recovery_failed", mapOf("error_class" to exception.javaClass.simpleName))
+            throw HomeConfigException("Restore recovery needs attention. Current configuration has not been loaded.")
+        }
         val configuration = if (isSafeMode) {
             safeModeConfiguration(homeConfigStore.loadBundledConfiguration())
         } else {
@@ -3600,6 +3616,22 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun automationSnapshot(): JSONObject {
+        DikcizCompanionActivity.current()?.let { screen ->
+            return JSONObject().put(KEY_SCREEN, "companion")
+                .put(KEY_SELECTED_PAGE_ID, homeConfiguration?.selectedPageID ?: JSONObject.NULL)
+                .put(KEY_PAGES, homeConfiguration?.let(::automationPages) ?: JSONArray())
+                .put(KEY_WIDGET_REFERENCES, JSONArray())
+                .put(KEY_SCROLL, screen.scrollState())
+                .put(KEY_NODES, JSONArray(screen.semanticViews().toSortedMap().map { (id, view) -> describeAutomationView(id, view) }))
+        }
+        DikcizOperationsActivity.current()?.let { screen ->
+            return JSONObject().put(KEY_SCREEN, "operations")
+                .put(KEY_SELECTED_PAGE_ID, homeConfiguration?.selectedPageID ?: JSONObject.NULL)
+                .put(KEY_PAGES, homeConfiguration?.let(::automationPages) ?: JSONArray())
+                .put(KEY_WIDGET_REFERENCES, JSONArray())
+                .put(KEY_SCROLL, screen.scrollState())
+                .put(KEY_NODES, JSONArray(screen.semanticViews().toSortedMap().map { (id, view) -> describeAutomationView(id, view) }))
+        }
         DikcizDeviceAccessActivity.current()?.let { setup ->
             val configuration = homeConfiguration
             val nodes = JSONArray().apply {
@@ -3719,6 +3751,8 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun automationScrollState(): JSONObject {
+        DikcizCompanionActivity.current()?.let { return it.scrollState() }
+        DikcizOperationsActivity.current()?.let { return it.scrollState() }
         DikcizDeviceAccessActivity.current()?.let { return it.scrollState() }
         return JSONObject()
             .put(KEY_Y, pageScrollView.scrollY)
@@ -4608,6 +4642,8 @@ class DikcizHomeActivity : Activity() {
 
     private fun scrollAutomationPage(command: DikcizAutomationCommand): JSONObject {
         val deltaY = command.request.getInt(DikcizAutomationControlPlane.KEY_DELTA_Y)
+        DikcizCompanionActivity.current()?.let { it.scrollBy(deltaY); return it.scrollState() }
+        DikcizOperationsActivity.current()?.let { it.scrollBy(deltaY); return it.scrollState() }
         val setup = DikcizDeviceAccessActivity.current()
         if (setup == null) pageScrollView.scrollBy(SCROLL_X_ORIGIN, deltaY) else setup.scrollBy(deltaY)
         dikcizLogger.debug(EVENT_AUTOMATION_SCROLLED, mapOf(FIELD_DELTA_Y to deltaY))
@@ -4617,6 +4653,8 @@ class DikcizHomeActivity : Activity() {
     private fun scrollToAutomationView(command: DikcizAutomationCommand): JSONObject {
         val semanticID = command.request.getString(DikcizAutomationControlPlane.KEY_SEMANTIC_ID)
         val view = requireAutomationView(semanticID)
+        DikcizCompanionActivity.current()?.let { it.scrollTo(view); return it.scrollState() }
+        DikcizOperationsActivity.current()?.let { it.scrollTo(view); return it.scrollState() }
         val setup = DikcizDeviceAccessActivity.current()
         if (setup != null) {
             setup.scrollTo(view)
@@ -4928,12 +4966,30 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun captureAutomationScreenshot(): JSONObject {
-        val root = DikcizDeviceAccessActivity.current()?.window?.decorView ?: window.decorView
+        val companion = DikcizCompanionActivity.current()
+        val operations = DikcizOperationsActivity.current()
+        val setup = DikcizDeviceAccessActivity.current()
+        val root = companion?.window?.decorView ?: operations?.window?.decorView ?: setup?.window?.decorView ?: window.decorView
+        val dialog = companion?.foregroundDialog() ?: operations?.foregroundDialog() ?: if (companion == null && operations == null && setup == null) activeDialog else null
         if (root.width <= SCROLL_X_ORIGIN || root.height <= SCROLL_Y_ORIGIN) {
             throw automationFailure(MESSAGE_SCREEN_UNAVAILABLE)
         }
         val source = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
-        root.draw(Canvas(source))
+        val canvas = Canvas(source)
+        root.draw(canvas)
+        dialog?.takeIf { it.isShowing }?.window?.let { dialogWindow ->
+            val overlay = dialogWindow.decorView
+            val rootLocation = IntArray(2)
+            val overlayLocation = IntArray(2)
+            root.getLocationOnScreen(rootLocation)
+            overlay.getLocationOnScreen(overlayLocation)
+            val alpha = (dialogWindow.attributes.dimAmount * 255).toInt().coerceIn(0, 255)
+            canvas.drawColor(android.graphics.Color.argb(alpha, 0, 0, 0))
+            canvas.save()
+            canvas.translate((overlayLocation[0] - rootLocation[0]).toFloat(), (overlayLocation[1] - rootLocation[1]).toFloat())
+            overlay.draw(canvas)
+            canvas.restore()
+        }
         return encodeAutomationScreenshot(source)
     }
 
@@ -5014,6 +5070,8 @@ class DikcizHomeActivity : Activity() {
         semanticID: String,
         refreshProviderViews: Boolean = false,
     ): View? {
+        DikcizCompanionActivity.current()?.let { return it.semanticViews()[semanticID] }
+        DikcizOperationsActivity.current()?.let { return it.semanticViews()[semanticID] }
         DikcizDeviceAccessActivity.current()?.let { return it.semanticViews()[semanticID] }
         if (refreshProviderViews) {
             refreshProviderAutomationViews()
@@ -6211,12 +6269,19 @@ class DikcizHomeActivity : Activity() {
         dialog = panelDialogBuilder()
             .setTitle(R.string.dikciz_launcher_control_title)
             .setView(ScrollView(this).apply { addView(actionList) })
+            .setNeutralButton("v" + BuildConfig.VERSION_NAME, null)
             .setNegativeButton(R.string.dikciz_dialog_close, null)
             .create()
         dikcizLogger.info(EVENT_LAUNCHER_CONTROL_OPENED, mapOf(FIELD_SELECTED_PAGE_ID to page.id))
         showActiveDialog(
             dialog,
             onShown = {
+                val version = dialog.getButton(AlertDialog.BUTTON_NEUTRAL).apply {
+                    isClickable = false
+                    isFocusable = false
+                    contentDescription = "Dikciz version " + BuildConfig.VERSION_NAME
+                }
+                registerAutomationView("launcher:controls:version", version)
                 actionButtons.forEach { (action, button) ->
                     registerAutomationView(launcherControlActionSemanticID(action), button)
                 }
@@ -6691,6 +6756,43 @@ class DikcizHomeActivity : Activity() {
         )
     }
 
+    private fun showGettingStarted() {
+        val form = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(standardPadding(), NO_PADDING, standardPadding(), standardPadding())
+        }
+        val controls = linkedMapOf<String, View>()
+        fun step(number: Int, title: String, detail: String, actionTitle: String, action: () -> Unit) {
+            form.addView(createWidgetTitle("$number. $title"))
+            form.addView(TextView(this).apply { text = detail; textSize = 14f; setPadding(0, 0, 0, standardPadding() / 2) })
+            form.addView(Button(this).apply {
+                text = actionTitle; contentDescription = actionTitle
+                setOnClickListener { action() }
+                controls["getting-started:step:" + number] = this
+            })
+        }
+        step(1, "Choose phone access", "Grant only what you want to use. Android keeps control of every permission. The setup screen resumes after system settings.",
+            "Review Android access", ::showFullDeviceAccessSetup)
+        step(2, "Make this home yours", "Long press a widget to edit its whole HTML, CSS, JavaScript and state. Templates create independent copies.",
+            "Browse widget templates") {
+            homeConfiguration?.selectedPage()?.let { page -> showWidgetPicker(page, page.widgets.size) }
+        }
+        step(3, "Connect your assistant", "Choose a provider, enter its API key and select a model. Read-only mode lets the assistant inspect without changing your phone.",
+            "Open Dikciz chat") {
+            activeDialog?.dismiss()
+            DikcizChatRuntime.get(this).execute(JSONObject().put("action", "show"))
+        }
+        step(4, "Choose remote access", "Listeners start on this phone only. To connect over Wi-Fi or Tailscale, configure the listen address and protect remote access with named tokens.",
+            "Configure remote control", ::showAutomationSettings)
+        val dialog = AlertDialog.Builder(this).setTitle("Getting started")
+            .setView(ScrollView(this).apply { addView(form) }).setNegativeButton("Done", null).create()
+        showActiveDialog(dialog) {
+            controls.forEach { (id, view) -> registerAutomationView(id, view) }
+            registerDialogCloseAutomationView(dialog)
+            publishAutomationUIRendered()
+        }
+    }
+
     private fun showSettingsDialog() {
         val configuration = homeConfiguration ?: return
         if (isSafeMode) {
@@ -6702,6 +6804,20 @@ class DikcizHomeActivity : Activity() {
         val form = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(standardPadding(), NO_PADDING, standardPadding(), NO_PADDING)
+            addView(Button(this@DikcizHomeActivity).apply {
+                text = "Getting started"; contentDescription = "Getting started with Dikciz"
+                setOnClickListener { showGettingStarted() }
+                registerAutomationView("settings:getting-started", this)
+            })
+            addView(Button(this@DikcizHomeActivity).apply {
+                text = "Safety, journeys and devices"
+                contentDescription = "Open phone companion"
+                setOnClickListener {
+                    activeDialog?.dismiss()
+                    startActivity(Intent(this@DikcizHomeActivity, DikcizCompanionActivity::class.java))
+                }
+                registerAutomationView("settings:companion", this)
+            })
             addView(createWidgetTitle(getString(R.string.dikciz_settings_appearance)))
             AppearanceDefaultScope.entries.forEach { scope ->
                 addView(
@@ -6725,6 +6841,21 @@ class DikcizHomeActivity : Activity() {
                     registerAutomationView(SEMANTIC_SETTINGS_THEMES, this)
                 },
             )
+            addView(Button(this@DikcizHomeActivity).apply {
+                text = "Automation rules"
+                contentDescription = "Create and manage visual automation rules"
+                setOnClickListener {
+                    DikcizAutomationRuleEditor(this@DikcizHomeActivity) { ruleDialog, views ->
+                        ruleDialog.setOnShowListener {
+                            views().forEach { (id, view) -> registerAutomationView(id, view) }
+                            registerDialogCloseAutomationView(ruleDialog)
+                            publishAutomationUIRendered()
+                        }
+                        showActiveDialog(ruleDialog) { publishAutomationUIRendered() }
+                    }.manage()
+                }
+                registerAutomationView("settings:automation-rule", this)
+            })
             addView(createWidgetTitle(getString(R.string.dikciz_settings_scripts)))
             addView(
                 Button(this@DikcizHomeActivity).apply {
@@ -6734,6 +6865,27 @@ class DikcizHomeActivity : Activity() {
                     registerAutomationView(SEMANTIC_SETTINGS_SCRIPTS, this)
                 },
             )
+            addView(Button(this@DikcizHomeActivity).apply {
+                text = "Backup and restore"
+                contentDescription = "Encrypted backup and restore"
+                setOnClickListener {
+                    DikcizBackupSettings(this@DikcizHomeActivity) { backupDialog, views ->
+                        backupDialog.setOnShowListener {
+                            views().forEach { (id, view) -> registerAutomationView(id, view) }
+                            registerDialogCloseAutomationView(backupDialog)
+                            publishAutomationUIRendered()
+                        }
+                        showActiveDialog(backupDialog) { publishAutomationUIRendered() }
+                    }.show()
+                }
+                registerAutomationView("settings:backups", this)
+            })
+            addView(Button(this@DikcizHomeActivity).apply {
+                text = "Activity & resources"
+                contentDescription = "Activity history and resource usage"
+                setOnClickListener { startActivity(Intent(this@DikcizHomeActivity, DikcizOperationsActivity::class.java)) }
+                registerAutomationView("settings:operations", this)
+            })
             addView(createWidgetTitle(getString(R.string.dikciz_settings_logging)))
             addView(
                 Button(this@DikcizHomeActivity).apply {
@@ -7586,13 +7738,14 @@ class DikcizHomeActivity : Activity() {
             return
         }
         try {
-            startActivityForResult(
-                healthConnectPermissionContract.createIntent(
-                    this,
-                    permissions,
-                ),
-                AUTOMATION_HEALTH_CONNECT_PERMISSION_REQUEST_CODE,
-            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                requestPermissions(permissions.toTypedArray(), AUTOMATION_HEALTH_CONNECT_PERMISSION_REQUEST_CODE)
+            } else {
+                startActivityForResult(
+                    healthConnectPermissionContract.createIntent(this, permissions),
+                    AUTOMATION_HEALTH_CONNECT_PERMISSION_REQUEST_CODE,
+                )
+            }
         } catch (exception: ActivityNotFoundException) {
             dikcizLogger.warn(
                 EVENT_AUTOMATION_HEALTH_CONNECT_PERMISSION_REJECTED,
@@ -9220,6 +9373,7 @@ class DikcizHomeActivity : Activity() {
             publishAutomationUIRendered()
         }
         dialog.show()
+        DikcizUiStyle.dialog(dialog)
         registerDialogCloseAutomationView(dialog)
         onShown()
         publishAutomationUIRendered()

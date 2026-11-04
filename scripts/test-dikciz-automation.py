@@ -438,7 +438,7 @@ FILE_MCP_TOOLS = {
 }
 NATIVE_COMMAND_FIELDS = {
     "remoteAccessInfo": (),
-    "remoteTokens": ("action", "id", "name", "permissions", "enabled"),
+    "remoteTokens": ("action", "id", "name", "permissions", "enabled", "expiresAt", "requestsPerMinute", "smsAddresses"),
     "nativeDataStatus": (),
     "contentQuery": ("resource", "query", "columns", "filter", "limit", "offset"),
     "contentWrite": ("resource", "operation", "id", "values"),
@@ -513,6 +513,36 @@ NATIVE_MCP_TOOLS = {
     "appIcon": "dikciz_app_icon",
 }
 NATIVE_MCP_TOOLS.update({'androidApiDiscover': 'dikciz_android_api_discover', 'androidApiRead': 'dikciz_android_api_read', 'androidApiInvoke': 'dikciz_android_api_invoke', 'androidApiObjects': 'dikciz_android_api_objects', 'androidApiRelease': 'dikciz_android_api_release', 'androidApiCallback': 'dikciz_android_api_callback'})
+NATIVE_MCP_TOOLS.update({
+    "eventConsumerRead": "dikciz_event_consumer_read", "eventConsumerAck": "dikciz_event_consumer_ack",
+    "eventConsumersList": "dikciz_event_consumers_list", "eventConsumerForget": "dikciz_event_consumer_forget",
+    "resourceControl": "dikciz_resource_control", "automationRuleDelete": "dikciz_automation_rule_delete", "automationRulePreview": "dikciz_automation_rule_preview",
+    "automationRuleSave": "dikciz_automation_rule_save", "automationRulesList": "dikciz_automation_rules_list",
+})
+NATIVE_COMMAND_FIELDS.update({
+    "eventConsumerRead": ("name", "limit", "waitMilliseconds", "eventTypes"), "eventConsumerAck": ("name", "cursor"),
+    "automationRuleDelete": ("id",), "eventConsumersList": ("limit", "offset"), "eventConsumerForget": ("name",), "resourceControl": ("scriptId", "target", "id", "pageId"),
+    "automationRulePreview": ("rule", "sample"), "automationRuleSave": ("rule",), "automationRulesList": ("limit", "offset"),
+})
+NATIVE_MCP_TOOLS.update({"backupCreate": "dikciz_backup_create", "backupPreview": "dikciz_backup_preview", "backupRestore": "dikciz_backup_restore", "backupsList": "dikciz_backups_list"})
+NATIVE_COMMAND_FIELDS.update({"backupCreate": ("passphrase", "includeApiKeys"), "backupPreview": ("path", "passphrase"), "backupRestore": ("previewId", "sha256", "confirm", "activateAutomation"), "backupsList": ("limit", "offset")})
+NATIVE_MCP_TOOLS.update({
+    "imageStreamStart": "dikciz_image_stream_start", "imageStreamRead": "dikciz_image_stream_read", "imageStreamStop": "dikciz_image_stream_stop",
+    "imageStreamsList": "dikciz_image_streams_list", "imageStreamForget": "dikciz_image_stream_forget",
+    "speechStreamStart": "dikciz_speech_stream_start", "speechStreamRead": "dikciz_speech_stream_read", "speechStreamStop": "dikciz_speech_stream_stop",
+    "speechStreamsList": "dikciz_speech_streams_list", "speechStreamForget": "dikciz_speech_stream_forget",
+    "speechTranscribeFile": "dikciz_speech_transcribe_file",
+})
+NATIVE_COMMAND_FIELDS.update({
+    "imageStreamStart": ("source", "cameraId", "maxDimension", "frameIntervalMilliseconds", "maximumDurationMilliseconds", "bufferBytes", "maximumEvents", "startupTimeoutMilliseconds"),
+    "imageStreamRead": ("streamId", "cursor", "limit", "waitMilliseconds"), "imageStreamStop": ("streamId",),
+    "imageStreamsList": ("limit", "offset"), "imageStreamForget": ("streamId",),
+    "speechStreamStart": ("mode", "language", "timeoutMilliseconds"), "speechStreamRead": ("streamId", "cursor", "limit", "waitMilliseconds"),
+    "speechStreamStop": ("streamId",), "speechStreamsList": ("limit", "offset"), "speechStreamForget": ("streamId",),
+    "speechTranscribeFile": ("path", "profileId", "model", "language", "timeoutMilliseconds"),
+})
+NATIVE_MCP_TOOLS.update({"activityRead": "dikciz_activity_read", "resourceUsage": "dikciz_resource_usage", "activityCancel": "dikciz_activity_cancel"})
+NATIVE_COMMAND_FIELDS.update({"activityRead": ("limit", "offset", "actor", "outcome", "mutatingOnly"), "resourceUsage": (), "activityCancel": ("activityId",)})
 NATIVE_MCP_TOOLS.update({"eventJournalStatus": "dikciz_event_journal_status", "eventJournalRead": "dikciz_event_journal_read", "eventJournalConfigure": "dikciz_event_journal_configure"})
 NATIVE_MCP_TOOLS.update({"microphoneStreamStart": "dikciz_microphone_stream_start", "microphoneStreamRead": "dikciz_microphone_stream_read", "microphoneStreamStop": "dikciz_microphone_stream_stop", "microphoneStreamsList": "dikciz_microphone_streams_list", "microphoneStreamForget": "dikciz_microphone_stream_forget"})
 NATIVE_MCP_TOOLS["ussdRequest"] = "dikciz_ussd_request"
@@ -564,7 +594,7 @@ NATIVE_COMMAND_FIELDS.update({'cameraCapture': ('autofocusMode',
                            'startupTimeoutMilliseconds'),
  'microphoneStreamStop': ('streamId',),
  'microphoneStreamsList': ('limit', 'offset'),
- 'torchControl': ('action', 'cameraId', 'timeoutMilliseconds'),
+ 'torchControl': ('action', 'cameraId', 'durationMilliseconds', 'timeoutMilliseconds'),
  'ussdRequest': ('code', 'maximumResponseCharacters', 'subscriptionId', 'timeoutMilliseconds'),
  'vibrationControl': ('action',
                       'amplitude',
@@ -572,9 +602,131 @@ NATIVE_COMMAND_FIELDS.update({'cameraCapture': ('autofocusMode',
                       'durationMilliseconds',
                       'effect',
                       'timingsMilliseconds')})
+NATIVE_READ_COMMANDS.update({"eventConsumerRead", "eventConsumersList", "automationRulePreview", "automationRulesList"})
+NATIVE_READ_COMMANDS.add("backupsList")
+NATIVE_READ_COMMANDS.update({"imageStreamRead", "imageStreamsList", "speechStreamRead", "speechStreamsList"})
+NATIVE_READ_COMMANDS.update({"activityRead", "resourceUsage"})
 NATIVE_READ_COMMANDS.update({"eventJournalStatus", "eventJournalRead", "microphoneStreamRead", "microphoneStreamsList"})
-NATIVE_COMMAND_FIELDS["chatControl"] = ("action", "conversationId", "profileId", "title", "text", "requestKey", "profile", "rules", "fullScreen", "limit", "offset")
+NATIVE_COMMAND_FIELDS["chatControl"] = ("action", "conversationId", "profileId", "title", "text", "requestKey", "profile", "rules", "settings", "task", "fullScreen", "limit", "offset")
 NATIVE_MCP_TOOLS["chatControl"] = "dikciz_chat"
+COMPANION_COMMANDS = {'assistantRoutines': ('dikciz_assistant_routines', (), True),
+ 'assistantRoutinePreview': ('dikciz_assistant_routine_preview', ('routineId',), True),
+ 'assistantRoutineRun': ('dikciz_assistant_routine_run',
+                         ('routineId', 'conversationId', 'requestKey'),
+                         False),
+ 'assistantRoutineSubscribe': ('dikciz_assistant_routine_subscribe',
+                               ('routineId', 'conversationId', 'ruleId', 'subscription'),
+                               False),
+ 'sosPlanSave': ('dikciz_sos_plan_save',
+                 ('contacts',
+                  'message',
+                  'checkInSeconds',
+                  'graceSeconds',
+                  'updateSeconds',
+                  'maximumUpdates',
+                  'subscriptionId'),
+                 False),
+ 'sosPreview': ('dikciz_sos_preview', (), True),
+ 'sosStatus': ('dikciz_sos_status', (), True),
+ 'sosControl': ('dikciz_sos_control', ('action', 'confirm'), False),
+ 'geofencesList': ('dikciz_geofences_list', ('offset', 'limit'), True),
+ 'geofenceSave': ('dikciz_geofence_save',
+                  ('id',
+                   'title',
+                   'latitude',
+                   'longitude',
+                   'radiusMeters',
+                   'enabled',
+                   'dwellMilliseconds'),
+                  False),
+ 'geofenceDelete': ('dikciz_geofence_delete', ('id',), False),
+ 'journeyControl': ('dikciz_journey_control',
+                    ('action', 'id', 'title', 'sampleIntervalMilliseconds'),
+                    False),
+ 'journeysList': ('dikciz_journeys_list', ('offset', 'limit'), True),
+ 'journeyRead': ('dikciz_journey_read', ('id', 'offset', 'limit'), True),
+ 'journeyDelete': ('dikciz_journey_delete', ('id', 'confirm'), False),
+ 'deviceConnectionOpen': ('dikciz_device_connection_open',
+                          ('kind',
+                           'address',
+                           'serviceUuid',
+                           'secure',
+                           'deviceId',
+                           'interfaceIndex',
+                           'technology',
+                           'timeoutMilliseconds',
+                           'maximumDurationMilliseconds'),
+                          False),
+ 'deviceConnectionExchange': ('dikciz_device_connection_exchange',
+                              ('id',
+                               'action',
+                               'dataBase64',
+                               'readBytes',
+                               'timeoutMilliseconds',
+                               'endpointAddress',
+                               'requestType',
+                               'request',
+                               'value',
+                               'index',
+                               'serviceUuid',
+                               'characteristicUuid',
+                               'serviceInstanceId',
+                               'characteristicInstanceId',
+                               'cursor'),
+                              False),
+ 'deviceConnectionRead': ('dikciz_device_connection_read', ('id',), True),
+ 'deviceConnectionClose': ('dikciz_device_connection_close', ('id',), False),
+ 'deviceConnectionsList': ('dikciz_device_connections_list', ('offset', 'limit'), True),
+ 'imageRecognize': ('dikciz_image_recognize',
+                    ('path',
+                     'mode',
+                     'rotationDegrees',
+                     'maxDimension',
+                     'maximumResults',
+                     'maximumTextCharacters',
+                     'timeoutMilliseconds'),
+                    True),
+ 'documentScan': ('dikciz_document_scan', ('pages', 'grayscale', 'maxDimension'), False),
+ 'healthRecordsCatalogue': ('dikciz_health_records_catalogue', (), True),
+ 'healthRecordsRead': ('dikciz_health_records_read',
+                       ('kind',
+                        'startTimeMilliseconds',
+                        'endTimeMilliseconds',
+                        'limit',
+                        'pageToken'),
+                       True),
+ 'healthRecordsAggregate': ('dikciz_health_records_aggregate',
+                            ('kind', 'startTimeMilliseconds', 'endTimeMilliseconds'),
+                            True),
+ 'healthRecordsWrite': ('dikciz_health_records_write', ('kind', 'records'), False),
+ 'healthRecordsDelete': ('dikciz_health_records_delete', ('kind', 'recordIds', 'confirm'), False),
+ 'healthPermissionsRequest': ('dikciz_health_permissions_request',
+                              ('kinds', 'access', 'includeBackground', 'includeHistory'),
+                              False),
+ 'wifiNetworksConfigure': ('dikciz_wifi_networks_configure',
+                           ('ssid', 'security', 'passphrase', 'action'),
+                           False),
+ 'wifiConnectionStart': ('dikciz_wifi_connection_start',
+                         ('ssid',
+                          'security',
+                          'passphrase',
+                          'maximumDurationMilliseconds',
+                          'timeoutMilliseconds'),
+                         False),
+ 'wifiConnectionStatus': ('dikciz_wifi_connection_status', ('id',), True),
+ 'wifiConnectionStop': ('dikciz_wifi_connection_stop', ('id',), False),
+ 'wifiConnectionsList': ('dikciz_wifi_connections_list', ('offset', 'limit'), True),
+ 'wifiHotspotStart': ('dikciz_wifi_hotspot_start',
+                      ('maximumDurationMilliseconds', 'timeoutMilliseconds'),
+                      False),
+ 'wifiHotspotStatus': ('dikciz_wifi_hotspot_status', (), True),
+ 'wifiHotspotStop': ('dikciz_wifi_hotspot_stop', ('id',), False),
+ 'apkInstallSet': ('dikciz_apk_install_set', ('apks',), False),
+ 'apkInstallCancel': ('dikciz_apk_install_cancel', ('sessionId',), False)}
+NATIVE_MCP_TOOLS.update({key: value[0] for key, value in COMPANION_COMMANDS.items()})
+NATIVE_COMMAND_FIELDS.update({key: value[1] for key, value in COMPANION_COMMANDS.items()})
+NATIVE_READ_COMMANDS.update(key for key, value in COMPANION_COMMANDS.items() if value[2])
+
 CONTROL_STATUS_COMMAND_FIELDS = {
     "shellStream": ("chunkBytes", "command", "root", "timeoutMilliseconds"),
     "shellStreamStop": ("streamId",),
@@ -1198,7 +1350,7 @@ def verify_control_status(connection: socket.socket) -> dict[str, Any]:
         if command_type not in CONTROL_STATUS_COMMAND_FIELDS:
             raise WebSocketProtocolError("control status returned an unknown command")
         if command.get(KEY_FIELDS) != sorted((*CONTROL_STATUS_COMMAND_FIELDS[command_type], "autoRequestPermissions")):
-            raise WebSocketProtocolError("control status returned invalid command fields")
+            raise WebSocketProtocolError(f"control status returned invalid fields for {command_type}: observed={command.get(KEY_FIELDS)!r}, expected={sorted((*CONTROL_STATUS_COMMAND_FIELDS[command_type], 'autoRequestPermissions'))!r}")
         if command.get(KEY_MCP_TOOL) != CONTROL_STATUS_MCP_TOOLS[command_type]:
             raise WebSocketProtocolError("control status returned invalid MCP mapping")
         if command_type in CONTROL_STATUS_READ_COMMAND_TYPES:

@@ -29,7 +29,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal class DikcizNfcControl(private val context: Context, private val logger: DikcizLogger) {
-    private val busy = AtomicBoolean()
+    private val busy = DikcizNfcLease.busy
     private val handler = Handler(Looper.getMainLooper())
 
     fun execute(type: String, request: JSONObject): JSONObject {

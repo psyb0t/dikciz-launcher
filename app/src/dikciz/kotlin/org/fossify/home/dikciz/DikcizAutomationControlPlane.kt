@@ -293,10 +293,17 @@ internal class DikcizAutomationControlPlane(
     }
 
     private fun handleShellStream(client: ClientConnection, rawRequest: JSONObject, requestID: String) {
+        DikcizOperations.trace(rawRequest, client.access, remote = true) {
+            handleTrackedShellStream(client, rawRequest, requestID)
+        }
+    }
+
+    private fun handleTrackedShellStream(client: ClientConnection, rawRequest: JSONObject, requestID: String) {
         val request = DikcizPermissionRequests.operation(rawRequest)
         client.access?.requireCommand(request.getString(KEY_TYPE), request)
         val stop = request.getString(KEY_TYPE) == DikcizShellStreams.TYPE_STOP
         DikcizShellStreams.validate(request, stop, envelope = true)
+        client.access?.let(DikcizOperations::consume)
         if (stop) {
             client.sendText(streamResult(requestID, shellStreams.stop(client.id, request)))
             return
@@ -415,6 +422,19 @@ internal class DikcizAutomationControlPlane(
         readOnly: Boolean = false,
         remote: Boolean = false,
     ): String {
+        val access = if (remote) remoteAccessAuth.resolve(authorization) else null
+        return DikcizOperations.trace(rawRequest, access, remote) {
+            handleVerifiedCommand(rawRequest, requestID, authorization, readOnly, remote)
+        }
+    }
+
+    private fun handleVerifiedCommand(
+        rawRequest: JSONObject,
+        requestID: String,
+        authorization: String? = null,
+        readOnly: Boolean = false,
+        remote: Boolean = false,
+    ): String {
         val request = DikcizPermissionRequests.operation(rawRequest)
         val commandType = request.requireString(KEY_TYPE)
         val access = if (!remote) null else (remoteAccessAuth.resolve(authorization)
@@ -434,6 +454,7 @@ internal class DikcizAutomationControlPlane(
         }
         validateCommand(request, commandType)
         access?.requireCommand(commandType, request)
+        access?.let(DikcizOperations::consume)
         val result = if (commandType in REMOTE_AUTH_COMMAND_TYPES) {
             try {
                 remoteAccessAuth.executeRemoteCommand(commandType, authorization, request)

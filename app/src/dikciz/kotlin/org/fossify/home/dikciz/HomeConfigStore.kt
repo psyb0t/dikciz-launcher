@@ -22,6 +22,7 @@ import org.json.JSONObject
 
 internal class HomeConfigStore(
     private val context: Context,
+    private val storageRootOverride: File? = null,
 ) {
     val configurationFile: File = File(
         sharedStorageRoot(),
@@ -82,7 +83,12 @@ internal class HomeConfigStore(
 
     fun <T> withConfigurationLock(operation: () -> T): T = synchronized(CONFIGURATION_LOCK, operation)
 
-    fun loadOrCreate(): HomeConfiguration = withConfigurationLock { loadStoredConfiguration() }
+    fun loadOrCreate(): HomeConfiguration = withConfigurationLock {
+        if (storageRootOverride == null && DikcizBackups.blocksConfiguration(context)) {
+            throw HomeConfigException("Restore recovery is pending. Open Dikciz Home to finish recovery.")
+        }
+        loadStoredConfiguration()
+    }
 
     private fun loadStoredConfiguration(): HomeConfiguration {
         requireSharedStorageAccess()
@@ -3171,7 +3177,7 @@ internal class HomeConfigStore(
 
     @Suppress("DEPRECATION")
     private fun sharedStorageRoot(): File {
-        return Environment.getExternalStorageDirectory()
+        return storageRootOverride ?: Environment.getExternalStorageDirectory()
     }
 
     companion object {

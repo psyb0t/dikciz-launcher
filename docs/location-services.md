@@ -21,3 +21,7 @@ A received status returns available=true, observedAtMilliseconds, total and an o
 No GPS provider, rejected registration or no callback returns available=false with no_gps_provider, registration_rejected or no_status_during_window. Missing permission uses the common locationForeground owner-review procedure. Do not report a fix from unavailable status.
 
 All ordinary entrypoints and local script/widget bindings share these commands. For background location subscriptions and precision policies, read the [scripting tutorial](scripting-tutorial.md) and [native device guide](native-device-control.md).
+
+## Companion workflows
+
+See [the focused companion guide](safety-and-journeys.md) for the new shared commands, native screens, required access and actual outcome states.

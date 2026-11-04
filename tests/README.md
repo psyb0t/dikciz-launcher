@@ -120,3 +120,15 @@ Peripheral selectors validate NFC tag selection and unavailable hardware, Blueto
 `make dikciz-android-sdk-test` checks generated public SDK contracts, policy validity and deterministic assets. The focused live selector `test_android_sdk` covers typed reads, writes, SDK objects/callbacks, idempotency, pagination and both trusted read-only enforcement layers using mock provider endpoints. See [SDK bridge](../docs/android-sdk.md).
 
 Named-token coverage runs with `make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_remote_tokens` after building the debug APK. It covers scope-filtered schemas/search, forced-call denial across three transports, live revocation, session identity, native management and credential storage.
+
+## Operations and UX verification
+
+Live suites test_operations, test_operations_recovery, test_operations_backups, test_operations_media and test_operations_ux exercise persistence, token scopes, quotas, restore validation, capture cleanup and rendered controls across shared bindings. Partial speech uses the configurable external RecognitionService fixture. See [the guide](../docs/operations.md).
+
+## Companion verification
+
+Build the debug APK with the ordinary Gradle Make target. Generate image fixtures only when changing them with make dikciz-vision-fixtures. For split-install tests, build tests/configurable-widget-provider first, then run make dikciz-split-fixture. Generated test keys/APKs remain outside the source distribution.
+
+Run make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_companion for shared discovery, strict validation, pagination, real OCR/QR/PDF processing, safety/journey location effects, native screens, Health Connect/Wi-Fi approval, routine access enforcement and APK installation sets. Provider responses and the vehicle adapter boundary are deterministic mocks; the Android executor, WebViews, package installer and recognition models are real. Real Bluetooth/GATT, USB endpoints and NFC tags need physical hardware verification. Test SMS targets only the isolated emulator fixture address. No physical phone is needed or contacted.
+
+The tests keep operation outcomes distinct from acceptance and clean up their own saved fences/routes, conversations, fixture package and copied files.

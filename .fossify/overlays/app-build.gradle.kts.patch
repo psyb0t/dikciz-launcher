@@ -54,7 +54,7 @@
      }
 
      compileOptions {
-@@ -141,8 +163,57 @@
+@@ -141,8 +163,61 @@
 
  dependencies {
      implementation(libs.fossify.commons)
@@ -62,6 +62,8 @@
 +    add("dikcizImplementation", "com.linkedin.dexmaker:dexmaker:2.28.6")
 +    add("dikcizImplementation", "com.jakewharton.android.repackaged:dalvik-dx:9.0.0_r3")
 +    add("dikcizImplementation", "androidx.health.connect:connect-client:1.1.0")
++    add("dikcizImplementation", "com.google.mlkit:text-recognition:16.0.1")
++    add("dikcizImplementation", "com.google.mlkit:barcode-scanning:17.3.0")
 +    add("dikcizImplementation", "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 +    add("dikcizImplementation", "at.favre.lib:bcrypt:0.10.2")
 +    add("dikcizImplementation", "ai.koog:prompt-executor-openai-client:1.3.0")
@@ -80,8 +82,10 @@
  }
 +
 +
-+// Keep checksum verification scoped to the SDK bridge dependencies and Dikciz variants.
++// Keep checksum verification scoped to pinned extension artifacts and Dikciz variants.
 +val dikcizSdkDependencyHashes = mapOf(
++    "com.google.mlkit:text-recognition:16.0.1" to "da753265d02479a8cfe4dbf891ba7d189248e7c8430b6f72bd4d532c757a69b3",
++    "com.google.mlkit:barcode-scanning:17.3.0" to "64c5cf48bb94b6c54f2c785c660640a7d167aff6ad72bc2c920706dc4187b79a",
 +    "com.linkedin.dexmaker:dexmaker:2.28.6" to "fdb1d3632c66694ed4cd3445cd86da70286f93b55d613e30361abec6d23404ac",
 +    "com.jakewharton.android.repackaged:dalvik-dx:9.0.0_r3" to "b29c1c21e52ed6238cd3fed39d880a17ecf2360118604548cea8821be6801e1c",
 +)
@@ -104,10 +108,10 @@
 +                    }
 +                }
 +                val actual = digest.digest().joinToString("") { "%02x".format(it) }
-+                check(actual == expected) { "SDK bridge dependency checksum mismatch: $coordinate" }
++                check(actual == expected) { "Dikciz dependency checksum mismatch: $coordinate" }
 +                seen.add(coordinate)
 +            }
-+            check(seen == dikcizSdkDependencyHashes.keys) { "SDK bridge dependency version or artifact is missing" }
++            check(seen == dikcizSdkDependencyHashes.keys) { "Dikciz dependency version or artifact is missing" }
 +        }
 +    }
 +    tasks.matching { it.name == "pre${variant}Build" }.configureEach { dependsOn(verification) }

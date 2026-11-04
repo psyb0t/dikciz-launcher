@@ -12,16 +12,17 @@ import java.io.IOException
 import org.json.JSONArray
 import org.json.JSONObject
 
-internal class DikcizSystemMetrics(private val context: Context) {
+internal class DikcizSystemMetrics(context: Context) {
+    private val application = context.applicationContext as android.app.Application
     private var previousCpu: Map<String, DikcizCpuCounters> = emptyMap()
     private var previousAppCpu: Pair<Long, Long>? = null
 
     @Synchronized
     fun read(): JSONObject {
         val memory = ActivityManager.MemoryInfo()
-        context.getSystemService(ActivityManager::class.java).getMemoryInfo(memory)
-        val storage = StatFs(context.filesDir.absolutePath)
-        val sensors = context.getSystemService(SensorManager::class.java)
+        application.getSystemService(ActivityManager::class.java).getMemoryInfo(memory)
+        val storage = StatFs(application.filesDir.absolutePath)
+        val sensors = application.getSystemService(SensorManager::class.java)
             .getSensorList(Sensor.TYPE_ALL)
         val now = SystemClock.elapsedRealtime()
         val appCpu = Process.getElapsedCpuTime()

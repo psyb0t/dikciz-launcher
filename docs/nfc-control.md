@@ -37,3 +37,7 @@ References: [Android IsoDep](https://developer.android.com/reference/android/nfc
 ```
 
 No tag is emulated by this API. RF transactions need a compatible physical tag. See [hardware inventories](hardware-controls.md) and [command schemas](command-reference.md).
+
+## Companion workflows
+
+See [the focused companion guide](device-connections.md) for the new shared commands, native screens, required access and actual outcome states.

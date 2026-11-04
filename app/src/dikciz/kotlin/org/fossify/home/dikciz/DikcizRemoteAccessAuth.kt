@@ -93,14 +93,14 @@ internal class DikcizRemoteAccessAuth(
         val secret = parseBearerPassword(authorization)
         val token = secret?.let { value ->
             val id = TOKEN_PATTERN.matchEntire(value)?.groupValues?.get(1)
-            record?.tokens?.find { it.id == id && it.enabled && digestMatches(it.digest, value) }
+            record?.tokens?.find { it.id == id && it.enabled && it.rules.isActive() && digestMatches(it.digest, value) }
         }
         if (token != null && record?.enabled == true) {
-            return@locked DikcizRemoteAccess(token.id, token.name, token.permissions) {
+            return@locked DikcizRemoteAccess(token.id, token.name, token.permissions, token.rules) {
                 locked {
                     val current = readState().record
                     val present = current?.tokens?.find { it.id == token.id }
-                    current?.enabled == true && present == token
+                    current?.enabled == true && present == token && token.rules.isActive()
                 }
             }
         }
@@ -163,8 +163,8 @@ internal class DikcizRemoteAccessAuth(
             if (readState() !is RecordState.Missing) return null
             return DikcizRemoteAccess(OWNER_ID, "Owner", setOf(DikcizRemotePolicy.OWNER)) { true }
         }
-        val token = secret?.let { value -> record.tokens.find { it.enabled && digestMatches(it.digest, value) } }
-        if (token != null && record.enabled) return DikcizRemoteAccess(token.id, token.name, token.permissions) { true }
+        val token = secret?.let { value -> record.tokens.find { it.enabled && it.rules.isActive() && digestMatches(it.digest, value) } }
+        if (token != null && record.enabled) return DikcizRemoteAccess(token.id, token.name, token.permissions, token.rules) { true }
         if (!record.enabled || (secret != null && verifies(record, secret))) {
             return DikcizRemoteAccess(OWNER_ID, "Owner", setOf(DikcizRemotePolicy.OWNER)) { true }
         }
@@ -177,7 +177,7 @@ internal class DikcizRemoteAccessAuth(
             ?: throw DikcizRemoteAccessAuthException(ERROR_AUTH_REQUIRED, MESSAGE_AUTH_REQUIRED)
         val record = requireValidRecord()
         val ownerToken = record.enabled && record.tokens.any {
-            it.enabled && DikcizRemotePolicy.OWNER in it.permissions && digestMatches(it.digest, secret)
+            it.enabled && it.rules.isActive() && DikcizRemotePolicy.OWNER in it.permissions && digestMatches(it.digest, secret)
         }
         if (!ownerToken && !verifies(record, secret)) {
             throw DikcizRemoteAccessAuthException(ERROR_AUTH_REQUIRED, MESSAGE_AUTH_REQUIRED)
@@ -214,16 +214,23 @@ internal class DikcizRemoteAccessAuth(
                 changed = TokenRecord(
                     id, request.getString(KEY_NAME).trim(),
                     DikcizRemotePolicy.permissionSet(request.getJSONArray(KEY_PERMISSIONS)),
-                    true, System.currentTimeMillis(), digest(createdSecret),
+                    true, System.currentTimeMillis(), digest(createdSecret), DikcizTokenRules.parse(request),
                 )
                 updated.add(changed)
             }
-            ACTION_UPDATE, ACTION_REVOKE -> {
+            ACTION_UPDATE, ACTION_REVOKE, DikcizRemotePolicy.ACTION_ROTATE -> {
                 val index = updated.indexOfFirst { it.id == request.getString(KEY_ID) }
                 if (index < 0) throw DikcizRemoteAccessAuthException("remote_token_not_found", "Access token not found")
                 val previous = updated[index]
                 if (action == ACTION_REVOKE) {
                     updated.removeAt(index)
+                } else if (action == DikcizRemotePolicy.ACTION_ROTATE) {
+                    createdSecret = "dkt1.${previous.id}." + Base64.encodeToString(
+                        ByteArray(TOKEN_SECRET_BYTES).also(RANDOM::nextBytes),
+                        Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP,
+                    )
+                    changed = previous.copy(digest = digest(createdSecret))
+                    updated[index] = changed
                 } else {
                     changed = previous.copy(
                         name = if (request.has(KEY_NAME)) request.getString(KEY_NAME).trim() else previous.name,
@@ -231,6 +238,7 @@ internal class DikcizRemoteAccessAuth(
                             DikcizRemotePolicy.permissionSet(request.getJSONArray(KEY_PERMISSIONS))
                         } else previous.permissions,
                         enabled = if (request.has("enabled")) request.getBoolean("enabled") else previous.enabled,
+                        rules = DikcizTokenRules.parse(request, previous.rules),
                     )
                     updated[index] = changed
                 }
@@ -436,14 +444,19 @@ internal class DikcizRemoteAccessAuth(
         val enabled: Boolean,
         val createdAt: Long,
         val digest: String,
+        val rules: DikcizTokenRules = DikcizTokenRules(),
     ) {
-        fun metadata() = JSONObject().put(KEY_ID, id).put(KEY_NAME, name)
-            .put(KEY_PERMISSIONS, JSONArray(permissions.sorted())).put("enabled", enabled).put(KEY_CREATED_AT, createdAt)
-        fun toJson() = metadata().put(KEY_DIGEST, digest)
+        fun metadata() = rules.write(JSONObject().put(KEY_ID, id).put(KEY_NAME, name)
+            .put(KEY_PERMISSIONS, JSONArray(permissions.sorted())).put("enabled", enabled).put(KEY_CREATED_AT, createdAt))
+            .put("expired", !rules.isActive())
+            .put("lastUsedAt", DikcizOperations.lastUsed(id) ?: JSONObject.NULL)
+        fun toJson() = metadata().apply { remove("expired"); remove("lastUsedAt") }.put(KEY_DIGEST, digest)
 
         companion object {
             fun parse(document: JSONObject): TokenRecord {
-                require(document.keys().asSequence().toSet() == setOf(KEY_ID, KEY_NAME, KEY_PERMISSIONS, "enabled", KEY_CREATED_AT, KEY_DIGEST))
+                val required = setOf(KEY_ID, KEY_NAME, KEY_PERMISSIONS, "enabled", KEY_CREATED_AT, KEY_DIGEST)
+                val keys = document.keys().asSequence().toSet()
+                require(keys.containsAll(required) && keys.all { it in required || it in DikcizTokenRules.KEYS })
                 val id = document.opt(KEY_ID) as? String ?: error("Invalid token ID")
                 require(Regex("[a-f0-9]{16}").matches(id))
                 val name = document.opt(KEY_NAME) as? String ?: error("Invalid token name")
@@ -456,7 +469,7 @@ internal class DikcizRemoteAccessAuth(
                 require(createdAt > 0)
                 val digest = document.opt(KEY_DIGEST) as? String ?: error("Invalid token digest")
                 require(Regex("[a-f0-9]{64}").matches(digest))
-                return TokenRecord(id, name, permissions, enabled, createdAt, digest)
+                return TokenRecord(id, name, permissions, enabled, createdAt, digest, DikcizTokenRules.parse(document))
             }
         }
     }

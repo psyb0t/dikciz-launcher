@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "vehicle-console",
+  "title": "Vehicle console",
+  "description": "Owner-started ELM327 Bluetooth live RPM, coolant and adapter voltage through a retained connection. Closes when hidden. No fault-code clearing or vehicle actuation.",
+  "span": {
+    "columnSpan": 8,
+    "rowSpan": 4
+  }
+}

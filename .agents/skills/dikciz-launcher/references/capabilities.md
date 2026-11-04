@@ -129,7 +129,7 @@ Speech recognition, torch, vibration, supported system settings and Bluetooth/US
 
 ## Managed operations
 
-Read [operations](operations.md) for file lifecycle/search, notification dismissal/snooze/inline reply and durable idempotent jobs. Bluetooth supports discovery, pairing requests, RFCOMM and GATT transactions; NFC supports presented tags, NDEF and raw transactions. USB supports owner access and control/bulk transfers. Local audio playback supports explicit session controls and output preference. Incremental shell sessions and process-owned event replay provide cursor reads across every ordinary binding. Discover fields and verify actual results.
+Read [operations](operations.md) for file lifecycle/search, notification dismissal/snooze/inline reply and durable idempotent jobs. Bluetooth supports discovery, pairing requests, RFCOMM and GATT transactions; NFC supports presented tags, NDEF and raw transactions. USB supports owner access and control/bulk transfers. Local audio playback supports explicit session controls and output preference. Incremental shell sessions and persistent event replay with explicit named-consumer acknowledgements provide cursor reads across every ordinary binding. Discover fields and verify actual results.
 
 ## Access, logs and verification
 
@@ -142,3 +142,11 @@ For app and activity launches, inspect every `activityLaunches` record. Only `ve
 ## Public SDK operations
 
 Read [SDK bridge](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/android-sdk.md) or dikciz://docs/guides/android-sdk before using androidApiDiscover, androidApiRead, androidApiInvoke, androidApiObjects, androidApiCallback or androidApiRelease. Copy exact overloads and positional types from discovery. Respect bridgePermitted/runtimeAvailable. Unknown members require write access. Read-only agents cannot discover writes or bypass the trusted executor by forging arguments. Handles and write keys are process-owned; unregister callbacks and stop sessions before release. Completion of an SDK call does not prove an asynchronous effect.
+
+## Activity, backup and live media
+
+Use activityRead for persistent command metadata and resourceUsage for measured CPU/network plus scripts, widgets and conversations. resourceControl pauses a selected resource; cancellation never rolls back completed work. See [operations](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/operations.md).
+
+Use backupCreate, backupsList, backupPreview and backupRestore for encrypted home/chat snapshots. Restore needs previewId, exact sha256 and confirm=true; automation remains disabled by default. Authentication and listener settings are excluded. See [backups](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/backups.md).
+
+Use imageStreamStart/Read/Stop for camera/display JPEG frames; speechStreamStart/Read/Stop for provider partial transcripts; speechTranscribeFile for explicit upload of a recording to a saved OpenAI-compatible provider. Discover exact schemas, inspect terminal state and hardwareReleaseConfirmed, then forget retained sessions. See [live media](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/visual-streams.md) or resources dikciz://docs/guides/visual-streams and dikciz://docs/guides/backups.

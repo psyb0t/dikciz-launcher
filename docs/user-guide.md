@@ -221,3 +221,11 @@ Use a file manager on the phone, an ADB connection, or a remote-control client t
 ## Review remote permission requests
 
 A controller can ask for one Android permission or special access. Dikciz names it in a notification and an in-app dialog. Tap **Allow access** to open the relevant Android permission screen. Grant only access you want the controller to have. If notifications are disabled, open Dikciz to see the pending request. Closing the dialog grants nothing. Granting access never runs the original operation automatically; the controller checks access and retries it.
+
+## Activity, rules and backups
+
+Settings offers Getting started for permission, widget, assistant and remote-control setup. Activity & resources shows command outcomes and pause controls. Automation rules opens the visual trigger/condition/action editor. See [the guide](operations.md).
+
+## Companion workflows
+
+See [the focused companion guide](companion.md) for the new shared commands, native screens, required access and actual outcome states.

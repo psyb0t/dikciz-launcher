@@ -12,6 +12,10 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Spinner
+import android.widget.ArrayAdapter
+import android.text.InputType
+import android.text.format.DateUtils
 import org.fossify.home.dikciz.DikcizAutomationControlPlane.Companion.KEY_ACTION
 import org.fossify.home.dikciz.DikcizRemoteAccessAuth.Companion.KEY_ENABLED
 import org.fossify.home.dikciz.DikcizRemotePolicy.ACTION_CREATE
@@ -50,14 +54,50 @@ internal class DikcizRemoteTokensSettings(
             for (position in 0 until rows.length()) {
                 val item = rows.getJSONObject(position)
                 val id = item.getString(KEY_ID)
+                val entry = column().apply {
+                    val inset = (12 * resources.displayMetrics.density).toInt()
+                    setPadding(inset, inset, inset, inset)
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        cornerRadius = inset.toFloat(); setColor(DikcizUiStyle.SURFACE)
+                    }
+                }
+                val actions = LinearLayout(context)
+                val destructive = LinearLayout(context)
+                form.addView(entry, LinearLayout.LayoutParams(-1, -2).apply {
+                    topMargin = (12 * context.resources.displayMetrics.density).toInt()
+                })
                 val label = TextView(context).apply {
                     text = item.getString(KEY_NAME) + " · " + (if (item.getBoolean(KEY_ENABLED)) "Enabled" else "Disabled") +
                         "\n" + (0 until item.getJSONArray(KEY_PERMISSIONS).length())
                             .joinToString(", ") { item.getJSONArray(KEY_PERMISSIONS).getString(it) }
                 }
-                form.addView(label)
+                entry.addView(label)
+                entry.addView(TextView(context).apply {
+                    val expiry = item.optLong(DikcizTokenRules.KEY_EXPIRES)
+                    val used = item.optLong("lastUsedAt")
+                    val rate = item.optInt(DikcizTokenRules.KEY_RATE)
+                    text = (if (item.optBoolean("expired")) "Expired" else if (expiry == 0L) "No expiry" else
+                        "Expires " + DateUtils.getRelativeTimeSpanString(expiry, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)) +
+                        "\n" + (if (used == 0L) "Not used yet" else "Last used " +
+                            DateUtils.getRelativeTimeSpanString(used, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)) +
+                        "\n" + (if (rate == 0) "No request limit" else "$rate requests per minute")
+                })
+                val rotate = button("Rotate token") {
+                    val confirmation = AlertDialog.Builder(context).setTitle("Rotate " + item.getString(KEY_NAME) + "?")
+                        .setMessage("The old token stops working immediately. Copy the replacement before closing the next screen.")
+                        .setPositiveButton("Rotate") { _, _ ->
+                            try {
+                                val replacement = auth.tokenCommandFromPhone(JSONObject().put(KEY_ACTION, DikcizRemotePolicy.ACTION_ROTATE).put(KEY_ID, id))
+                                showCreated(replacement.getString(KEY_TOKEN))
+                            } catch (exception: Exception) { error(exception) }
+                        }.setNegativeButton("Cancel", null).create()
+                    showDialog(confirmation) { emptyMap() }
+                }
+                actions.addView(rotate, LinearLayout.LayoutParams(0, -2, 1f))
+                views["remote-tokens:$id:rotate"] = rotate
                 val edit = button("Edit " + item.getString(KEY_NAME)) { edit(item) }
-                form.addView(edit)
+                actions.addView(edit, 0, LinearLayout.LayoutParams(0, -2, 1f))
+                entry.addView(actions)
                 views["remote-tokens:$id:edit"] = edit
                 val toggle = button(if (item.getBoolean(KEY_ENABLED)) "Disable" else "Enable") {
                     try {
@@ -68,7 +108,7 @@ internal class DikcizRemoteTokensSettings(
                         error(exception)
                     }
                 }
-                form.addView(toggle)
+                destructive.addView(toggle, LinearLayout.LayoutParams(0, -2, 1f))
                 views["remote-tokens:$id:toggle"] = toggle
                 val revoke = button("Revoke") {
                     val confirmation = AlertDialog.Builder(context).setTitle("Revoke " + item.getString(KEY_NAME) + "?")
@@ -85,7 +125,8 @@ internal class DikcizRemoteTokensSettings(
                         mapOf("remote-tokens:confirm-revoke" to confirmation.getButton(AlertDialog.BUTTON_POSITIVE))
                     }
                 }
-                form.addView(revoke)
+                destructive.addView(revoke, LinearLayout.LayoutParams(0, -2, 1f))
+                entry.addView(destructive)
                 views["remote-tokens:$id:revoke"] = revoke
             }
         } catch (exception: Exception) {
@@ -106,6 +147,31 @@ internal class DikcizRemoteTokensSettings(
         form.addView(name)
         val message = TextView(context)
         form.addView(message)
+        form.addView(TextView(context).apply { text = "Expiry" })
+        val durations = listOf(0L, 3600000L, 86400000L, 604800000L, 2592000000L)
+        val expiry = Spinner(context).apply {
+            contentDescription = "Token expiry"
+            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_dropdown_item,
+                listOf(if (item == null) "No expiry" else "Keep existing expiry", "1 hour", "1 day", "7 days", "30 days", "Remove expiry"))
+        }
+        form.addView(expiry)
+        form.addView(TextView(context).apply { text = "Requests per minute. Zero means unlimited." })
+        val rate = EditText(context).apply {
+            contentDescription = "Token requests per minute"
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(item?.optInt(DikcizTokenRules.KEY_RATE)?.toString() ?: "0")
+        }
+        form.addView(rate)
+        form.addView(TextView(context).apply { text = "Allowed SMS addresses, one per line. Blank allows all. Restricted reads must specify filter.address." })
+        val addresses = EditText(context).apply {
+            contentDescription = "Allowed SMS addresses"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            minLines = 2
+            val values = item?.optJSONArray(DikcizTokenRules.KEY_SMS)
+            setText(if (values == null) "" else (0 until values.length()).joinToString("\n") { values.getString(it) })
+        }
+        form.addView(addresses)
+        form.addView(TextView(context).apply { text = "Permissions"; textSize = 18f })
         val chosen = item?.getJSONArray(KEY_PERMISSIONS)?.let { rows ->
             (0 until rows.length()).map(rows::getString).toSet()
         }.orEmpty()
@@ -130,13 +196,22 @@ internal class DikcizRemoteTokensSettings(
                     .put(KEY_NAME, name.text.toString())
                     .put(KEY_PERMISSIONS, JSONArray(checks.filterValues { it.isChecked }.keys.toList()))
                 item?.let { request.put(KEY_ID, it.getString(KEY_ID)) }
+                val rateValue = rate.text.toString().toIntOrNull()
+                    ?: throw IllegalArgumentException("Enter a whole request limit")
+                request.put(DikcizTokenRules.KEY_RATE, rateValue)
+                request.put(DikcizTokenRules.KEY_SMS, JSONArray(addresses.text.toString().lineSequence()
+                    .map(String::trim).filter(String::isNotEmpty).toList()))
+                val selection = expiry.selectedItemPosition
+                if (selection > 0) request.put(DikcizTokenRules.KEY_EXPIRES,
+                    if (selection == durations.size) 0L else System.currentTimeMillis() + durations[selection])
                 val result = auth.tokenCommandFromPhone(request)
                 if (item == null) showCreated(result.getString(KEY_TOKEN)) else show()
             } catch (exception: Exception) {
                 message.text = exception.message ?: "Could not save token"
             }
         }
-        val views = linkedMapOf<String, View>("remote-tokens:name" to name)
+        val views = linkedMapOf<String, View>("remote-tokens:name" to name,
+            "remote-tokens:expiry" to expiry, "remote-tokens:rate" to rate, "remote-tokens:sms-addresses" to addresses)
         checks.forEach { (id, view) -> views["remote-tokens:grant:$id"] = view }
         val dialog = AlertDialog.Builder(context).setTitle(if (item == null) "Create access token" else "Edit access token")
             .setView(scroll(form)).setPositiveButton(if (item == null) "Create" else "Save", null)

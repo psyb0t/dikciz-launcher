@@ -35,8 +35,8 @@ internal object DikcizChatCommands {
             else -> DikcizNativeCommands.invalid("Unknown chat action")
         }
         if (action == DikcizChatTasks.ACTION) {
-            if (request.optString("task") !in setOf(DikcizChatTasks.WIDGET, DikcizChatTasks.EXPLAIN_SCREEN)) {
-                DikcizNativeCommands.invalid("Choose widget or explainScreen")
+            if (request.optString("task") !in (setOf(DikcizChatTasks.WIDGET, DikcizChatTasks.EXPLAIN_SCREEN) + DikcizAssistantRoutines.ids)) {
+                DikcizNativeCommands.invalid("Choose widget, explainScreen or a routine ID from assistantRoutines")
             }
             if (request.optString("task") == DikcizChatTasks.WIDGET && request.optString("text").isBlank()) {
                 DikcizNativeCommands.invalid("Describe the widget to create")

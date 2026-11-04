@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.30.10] - 2026-11-04
+
+### Added
+
+- Opt-in SOS contact plans, missed check-ins, cancellation grace, persisted SMS idempotency and visible stop controls.
+- Accuracy-aware geofences, custom crossing/dwell events and persistent paginated journeys with local route previews.
+- Retained RFCOMM, GATT, USB and NFC connections, bounded lifetimes and an optional ELM327 vehicle template.
+- On-device Latin OCR, barcode reading, manual perspective correction and raster PDF output.
+- Health Connect record discovery, targeted grants, history, aggregates and owned writes/deletes.
+- Android-approved saved/local Wi-Fi network flows and local-only hotspot lifecycle.
+- Split APK installation sets and cancellation of owned pending installation sessions.
+- Five reusable assistant routines with enforced read-only turns, including event subscriptions.
+- Native companion screens, launcher-control version text and focused MCP guides.
+- Persistent command activity with caller identity, outcomes, duration, interruption state and a native activity/resource screen.
+- Token expiry, last-use metadata, rotation, per-token rolling request limits and exact SMS address restrictions.
+- Durable event replay and named consumer acknowledgements that survive process restart.
+- Visual automation rules with payload conditions, cooldowns, bounded actions and Lua simulation without Android effects.
+- Camera and display JPEG streams, partial speech recognition streams and recorded-file transcription through saved compatible providers.
+- Encrypted home, widget state, scripts, provider settings and chat backups, with optional API keys, validated previews and restart recovery.
+
+### Changed
+
+- Add Getting started links, consistent native form styling, larger chat model controls and explicit resource pause confirmations.
+- Expose current resource inventories and token limits through the shared command schemas and focused MCP documentation.
+- Bundle Google ML Kit SDKs and models for local image recognition under their separate terms, with SDK performance/utilization metrics disclosed in the dependency guide.
+
+### Fixed
+
+- Preserve ML Kit component registrar constructors required by on-device recognition in minified builds.
+- Request Android 14+ Health Connect runtime permissions through the runtime permission API instead of launching an internal Activity Result intent.
+- Preserve geofence observations across numeric JSON reloads and sample the newest GPS fix without recording stale provider callbacks.
+- Preserve queued automation and chat service starts during rapid subscription changes.
+- Recover backup checkpoints before loading home configuration and prevent incomplete rollback copies from replacing current files.
+- Include visible native confirmation dialogs in API screenshots.
+
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
 ## [0.30.9] - 2026-11-04

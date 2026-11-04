@@ -25,6 +25,11 @@ from typing import Any, Iterator
 
 MAXIMUM_HARDWARE_TIMEOUT_MILLISECONDS = 300_000
 HARDWARE_COMMAND_TIMEOUTS = {
+    "imageStreamStart": ("startupTimeoutMilliseconds", 10000),
+    "imageStreamRead": ("waitMilliseconds", 0),
+    "speechStreamRead": ("waitMilliseconds", 0),
+    "speechTranscribeFile": ("timeoutMilliseconds", 30000),
+    "eventConsumerRead": ("waitMilliseconds", 0),
     "androidApiRead": ("timeoutMilliseconds", 30000),
     "androidApiInvoke": ("timeoutMilliseconds", 30000),
     "microphoneStreamStart": ("startupTimeoutMilliseconds", 30000),
@@ -54,6 +59,11 @@ HARDWARE_COMMAND_TIMEOUTS = {
     "speechSpeak": ("timeoutMilliseconds", 30000),
 }
 HARDWARE_MCP_COMMANDS = {
+    "dikciz_image_stream_start": "imageStreamStart",
+    "dikciz_image_stream_read": "imageStreamRead",
+    "dikciz_speech_stream_read": "speechStreamRead",
+    "dikciz_speech_transcribe_file": "speechTranscribeFile",
+    "dikciz_event_consumer_read": "eventConsumerRead",
     "dikciz_android_api_read": "androidApiRead",
     "dikciz_android_api_invoke": "androidApiInvoke",
     "dikciz_microphone_stream_start": "microphoneStreamStart",

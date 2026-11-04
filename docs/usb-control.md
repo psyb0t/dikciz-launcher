@@ -28,3 +28,7 @@ A bulk transfer claims its interface without forcing another driver to release i
 Missing/detached identities return native_record_not_found. Missing host service returns native_unavailable. Failed writes can have partial external effects even when no successful byte count was returned. Inspect the peripheral before deciding whether a retry is safe. Android does not expose every USB host operation to ordinary applications, including arbitrary gadget/bootloader control.
 
 These operations share schemas, execution and permission procedures across HTTP, WebSocket, MCP, HTML and Lua. See the [command reference](command-reference.md), [hardware inventory](hardware-controls.md) and [coverage](capability-coverage.md).
+
+## Companion workflows
+
+See [the focused companion guide](device-connections.md) for the new shared commands, native screens, required access and actual outcome states.

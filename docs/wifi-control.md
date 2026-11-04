@@ -23,3 +23,7 @@ Android can throttle or reject scanning even with permission. wifi_scan_rejected
 Use autoRequestPermissions only to ask the owner to review missing fine-location access. Granting it does not enable location services or bypass scan throttling.
 
 See [hardware inventories](hardware-controls.md), [permissions](automation-control.md#request-missing-android-access) and [command schemas](command-reference.md).
+
+## Companion workflows
+
+See [the focused companion guide](wifi-networks.md) for the new shared commands, native screens, required access and actual outcome states.

@@ -1,0 +1,6 @@
+<main><header><p class="eyebrow">Direct from the adapter</p><h1>Vehicle console</h1><p>ELM327 Bluetooth live data</p></header>
+<section class="metrics"><article><strong id="rpm">...</strong><span>Engine RPM</span></article><article><strong id="coolant">...</strong><span>Coolant, Celsius</span></article><article><strong id="voltage">...</strong><span>Adapter voltage</span></article></section>
+<label for="adapter">Paired adapter</label><select id="adapter"><option value="">Choose an adapter</option></select>
+<div class="actions"><button id="refresh">Find paired devices</button><button id="connect">Connect</button><button id="stop" disabled>Disconnect</button></div>
+<p id="status" role="status">Nothing connects automatically. Choose your paired adapter, then connect.</p>
+<details><summary>What this does</summary><p>This document reads engine RPM, coolant temperature and adapter voltage. It does not clear fault codes or send vehicle control commands. It requests standard live-data PIDs, so unsupported readings stay explicit. Leaving this widget closes its connection.</p><p>Advanced USB and GATT workflows use the shared device connection tools.</p></details></main>

@@ -16,6 +16,10 @@ Both listeners default to device loopback. Set their listen address and ports th
 
 `chatControl` and MCP `dikciz_chat` manage the same provider connections, per-conversation model/token settings, queue, event rules and panel used by the native cheese button. Sends report queue state; poll the transcript and actual tool outcomes. The agent discovers and invokes existing MCP handlers in process. The shared `task` action offers widget creation on the current page and read-only screen explanation with automatic chat dismissal and display capture. See [chat setup, actions and context budgets](embedded-chat.md).
 
+## Companion workflows
+
+[Safety, journeys and devices](companion.md) adds typed commands through the same executor and all ordinary bindings, including HTML and Lua. Read the installed schemas and targeted permission recovery before performing effects.
+
 ## Offline search
 
 `searchQuery`, `searchRead`, `searchCollections` and `searchIndex` expose the shared persistent SQLite index. Search the protected documentation and installed-tool collections, or explicitly index owner data in separate collections. MCP uses the corresponding `dikciz_search_*` tools. HTML, Lua and embedded chat use the same execution and read-only checks. See [search, ranking, aliases and limits](search.md).
@@ -459,3 +463,12 @@ HTML receives `dikciz-visibility` with `{visible}` when its native page or windo
 [Shell sessions](shell-sessions.md) provide incremental output through every ordinary binding, including HTML and Lua, with reconnectable cursor reads and explicit history gaps. [Speech models](speech-models.md), [audio sessions](audio-playback.md), [durable jobs](command-jobs.md), [notification management](notification-management.md) and [peripheral guides](index.md) describe the additional procedures. JSON state patches preserve nullable API results using the same saved-state format.
 
 Embedded chat supports per-conversation `settings:{"readOnly":true}`. Discovery hides mutating tools and the trusted executor flag blocks direct writes and permission prompts with `read_only_violation`. Tool arguments cannot disable it. Chat history and logs still save; other owner entrypoints retain their configured access. See the embedded chat guide for the full contract.
+
+
+## Activity and recoverable automation
+
+[Activity and resources](operations.md) describes persistent command metadata, measured resource use, best-effort cancellation and visual automation rules. Commands and MCP tools share these implementations across every ordinary binding. Token expiry, rotation, request limits and exact SMS address restrictions are described in [remote access tokens](remote-access-tokens.md).
+
+The event journal persists its epoch, sequence, retained events and configured limits in private SQLite storage. Process restart preserves replay while normal retention still expires old records. The eventConsumerRead command resumes from a named consumer's durable acknowledged cursor without advancing it. After handling a page, call eventConsumerAck with its nextCursor. Acknowledgements cannot move backwards or beyond the last dispatched event. Inspect historyGap and lostEvents before processing. Acknowledgement does not run or retry side effects.
+
+Use eventConsumersList to page through up to 64 named consumers and eventConsumerForget to remove one. Consumer administration requires owner access. Names contain 1 to 80 letters, digits, dots, underscores or hyphens, beginning with a letter or digit. These commands use the same validation, Android access checks and response contracts through HTTP, WebSocket and MCP.

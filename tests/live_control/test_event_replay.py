@@ -138,8 +138,9 @@ def test_event_replay_expiry_and_restart(websocket_control):
     restore_system_home()
     wait_native_control("http")
     current = native_call("http", "eventJournalStatus")
-    assert current["journalId"] != original["journalId"]
-    native_call("http", "eventJournalRead", {"journalId": original["journalId"]}, error="event_journal_restarted")
+    assert current["journalId"] == original["journalId"]
+    assert current["persistence"] == "sqlite"
+    native_call("http", "eventJournalRead", {"journalId": original["journalId"]})
 
 
 def test_event_replay_large_payload_oversize_and_page_bytes(websocket_control):

@@ -95,3 +95,4 @@ Choose these by name in the Dikciz widget picker. Each library insertion copies 
 | **Lock screen** (`lock-screen`) | Request native screen lock with owner-enabled Device Administration. |
 | **Post a notification** (`notifications`) | Post a direct native notification with Android notification access. |
 | **Dikciz diagnostics** (`system-status`) | Read Dikciz diagnostics and a bounded recent log record. |
+| **Vehicle console** (vehicle-console) | Optional paired ELM327 dashboard with RPM, coolant and adapter voltage. Explicit connect and stop, no vehicle actuation. See [connections](device-connections.md). |

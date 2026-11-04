@@ -26,6 +26,10 @@ internal class DikcizChatService : Service() {
         channels(this)
         runtime = DikcizChatRuntime.get(this)
         runtime.observe(observer)
+        promote()
+    }
+
+    private fun promote() {
         val notification = progressNotification(runtime.progress())
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(NOTIFICATION_ACTIVE, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
@@ -35,6 +39,7 @@ internal class DikcizChatService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        promote()
         if (intent?.action == ACTION_STOP) {
             val conversationID = intent.getStringExtra("conversationId")
             val turnID = intent.getStringExtra("turnId")
@@ -42,8 +47,7 @@ internal class DikcizChatService : Service() {
         }
         updateProgress()
         if (!runtime.busy() && !runtime.hasRules()) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
+            if (stopSelfResult(startId)) stopForeground(STOP_FOREGROUND_REMOVE)
             return START_NOT_STICKY
         }
         runtime.wake()

@@ -2,7 +2,7 @@
 
 <!-- Regenerate with make dikciz-command-docs from captured tools/list discovery. -->
 
-This reference contains 141 discovered MCP tools and their complete input schemas. Discovery from the installed build is authoritative. Transport-independent procedures, Android permissions and results are described in the [automation guide](automation-control.md), [documentation index](index.md) and focused task guides. MCP tools use the same ordinary commands as HTTP, WebSocket, HTML and Lua.
+This reference contains 206 discovered MCP tools and their complete input schemas. Discovery from the installed build is authoritative. Transport-independent procedures, Android permissions and results are described in the [automation guide](automation-control.md), [documentation index](index.md) and focused task guides. MCP tools use the same ordinary commands as HTTP, WebSocket, HTML and Lua.
 
 Schemas include nested fields, required values, defaults and bounds. autoRequestPermissions requests owner review; it never grants access or retries the operation. Inspect returned state and errors before continuing.
 
@@ -63,6 +63,72 @@ Read a bounded snapshot of the active Android accessibility tree. The owner must
       "default": false
     }
   },
+  "additionalProperties": false
+}
+```
+
+## dikciz_activity_cancel
+
+Request best-effort thread interruption of one running activity. Does not roll back completed effects or prove Android stopped work. Poll activityRead. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "activityId": {
+      "type": "string",
+      "maxLength": 36
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "activityId"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_activity_read
+
+Read persistent command metadata without arguments or payloads. Owner only. Includes actor, request ID, duration and completed/rejected/failed/interrupted/running state. Interrupted outcomes may be unknown. Seven-day retention and bounded pagination.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "actor": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "outcome": {
+      "type": "string",
+      "maxLength": 32
+    },
+    "mutatingOnly": {
+      "type": "boolean",
+      "default": false
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
   "additionalProperties": false
 }
 ```
@@ -390,6 +456,77 @@ Submit one readable standalone APK, up to 512 MiB, to Android PackageInstaller. 
 }
 ```
 
+## dikciz_apk_install_cancel
+
+Abandon a still-cancellable Dikciz-owned APK installation session, including staging and pending confirmation. Returns cancellationAccepted=false when terminal or too late. Poll apkInstallStatus for the actual outcome. Never uninstalls an installed package.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "sessionId": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "sessionId"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_apk_install_set
+
+Install one base APK followed by its split APKs in one Android PackageInstaller transaction. apks contains 1..32 unique files, at most 512 MiB each and 1 GiB total; optional SHA-256 is checked while staging. The first file must be a base APK. Android validates split names, signatures, versions and compatibility at commit and retains owner confirmation. Poll apkInstallStatus for actual outcome; queued is not installed.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "apks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "sha256": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "apks"
+  ],
+  "additionalProperties": false
+}
+```
+
 ## dikciz_apk_install_status
 
 Read the actual Android outcome for one installation submitted by Dikciz. Submission or pending confirmation is not successful installation.
@@ -498,6 +635,131 @@ Read a launchable activity icon as a bounded PNG. Use a component from appCatalo
   "required": [
     "component"
   ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_assistant_routine_preview
+
+Read the exact instructions and access mode of a built-in routine without invoking a provider.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "routineId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "routineId"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_assistant_routine_run
+
+Queue a built-in briefing in an existing conversation. Its entire turn is forcibly read-only at discovery and execution regardless of conversation settings. Poll chatControl read/status. Uses the saved provider; requestKey prevents duplicate queueing.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "routineId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "conversationId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "requestKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "routineId",
+    "conversationId",
+    "requestKey"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_assistant_routine_subscribe
+
+Add or replace one named read-only routine event rule while preserving the conversation's other rules. subscription uses the canonical automation subscription schema. Background reports use the existing chat notifications and Stop control.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "routineId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "conversationId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "ruleId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "subscription": {
+      "type": "object"
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "routineId",
+    "conversationId",
+    "ruleId",
+    "subscription"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_assistant_routines
+
+List built-in read-only briefing routines. No provider request or phone mutation.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
   "additionalProperties": false
 }
 ```
@@ -632,6 +894,539 @@ Run the same typed action array used by an HTML widget or Lua script.
 }
 ```
 
+## dikciz_automation_rule_delete
+
+Delete one saved visual rule, its Lua script and owned subscription. In-flight work may finish. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_automation_rule_preview
+
+Compile a visual rule into Lua and simulate it with the optional sample payload. Returns proposed commands without touching Android. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "event",
+        "commands"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "Omit to create. Existing visual rule ID to update."
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "event": {
+          "type": "string",
+          "maxLength": 32,
+          "enum": [
+            "custom",
+            "time",
+            "battery",
+            "charging",
+            "alarm",
+            "location",
+            "sensor"
+          ]
+        },
+        "customEventName": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Required for event=custom."
+        },
+        "minimumIntervalMilliseconds": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 86400000,
+          "default": 60000
+        },
+        "alarmIntervalMilliseconds": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 86400000,
+          "default": 60000
+        },
+        "sensorType": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647,
+          "description": "Required for event=sensor. Android sensor type, not inventory ID."
+        },
+        "conditionField": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "One top-level event payload key. Required unless conditionOperator=always."
+        },
+        "conditionOperator": {
+          "type": "string",
+          "maxLength": 16,
+          "enum": [
+            "always",
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "ne"
+          ],
+          "default": "always"
+        },
+        "conditionValue": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string",
+              "maxLength": 120
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        },
+        "commands": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "type": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "const": "speechSpeak"
+                  }
+                },
+                "required": [
+                  "type",
+                  "text"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "durationMilliseconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5000,
+                    "description": "On only: automatically request torch off after this duration, independent of WebView timers."
+                  },
+                  "action": {
+                    "type": "string",
+                    "maxLength": 16,
+                    "description": "status, on or off."
+                  },
+                  "cameraId": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "description": "Flash-capable camera ID; status defaults to all flash cameras."
+                  },
+                  "timeoutMilliseconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5000,
+                    "default": 1000,
+                    "description": "Status callback wait only."
+                  },
+                  "type": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "const": "torchControl"
+                  }
+                },
+                "required": [
+                  "type",
+                  "action"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "maxLength": 16,
+                    "description": "status, vibrate, waveform, effect or cancel."
+                  },
+                  "durationMilliseconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000,
+                    "default": 250
+                  },
+                  "amplitude": {
+                    "type": "integer",
+                    "minimum": -1,
+                    "maximum": 255,
+                    "default": -1
+                  },
+                  "timingsMilliseconds": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 10000
+                    },
+                    "minItems": 1,
+                    "maxItems": 64
+                  },
+                  "amplitudes": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": -1,
+                      "maximum": 255
+                    },
+                    "minItems": 1,
+                    "maxItems": 64
+                  },
+                  "effect": {
+                    "type": "string",
+                    "maxLength": 16,
+                    "description": "click, doubleClick, heavyClick or tick. Android may use its predefined fallback."
+                  },
+                  "type": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "const": "vibrationControl"
+                  }
+                },
+                "required": [
+                  "type",
+                  "action"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "sample": {
+      "type": "object"
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "rule"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_automation_rule_save
+
+Validate and save a visual automation rule, Lua source and least-source-capability subscription. Disabled by default. Explicit enabled=true activates future events after reload. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "event",
+        "commands"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "Omit to create. Existing visual rule ID to update."
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "event": {
+          "type": "string",
+          "maxLength": 32,
+          "enum": [
+            "custom",
+            "time",
+            "battery",
+            "charging",
+            "alarm",
+            "location",
+            "sensor"
+          ]
+        },
+        "customEventName": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Required for event=custom."
+        },
+        "minimumIntervalMilliseconds": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 86400000,
+          "default": 60000
+        },
+        "alarmIntervalMilliseconds": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 86400000,
+          "default": 60000
+        },
+        "sensorType": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647,
+          "description": "Required for event=sensor. Android sensor type, not inventory ID."
+        },
+        "conditionField": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "One top-level event payload key. Required unless conditionOperator=always."
+        },
+        "conditionOperator": {
+          "type": "string",
+          "maxLength": 16,
+          "enum": [
+            "always",
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "ne"
+          ],
+          "default": "always"
+        },
+        "conditionValue": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string",
+              "maxLength": 120
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        },
+        "commands": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "type": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "const": "speechSpeak"
+                  }
+                },
+                "required": [
+                  "type",
+                  "text"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "durationMilliseconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5000,
+                    "description": "On only: automatically request torch off after this duration, independent of WebView timers."
+                  },
+                  "action": {
+                    "type": "string",
+                    "maxLength": 16,
+                    "description": "status, on or off."
+                  },
+                  "cameraId": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "description": "Flash-capable camera ID; status defaults to all flash cameras."
+                  },
+                  "timeoutMilliseconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5000,
+                    "default": 1000,
+                    "description": "Status callback wait only."
+                  },
+                  "type": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "const": "torchControl"
+                  }
+                },
+                "required": [
+                  "type",
+                  "action"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "maxLength": 16,
+                    "description": "status, vibrate, waveform, effect or cancel."
+                  },
+                  "durationMilliseconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000,
+                    "default": 250
+                  },
+                  "amplitude": {
+                    "type": "integer",
+                    "minimum": -1,
+                    "maximum": 255,
+                    "default": -1
+                  },
+                  "timingsMilliseconds": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 10000
+                    },
+                    "minItems": 1,
+                    "maxItems": 64
+                  },
+                  "amplitudes": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": -1,
+                      "maximum": 255
+                    },
+                    "minItems": 1,
+                    "maxItems": 64
+                  },
+                  "effect": {
+                    "type": "string",
+                    "maxLength": 16,
+                    "description": "click, doubleClick, heavyClick or tick. Android may use its predefined fallback."
+                  },
+                  "type": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "const": "vibrationControl"
+                  }
+                },
+                "required": [
+                  "type",
+                  "action"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "rule"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_automation_rules_list
+
+List saved visual rule definitions. Lua remains editable through the script editor.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
 ## dikciz_automation_service_sync
 
 Re-evaluate the current automation policy and ask the private Android service to reload its public configuration.
@@ -691,6 +1486,137 @@ Queue one fixed manual event for an enabled configured script with a matching po
   "required": [
     "scriptId"
   ]
+}
+```
+
+## dikciz_backup_create
+
+Create an AES-GCM encrypted portable home, widget-state, Lua, chat and provider-settings snapshot. Passphrase required. API keys excluded unless explicitly requested. Remote credentials and control ports always remain outside backups. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "passphrase": {
+      "type": "string",
+      "maxLength": 1024,
+      "minLength": 12,
+      "description": "Backup encryption passphrase. Never log or put it in prompts."
+    },
+    "includeApiKeys": {
+      "type": "boolean",
+      "default": false
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "passphrase"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_backup_preview
+
+Decrypt and validate an archive into protected staging without replacing current state. Returns counts, previewId and sha256 for explicit restore confirmation. Preview expires after 15 minutes. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "passphrase": {
+      "type": "string",
+      "maxLength": 1024,
+      "minLength": 12,
+      "description": "Backup encryption passphrase. Never log or put it in prompts."
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "path",
+    "passphrase"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_backup_restore
+
+Replace home and chat from a validated preview, with rollback recovery. Requires idle assistant, previewId, exact sha256 and confirm=true. Future automation remains disabled unless activateAutomation=true. Remote auth and ports remain.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "previewId": {
+      "type": "string",
+      "maxLength": 36
+    },
+    "sha256": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "confirm": {
+      "type": "boolean",
+      "default": false
+    },
+    "activateAutomation": {
+      "type": "boolean",
+      "default": false
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "previewId",
+    "sha256",
+    "confirm"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_backups_list
+
+List encrypted archive paths and metadata without reading contents. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
 }
 ```
 
@@ -1545,6 +2471,270 @@ Read the complete local command contract, limits, transports, and safe-mode stat
 }
 ```
 
+## dikciz_device_connection_close
+
+Close a retained device connection and release claimed hardware. Completed effects remain.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_device_connection_exchange
+
+One serialized operation on a retained connection. RFCOMM writes optional dataBase64 and reads at most readBytes; a chunk is not a complete message. USB action control/bulk/interrupt uses the claimed interface. NFC action transceive/readNdef/writeNdef. GATT action discover/read/write/subscribe/unsubscribe/notifications, with exact service/characteristic UUIDs. Timeout closes the connection; accepted writes can be partial. All exchange actions are mutating for access control.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "dataBase64": {
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 87384
+    },
+    "readBytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65536,
+      "default": 4096
+    },
+    "timeoutMilliseconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 120000,
+      "default": 30000
+    },
+    "endpointAddress": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255
+    },
+    "requestType": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255
+    },
+    "request": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255
+    },
+    "value": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535
+    },
+    "index": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535
+    },
+    "serviceUuid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40
+    },
+    "characteristicUuid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40
+    },
+    "serviceInstanceId": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "characteristicInstanceId": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "cursor": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807,
+      "default": 0
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_device_connection_open
+
+Open a retained rfcomm, gatt, usb or nfc connection for multiple commands. At most eight active; default lifetime five minutes, configurable up to one hour. Process death closes hardware. Bluetooth uses address and serviceUuid for rfcomm; USB requires deviceId and owner-granted access; NFC requires foreground and a presented tag. No payment interpretation or automatic retries.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16,
+      "enum": [
+        "rfcomm",
+        "gatt",
+        "usb",
+        "nfc"
+      ]
+    },
+    "address": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "serviceUuid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40
+    },
+    "secure": {
+      "type": "boolean"
+    },
+    "deviceId": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "interfaceIndex": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255
+    },
+    "technology": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "enum": [
+        "IsoDep",
+        "NfcA",
+        "NfcB",
+        "NfcF",
+        "NfcV",
+        "Ndef",
+        "MifareClassic",
+        "MifareUltralight"
+      ]
+    },
+    "timeoutMilliseconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 120000,
+      "default": 30000
+    },
+    "maximumDurationMilliseconds": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 3600000,
+      "default": 300000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "kind"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_device_connection_read
+
+Read connection lifecycle metadata without opening or transferring data.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_device_connections_list
+
+Read a paginated list of retained connection metadata. Inactive entries expire after five minutes.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000,
+      "default": 0
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200,
+      "default": 50
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
 ## dikciz_device_info
 
 Read the running package, version, process and launcher instance, plus Android device information.
@@ -1618,9 +2808,214 @@ Capture the visible Android display, including other apps, through owner-enabled
 }
 ```
 
+## dikciz_document_scan
+
+Create cleaned JPEG pages and an image PDF from 1..20 accessible images. Optional normalized clockwise corners correct perspective; absent corners retain the full image. This does not claim automatic edge detection or a searchable PDF text layer. Use imageRecognize on the returned pages for OCR. Output is saved in app capture storage; no image upload.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "pages": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "corners": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "grayscale": {
+      "type": "boolean",
+      "default": true
+    },
+    "maxDimension": {
+      "type": "integer",
+      "minimum": 320,
+      "maximum": 4096,
+      "default": 2048
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "pages"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_event_consumer_ack
+
+Persist a named consumer cursor after successful handling. Cursor must not move backwards or beyond the last dispatched event. Does not run actions. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "cursor": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "name",
+    "cursor"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_event_consumer_forget
+
+Delete one consumer's acknowledgement. A subsequent read starts at zero and may report an expired history gap. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_event_consumer_read
+
+Read durable events after a named consumer's last acknowledged cursor. Reading never acknowledges. Reconnects and process restarts retain the epoch and cursor. Inspect historyGap before continuing. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "waitMilliseconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 30000
+    },
+    "eventTypes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "maxLength": 128
+      }
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_event_consumers_list
+
+List durable named event consumer cursors. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
 ## dikciz_event_journal_configure
 
-Adjust process-owned replay count, byte and age limits. Defaults are 2048 events, 8 MiB and 60 minutes. Lower limits immediately evict old history; limits reset on process death. Does not change native sensor/location subscriptions.
+Adjust durable replay count, byte and age limits. Defaults are 2048 events, 8 MiB and 60 minutes. Lower limits immediately evict old history; limits persist across process death. Does not change native sensor/location subscriptions.
 
 ```json
 {
@@ -1707,7 +3102,7 @@ Replay actual automation events after cursor in the required journalId epoch. Op
 
 ## dikciz_event_journal_status
 
-Read process-owned automation-event replay epoch, cursors, retention and memory limits. Reading does not activate native subscriptions.
+Read durable automation-event replay epoch, cursors, retention and memory limits. Reading does not activate native subscriptions.
 
 ```json
 {
@@ -2005,6 +3400,121 @@ Forward/reverse geocode through the installed Android provider with a bounded wa
 }
 ```
 
+## dikciz_geofence_delete
+
+Remove one saved geofence and stop its future event delivery.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_geofence_save
+
+Create/update one real-location geofence. Disabled by default. Enabled monitoring uses a visible foreground service. Emits geofence.enter, geofence.exit and optional geofence.dwell custom events. Accuracy and hysteresis suppress uncertain crossings. Open Dikciz to enable.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "latitude": {
+      "type": "number",
+      "minimum": -90,
+      "maximum": 90
+    },
+    "longitude": {
+      "type": "number",
+      "minimum": -180,
+      "maximum": 180
+    },
+    "radiusMeters": {
+      "type": "number",
+      "minimum": 100,
+      "maximum": 1000000
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "dwellMilliseconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3600000,
+      "default": 0
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "title",
+    "latitude",
+    "longitude",
+    "radiusMeters"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_geofences_list
+
+Read saved geofence states and observed distances, with pagination.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000,
+      "default": 0
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200,
+      "default": 50
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
 ## dikciz_gnss_status
 
 Observe one GNSS satellite-status callback during a bounded window. Does not start GPS or invent a fix. Requires fine location; no status is explicit. Registrations are removed after the request.
@@ -2090,6 +3600,363 @@ Replace the page grid used by every page. Reflow widget rectangles to fit, reloc
 }
 ```
 
+## dikciz_health_permissions_request
+
+Ask the owner to review exact Health Connect record permissions. access is read/write/readWrite. Optional history/background access is separate. No silent grants or automatic retry.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "kinds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "enum": [
+          "steps",
+          "distance",
+          "activeCalories",
+          "totalCalories",
+          "heartRate",
+          "sleep",
+          "exercise",
+          "weight",
+          "height",
+          "hydration",
+          "bodyFat",
+          "bodyTemperature",
+          "bloodPressure",
+          "bloodGlucose",
+          "oxygenSaturation",
+          "floors"
+        ]
+      }
+    },
+    "access": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16,
+      "enum": [
+        "read",
+        "write",
+        "readWrite"
+      ]
+    },
+    "includeBackground": {
+      "type": "boolean"
+    },
+    "includeHistory": {
+      "type": "boolean"
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "kinds",
+    "access"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_health_records_aggregate
+
+Read the provider's supported aggregate metrics, avoiding duplicate cumulative raw-source counting. Units match the catalogue. Null means no contributing records.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "enum": [
+        "steps",
+        "distance",
+        "activeCalories",
+        "totalCalories",
+        "heartRate",
+        "sleep",
+        "exercise",
+        "weight",
+        "height",
+        "hydration",
+        "bodyFat",
+        "bodyTemperature",
+        "bloodPressure",
+        "bloodGlucose",
+        "oxygenSaturation",
+        "floors"
+      ]
+    },
+    "startTimeMilliseconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "endTimeMilliseconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "kind",
+    "startTimeMilliseconds",
+    "endTimeMilliseconds"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_health_records_catalogue
+
+Discover 16 supported Health Connect record kinds, canonical value units, aggregate metric names, provider availability and exact read/write grants.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## dikciz_health_records_delete
+
+Delete only the exact selected record IDs that Health Connect allows this app to delete. Never deletes all history. Requires confirm=true.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "enum": [
+        "steps",
+        "distance",
+        "activeCalories",
+        "totalCalories",
+        "heartRate",
+        "sleep",
+        "exercise",
+        "weight",
+        "height",
+        "hydration",
+        "bodyFat",
+        "bodyTemperature",
+        "bloodPressure",
+        "bloodGlucose",
+        "oxygenSaturation",
+        "floors"
+      ]
+    },
+    "recordIds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "confirm": {
+      "type": "boolean"
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "kind",
+    "recordIds",
+    "confirm"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_health_records_read
+
+Read one bounded page of a Health Connect kind in an epoch-millisecond range of at most 366 days. Follow nextPageToken. Android history/background access restrictions apply. Missing grants return a targeted healthPermissionsRequest recovery.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "enum": [
+        "steps",
+        "distance",
+        "activeCalories",
+        "totalCalories",
+        "heartRate",
+        "sleep",
+        "exercise",
+        "weight",
+        "height",
+        "hydration",
+        "bodyFat",
+        "bodyTemperature",
+        "bloodPressure",
+        "bloodGlucose",
+        "oxygenSaturation",
+        "floors"
+      ]
+    },
+    "startTimeMilliseconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "endTimeMilliseconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200,
+      "default": 50
+    },
+    "pageToken": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "kind",
+    "startTimeMilliseconds",
+    "endTimeMilliseconds"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_health_records_write
+
+Insert/upsert 1..50 manually entered records of one kind. Every record requires stable clientRecordId, values, and either timeMilliseconds or start/endTimeMilliseconds according to the catalogue. Optional nonnegative clientRecordVersion controls replacement. UTC offsets are used. Only this app's origin is written. Heart-rate samples use timeMilliseconds/beatsPerMinute; sleep stages use start/endTimeMilliseconds/stage.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "enum": [
+        "steps",
+        "distance",
+        "activeCalories",
+        "totalCalories",
+        "heartRate",
+        "sleep",
+        "exercise",
+        "weight",
+        "height",
+        "hydration",
+        "bodyFat",
+        "bodyTemperature",
+        "bloodPressure",
+        "bloodGlucose",
+        "oxygenSaturation",
+        "floors"
+      ]
+    },
+    "records": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "properties": {
+          "clientRecordId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "clientRecordVersion": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9223372036854775807
+          },
+          "timeMilliseconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9223372036854775807
+          },
+          "startTimeMilliseconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9223372036854775807
+          },
+          "endTimeMilliseconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          },
+          "values": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "clientRecordId",
+          "values"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "kind",
+    "records"
+  ],
+  "additionalProperties": false
+}
+```
+
 ## dikciz_home_get
 
 Read pages keyed by home alias, stable page ID, and H/V address, with each page's widget map.
@@ -2131,6 +3998,267 @@ Crash one rendered HTML widget through Android's documented WebView test URL, th
   "required": [
     "widgetAddress"
   ]
+}
+```
+
+## dikciz_image_recognize
+
+Read text, barcodes or both from an accessible image using bundled on-device models. Latin text recognition; barcode formats are reported as ML Kit constants. No image upload, link opening or instruction execution. Bounds refer to the processed rotated image. Unsupported/oversized inputs fail explicitly.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "mode": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16,
+      "enum": [
+        "text",
+        "barcodes",
+        "both"
+      ]
+    },
+    "rotationDegrees": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 270,
+      "default": 0,
+      "enum": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    "maxDimension": {
+      "type": "integer",
+      "minimum": 320,
+      "maximum": 4096,
+      "default": 2048
+    },
+    "maximumResults": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000,
+      "default": 200
+    },
+    "maximumTextCharacters": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 262144,
+      "default": 65536
+    },
+    "timeoutMilliseconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 120000,
+      "default": 30000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "path"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_image_stream_forget
+
+Discard one finished visual stream and its retained images. Stop active capture first.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "streamId": {
+      "type": "string",
+      "maxLength": 36
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "streamId"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_image_stream_read
+
+Read complete bounded JPEG frames by exclusive cursor, with replay loss and actual terminal/hardware-cleanup state. No capture is started. Frames stay in process memory for five minutes after completion. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "streamId": {
+      "type": "string",
+      "maxLength": 36
+    },
+    "cursor": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200,
+      "default": 1
+    },
+    "waitMilliseconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 30000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "streamId"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_image_stream_start
+
+Start bounded camera JPEG preview or Accessibility display frames with an owner Stop notification. Requires source camera/display and foreground startup. A persistent camera session is reused; display follows Android screenshot limits and secure-window restrictions. Poll imageStreamRead for actual frames/errors. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "string",
+      "maxLength": 16,
+      "enum": [
+        "camera",
+        "display"
+      ]
+    },
+    "cameraId": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "maxDimension": {
+      "type": "integer",
+      "minimum": 320,
+      "maximum": 1280,
+      "default": 640
+    },
+    "frameIntervalMilliseconds": {
+      "type": "integer",
+      "minimum": 500,
+      "maximum": 10000,
+      "default": 1000
+    },
+    "maximumDurationMilliseconds": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 3600000,
+      "default": 60000
+    },
+    "bufferBytes": {
+      "type": "integer",
+      "minimum": 262144,
+      "maximum": 8388608,
+      "default": 1048576
+    },
+    "maximumEvents": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 64,
+      "default": 16
+    },
+    "startupTimeoutMilliseconds": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 30000,
+      "default": 10000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "source"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_image_stream_stop
+
+Stop one live visual stream, close its camera session and read hardwareReleaseConfirmed. Completed frames remain until forgotten or retention expiry.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "streamId": {
+      "type": "string",
+      "maxLength": 36
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "streamId"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_image_streams_list
+
+List retained visual stream metadata without frame payloads.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
 }
 ```
 
@@ -2263,6 +4391,151 @@ Read persisted job state and its full original command response. interrupted mea
 ## dikciz_jobs_list
 
 List retained job metadata newest first. Includes queued/running/completed/failed/cancelled/interrupted state and cancellation requests; results are read separately with jobStatus.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000,
+      "default": 0
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200,
+      "default": 50
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## dikciz_journey_control
+
+Start a visible location recording or stop an exact journey ID. One recording, 64 saved journeys and 10000 points per journey. Starting requires location and notifications. Route history persists; it never messages contacts.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16,
+      "enum": [
+        "start",
+        "stop"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "sampleIntervalMilliseconds": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 60000,
+      "default": 10000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "action"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_journey_delete
+
+Delete a stopped journey and its route points. Requires confirm=true.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "confirm": {
+      "type": "boolean"
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "id",
+    "confirm"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_journey_read
+
+Read a bounded ordered page of real recorded route points and accuracy. Follow hasMore. No missing location is invented.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000,
+      "default": 0
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200,
+      "default": 50
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_journeys_list
+
+Read paginated recorded journeys and interruption state.
 
 ```json
 {
@@ -3017,7 +5290,7 @@ Read installed version and launch component through Android PackageManager witho
 
 ## dikciz_remote_access_info
 
-Read the verified caller identity and effective remote-token grants. Local owner bindings need no bearer token. Does not return credentials or verifiers.
+Read the verified caller identity, effective grants, expiresAt, requestsPerMinute and exact smsAddresses restrictions. Restricted SMS reads require filter.address. Local owner bindings need no bearer token. Does not return credentials or verifiers.
 
 ```json
 {
@@ -3090,7 +5363,7 @@ Read remote WebSocket and MCP bearer-auth state without exposing its verifier.
 
 ## dikciz_remote_tokens
 
-Owner-only remote access-token administration. catalog lists finite permission grants. list returns metadata; create requires name and permissions and returns its generated token once. update requires id and optional name/permissions/enabled; revoke requires id. Authentication must be enabled before creating tokens. Existing tokens, including disabled tokens, prevent disabling or clearing authentication. Local owner bindings and full-owner credentials can administer tokens. Scoped credentials cannot.
+Owner-only remote access-token administration. catalog lists finite permission grants. list returns metadata; create requires name and permissions and returns its generated token once. update requires id and optional name/permissions/enabled/expiry/rate/SMS-address rules; rotate requires id and returns a replacement token once, invalidating the previous secret immediately; revoke requires id. Optional expiresAt is epoch milliseconds (0 means none), requestsPerMinute is 0..10000 (0 means unlimited), and smsAddresses is an exact address allowlist. Restricted SMS reads require filter.address. Authentication must be enabled before creating tokens. Existing tokens, including disabled tokens, prevent disabling or clearing authentication. Local owner bindings and full-owner credentials can administer tokens. Scoped credentials cannot.
 
 ```json
 {
@@ -3104,7 +5377,8 @@ Owner-only remote access-token administration. catalog lists finite permission g
         "list",
         "create",
         "update",
-        "revoke"
+        "revoke",
+        "rotate"
       ]
     },
     "id": {
@@ -3164,6 +5438,28 @@ Owner-only remote access-token administration. catalog lists finite permission g
     "enabled": {
       "type": "boolean"
     },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807,
+      "description": "Expiry in epoch milliseconds. Zero means no expiry."
+    },
+    "requestsPerMinute": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000,
+      "description": "Accepted commands per rolling minute across all entrypoints. Zero means unlimited."
+    },
+    "smsAddresses": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "maxLength": 64
+      },
+      "description": "Optional exact SMS addresses. Restricted reads require filter.address; sending requires an exact recipient. Empty permits all addresses."
+    },
     "autoRequestPermissions": {
       "type": "boolean",
       "default": false,
@@ -3200,6 +5496,66 @@ Ask the phone owner to grant one deviceAccess requirement from automationStatus.
   "required": [
     "requirementId"
   ]
+}
+```
+
+## dikciz_resource_control
+
+Stop one resource: target script/widget disables future configuration work; conversation clears event rules and requests cancellation; imageStream/speechStream stops capture. Supply target and id, plus pageId for widgets. Legacy scriptId is accepted alone. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "scriptId": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "id": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "pageId": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "target": {
+      "type": "string",
+      "enum": [
+        "script",
+        "widget",
+        "conversation",
+        "imageStream",
+        "speechStream"
+      ]
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## dikciz_resource_usage
+
+Read measured process CPU/RAM/storage, UID network counters and command executor CPU grouped by actor. Explicitly excludes unmeasurable per-widget battery and WebView CPU attribution. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
 }
 ```
 
@@ -4032,6 +6388,158 @@ Read the current semantic launcher UI tree.
 }
 ```
 
+## dikciz_sos_control
+
+arm starts missed-check-in monitoring; trigger starts the configured cancellation grace; checkIn resets the deadline; cancel stops future sends. arm/trigger require confirm=true, SMS, precise location and notification access. Foreground start required. Android can delay alarms or stop execution. On reboot, an armed run needs owner review. No emergency service is called.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16,
+      "enum": [
+        "arm",
+        "trigger",
+        "checkIn",
+        "cancel"
+      ]
+    },
+    "confirm": {
+      "type": "boolean"
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "action"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_sos_plan_save
+
+Save an inactive SOS plan with exact recipient phone numbers, message template and bounded check-in/update timings. Does not arm or send. Tokens: {location}, {accuracyMeters}, {timestamp}. Cancel an active run before editing. Contacts are never modified.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "contacts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "address"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1200
+    },
+    "checkInSeconds": {
+      "type": "integer",
+      "minimum": 60,
+      "maximum": 604800,
+      "default": 3600
+    },
+    "graceSeconds": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 3600,
+      "default": 60
+    },
+    "updateSeconds": {
+      "type": "integer",
+      "minimum": 60,
+      "maximum": 86400,
+      "default": 600
+    },
+    "maximumUpdates": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 24,
+      "default": 3
+    },
+    "subscriptionId": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "contacts"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_sos_preview
+
+Preview exact contacts, message and available cached location without sending or arming.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## dikciz_sos_status
+
+Read the saved SOS plan, durable run state, deadline and idempotency keys for smsStatus delivery inspection. Accepted updates are not confirmed delivery.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
 ## dikciz_speech_languages
 
 Query the selected recognition provider for paginated installed, pending, downloadable on-device and online languages. Android 13+. No microphone capture. Provider support and errors are explicit.
@@ -4285,6 +6793,163 @@ Stop active Dikciz text-to-speech output. The original request returns speech_ca
 }
 ```
 
+## dikciz_speech_stream_forget
+
+Remove one completed speech stream and its replayed transcripts. Active sessions must stop first.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "streamId": {
+      "type": "string",
+      "maxLength": 36
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "streamId"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_speech_stream_read
+
+Read bounded partial/final speech events with exclusive cursor, historyGap, lostEvents and terminal state. Does not start capture. Retained in memory for five minutes after completion. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "streamId": {
+      "type": "string",
+      "maxLength": 36
+    },
+    "cursor": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "waitMilliseconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 30000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "streamId"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_speech_stream_start
+
+Start foreground microphone speech recognition with partial-result replay. Requires Android microphone access and a recognition provider. Accepted is not recognized; read state/events. Provider may emit only a final result. No automatic fallback from onDevice to system.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "mode": {
+      "type": "string",
+      "maxLength": 16,
+      "enum": [
+        "onDevice",
+        "system"
+      ],
+      "default": "onDevice"
+    },
+    "language": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "timeoutMilliseconds": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 120000,
+      "default": 30000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## dikciz_speech_stream_stop
+
+Stop one owned speech session and report actual cleanup state. Does not cancel another session. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "streamId": {
+      "type": "string",
+      "maxLength": 36
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "streamId"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_speech_streams_list
+
+List at most four retained speech streams without transcript payloads.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
 ## dikciz_speech_synthesize
 
 Synthesize text into a saved WAV audio file without playing it. Shares voice, language, rate, pitch, timeout and cancellation with speechSpeak. Read the saved path through fileRead/download.
@@ -4334,6 +6999,51 @@ Synthesize text into a saved WAV audio file without playing it. Shares voice, la
   },
   "required": [
     "text"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_speech_transcribe_file
+
+Upload one audio file to the explicitly selected OpenAI-compatible provider's audio/transcriptions endpoint. Uses its encrypted saved API key. Requires profileId, model and path. Sends file contents outside the phone; never opens the microphone. Provider support and usage charges apply. Owner only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "profileId": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "model": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "language": {
+      "type": "string",
+      "maxLength": 2
+    },
+    "timeoutMilliseconds": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 300000,
+      "default": 30000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "path",
+    "profileId",
+    "model"
   ],
   "additionalProperties": false
 }
@@ -4856,6 +7566,270 @@ Resize one widget to an explicit grid rectangle. Rejects with grid_collision or 
     "widgetAddress",
     "cell"
   ]
+}
+```
+
+## dikciz_wifi_connection_start
+
+Request an owner-approved local-only Wi-Fi connection and retain its callback. Android may reject or time out. Poll wifiConnectionStatus. A returned networkHandle identifies this process-scoped network; the phone's default internet route is not changed. Start with Dikciz foreground.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ssid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "security": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16,
+      "enum": [
+        "open",
+        "wpa2",
+        "wpa3"
+      ]
+    },
+    "passphrase": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 63
+    },
+    "maximumDurationMilliseconds": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 3600000,
+      "default": 300000
+    },
+    "timeoutMilliseconds": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 120000,
+      "default": 30000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "ssid"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_wifi_connection_status
+
+Read actual callback state for a network request or Android save approval; does not connect.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_wifi_connection_stop
+
+Release the exact local network request; does not remove saved Wi-Fi networks.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_wifi_connections_list
+
+List retained local network/hotspot requests with pagination. Hotspot credentials are owner-only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000,
+      "default": 0
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200,
+      "default": 50
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## dikciz_wifi_hotspot_start
+
+Start a bounded Android local-only hotspot while foreground. Android selects SSID/passphrase and can reject the request. Poll wifiHotspotStatus. This does not enable cellular internet tethering, which ordinary apps cannot silently control.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "maximumDurationMilliseconds": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 3600000,
+      "default": 300000
+    },
+    "timeoutMilliseconds": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 120000,
+      "default": 30000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## dikciz_wifi_hotspot_status
+
+Read retained local-only hotspot state and owner credentials. Starting requires wifiHotspotStart.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## dikciz_wifi_hotspot_stop
+
+Close an exact local-only hotspot reservation.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_wifi_networks_configure
+
+Suggest a Wi-Fi network, remove this app's suggestions by SSID, or ask Android to save a network. Suggestions are not saved networks and never prove a connection. save requires owner approval and exposes its result through wifiConnectionStatus. Credentials are not logged or stored in public configuration.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ssid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "security": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16,
+      "enum": [
+        "open",
+        "wpa2",
+        "wpa3"
+      ]
+    },
+    "passphrase": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 63
+    },
+    "action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "enum": [
+        "suggest",
+        "removeSuggestion",
+        "save"
+      ]
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "action",
+    "ssid"
+  ],
+  "additionalProperties": false
 }
 ```
 

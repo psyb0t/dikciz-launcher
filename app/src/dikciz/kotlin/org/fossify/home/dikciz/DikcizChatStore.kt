@@ -17,7 +17,7 @@ import javax.crypto.spec.GCMParameterSpec
 import org.json.JSONArray
 import org.json.JSONObject
 
-internal class DikcizChatStore(context: Context) : SQLiteOpenHelper(context, DATABASE, null, VERSION) {
+internal class DikcizChatStore(private val context: Context) : SQLiteOpenHelper(context, DATABASE, null, VERSION) {
     private val modelLimits = DikcizChatModelLimits(context)
 
     init { setWriteAheadLoggingEnabled(true) }
@@ -31,12 +31,14 @@ internal class DikcizChatStore(context: Context) : SQLiteOpenHelper(context, DAT
         db.execSQL("CREATE INDEX messages_conversation ON messages(conversation_id,id)")
         db.execSQL("CREATE INDEX messages_pending ON messages(state,id)")
         createModelCatalog(db)
+        db.execSQL("CREATE TABLE backup_state (id INTEGER PRIMARY KEY, restore_id TEXT NOT NULL)")
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        check(oldVersion in 1..2 && newVersion == VERSION) { "Unsupported chat database upgrade: $oldVersion to $newVersion" }
+        check(oldVersion in 1..3 && newVersion == VERSION) { "Unsupported chat database upgrade: $oldVersion to $newVersion" }
         if (oldVersion < 2) db.execSQL("ALTER TABLE conversations ADD COLUMN settings TEXT NOT NULL DEFAULT '{}'")
-        createModelCatalog(db)
+        if (oldVersion < 3) createModelCatalog(db)
+        if (oldVersion < 4) db.execSQL("CREATE TABLE backup_state (id INTEGER PRIMARY KEY, restore_id TEXT NOT NULL)")
     }
 
     private fun createModelCatalog(db: SQLiteDatabase) {
@@ -231,6 +233,145 @@ internal class DikcizChatStore(context: Context) : SQLiteOpenHelper(context, DAT
         writableDatabase.execSQL("UPDATE messages SET state=? WHERE turn_id=? AND state IN ('running','executing','queued')", arrayOf(state, turnID))
     }
 
+    @Synchronized
+    fun exportBackup(includeKeys: Boolean): JSONObject {
+        for ((table, maximum) in mapOf("profiles" to 128, "conversations" to 1000, "messages" to 10000)) {
+            readableDatabase.rawQuery("SELECT COUNT(*) FROM " + table, null).use { cursor ->
+                cursor.moveToFirst()
+                if (cursor.getLong(0) > maximum) DikcizNativeCommands.failure("backup_too_large", "Chat history exceeds backup record capacity")
+            }
+        }
+        readableDatabase.rawQuery("SELECT COALESCE(SUM(length(document) + length(blocks)), 0) FROM messages", null).use { cursor ->
+            cursor.moveToFirst()
+            if (cursor.getLong(0) > 32L * 1024 * 1024) DikcizNativeCommands.failure("backup_too_large", "Chat history exceeds backup byte capacity")
+        }
+        val profiles = profiles()
+        if (includeKeys) for (index in 0 until profiles.length()) {
+            val item = profiles.getJSONObject(index)
+            item.put("apiKey", profile(item.getString("id")).optString("apiKey"))
+        }
+        return JSONObject().put("profiles", profiles)
+            .put("conversations", JSONArray(rows("SELECT * FROM conversations ORDER BY id")))
+            .put("messages", JSONArray(rows("SELECT * FROM messages ORDER BY id")))
+    }
+
+    fun validateBackup(document: JSONObject): JSONObject {
+        if (document.keys().asSequence().toSet() != setOf("profiles", "conversations", "messages")) {
+            DikcizNativeCommands.invalid("Unknown chat backup fields")
+        }
+        val result = JSONObject(document.toString())
+        val profiles = result.getJSONArray("profiles")
+        val conversations = result.getJSONArray("conversations")
+        val messages = result.getJSONArray("messages")
+        if (profiles.length() > 128 || conversations.length() > 1000 || messages.length() > 10000) {
+            DikcizNativeCommands.invalid("Chat backup exceeds its record limits")
+        }
+        val profileIds = mutableSetOf<String>()
+        for (index in 0 until profiles.length()) {
+            val profile = DikcizChatSettings.validate(profiles.getJSONObject(index))
+            if (!profileIds.add(profile.getString("id"))) DikcizNativeCommands.invalid("Duplicate provider ID")
+            profiles.put(index, profile)
+        }
+        val conversationIds = mutableSetOf<String>()
+        for (index in 0 until conversations.length()) {
+            val row = conversations.getJSONObject(index)
+            if (row.keys().asSequence().toSet() != CONVERSATION_BACKUP_FIELDS ||
+                !BACKUP_ID.matches(row.getString("id")) || !conversationIds.add(row.getString("id")) ||
+                row.getString("profile_id") !in profileIds || row.getString("title").length > 256 ||
+                row.getString("summary").length > 1000000) DikcizNativeCommands.invalid("Invalid conversation backup")
+            val subscriptions = JSONArray(row.getString("subscriptions"))
+            if (subscriptions.length() > 16) DikcizNativeCommands.invalid("Too many restored event rules")
+            val subscriptionIds = mutableSetOf<String>()
+            for (ruleIndex in 0 until subscriptions.length()) {
+                val rule = subscriptions.getJSONObject(ruleIndex)
+                if (rule.keys().asSequence().any { it !in setOf("id", "subscription", "instructions", "routineId") } ||
+                    !BACKUP_ID.matches(rule.getString("id")) || !subscriptionIds.add(rule.getString("id")) ||
+                    rule.getString("instructions").isBlank() || rule.getString("instructions").length > 12000) {
+                    DikcizNativeCommands.invalid("Invalid restored event rule")
+                }
+                if (rule.has("routineId") && rule.optString("routineId") !in DikcizAssistantRoutines.ids) DikcizNativeCommands.invalid("Invalid restored routine")
+                val subscription = rule.getJSONObject("subscription")
+                HomeConfigStore(context).parseHtmlEventSubscriptions(JSONObject().put("eventSubscriptions", JSONArray().put(subscription)),
+                    HomeConfigStore(context).loadOrCreate().limits)
+            }
+            val profile = (0 until profiles.length()).map(profiles::getJSONObject).first { it.getString("id") == row.getString("profile_id") }
+            DikcizChatSettings.resolve(profile, JSONObject(row.getString("settings")))
+            for (key in listOf("covered", "unread", "updated")) {
+                DikcizNativeCommands.strictInteger(row.opt(key), 0, Long.MAX_VALUE)
+            }
+        }
+        val messageIds = mutableSetOf<Long>()
+        val keys = mutableSetOf<String>()
+        for (index in 0 until messages.length()) {
+            val row = messages.getJSONObject(index)
+            if (row.keys().asSequence().toSet() != MESSAGE_BACKUP_FIELDS ||
+                row.getString("conversation_id") !in conversationIds ||
+                row.getString("role") !in setOf("user", "assistant", "tool") ||
+                !messageIds.add(DikcizNativeCommands.strictInteger(row.opt("id"), 1, Long.MAX_VALUE)) ||
+                !BACKUP_ID.matches(row.getString("turn_id"))) DikcizNativeCommands.invalid("Invalid message backup")
+            if (row.getString("state") !in setOf("queued", "running", "executing", "complete", "failed", "cancelled", "interrupted")) {
+                DikcizNativeCommands.invalid("Invalid restored message state")
+            }
+            JSONArray(row.getString("blocks"))
+            if (row.getString("document").length > 1000000 || row.getString("blocks").length > 1000000) {
+                DikcizNativeCommands.invalid("Message backup is too large")
+            }
+            if (!row.isNull("request_key") && !keys.add(row.getString("request_key"))) DikcizNativeCommands.invalid("Duplicate message request key")
+        }
+        return result
+    }
+
+    @Synchronized
+    fun restoreBackup(document: JSONObject, restoreID: String, activateEvents: Boolean) {
+        val normalized = validateBackup(document)
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            db.delete("messages", null, null)
+            db.delete("conversations", null, null)
+            db.delete("model_catalog", null, null)
+            db.delete("profiles", null, null)
+            val profiles = normalized.getJSONArray("profiles")
+            for (index in 0 until profiles.length()) {
+                val profile = JSONObject(profiles.getJSONObject(index).toString())
+                if (!profile.has("apiKey")) profile.put("apiKey", "")
+                saveProfile(profile)
+            }
+            for ((table, fields) in listOf("conversations" to CONVERSATION_BACKUP_FIELDS, "messages" to MESSAGE_BACKUP_FIELDS)) {
+                val rows = normalized.getJSONArray(table)
+                for (index in 0 until rows.length()) {
+                    val row = rows.getJSONObject(index)
+                    if (table == "conversations" && !activateEvents) row.put("subscriptions", "[]")
+                    if (table == "messages" && row.optString("state") !in setOf("complete", "failed", "cancelled", "interrupted")) {
+                        row.put("state", "interrupted")
+                    }
+                    val values = ContentValues()
+                    for (key in fields) {
+                        val value = row.opt(key)
+                        when (value) {
+                            null, JSONObject.NULL -> values.putNull(key)
+                            is Number -> values.put(key, value.toLong())
+                            else -> values.put(key, value.toString())
+                        }
+                    }
+                    db.insertOrThrow(table, null, values)
+                }
+            }
+            db.insertWithOnConflict("backup_state", null, ContentValues().apply {
+                put("id", 1); put("restore_id", restoreID)
+            }, SQLiteDatabase.CONFLICT_REPLACE)
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+    }
+
+    fun committedRestoreID(): String? = readableDatabase.rawQuery("SELECT restore_id FROM backup_state WHERE id = 1", null).use {
+        if (it.moveToFirst()) it.getString(0) else null
+    }
+
+    private val CONVERSATION_BACKUP_FIELDS = setOf("id", "title", "profile_id", "summary", "covered", "unread", "updated", "subscriptions", "settings")
+    private val MESSAGE_BACKUP_FIELDS = setOf("id", "conversation_id", "turn_id", "role", "state", "document", "blocks", "request_key")
+    private val BACKUP_ID = Regex("[A-Za-z0-9][A-Za-z0-9_.-]{0,79}")
+
     private fun rows(sql: String, arguments: Array<String> = emptyArray()): List<JSONObject> {
         return readableDatabase.rawQuery(sql, arguments).use { cursor ->
             buildList {
@@ -273,7 +414,7 @@ internal class DikcizChatStore(context: Context) : SQLiteOpenHelper(context, DAT
 
     private companion object {
         const val DATABASE = "dikciz-chat.sqlite"
-        const val VERSION = 3
+        const val VERSION = 4
         const val KEY_ALIAS = "dikciz-chat-credentials"
         const val CIPHER = "AES/GCM/NoPadding"
         const val TAG_BITS = 128

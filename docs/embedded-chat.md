@@ -155,3 +155,7 @@ make dikciz-test DIKCIZ_TEST_SELECTOR=test_chat_agent
 ```
 
 See the [source architecture](../app/src/dikciz/README.md) and [test guide](../tests/README.md) for the pinned build and lab workflow.
+
+## Companion workflows
+
+See [the focused companion guide](assistant-routines.md) for the new shared commands, native screens, required access and actual outcome states.

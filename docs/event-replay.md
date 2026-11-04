@@ -13,11 +13,11 @@
 {"type":"eventJournalRead","journalId":"00000000-0000-0000-0000-000000000000","cursor":0,"eventTypes":["example.refresh"],"waitMilliseconds":30000}
 ~~~
 
-Replace the example epoch with status from the running app. Cursors are exclusive sequence numbers. Duplicate reads replay the same retained events; different clients keep independent cursors. Filters advance over unmatched events. A cursor ahead of the journal is invalid. `event_journal_restarted` means the process epoch changed; inspect status and choose a new starting point rather than silently treating old cursors as current.
+Replace the example epoch with status from the running app. Cursors are exclusive sequence numbers. Duplicate reads replay the same retained events; different clients keep independent cursors. Filters advance over unmatched events. A cursor ahead of the journal is invalid. `event_journal_restarted` means the stored journal epoch changed; inspect status and choose a new starting point rather than silently treating old cursors as current.
 
 ## Bounds and loss
 
-Defaults are 2048 events, 8388608 encoded JSON bytes and 60 minutes. Configure `maximumEvents` (1 through 16384), `bufferBytes` (65536 through 33554432) and `retentionMinutes` (1 through 1440). Omitted fields retain their current values. Lower limits immediately evict old history. Configuration and history live in memory and reset with the process.
+Defaults are 2048 events, 8388608 encoded JSON bytes and 60 minutes. Configure `maximumEvents` (1 through 16384), `bufferBytes` (65536 through 33554432) and `retentionMinutes` (1 through 1440). Omitted fields retain their current values. Lower limits immediately evict old history. Configuration, retained history and the journal epoch persist in private SQLite storage across process death. Retention still expires old history. Clearing application data creates a new epoch.
 
 Status reports retained count/encoded bytes, eviction count, first/last sequence and limits. The byte budget measures encoded event documents, not total Java heap overhead. A page contains at most 262144 encoded event bytes. Large pages split between whole events and set `hasMore`. No event is split.
 
@@ -29,6 +29,6 @@ The journal rechecks current Android source access before returning retained pay
 
 These are owner commands with the same authority as other direct native commands. Installing and enabling a script or widget grants its command binding that authority. Lua event-subscription policies still govern automatic delivery; a native owner command is a separate explicit read.
 
-Replay observes dispatched events, after sensor coalescing. It cannot recover sensor samples discarded before dispatch, native callbacks that never arrived or events from a stopped process. It provides at-least-once consumption within retained history, not durable delivery or acknowledgements. Keep Lua reads nonblocking while handling an event because Lua and native event dispatch share the event worker.
+Replay observes dispatched events, after sensor coalescing. It cannot recover sensor samples discarded before dispatch, native callbacks that never arrived or events from a stopped process. It provides at-least-once consumption within retained history. Named consumer acknowledgements persist separately; they never run or retry side effects. See [activity and recovery](operations.md). Keep Lua reads nonblocking while handling an event because Lua and native event dispatch share the event worker.
 
 For sources and policies, see [scripting](scripting-tutorial.md). For custom event setup, see [MCP resources](mcp-resources.md).

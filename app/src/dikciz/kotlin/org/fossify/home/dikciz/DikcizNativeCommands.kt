@@ -168,7 +168,7 @@ internal object DikcizNativeCommands {
         Definition(DikcizHardwareControl.TYPE_AUDIO, "dikciz_audio_devices", "List Android audio input and output devices, sample rates and channel counts.", PAGE_FIELDS, emptySet(), readOnly = true),
         Definition(DikcizHardwareControl.TYPE_CAMERA, "dikciz_camera_capabilities", "Read JPEG and recorder sizes, camera frame-rate ranges, digital zoom, exposure range/EV step, sensor orientation and autofocus modes for one camera.", mapOf("cameraId" to string("Camera ID from cameraList.", 128)), setOf("cameraId"), readOnly = true),
         Definition(TYPE_DEVICE_STATE, "dikciz_device_state", "Read screen, battery, charging, audio, network, RAM, storage, CPU samples and bounded sensor inventory. System CPU may be unavailable under Android restrictions; sensor inventory does not claim live readings.", emptyMap()),
-    ).plus(DikcizRemotePolicy.DEFINITIONS).plus(DikcizSearch.DEFINITIONS).plus(DikcizMicrophoneStreams.DEFINITIONS).plus(DikcizUssdControl.DEFINITION).plus(DikcizCameraVideo.DEFINITION).plus(DikcizEventJournal.DEFINITIONS).plus(DikcizShellSessions.DEFINITIONS).plus(DikcizSpeechModels.DEFINITIONS).plus(DikcizWifiControl.DEFINITIONS).plus(DikcizMicrophoneSession.DEFINITIONS).plus(DikcizAudioPlayback.DEFINITIONS).plus(DikcizNotificationControl.DEFINITIONS).plus(DikcizFileManagement.DEFINITIONS).plus(DikcizCommandJobs.DEFINITIONS).plus(DikcizUsbControl.DEFINITIONS).plus(DikcizLocationServices.DEFINITIONS).plus(DikcizNfcControl.DEFINITIONS).plus(DikcizBluetoothControl.DEFINITIONS).plus(DikcizGattControl.DEFINITIONS).plus(DikcizChatCommands.DEFINITION).plus(DikcizAndroidSdkCommands.DEFINITIONS).associateBy(Definition::type)
+    ).plus(DikcizPackageCommands.DEFINITIONS).plus(DikcizWifiNetworks.DEFINITIONS).plus(DikcizHealthRecords.DEFINITIONS).plus(DikcizVision.DEFINITIONS).plus(DikcizDeviceConnections.DEFINITIONS).plus(DikcizJourneys.DEFINITIONS).plus(DikcizAssistantRoutines.DEFINITIONS).plus(DikcizImageStreams.DEFINITIONS).plus(DikcizSpeechStreams.DEFINITIONS).plus(DikcizFileTranscription.DEFINITION).plus(DikcizBackups.DEFINITIONS).plus(DikcizAutomationRules.DEFINITIONS).plus(DikcizOperations.DEFINITIONS).plus(DikcizRemotePolicy.DEFINITIONS).plus(DikcizSearch.DEFINITIONS).plus(DikcizMicrophoneStreams.DEFINITIONS).plus(DikcizUssdControl.DEFINITION).plus(DikcizCameraVideo.DEFINITION).plus(DikcizEventJournal.DEFINITIONS).plus(DikcizShellSessions.DEFINITIONS).plus(DikcizSpeechModels.DEFINITIONS).plus(DikcizWifiControl.DEFINITIONS).plus(DikcizMicrophoneSession.DEFINITIONS).plus(DikcizAudioPlayback.DEFINITIONS).plus(DikcizNotificationControl.DEFINITIONS).plus(DikcizFileManagement.DEFINITIONS).plus(DikcizCommandJobs.DEFINITIONS).plus(DikcizUsbControl.DEFINITIONS).plus(DikcizLocationServices.DEFINITIONS).plus(DikcizNfcControl.DEFINITIONS).plus(DikcizBluetoothControl.DEFINITIONS).plus(DikcizGattControl.DEFINITIONS).plus(DikcizChatCommands.DEFINITION).plus(DikcizAndroidSdkCommands.DEFINITIONS).associateBy(Definition::type)
     val FIELDS = DEFINITIONS.mapValues { (_, definition) -> definition.fields.keys }
     val REQUIRED_FIELDS = DEFINITIONS.mapValues { (_, definition) -> definition.required }
     val TOOLS = DEFINITIONS.values.associate { it.tool to it.type }
@@ -178,6 +178,7 @@ internal object DikcizNativeCommands {
     fun validate(type: String, request: JSONObject, envelope: Boolean = false) {
         val definition = DEFINITIONS.getValue(type)
         validateFields(request, definition.fields, definition.required, if (envelope) ENVELOPE else emptySet())
+        if (type in DikcizHealthRecords.TYPES) DikcizHealthRecords.validate(type, request)
         if (type == DikcizRemotePolicy.TYPE_TOKENS) DikcizRemotePolicy.validate(request)
         if (type in DikcizSearch.TYPES) DikcizSearch.validate(type, request)
         if (type in DikcizAndroidSdkCommands.TYPES) DikcizAndroidSdkCommands.validate(request)
@@ -262,8 +263,10 @@ internal object DikcizNativeCommands {
         for ((key, schema) in fields) {
             if (!request.has(key)) continue
             val value = request.opt(key)
+            val enumeration = schema.optJSONArray("enum")
+            if (enumeration != null && (0 until enumeration.length()).none { enumeration.opt(it) == value }) invalid()
             when (schema.getString("type")) {
-                TYPE_STRING -> if (value !is String || value.length > schema.optInt("maxLength", MAXIMUM_TEXT) || '\u0000' in value) invalid()
+                TYPE_STRING -> if (value !is String || value.length < schema.optInt("minLength", 0) || value.length > schema.optInt("maxLength", MAXIMUM_TEXT) || '\u0000' in value) invalid()
                 "number" -> {
                     if (value !is Number) invalid()
                     val number = value.toDouble()
@@ -271,8 +274,25 @@ internal object DikcizNativeCommands {
                 }
                 "boolean" -> if (value !is Boolean) invalid()
                 TYPE_INTEGER -> strictInteger(value, schema.optLong("minimum", 0), schema.optLong("maximum", Int.MAX_VALUE.toLong()))
-                TYPE_OBJECT -> if (value !is JSONObject) invalid()
-                TYPE_ARRAY -> if (value !is JSONArray) invalid()
+                TYPE_OBJECT -> {
+                    if (value !is JSONObject) invalid()
+                    schema.optJSONObject("properties")?.let { properties ->
+                        val nested = properties.keys().asSequence().associateWith { properties.getJSONObject(it) }
+                        val needed = schema.optJSONArray("required")?.let { fields ->
+                            (0 until fields.length()).map { fields.getString(it) }.toSet()
+                        }.orEmpty()
+                        val unknown = if (schema.optBoolean("additionalProperties", true)) value.keys().asSequence().toSet() - nested.keys else emptySet()
+                        validateFields(value, nested, needed, unknown)
+                    }
+                }
+                TYPE_ARRAY -> {
+                    if (value !is JSONArray || value.length() < schema.optInt("minItems", 0) || value.length() > schema.optInt("maxItems", Int.MAX_VALUE)) invalid()
+                    if (schema.optBoolean("uniqueItems", false) && (0 until value.length()).map { value.opt(it).toString() }.distinct().size != value.length()) invalid()
+                    schema.optJSONObject("items")?.takeIf { it.has("type") }?.let { item ->
+                        for (index in 0 until value.length()) validateFields(JSONObject().put("item", value.opt(index)),
+                            mapOf("item" to item), setOf("item"))
+                    }
+                }
             }
         }
     }

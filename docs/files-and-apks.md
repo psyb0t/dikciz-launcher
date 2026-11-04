@@ -142,3 +142,7 @@ Credential record remote-auth.json and its atomic backup/staging aliases are den
 ## Incremental shell sessions
 
 Use shellSessionStart/Read/Stop/Forget and shellSessionsList when output must be readable through any ordinary binding, including HTML and Lua, or after transport reconnects. Follow cursors, inspect explicit history gaps and wait for a terminal state. See [shell sessions](shell-sessions.md) for parameters and lifecycle. Existing WebSocket/MCP push streams remain connection-owned.
+
+## Companion workflows
+
+See [the focused companion guide](package-installation.md) for the new shared commands, native screens, required access and actual outcome states.

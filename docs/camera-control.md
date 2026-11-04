@@ -31,7 +31,7 @@ Read or download the file through the ordinary file APIs, then remove it when fi
 
 Unsupported device ranges or modes return `camera_control_unsupported` before opening the camera. Invalid types and generic bounds return `validation_failed`. Busy, disconnected, configuration, image-write, capture and deadline failures are explicit. Failed or timed-out requests close the session/device/reader and remove incomplete files. Late open callbacks close their device before releasing ownership. A client disconnect does not prove capture cancellation; inspect a durable command job when reconnectable results are needed.
 
-Preview streams and managed multi-command recording sessions remain separate capability gaps.
+For persistent camera preview and Accessibility display JPEGs, use [live image streams](visual-streams.md). Managed multi-command video recording remains separate.
 
 ## Bounded video
 
@@ -52,6 +52,6 @@ Photo and video requests share camera ownership. Audio-enabled video shares micr
 
 Success requires recorder finalization, completed camera frames and Android media inspection. Results include the saved path, `mimeType:video/mp4`, bytes, actual `durationMilliseconds`, dimensions, rotation and `hasAudio`. Requested duration/frame rate and the chosen camera FPS range remain separate from observed metadata. `observedCaptureFrames` counts camera callbacks, not encoded output frames.
 
-Read/download the completed file through ordinary file APIs and remove it when finished. Native startup and recording checks respect the overall deadline; blocking platform stop/cleanup calls may take additional time. A finalized container proves encoded media exists, not physical image or sound quality. No caller output path, background recording service or preview is provided.
+Read/download the completed file through ordinary file APIs and remove it when finished. Native startup and recording checks respect the overall deadline; blocking platform stop/cleanup calls may take additional time. A finalized container proves encoded media exists, not physical image or sound quality. This bounded video command has no caller output path or background recording service. JPEG preview uses the separate image-stream commands.
 
 Use [durable jobs](command-jobs.md) for reconnectable results. Cancel requests interruption; poll status and confirm cleanup before replacement work. In-process calls from HTML and Lua use the same command, permissions and result. Lua's native host request time is excluded from its script execution budget.

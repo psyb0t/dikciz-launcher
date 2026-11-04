@@ -61,7 +61,7 @@ internal class DikcizChatModelControls(
     private var requested = false
 
     init {
-        view.addView(picker, LinearLayout.LayoutParams(0, dp(40), 1f))
+        view.addView(picker, LinearLayout.LayoutParams(0, dp(48), 1f))
         view.addView(Button(activity).apply {
             text = "↻"
             setTextColor(FOREGROUND)
@@ -70,7 +70,7 @@ internal class DikcizChatModelControls(
             minWidth = 0
             contentDescription = "Refresh chat models"
             setOnClickListener { loadModels() }
-        }, LinearLayout.LayoutParams(dp(44), dp(40)))
+        }, LinearLayout.LayoutParams(dp(48), dp(48)))
         view.addView(Button(activity).apply {
             text = "Tune"
             isAllCaps = false
@@ -81,7 +81,7 @@ internal class DikcizChatModelControls(
             contentDescription = "Chat model settings"
             textSize = 11f
             setOnClickListener { editSettings() }
-        }, LinearLayout.LayoutParams(dp(64), dp(40)))
+        }, LinearLayout.LayoutParams(dp(64), dp(48)))
     }
 
     fun invalidate() {
@@ -246,6 +246,7 @@ internal class DikcizChatModelControls(
             }
         }
         dialog.show()
+        DikcizUiStyle.dialog(dialog)
     }
 
     private fun dp(value: Int): Int = (value * activity.resources.displayMetrics.density).toInt()

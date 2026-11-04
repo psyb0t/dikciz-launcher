@@ -142,3 +142,7 @@ Arbitrary third-party databases, account management and privileged system settin
 ## Additional native commands
 
 See [USSD requests](ussd-control.md), [camera capture/video](camera-control.md), [event replay](event-replay.md), [speech recognition and synthesis](speech-recognition.md), [audio playback and recording sessions](audio-playback.md), [hardware controls](hardware-controls.md), [Bluetooth](bluetooth-control.md), [NFC](nfc-control.md), [USB](usb-control.md), [Wi-Fi](wifi-control.md), [location services](location-services.md), [notification management](notification-management.md) and [durable jobs](command-jobs.md) for their dedicated operations. The [coverage table](capability-coverage.md) separates implemented operations from remaining work and Android privilege requirements.
+
+## Companion workflows
+
+See [the focused companion guide](companion.md) for the new shared commands, native screens, required access and actual outcome states.

@@ -17,10 +17,24 @@ public final class FixtureRecognitionService extends RecognitionService {
     private static final long SLOW_RESPONSE_DELAY_MS = 10000L;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Runnable pending;
+    private Runnable partial;
 
     @Override
     protected void onStartListening(Intent intent, Callback callback) {
         String language = intent.getStringExtra(RecognizerIntent.EXTRA_LANGUAGE);
+        if (intent.getBooleanExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)) {
+            partial = () -> {
+                try {
+                    Bundle draft = new Bundle();
+                    draft.putStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION,
+                        new ArrayList<>(Arrays.asList("Fixture partial speech")));
+                    callback.partialResults(draft);
+                } catch (RemoteException exception) {
+                    android.util.Log.w("DikcizSpeechFixture", "Partial client disconnected", exception);
+                }
+            };
+            handler.postDelayed(partial, 50L);
+        }
         pending = () -> {
             try {
                 if ("zz".equals(language)) {
@@ -100,6 +114,8 @@ public final class FixtureRecognitionService extends RecognitionService {
 
     private void clearPending() {
         if (pending != null) handler.removeCallbacks(pending);
+        if (partial != null) handler.removeCallbacks(partial);
         pending = null;
+        partial = null;
     }
 }

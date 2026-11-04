@@ -310,9 +310,9 @@ internal object DikcizFileCommands {
         return listOf(record, File(record.path + ".bak"), File(record.path + ".new"), File(record.path + ".lock"))
     }
 
-    fun isCredentialPath(file: File): Boolean = credentialFiles().any { it == file.canonicalFile }
+    fun isCredentialPath(file: File): Boolean = DikcizBackups.isProtected(file) || credentialFiles().any { it == file.canonicalFile }
 
-    fun containsCredentials(file: File): Boolean = credentialFiles().any { credential ->
+    fun containsCredentials(file: File): Boolean = DikcizBackups.containsProtected(file) || credentialFiles().any { credential ->
         credential.toPath().startsWith(file.canonicalFile.toPath())
     }
 

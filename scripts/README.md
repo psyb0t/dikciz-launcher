@@ -29,3 +29,9 @@ The control client reads bearer credentials from `DIKCIZ_REMOTE_BEARER_TOKEN` by
 The [files, APKs and shell guide](../docs/files-and-apks.md) documents `http`, `upload` and `download` client commands and the Android installer workflow. `mcp-resources` lists one page of packaged documentation; pass its `nextCursor` through `--cursor` for another. `mcp-read <uri>` reads one section, starting with `dikciz://docs/index`. The [resource guide](../docs/mcp-resources.md) owns that workflow. Shell response waits automatically cover the command's `timeoutMilliseconds` plus cleanup and transport time. Pass `timeoutMilliseconds` and `maxOutputBytes` in `--arguments` to override the command defaults. Run `python3 scripts/dikciz-control.py --help` for command-specific options.
 
 Fossify replacement requires `DIKCIZ_UPSTREAM_REFRESH=1`, a newer release marker, clean overlay application, and a verified backup. See the [Fossify source map](../.fossify/README.md) and root [source-update instructions](../README.md#fossify-source-updates).
+
+## Companion fixtures
+
+generate-dikciz-vision-fixtures.py runs through make dikciz-vision-fixtures and writes deterministic text/QR PNGs. Its optional QR source fetch verifies a pinned source hash before import. Ordinary live tests use the committed PNGs.
+
+generate-dikciz-split-fixture.py runs through make dikciz-split-fixture after building the configurable provider. The pinned Android Lab aapt2, zipalign and apksigner create a base/config-split pair with a dedicated emulator-only test key. The generated APKs and key stay in ignored build state. They are never release artifacts.
