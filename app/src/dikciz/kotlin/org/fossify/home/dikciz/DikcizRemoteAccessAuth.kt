@@ -1,10 +1,27 @@
 package org.fossify.home.dikciz
 
 import android.util.AtomicFile
+import android.util.Base64
 import at.favre.lib.crypto.bcrypt.BCrypt
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
+import java.security.SecureRandom
+import org.fossify.home.dikciz.DikcizAutomationControlPlane.Companion.KEY_ACTION
+import org.fossify.home.dikciz.DikcizRemotePolicy.ACTION_CATALOG
+import org.fossify.home.dikciz.DikcizRemotePolicy.ACTION_CREATE
+import org.fossify.home.dikciz.DikcizRemotePolicy.ACTION_LIST
+import org.fossify.home.dikciz.DikcizRemotePolicy.ACTION_REVOKE
+import org.fossify.home.dikciz.DikcizRemotePolicy.ACTION_UPDATE
+import org.fossify.home.dikciz.DikcizRemotePolicy.KEY_CREATED_AT
+import org.fossify.home.dikciz.DikcizRemotePolicy.KEY_DIGEST
+import org.fossify.home.dikciz.DikcizRemotePolicy.KEY_ID
+import org.fossify.home.dikciz.DikcizRemotePolicy.KEY_NAME
+import org.fossify.home.dikciz.DikcizRemotePolicy.KEY_PERMISSIONS
+import org.fossify.home.dikciz.DikcizRemotePolicy.KEY_TOKEN
+import org.fossify.home.dikciz.DikcizRemotePolicy.KEY_TOKENS
+import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 
@@ -44,112 +61,236 @@ internal class DikcizRemoteAccessAuth(
 ) {
     private val recordFile = File(configurationDirectory, "$CONTROL_DIRECTORY_NAME/$RECORD_FILE_NAME")
 
-    @Synchronized
-    fun status(): DikcizRemoteAccessAuthStatus {
-        return readState().status(recordFile.absolutePath)
-    }
+    private val lockFile = File(recordFile.parentFile, "$RECORD_FILE_NAME.lock")
 
-    @Synchronized
-    fun acceptsAuthorization(authorization: String?): Boolean = accepts(readState(), authorization)
-
-    @Synchronized
-    fun authorizationMonitor(authorization: String?): () -> Boolean {
-        val initialState = readState()
-        val accepted = accepts(initialState, authorization)
-        // Recheck the verified record, avoiding a password hash for every output chunk.
-        return { synchronized(this) { accepted && readState() == initialState } }
-    }
-
-    private fun accepts(state: RecordState, authorization: String?): Boolean {
-        val record = state.record ?: return state is RecordState.Missing
-        if (!record.enabled) return true
-        val password = parseBearerPassword(authorization) ?: return false
-        return verifies(record, password)
-    }
-
-    @Synchronized
-    fun executeRemoteCommand(commandType: String, authorization: String?): JSONObject {
-        if (commandType == DikcizAutomationControlPlane.TYPE_REMOTE_AUTH_STATUS) {
-            return status().toJson()
+    private fun <T> locked(write: Boolean = false, action: () -> T): T = synchronized(RECORD_LOCK) {
+        if (!write && !recordExists()) return@synchronized action()
+        val parent = recordFile.parentFile
+            ?: throw DikcizRemoteAccessAuthException(ERROR_RECORD_WRITE, MESSAGE_RECORD_WRITE_FAILED)
+        if (!parent.exists() && !parent.mkdirs()) {
+            throw DikcizRemoteAccessAuthException(ERROR_RECORD_WRITE, MESSAGE_RECORD_WRITE_FAILED)
         }
-        val record = requireVerifiedRecord(authorization)
+        FileOutputStream(lockFile, true).channel.use { channel ->
+            channel.lock().use { action() }
+        }
+    }
+
+    private fun recordExists() = recordFile.exists() ||
+        File(recordFile.path + ".bak").exists() || File(recordFile.path + ".new").exists()
+
+    fun status(): DikcizRemoteAccessAuthStatus = locked { readState().status(recordFile.absolutePath) }
+
+    fun acceptsAuthorization(authorization: String?): Boolean = resolve(authorization) != null
+
+    fun authorizationMonitor(authorization: String?): () -> Boolean {
+        val access = resolve(authorization)
+        return { access?.isCurrent() == true }
+    }
+
+    fun resolve(authorization: String?): DikcizRemoteAccess? = locked {
+        val initial = readState()
+        val record = initial.record
+        val secret = parseBearerPassword(authorization)
+        val token = secret?.let { value ->
+            val id = TOKEN_PATTERN.matchEntire(value)?.groupValues?.get(1)
+            record?.tokens?.find { it.id == id && it.enabled && digestMatches(it.digest, value) }
+        }
+        if (token != null && record?.enabled == true) {
+            return@locked DikcizRemoteAccess(token.id, token.name, token.permissions) {
+                locked {
+                    val current = readState().record
+                    val present = current?.tokens?.find { it.id == token.id }
+                    current?.enabled == true && present == token
+                }
+            }
+        }
+        val owner = when {
+            initial is RecordState.Missing -> secret == null || !TOKEN_PATTERN.matches(secret)
+            record == null -> false
+            record.enabled -> secret != null && verifies(record, secret)
+            else -> secret == null || !TOKEN_PATTERN.matches(secret)
+        }
+        if (!owner) return@locked null
+        DikcizRemoteAccess(OWNER_ID, "Owner", setOf(DikcizRemotePolicy.OWNER)) {
+            locked {
+                val current = readState()
+                when {
+                    initial is RecordState.Missing -> current is RecordState.Missing
+                    record == null -> false
+                    else -> current.record?.let {
+                        it.enabled == record.enabled && it.verifier == record.verifier
+                    } == true
+                }
+            }
+        }
+    }
+
+    fun executeRemoteCommand(
+        commandType: String,
+        authorization: String?,
+        request: JSONObject = JSONObject(),
+    ): JSONObject = locked(write = true) {
+        if (commandType == DikcizAutomationControlPlane.TYPE_REMOTE_AUTH_STATUS) {
+            return@locked readState().status(recordFile.absolutePath).toJson()
+        }
+        if (commandType == DikcizRemotePolicy.TYPE_INFO) {
+            return@locked ((if (authorization == null) {
+                DikcizRemoteAccess(OWNER_ID, "Local owner", setOf(DikcizRemotePolicy.OWNER)) { true }
+            } else resolveUnlocked(authorization))?.toJson()
+                ?: throw DikcizRemoteAccessAuthException(ERROR_AUTH_REQUIRED, MESSAGE_AUTH_REQUIRED))
+        }
+        if (commandType == DikcizRemotePolicy.TYPE_TOKENS) {
+            requireOwner(authorization, localAllowed = true)
+            return@locked manageTokens(request, ACTOR_REMOTE)
+        }
+        requireOwner(authorization, localAllowed = false)
+        val record = requireValidRecord()
         val enabled = when (commandType) {
             DikcizAutomationControlPlane.TYPE_REMOTE_AUTH_ENABLE -> true
             DikcizAutomationControlPlane.TYPE_REMOTE_AUTH_DISABLE -> false
             else -> throw DikcizRemoteAccessAuthException(ERROR_UNKNOWN_COMMAND, MESSAGE_UNKNOWN_COMMAND)
         }
+        requireMayDisable(record, enabled)
         writeRecord(record.copy(enabled = enabled))
-        logger.info(
-            EVENT_REMOTE_AUTH_CHANGED,
-            mapOf(FIELD_ACTOR to ACTOR_REMOTE, FIELD_ENABLED to enabled),
-        )
-        return status().toJson()
+        logger.info(EVENT_REMOTE_AUTH_CHANGED, mapOf(FIELD_ACTOR to ACTOR_REMOTE, FIELD_ENABLED to enabled))
+        record.copy(enabled = enabled).let { RecordState.Valid(it).status(recordFile.absolutePath).toJson() }
     }
 
-    @Synchronized
+    private fun resolveUnlocked(authorization: String?): DikcizRemoteAccess? {
+        val record = readState().record
+        val secret = parseBearerPassword(authorization)
+        if (record == null) {
+            if (readState() !is RecordState.Missing) return null
+            return DikcizRemoteAccess(OWNER_ID, "Owner", setOf(DikcizRemotePolicy.OWNER)) { true }
+        }
+        val token = secret?.let { value -> record.tokens.find { it.enabled && digestMatches(it.digest, value) } }
+        if (token != null && record.enabled) return DikcizRemoteAccess(token.id, token.name, token.permissions) { true }
+        if (!record.enabled || (secret != null && verifies(record, secret))) {
+            return DikcizRemoteAccess(OWNER_ID, "Owner", setOf(DikcizRemotePolicy.OWNER)) { true }
+        }
+        return null
+    }
+
+    private fun requireOwner(authorization: String?, localAllowed: Boolean) {
+        if (localAllowed && authorization == null) return
+        val secret = parseBearerPassword(authorization)
+            ?: throw DikcizRemoteAccessAuthException(ERROR_AUTH_REQUIRED, MESSAGE_AUTH_REQUIRED)
+        val record = requireValidRecord()
+        val ownerToken = record.enabled && record.tokens.any {
+            it.enabled && DikcizRemotePolicy.OWNER in it.permissions && digestMatches(it.digest, secret)
+        }
+        if (!ownerToken && !verifies(record, secret)) {
+            throw DikcizRemoteAccessAuthException(ERROR_AUTH_REQUIRED, MESSAGE_AUTH_REQUIRED)
+        }
+    }
+
+    fun tokenCommandFromPhone(request: JSONObject): JSONObject = locked(write = true) {
+        manageTokens(request, ACTOR_PHONE)
+    }
+
+    private fun manageTokens(request: JSONObject, actor: String): JSONObject {
+        DikcizNativeCommands.validate(DikcizRemotePolicy.TYPE_TOKENS, request, envelope = true)
+        val action = request.getString(KEY_ACTION)
+        if (action == ACTION_CATALOG) return JSONObject().put(KEY_PERMISSIONS, DikcizRemotePolicy.catalogue())
+        val record = requireValidRecord()
+        if (action == ACTION_LIST) return JSONObject().put(KEY_TOKENS, JSONArray(record.tokens.map(TokenRecord::metadata)))
+        if (!record.enabled) throw DikcizRemoteAccessAuthException(
+            ERROR_AUTH_REQUIRED, "Enable owner authentication before managing tokens",
+        )
+        var createdSecret: String? = null
+        var changed: TokenRecord? = null
+        val updated = record.tokens.toMutableList()
+        when (action) {
+            ACTION_CREATE -> {
+                if (updated.size >= MAXIMUM_TOKENS) throw DikcizRemoteAccessAuthException(
+                    "remote_token_limit", "At most $MAXIMUM_TOKENS access tokens may be configured",
+                )
+                var id: String
+                do { id = randomHex(TOKEN_ID_BYTES) } while (updated.any { it.id == id })
+                createdSecret = "dkt1.$id." + Base64.encodeToString(
+                    ByteArray(TOKEN_SECRET_BYTES).also(RANDOM::nextBytes),
+                    Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP,
+                )
+                changed = TokenRecord(
+                    id, request.getString(KEY_NAME).trim(),
+                    DikcizRemotePolicy.permissionSet(request.getJSONArray(KEY_PERMISSIONS)),
+                    true, System.currentTimeMillis(), digest(createdSecret),
+                )
+                updated.add(changed)
+            }
+            ACTION_UPDATE, ACTION_REVOKE -> {
+                val index = updated.indexOfFirst { it.id == request.getString(KEY_ID) }
+                if (index < 0) throw DikcizRemoteAccessAuthException("remote_token_not_found", "Access token not found")
+                val previous = updated[index]
+                if (action == ACTION_REVOKE) {
+                    updated.removeAt(index)
+                } else {
+                    changed = previous.copy(
+                        name = if (request.has(KEY_NAME)) request.getString(KEY_NAME).trim() else previous.name,
+                        permissions = if (request.has(KEY_PERMISSIONS)) {
+                            DikcizRemotePolicy.permissionSet(request.getJSONArray(KEY_PERMISSIONS))
+                        } else previous.permissions,
+                        enabled = if (request.has("enabled")) request.getBoolean("enabled") else previous.enabled,
+                    )
+                    updated[index] = changed
+                }
+            }
+        }
+        writeRecord(record.copy(tokens = updated))
+        logger.info("remote_token_changed", mapOf(
+            FIELD_ACTOR to actor, KEY_ACTION to action, KEY_ID to (changed?.id ?: request.optString(KEY_ID)),
+            KEY_PERMISSIONS to changed?.permissions.orEmpty().sorted(), FIELD_ENABLED to (changed?.enabled ?: false),
+        ))
+        return JSONObject().put(KEY_ACTION, action).put(KEY_TOKENS, JSONArray(updated.map(TokenRecord::metadata))).apply {
+            changed?.let { put("item", it.metadata()) }
+            createdSecret?.let { put(KEY_TOKEN, it) }
+        }
+    }
+
     fun setPasswordFromPhone(password: CharArray) {
         try {
             if (!isValidPassword(password)) {
                 throw DikcizRemoteAccessAuthException(ERROR_INVALID_PASSWORD, MESSAGE_INVALID_PASSWORD)
             }
             val verifier = BCrypt.withDefaults().hashToString(BCRYPT_COST, password)
-            writeRecord(AuthRecord(enabled = true, verifier = verifier))
-            logger.info(
-                EVENT_REMOTE_AUTH_CHANGED,
-                mapOf(FIELD_ACTOR to ACTOR_PHONE, FIELD_ENABLED to true),
-            )
+            locked(write = true) {
+                writeRecord(AuthRecord(enabled = true, verifier = verifier, tokens = readState().record?.tokens.orEmpty()))
+            }
+            logger.info(EVENT_REMOTE_AUTH_CHANGED, mapOf(FIELD_ACTOR to ACTOR_PHONE, FIELD_ENABLED to true))
         } finally {
             password.fill(PASSWORD_CLEAR_CHARACTER)
         }
     }
 
-    @Synchronized
-    fun setEnabledFromPhone(enabled: Boolean) {
+    fun setEnabledFromPhone(enabled: Boolean) = locked(write = true) {
         val record = requireValidRecord()
+        requireMayDisable(record, enabled)
         writeRecord(record.copy(enabled = enabled))
-        logger.info(
-            EVENT_REMOTE_AUTH_CHANGED,
-            mapOf(FIELD_ACTOR to ACTOR_PHONE, FIELD_ENABLED to enabled),
-        )
+        logger.info(EVENT_REMOTE_AUTH_CHANGED, mapOf(FIELD_ACTOR to ACTOR_PHONE, FIELD_ENABLED to enabled))
     }
 
-    @Synchronized
-    fun clearPasswordFromPhone() {
-        if (!recordFile.exists()) {
-            return
-        }
-        readState()
-        if (!recordFile.isFile || !recordFile.delete()) {
+    fun clearPasswordFromPhone() = locked(write = true) {
+        if (!recordExists()) return@locked
+        readState().record?.let { requireMayDisable(it, false) }
+        try {
+            AtomicFile(recordFile).delete()
+            if (recordExists()) throw IllegalStateException(MESSAGE_CLEAR_FAILED)
+        } catch (_: Exception) {
             throw DikcizRemoteAccessAuthException(ERROR_RECORD_WRITE, MESSAGE_CLEAR_FAILED)
         }
-        logger.info(
-            EVENT_REMOTE_AUTH_CLEARED,
-            mapOf(FIELD_ACTOR to ACTOR_PHONE),
+        logger.info(EVENT_REMOTE_AUTH_CLEARED, mapOf(FIELD_ACTOR to ACTOR_PHONE))
+    }
+
+    private fun requireMayDisable(record: AuthRecord, enabled: Boolean) {
+        if (!enabled && record.tokens.isNotEmpty()) throw DikcizRemoteAccessAuthException(
+            "remote_auth_tokens_exist", "Revoke every access token before disabling or clearing authentication",
         )
     }
 
-    private fun requireVerifiedRecord(authorization: String?): AuthRecord {
-        val record = requireValidRecord()
-        val password = parseBearerPassword(authorization)
-            ?: throw DikcizRemoteAccessAuthException(ERROR_AUTH_REQUIRED, MESSAGE_AUTH_REQUIRED)
-        if (!verifies(record, password)) {
-            throw DikcizRemoteAccessAuthException(ERROR_AUTH_REQUIRED, MESSAGE_AUTH_REQUIRED)
-        }
-        return record
-    }
-
-    private fun requireValidRecord(): AuthRecord {
-        return when (val state = readState()) {
-            is RecordState.Valid -> state.record
-            RecordState.Missing -> throw DikcizRemoteAccessAuthException(
-                ERROR_PASSWORD_NOT_CONFIGURED,
-                MESSAGE_PASSWORD_NOT_CONFIGURED,
-            )
-            RecordState.Invalid -> throw DikcizRemoteAccessAuthException(
-                ERROR_RECORD_INVALID,
-                MESSAGE_RECORD_INVALID,
-            )
-        }
+    private fun requireValidRecord(): AuthRecord = when (val state = readState()) {
+        is RecordState.Valid -> state.record
+        RecordState.Missing -> throw DikcizRemoteAccessAuthException(ERROR_PASSWORD_NOT_CONFIGURED, MESSAGE_PASSWORD_NOT_CONFIGURED)
+        RecordState.Invalid -> throw DikcizRemoteAccessAuthException(ERROR_RECORD_INVALID, MESSAGE_RECORD_INVALID)
     }
 
     private fun verifies(record: AuthRecord, password: String): Boolean {
@@ -221,25 +362,34 @@ internal class DikcizRemoteAccessAuth(
     }
 
     private fun readState(): RecordState {
-        if (!recordFile.exists()) {
-            return RecordState.Missing
-        }
-        if (!recordFile.isFile || recordFile.length() !in MINIMUM_RECORD_BYTES..MAXIMUM_RECORD_BYTES) {
-            return RecordState.Invalid
-        }
+        if (!recordExists()) return RecordState.Missing
         val document = try {
-            JSONObject(recordFile.readText(StandardCharsets.UTF_8))
+            val bytes = AtomicFile(recordFile).openRead().use { input ->
+                val output = java.io.ByteArrayOutputStream()
+                val buffer = ByteArray(4096)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    output.write(buffer, 0, count)
+                    if (output.size() > MAXIMUM_RECORD_BYTES) return RecordState.Invalid
+                }
+                output.toByteArray()
+            }
+            if (bytes.size < MINIMUM_RECORD_BYTES) return RecordState.Invalid
+            JSONObject(String(bytes, StandardCharsets.UTF_8))
         } catch (_: JSONException) {
             return RecordState.Invalid
         } catch (_: Exception) {
             return RecordState.Invalid
         }
-        val expectedKeys = setOf(KEY_VERSION, KEY_ALGORITHM, KEY_COST, KEY_ENABLED, KEY_VERIFIER)
+        val version = document.opt(KEY_VERSION)
+        if (version != RECORD_VERSION && version != TOKEN_RECORD_VERSION) return RecordState.Invalid
+        val expectedKeys = setOf(KEY_VERSION, KEY_ALGORITHM, KEY_COST, KEY_ENABLED, KEY_VERIFIER) +
+            if (version == TOKEN_RECORD_VERSION) setOf(KEY_TOKENS) else emptySet()
         if (document.keys().asSequence().toSet() != expectedKeys) {
             return RecordState.Invalid
         }
-        if (document.opt(KEY_VERSION) != RECORD_VERSION ||
-            document.opt(KEY_ALGORITHM) != BCRYPT_ALGORITHM ||
+        if (document.opt(KEY_ALGORITHM) != BCRYPT_ALGORITHM ||
             document.opt(KEY_COST) != BCRYPT_COST
         ) {
             return RecordState.Invalid
@@ -249,20 +399,65 @@ internal class DikcizRemoteAccessAuth(
         if (!BCRYPT_VERIFIER_PATTERN.matches(verifier)) {
             return RecordState.Invalid
         }
-        return RecordState.Valid(AuthRecord(enabled = enabled, verifier = verifier))
+        val tokens = try {
+            if (version == TOKEN_RECORD_VERSION) {
+                val rows = document.getJSONArray(KEY_TOKENS)
+                if (rows.length() > MAXIMUM_TOKENS) return RecordState.Invalid
+                (0 until rows.length()).map { TokenRecord.parse(rows.getJSONObject(it)) }.also {
+                    if (it.map(TokenRecord::id).distinct().size != it.size || (!enabled && it.isNotEmpty())) return RecordState.Invalid
+                }
+            } else emptyList()
+        } catch (_: Exception) {
+            return RecordState.Invalid
+        }
+        return RecordState.Valid(AuthRecord(enabled = enabled, verifier = verifier, tokens = tokens))
     }
 
     private data class AuthRecord(
         val enabled: Boolean,
         val verifier: String,
+        val tokens: List<TokenRecord> = emptyList(),
     ) {
         fun toJson(): JSONObject {
             return JSONObject()
-                .put(KEY_VERSION, RECORD_VERSION)
+                .put(KEY_VERSION, if (tokens.isEmpty()) RECORD_VERSION else TOKEN_RECORD_VERSION)
                 .put(KEY_ALGORITHM, BCRYPT_ALGORITHM)
                 .put(KEY_COST, BCRYPT_COST)
                 .put(KEY_ENABLED, enabled)
                 .put(KEY_VERIFIER, verifier)
+                .apply { if (tokens.isNotEmpty()) put(KEY_TOKENS, JSONArray(tokens.map(TokenRecord::toJson))) }
+        }
+    }
+
+    private data class TokenRecord(
+        val id: String,
+        val name: String,
+        val permissions: Set<String>,
+        val enabled: Boolean,
+        val createdAt: Long,
+        val digest: String,
+    ) {
+        fun metadata() = JSONObject().put(KEY_ID, id).put(KEY_NAME, name)
+            .put(KEY_PERMISSIONS, JSONArray(permissions.sorted())).put("enabled", enabled).put(KEY_CREATED_AT, createdAt)
+        fun toJson() = metadata().put(KEY_DIGEST, digest)
+
+        companion object {
+            fun parse(document: JSONObject): TokenRecord {
+                require(document.keys().asSequence().toSet() == setOf(KEY_ID, KEY_NAME, KEY_PERMISSIONS, "enabled", KEY_CREATED_AT, KEY_DIGEST))
+                val id = document.opt(KEY_ID) as? String ?: error("Invalid token ID")
+                require(Regex("[a-f0-9]{16}").matches(id))
+                val name = document.opt(KEY_NAME) as? String ?: error("Invalid token name")
+                DikcizRemotePolicy.validateName(name)
+                val permissions = DikcizRemotePolicy.permissionSet(document.getJSONArray(KEY_PERMISSIONS))
+                val enabled = document.opt("enabled") as? Boolean ?: error("Invalid token enabled flag")
+                val timestamp = document.opt(KEY_CREATED_AT)
+                require(timestamp is Long || timestamp is Int)
+                val createdAt = (timestamp as Number).toLong()
+                require(createdAt > 0)
+                val digest = document.opt(KEY_DIGEST) as? String ?: error("Invalid token digest")
+                require(Regex("[a-f0-9]{64}").matches(digest))
+                return TokenRecord(id, name, permissions, enabled, createdAt, digest)
+            }
         }
     }
 
@@ -325,7 +520,7 @@ internal class DikcizRemoteAccessAuth(
         const val LOWERCASE_LETTERS = "abcdefghijklmnopqrstuvwxyz"
         const val MAXIMUM_AUTHORIZATION_CHARACTERS = 256
         const val MAXIMUM_PASSWORD_CHARACTERS = 72
-        const val MAXIMUM_RECORD_BYTES = 512L
+        const val MAXIMUM_RECORD_BYTES = 65536L
         const val MESSAGE_AUTH_REQUIRED = "a valid remote bearer credential is required"
         const val MESSAGE_CLEAR_FAILED = "could not clear the remote auth record"
         const val MESSAGE_INVALID_PASSWORD = "password must use 12 to 72 bearer-safe ASCII characters"
@@ -337,6 +532,23 @@ internal class DikcizRemoteAccessAuth(
         const val MINIMUM_RECORD_BYTES = 2L
         const val PASSWORD_CLEAR_CHARACTER = '\u0000'
         const val RECORD_FILE_NAME = "remote-auth.json"
+        private val RECORD_LOCK = Any()
+        private val RANDOM = SecureRandom()
+        private val TOKEN_PATTERN = Regex("dkt1\\.([a-f0-9]{16})\\.[A-Za-z0-9_-]{43}")
+        private const val OWNER_ID = "owner"
+        private const val TOKEN_RECORD_VERSION = 2
+        private const val MAXIMUM_TOKENS = 32
+        private const val TOKEN_ID_BYTES = 8
+        private const val TOKEN_SECRET_BYTES = 32
+
+        private fun randomHex(bytes: Int) = ByteArray(bytes).also(RANDOM::nextBytes).joinToString("") { "%02x".format(it) }
+        // Generated tokens carry 256 random bits; SHA-256 verifies keys, while human passwords retain bcrypt.
+        private fun digest(secret: String) = MessageDigest.getInstance("SHA-256")
+            .digest(secret.toByteArray(StandardCharsets.UTF_8)).joinToString("") { "%02x".format(it) }
+        private fun digestMatches(expected: String, secret: String) = MessageDigest.isEqual(
+            expected.toByteArray(StandardCharsets.US_ASCII),
+            digest(secret).toByteArray(StandardCharsets.US_ASCII),
+        )
         const val RECORD_VERSION = 1
         const val SPACE = ' '
         const val STATE_DISABLED = "disabled"

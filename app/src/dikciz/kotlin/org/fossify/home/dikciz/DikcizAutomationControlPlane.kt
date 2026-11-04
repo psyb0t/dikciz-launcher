@@ -41,6 +41,7 @@ internal data class DikcizAutomationCommand(
     val request: JSONObject,
     val autoRequestPermissions: Boolean = false,
     val readOnly: Boolean = false,
+    val access: DikcizRemoteAccess? = null,
 )
 
 internal class DikcizAutomationRequestException(
@@ -134,6 +135,9 @@ internal class DikcizAutomationControlPlane(
             .put(KEY_FIELDS, JSONObject(fields))
             .toString()
         clients.forEach { client ->
+            val access = client.access ?: return@forEach
+            if (!access.isCurrent()) return@forEach
+            if (!access.isOwner && "events.read" !in access.permissions) return@forEach
             if (!client.sendText(message)) {
                 logger.warn(EVENT_CLIENT_BACKPRESSURE, mapOf(FIELD_CLIENT_ID to client.id))
             }
@@ -243,7 +247,7 @@ internal class DikcizAutomationControlPlane(
             val response = if (!client.hasCompletedHello) {
                 handleHello(client, request, requestID)
             } else {
-                handleCommand(request, requestID, client.authorization)
+                handleCommand(request, requestID, client.authorization, remote = true)
             }
             val afterWrite: (() -> Unit)? = if (isEstablishedCommand &&
                 request.optString(KEY_TYPE) in DikcizDeviceInspection.RESPONSE_COMMAND_TYPES
@@ -290,6 +294,7 @@ internal class DikcizAutomationControlPlane(
 
     private fun handleShellStream(client: ClientConnection, rawRequest: JSONObject, requestID: String) {
         val request = DikcizPermissionRequests.operation(rawRequest)
+        client.access?.requireCommand(request.getString(KEY_TYPE), request)
         val stop = request.getString(KEY_TYPE) == DikcizShellStreams.TYPE_STOP
         DikcizShellStreams.validate(request, stop, envelope = true)
         if (stop) {
@@ -363,6 +368,7 @@ internal class DikcizAutomationControlPlane(
         if (request.requireInt(KEY_PROTOCOL_VERSION) != PROTOCOL_VERSION) {
             throw DikcizAutomationRequestException(ERROR_PROTOCOL_MISMATCH, MESSAGE_PROTOCOL_MISMATCH)
         }
+        client.access?.requireCurrent()
         client.hasCompletedHello = true
         logger.info(EVENT_HELLO_COMPLETED, mapOf(FIELD_CLIENT_ID to client.id))
         return JSONObject()
@@ -370,11 +376,13 @@ internal class DikcizAutomationControlPlane(
             .put(KEY_REQUEST_ID, requestID)
             .put(KEY_PROTOCOL_VERSION, PROTOCOL_VERSION)
             .put(KEY_REVISION, revision.get())
-            .put(KEY_SNAPSHOT, callOnMain { target.snapshot() })
+            .put(KEY_SNAPSHOT, if (client.access?.let { DikcizRemotePolicy.permits(it, TYPE_SNAPSHOT, null) } == true) {
+                callOnMain { target.snapshot() }
+            } else JSONObject().put(KEY_NODES, org.json.JSONArray()).put("restricted", true).put("requiredPermission", "ui.read"))
             .toString()
     }
 
-    internal fun executeLocalCommand(request: JSONObject, authorization: String? = null, readOnly: Boolean = false): String {
+    internal fun executeLocalCommand(request: JSONObject, authorization: String? = null, readOnly: Boolean = false, remote: Boolean = false): String {
         val requestID = request.opt(KEY_REQUEST_ID) as? String
         if (requestID == null || !isValidRequestID(requestID)) {
             return errorResponse(null, ERROR_VALIDATION_FAILED, MESSAGE_INVALID_REQUEST_ID)
@@ -385,7 +393,7 @@ internal class DikcizAutomationControlPlane(
         )
         logger.debug(EVENT_COMMAND_RECEIVED, fields)
         return try {
-            val response = handleCommand(request, requestID, authorization, readOnly)
+            val response = handleCommand(request, requestID, authorization, readOnly, remote)
             publishCommandCompletion(requestID, request, OUTCOME_SUCCEEDED)
             logger.info(EVENT_COMMAND_COMPLETED, fields)
             response
@@ -405,9 +413,13 @@ internal class DikcizAutomationControlPlane(
         requestID: String,
         authorization: String? = null,
         readOnly: Boolean = false,
+        remote: Boolean = false,
     ): String {
         val request = DikcizPermissionRequests.operation(rawRequest)
         val commandType = request.requireString(KEY_TYPE)
+        val access = if (!remote) null else (remoteAccessAuth.resolve(authorization)
+            ?: throw DikcizAutomationRequestException(ERROR_REMOTE_AUTH_REQUIRED, MESSAGE_REMOTE_AUTH_REQUIRED))
+        access?.requireCommand(commandType, request)
         if (readOnly) DikcizMcpControlPlane.requireReadOnlyCommand(commandType, rawRequest)
         if (commandType in setOf(DikcizShellStreams.TYPE_START, DikcizShellStreams.TYPE_STOP)) {
             throw DikcizAutomationRequestException(ERROR_VALIDATION_FAILED, "shell streaming requires a network stream connection")
@@ -421,30 +433,32 @@ internal class DikcizAutomationControlPlane(
             requireExactKeys(request, expectedKeys)
         }
         validateCommand(request, commandType)
+        access?.requireCommand(commandType, request)
         val result = if (commandType in REMOTE_AUTH_COMMAND_TYPES) {
             try {
-                remoteAccessAuth.executeRemoteCommand(commandType, authorization)
+                remoteAccessAuth.executeRemoteCommand(commandType, authorization, request)
             } catch (exception: DikcizRemoteAccessAuthException) {
                 throw DikcizAutomationRequestException(exception.code, exception.message.orEmpty())
             }
         } else {
-            dispatchCommand(DikcizPermissionRequests.command(commandType, rawRequest).copy(readOnly = readOnly))
+            dispatchCommand(DikcizPermissionRequests.command(commandType, rawRequest).copy(readOnly = readOnly, access = access))
         }
         return JSONObject()
             .put(KEY_TYPE, TYPE_RESULT)
             .put(KEY_REQUEST_ID, requestID)
             .put(KEY_REVISION, revision.get())
-            .put(KEY_RESULT, result)
+            .put(KEY_RESULT, DikcizRemotePolicy.filterResult(commandType, result, access))
             .toString()
     }
 
     private fun dispatchCommand(command: DikcizAutomationCommand): JSONObject {
+        command.access?.requireCommand(command.type, command.request)
         if (command.readOnly) DikcizMcpControlPlane.requireReadOnlyCommand(command.type, command.request)
         if (command.type == TYPE_WAIT_FOR) {
             return waitForAutomationView(command)
         }
         val result = if (target.requiresMainThread(command)) {
-            callOnMain { target.execute(command) }
+            callOnMain { command.access?.requireCurrent(); target.execute(command) }
         } else {
             target.execute(command)
         }
@@ -457,6 +471,7 @@ internal class DikcizAutomationControlPlane(
         val deadlineMilliseconds = SystemClock.elapsedRealtime() + timeoutMilliseconds
         var snapshot: JSONObject
         while (true) {
+            command.access?.requireCurrent()
             snapshot = callOnMain { target.snapshot() }
             val node = snapshot.optJSONArray(KEY_NODES)
                 ?.let { nodes ->
@@ -698,6 +713,8 @@ internal class DikcizAutomationControlPlane(
         private val remoteAccessAuth: DikcizRemoteAccessAuth,
     ) {
         val id = UUID.randomUUID().toString()
+        var access: DikcizRemoteAccess? = null
+            private set
         var hasCompletedHello = false
         var authorization: String? = null
             private set
@@ -726,6 +743,8 @@ internal class DikcizAutomationControlPlane(
                 throw DikcizAutomationRequestException(ERROR_REMOTE_AUTH_REQUIRED, MESSAGE_REMOTE_AUTH_REQUIRED)
             }
             authorization = headers[HEADER_AUTHORIZATION]
+            access = remoteAccessAuth.resolve(authorization)
+                ?: throw DikcizAutomationRequestException(ERROR_REMOTE_AUTH_REQUIRED, MESSAGE_REMOTE_AUTH_REQUIRED)
             val key = headers[HEADER_WEBSOCKET_KEY]
                 ?: throw DikcizAutomationRequestException(ERROR_VALIDATION_FAILED, MESSAGE_MISSING_FIELD)
             val accept = createAcceptKey(key)
@@ -1366,6 +1385,8 @@ internal class DikcizAutomationControlPlane(
             TYPE_WAIT_FOR to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_SEMANTIC_ID, KEY_TIMEOUT_MILLISECONDS),
         ) + (DikcizFileCommands.FIELDS + DikcizNativeCommands.FIELDS).mapValues { (_, fields) -> fields + setOf(KEY_REQUEST_ID, KEY_TYPE) }
         val REMOTE_AUTH_COMMAND_TYPES = setOf(
+            DikcizRemotePolicy.TYPE_INFO,
+            DikcizRemotePolicy.TYPE_TOKENS,
             TYPE_REMOTE_AUTH_STATUS,
             TYPE_REMOTE_AUTH_ENABLE,
             TYPE_REMOTE_AUTH_DISABLE,

@@ -55,6 +55,7 @@ internal class DikcizNativeData(
         DikcizNativeCommands.validate(command.type, command.request, true)
         try {
             val result = when (command.type) {
+                in DikcizSearch.TYPES -> DikcizSearch.get(context, logger).execute(command)
                 in DikcizAndroidSdkCommands.TYPES -> androidSdk.execute(command)
                 DikcizChatCommands.TYPE -> {
                     DikcizChatCommands.validate(command.request)
@@ -85,7 +86,8 @@ internal class DikcizNativeData(
                 DikcizNativeCommands.TYPE_BATCH -> content.write(command.request, true)
                 DikcizNativeCommands.TYPE_SMS_SEND -> DikcizSmsStatus.send(context, command.request)
                 DikcizNativeCommands.TYPE_SMS_STATUS -> DikcizSmsStatus.status(context, command.request)
-                DikcizNativeCommands.TYPE_SIM_LIST -> simSubscriptions.read(command.request)
+                DikcizNativeCommands.TYPE_SIM_LIST -> simSubscriptions.read(command.request,
+                    command.access?.let { it.isOwner || DikcizRemotePolicy.PERMISSION_SIM_READ in it.permissions } != false)
                 DikcizNativeCommands.TYPE_CALL -> call(command.request)
                 DikcizNativeCommands.TYPE_CLIPBOARD_GET -> clipboard()
                 DikcizNativeCommands.TYPE_CLIPBOARD_SET -> {

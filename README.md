@@ -98,7 +98,7 @@ Use the [configuration guide](docs/dikciz-configuration.md) for file formats and
 WebSocket carries commands and persistent events. Streamable HTTP MCP exposes the same command target as tools. Plain HTTP accepts JSON commands at `/v1/automation` on the MCP port. Both default to `127.0.0.1` on the phone, reachable by phone apps and ADB forwarding. For direct access without USB:
 
 1. Connect the phone and controlling computer to the same reachable private network or Tailscale network. Its access policy must allow **computer to phone** traffic on TCP `19001` and `19002`. Being online or answering a Tailscale tunnel ping does not prove application access.
-2. On the phone, open **Settings**, **Automation**, **Configure remote bearer authentication**. Set and enable a password. The client reads it from `DIKCIZ_REMOTE_BEARER_TOKEN`; keep it in your secret environment, outside command arguments.
+2. On the phone, open **Settings**, **Automation**, **Configure remote bearer authentication**. Set and enable a password. Create a [named access token](docs/remote-access-tokens.md) with specific grants for each client. The client reads its credential from `DIKCIZ_REMOTE_BEARER_TOKEN`; keep it in your secret environment, outside command arguments.
 3. Open **Configure control ports**, set **Listen address** to `0.0.0.0`, and save. The [public configuration file](docs/dikciz-configuration.md#control-ports) offers the same setting. Both listeners restart automatically when their endpoints change.
 4. Connect from the controlling computer using the phone's reachable hostname or IP and its device ports. `0.0.0.0` is a bind address, not a client destination.
 
@@ -115,7 +115,7 @@ python3 scripts/dikciz-control.py mcp dikciz_snapshot --host phone.example --por
 | Direct private network | `ws://phone.example:19001/v1/automation` | `http://phone.example:19002/mcp` | `http://phone.example:19002/v1/automation` |
 | Lab ADB forwards after `make dikciz-run` | `ws://127.0.0.1:19101/v1/automation` | `http://127.0.0.1:19102/mcp` | `http://127.0.0.1:19102/v1/automation` |
 
-Configure your MCP client's Streamable HTTP URL and bearer header, then discover the server and list tools. Read `dikciz://docs/index` through MCP resources for short guides and task recipes, fetched one section at a time. The [resource guide](docs/mcp-resources.md) covers discovery and CLI reads. Direct access needs no USB, ADB or emulator. The endpoints do not provide TLS themselves; use a trusted private network or an encrypted VPN. `0.0.0.0` listens on all IPv4 interfaces, including Wi-Fi, subject to network routing and filtering.
+Configure your MCP client's Streamable HTTP URL and bearer header, then discover the server and list tools. Use `dikciz_search_query` to find relevant guides and recipes offline, then read the returned URI. Search collection `tools` for installed schemas. The same [SQLite search service](docs/search.md) supports explicitly indexed owner collections without an embedding model. `dikciz://docs/index` remains the browsable MCP guide index. The [resource guide](docs/mcp-resources.md) covers discovery and CLI reads. Direct access needs no USB, ADB or emulator. The endpoints do not provide TLS themselves; use a trusted private network or an encrypted VPN. `0.0.0.0` listens on all IPv4 interfaces, including Wi-Fi, subject to network routing and filtering.
 
 The [connection walkthrough](docs/automation-control.md#connect-without-usb) covers setup, troubleshooting and ADB alternatives. Both protocols reject browser origins outside HTTP or HTTPS loopback pages. Native clients can omit `Origin`. Network access, bearer authentication and Android permissions are separate checks. Shell commands request root by default; pass `root: false` for Dikciz's app sandbox. Commands accept `autoRequestPermissions: true` to show owner review when Android access is missing. Use `requestDeviceAccess` or MCP `dikciz_request_device_access` to ask for one capability directly; responses report permission state, notification delivery and instructions. See [permission requests](docs/automation-control.md#request-missing-android-access).
 
@@ -166,9 +166,11 @@ Start with the [documentation index](docs/index.md) for every guide and the [cov
 | --- | --- |
 | [Tutorial](docs/tutorial.md) | Illustrated setup, editable home, AI chat, remote control, events, hardware and SDK calls. |
 | [User guide](docs/user-guide.md) | Installation, Android access, navigation and native editing, with screenshots. |
+| [Offline search](docs/search.md) | Ranked docs, recipes, live schemas, aliases, typo correction and persistent owner collections. |
 | [On-device chat](docs/embedded-chat.md) | Provider profiles, streaming Markdown, conversations, context budgets and event-driven agents. |
 | [Configuration](docs/dikciz-configuration.md) | Public files, validation, reload behavior, themes and logs. |
 | [Scripting](docs/scripting-tutorial.md) | Lua, HTML, events, policies and typed actions. |
+| [Access tokens](docs/remote-access-tokens.md) | Named client credentials, grants, revocation and filtered discovery. |
 | [Automation control](docs/automation-control.md) | Direct connections, ADB forwarding, authentication, WebSocket, MCP and HTTP. |
 | [Files, APKs and shell](docs/files-and-apks.md) | Browse, upload, download, install APKs and read CLI results. |
 | [Dikciz source](app/src/dikciz/README.md) | Product architecture and implementation boundaries. |

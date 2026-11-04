@@ -6,6 +6,7 @@ This table describes dedicated Dikciz operations. Generic intents, shell and Acc
 | --- | --- | --- |
 | Launcher | Pages, grid, widgets, shortcuts/groups, themes, editing and full configuration | Continued platform compatibility and focused UI improvements. |
 | On-device assistant | OpenAI/Anthropic-compatible streaming providers, native Markdown chat, SQLite conversations, encrypted keys, context trimming/summarization, shared MCP tools and event rules | Additional provider wire protocols and exact per-model tokenizers. |
+| Offline search | Persistent SQLite collections, weighted ranking, prefixes, reviewed aliases, typo correction, full-text reads, live schemas and trusted read-only filtering across every ordinary binding | Semantic embeddings, automatic translation and automatic private-data crawling are not implemented. |
 | Shared control | Ordinary HTTP, WebSocket, MCP, HTML and Lua commands; validation, Android permission review and incremental shell sessions and replayable event reads | Additional native stream formats and general push delivery for scripts. |
 | Speech input | Provider discovery, strict on-device/system modes, language, bounded recognition, alternatives/confidence, cancellation, provider language inventory and observed model-download requests | Partial-result streaming and file transcription. |
 | Speech output | Device text-to-speech, voice inventory, voice/language/rate/pitch selection, completion/errors, saved WAV synthesis and explicit stop | Engine-specific advanced synthesis features. |

@@ -1,11 +1,9 @@
 # Dikciz task index
 
-Read one section at a time. Follow resources/list nextCursor; use tools/list for schemas.
+Search with dikciz_search_query; read relevant URIs. [Search](dikciz://docs/guides/search).
 
 ## Guides
-
 - [SDK](dikciz://docs/guides/android-sdk): public APIs and access.
-
 - [Connection](dikciz://docs/guides/connect): addresses, authentication and sessions.
 - [Discovery](dikciz://docs/guides/discovery): versions and response envelopes.
 - [Permissions](dikciz://docs/guides/permissions): owner review.
@@ -21,32 +19,21 @@ Read one section at a time. Follow resources/list nextCursor; use tools/list for
 - [Shell](dikciz://docs/guides/shell): deadlines, privileges and streaming.
 - [Logs](dikciz://docs/guides/logging): diagnosis and retention.
 - [Security](dikciz://docs/guides/security): access boundaries and credentials.
-
 - [SIM numbers](dikciz://docs/guides/sim): numbers and access.
 - [Chat contracts](dikciz://docs/guides/chat-tools): parameters and access.
-
 - [Native data](dikciz://docs/guides/native-data): contacts, SMS, calendars, calls and system state.
-
 - [Hardware](dikciz://docs/guides/hardware): live sensors, location, camera, microphone and speech.
-
 - [Speech recognition](dikciz://docs/guides/speech): on-device or system recognition, errors and cancellation.
 - [Hardware controls](dikciz://docs/guides/hardware-controls): torch, vibration, settings and device inventories.
-
 - [Jobs](dikciz://docs/guides/jobs): persisted commands, results and cancellation.
-
 - [USB](dikciz://docs/guides/usb): owner approval and control/bulk transfers.
 - [Location](dikciz://docs/guides/location): fixes, geocoding and GNSS observations.
-
 - [NFC](dikciz://docs/guides/nfc): presented tags, NDEF and raw transactions.
 - [Bluetooth](dikciz://docs/guides/bluetooth): discovery, pairing, RFCOMM and GATT.
-
 - [Audio](dikciz://docs/guides/audio): local playback, focus, routing and controls.
 - [Microphone streams](dikciz://docs/guides/microphone-streams): live PCM, replay and owner stop.
-
 - [Wi-Fi](dikciz://docs/guides/wifi): requested scans, cached results and freshness.
-
 - [Speech models](dikciz://docs/guides/speech-models): language inventory, downloads and progress.
-
 - [USSD](dikciz://docs/guides/ussd): native carrier requests, SIM choice and uncertain outcomes.
 - [Camera video](dikciz://docs/guides/video): bounded MP4 with optional microphone and finalized metadata.
 - [Event replay](dikciz://docs/guides/event-replay): cursor reads, long polling and explicit loss.
@@ -55,7 +42,6 @@ Read one section at a time. Follow resources/list nextCursor; use tools/list for
 Chat: [operation](dikciz://docs/guides/chat), [context](dikciz://docs/guides/chat-context), [events](dikciz://docs/guides/chat-events).
 
 ## Recipes
-
 - [Contact and tracked SMS](dikciz://docs/recipes/contact-sms).
 - [Inspect and act](dikciz://docs/recipes/inspect-ui).
 - [Launch an app](dikciz://docs/recipes/launch-app).

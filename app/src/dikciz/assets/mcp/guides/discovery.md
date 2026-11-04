@@ -2,7 +2,7 @@
 
 Call `dikciz_device_info` first. Its `application` reports the serving package, version, process and `instanceId`. Release is `eu.psyb0t.dikciz.launcher`; debug adds `.debug`. Updating one does not update the other. Both can read the same public configuration and compete for listener ports.
 
-Call `tools/list` for exact argument schemas. Call `dikciz_control_status` for live command contracts, ports, events and limits. Call `dikciz_automation_status` for script and Android access state. Do not infer tool names by converting camel case; use discovery.
+Use `dikciz_search_query` with collection `docs` to find a procedure, or collection `tools` for ranked installed contracts. Read exact result URIs without enumerating resource pages. Call `tools/list` when a complete schema catalog is needed. Call `dikciz_control_status` for live command contracts, ports, events and limits. Call `dikciz_automation_status` for script and Android access state. Do not infer tool names by converting camel case; use discovery.
 
 MCP `tools/call` wraps a command result in `structuredContent` and text blocks. Inspect `isError`, the command envelope, each action outcome and any `permissionRequest`. An HTTP success status only means the protocol request reached the server. A batch may contain both completed and refused actions.
 

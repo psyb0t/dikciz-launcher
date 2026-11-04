@@ -2,6 +2,7 @@ package org.fossify.home.dikciz
 
 import android.content.ContentValues
 import android.os.SystemClock
+import java.security.MessageDigest
 import ai.koog.prompt.message.AttachmentContent
 import ai.koog.prompt.message.AttachmentSource
 import ai.koog.prompt.message.Message
@@ -20,6 +21,12 @@ internal class DikcizChatAgent(
     private val captureTaskScreen: suspend () -> JSONObject,
     private val progress: (String) -> Unit,
 ) {
+    private val toolCatalogueRevision by lazy {
+        MessageDigest.getInstance("SHA-256")
+            .digest(DikcizMcpControlPlane.toolCatalogue(false).toString().toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+    }
+
     suspend fun run(queued: JSONObject, profile: JSONObject) {
         val conversationID = queued.getString("conversation_id")
         val turnID = queued.getString("turn_id")
@@ -114,6 +121,7 @@ internal class DikcizChatAgent(
         val startedReadOnly = profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY)
         val screenTask = task?.optString(DikcizChatTasks.KEY_KIND) == DikcizChatTasks.EXPLAIN_SCREEN
         return JSONObject()
+            .put("toolCatalogueRevision", toolCatalogueRevision)
             .put("conversationReadOnly", savedReadOnly)
             .put("turnReadOnly", savedReadOnly || screenTask || startedReadOnly)
             .put("reason", if (savedReadOnly) "conversation_setting" else if (screenTask) "screen_explanation" else if (startedReadOnly) "turn_started_read_only" else "writable_conversation")
@@ -143,8 +151,9 @@ internal class DikcizChatAgent(
     private fun argumentGuidance(tool: String): String = when (tool) {
         "phone_tools" -> "phone_tools only discovers schemas. Pass query and optional offset. Execute a discovered tool with phone_call using name and arguments_json."
         "phone_call" -> "phone_call requires an exact discovered name and arguments_json containing a JSON object matching that tool's input schema."
+        "phone_search" -> "phone_search requires a query string, optional collection and decimal string limit/offset. Read an exact returned URI or use dikciz_search_read for full text."
         "phone_resources" -> "phone_resources accepts only an optional cursor returned by its previous page."
-        "phone_resource" -> "phone_resource requires an exact uri returned by phone_resources. Tool names are not resource URIs."
+        "phone_resource" -> "phone_resource requires an exact uri returned by phone_search or phone_resources. Tool names are not resource URIs."
         else -> "Discover a supported phone tool first."
     }
 
@@ -152,7 +161,7 @@ internal class DikcizChatAgent(
         val arguments = DikcizChatToolArguments.forExecution(call)
         progress(when (call.tool) {
             "phone_tools" -> "Finding phone tools"
-            "phone_resources", "phone_resource" -> "Reading documentation"
+            "phone_search", "phone_resources", "phone_resource" -> "Searching or reading documentation"
             "phone_call" -> when (arguments.getString("name")) {
                 "dikciz_app_action" -> "Opening or controlling an app"
                 "dikciz_display_screenshot", "dikciz_accessibility_snapshot" -> "Reading the screen"
@@ -167,19 +176,38 @@ internal class DikcizChatAgent(
                 val query = arguments.getString("query")
                 val offset = arguments.optString("offset", "0").toIntOrNull() ?: DikcizNativeCommands.invalid("Invalid tool offset")
                 if (offset < 0) DikcizNativeCommands.invalid("Invalid tool offset")
-                val all = mcp("tools/list", JSONObject()).getJSONArray("tools")
-                val matches = (0 until all.length()).map(all::getJSONObject).filter {
-                    query.isBlank() || it.getString("name").contains(query, true) || it.optString("description").contains(query, true)
+                if (query.isBlank()) {
+                    val all = mcp("tools/list", JSONObject()).getJSONArray("tools")
+                    val tools = (0 until all.length()).map(all::getJSONObject)
+                    JSONObject().put("tools", JSONArray(tools.drop(offset).take(TOOL_PAGE_SIZE)))
+                        .put("hasMore", offset.toLong() + TOOL_PAGE_SIZE < tools.size).put("nextOffset", offset + TOOL_PAGE_SIZE)
+                } else {
+                    val page = search(query, DikcizSearch.COLLECTION_TOOLS, offset, TOOL_PAGE_SIZE)
+                    if (page.optBoolean("isError")) return page
+                    val items = page.getJSONArray("items")
+                    JSONObject().put("tools", JSONArray((0 until items.length()).map {
+                        items.getJSONObject(it).getJSONObject("tool")
+                    })).put("hasMore", page.getBoolean("hasMore")).put("nextOffset", offset + TOOL_PAGE_SIZE)
+                        .put("corrections", page.getJSONObject("corrections"))
                 }
-                JSONObject().put("tools", JSONArray(matches.drop(offset).take(TOOL_PAGE_SIZE)))
-                    .put("hasMore", offset.toLong() + TOOL_PAGE_SIZE < matches.size).put("nextOffset", offset + TOOL_PAGE_SIZE)
             }
+            "phone_search" -> search(
+                arguments.getString("query"), arguments.optString("collection", DikcizSearch.COLLECTION_DOCS),
+                arguments.optString("offset", "0").toIntOrNull() ?: DikcizNativeCommands.invalid("Invalid search offset"),
+                arguments.optString("limit", "5").toIntOrNull() ?: DikcizNativeCommands.invalid("Invalid search limit"),
+            )
             "phone_call" -> mcp("tools/call", JSONObject().put("name", arguments.getString("name"))
                 .put("arguments", DikcizChatToolArguments.parse(arguments.getString("arguments_json"))))
             "phone_resources" -> mcp("resources/list", JSONObject().apply { arguments.optString("cursor").takeIf(String::isNotEmpty)?.let { put("cursor", it) } })
             "phone_resource" -> mcp("resources/read", JSONObject().put("uri", arguments.getString("uri")))
             else -> JSONObject().put("isError", true).put("code", "unknown_tool").put("message", "Discover a supported phone tool first")
         }
+    }
+
+    private fun search(query: String, collection: String, offset: Int, limit: Int): JSONObject {
+        val result = mcp("tools/call", JSONObject().put("name", "dikciz_search_query").put("arguments",
+            JSONObject().put("collection", collection).put("query", query).put("offset", offset).put("limit", limit)))
+        return if (result.optBoolean("isError")) result else result.getJSONObject("structuredContent")
     }
 
     private fun resultParts(result: JSONObject): List<MessagePart.ContentPart> {

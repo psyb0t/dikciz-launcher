@@ -16,6 +16,10 @@ Both listeners default to device loopback. Set their listen address and ports th
 
 `chatControl` and MCP `dikciz_chat` manage the same provider connections, per-conversation model/token settings, queue, event rules and panel used by the native cheese button. Sends report queue state; poll the transcript and actual tool outcomes. The agent discovers and invokes existing MCP handlers in process. The shared `task` action offers widget creation on the current page and read-only screen explanation with automatic chat dismissal and display capture. See [chat setup, actions and context budgets](embedded-chat.md).
 
+## Offline search
+
+`searchQuery`, `searchRead`, `searchCollections` and `searchIndex` expose the shared persistent SQLite index. Search the protected documentation and installed-tool collections, or explicitly index owner data in separate collections. MCP uses the corresponding `dikciz_search_*` tools. HTML, Lua and embedded chat use the same execution and read-only checks. See [search, ranking, aliases and limits](search.md).
+
 ## Direct Android data
 
 Use [native device control](native-device-control.md) for contacts, tracked SMS, calendars, call history, SIMs, clipboard, location, notifications, media sessions and device state. Commands call Android APIs through the shared target. Start with `nativeDataStatus` for resources and grants. MCP resources `dikciz://docs/guides/native-data` and `dikciz://docs/recipes/contact-sms` cover discovery and the SMS workflow.
@@ -61,7 +65,7 @@ python3 scripts/dikciz-control.py mcp dikciz_snapshot --host phone.example --por
 
 Run from a checkout so the client's companion Python modules are available. It uses the Python standard library and handles protocol negotiation itself. Successful discovery should report `listenAddress: "0.0.0.0"` and the configured ports. The MCP snapshot should return the current launcher screen.
 
-Configure a native MCP client with transport **Streamable HTTP**, URL `http://phone.example:19002/mcp`, and an `Authorization: Bearer <password>` header through that client's secret configuration. The WebSocket endpoint is `ws://phone.example:19001/v1/automation`. Use the phone's device ports, not the `19101` and `19102` host ports used by the lab's ADB forwards.
+Configure a native MCP client with transport **Streamable HTTP**, URL `http://phone.example:19002/mcp`, and an `Authorization: Bearer <password-or-token>` header through that client's secret configuration. The WebSocket endpoint is `ws://phone.example:19001/v1/automation`. Use the phone's device ports, not the `19101` and `19102` host ports used by the lab's ADB forwards.
 
 The endpoints do not provide TLS themselves. An encrypted VPN protects traffic over its tunnel; a direct Wi-Fi connection needs a trusted network. A wildcard bind also makes the ports available to reachable Wi-Fi clients. Bearer authentication and network access rules remain separate controls.
 
@@ -127,17 +131,19 @@ The public `logging` object controls the minimum level and retention. Native **S
 
 `scriptLogs` and `dikciz_script_logs` expose recent bounded records. Each record includes nullable `componentPackage` for an app target and `actionType` for its action. `app_action_completed` with `outcome: "launch_requested"` records acceptance only. The later `activity_launch_observed` record carries the terminal outcome and target package; `launched` means a visible target window was observed. The native viewer shows this metadata too. Older records without a package remain readable with `componentPackage: null`. Successful launches do not generate UI popups; failures still provide visible feedback. Secret redaction applies even at DEBUG.
 
-## Bearer password
+## Bearer authentication
 
-Remote access starts open for deliberate local forwarding. On the phone, open **Settings**, then **Automation**, then **Configure remote bearer authentication** to set a password. The phone can replace or clear it without the old password. The public record stores a bcrypt verifier and enabled state at `/sdcard/Dikciz/control/remote-auth.json`, never the plaintext password.
+Remote access starts open for deliberate local forwarding. On the phone, open **Settings**, then **Automation**, then **Configure remote bearer authentication** to set a password. The phone can replace it without the old password. Revoke any access tokens before clearing or disabling authentication. The public record stores a bcrypt verifier and enabled state at `/sdcard/Dikciz/control/remote-auth.json`, never the plaintext password.
 
-When enabled, WebSocket upgrades and all MCP requests need:
+Create named credentials with per-token grants through **Manage access tokens**. See [remote access tokens](remote-access-tokens.md) for grant selection, native management, API arguments, revocation and discovery filtering. The built-in chat keeps its direct owner binding and independent read-only checks.
+
+When enabled, WebSocket upgrades and HTTP/MCP requests need:
 
 ```text
-Authorization: Bearer <password>
+Authorization: Bearer <password-or-token>
 ```
 
-The client reads the value from `DIKCIZ_REMOTE_BEARER_TOKEN` by default. The remote-auth commands inspect, enable and disable the requirement; they cannot retrieve, replace or clear the password. File commands protect the verifier, while independent shell authority has separate limits; see [credential boundaries](android-access.md#credentials-and-privilege-limits). Enabling or disabling it requires the configured password even while the requirement is disabled. An invalid auth record refuses connections; repair or clear it from the phone.
+The client reads the value from `DIKCIZ_REMOTE_BEARER_TOKEN` by default. The remote-auth commands inspect, enable and disable the requirement; they cannot retrieve, replace or clear the password. File commands protect the verifier, while independent shell authority has separate limits; see [credential boundaries](android-access.md#credentials-and-privilege-limits). Enabling or disabling it requires an owner credential even while the requirement is disabled. Revoke every token before disabling authentication. An invalid auth record refuses connections; repair or clear it from the phone.
 
 ## WebSocket
 

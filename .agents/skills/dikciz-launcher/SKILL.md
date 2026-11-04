@@ -33,6 +33,8 @@ Source edits and builds use the separate Dikciz Android Lab skill. This skill do
 
 Read [references/setup.md](references/setup.md) for APK installation, Android access, port forwarding, and connection checks. Take the APK and target device from the user. If either is missing or ambiguous, ask. Do not build an APK or start an emulator just to install one.
 
+For a scoped connection, read `remoteAccessInfo` or `dikciz_remote_access_info` first. Use the owner's selected token grants; do not escalate a `remote_permission_denied` response through shell, UI, SDK calls or another binding. Tool discovery/search is permission-filtered, including provider/action enums. [Token management](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/remote-access-tokens.md) is owner-only. The built-in chat uses its direct owner binding and independent read-only mode.
+
 For an already connected launcher, discover its live contract before sending commands:
 
 ```bash
@@ -63,6 +65,12 @@ The bundled home has four pages: Home combines time/weather, app icons ranked by
 Use discovered `dikciz_chat` (native `chatControl`) for shared provider connections, API model discovery, per-conversation model/token settings, messages, stop, event subscriptions and panel show/hide/fullscreen. Read [embedded chat](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/embedded-chat.md), or fetch `dikciz://docs/guides/chat`, `chat-context` and `chat-events` under the same guides prefix. Add a connection once, discover its models, then configure each conversation with independent settings. Read them with the settings action. The native chat exposes a model dropdown and a Tune button for model settings. The quiet Open chat notification opens the panel over another app while idle, without an extra service. Its Explain this screen button captures the app underneath. A running turn updates its activity notification with a Stop action; tapping it reopens that exact conversation. Stop cancels active and queued conversation work, preserves completed effects and leaves event subscriptions enabled. Its Make me a widget and Explain this screen shortcuts share `action:task` with `task:widget` (text required, writable access) or `task:explainScreen` (optional question), conversationId and requestKey. Widget tasks retain the current page target. Screen tasks hide chat, capture the display and force read-only tool execution for that turn before requesting chat reopening. Screenshots go to the chosen provider. Poll the transcript and preserve the request key on retries. API keys are write-only; never place real keys in prompts or command arguments. Queued sends and requested visibility changes require status/transcript verification. Event rules can incur provider usage while hidden; configure only the requested automation and clear rules when finished.
 
 Use `dikciz_sim_list` for own SIM numbers before opening Settings. Each subscription includes nullable `phoneNumber` and `phoneNumberStatus`; missing number access returns `permissionRequest` for `phoneNumbers` while retaining metadata. A grant does not guarantee Android provides a number. The embedded assistant receives fresh per-turn access context and live tool contracts on rejected calls; inspect them before correcting arguments or requesting permissions.
+
+## Offline documentation and reusable search
+
+Use `dikciz_search_query` for an unfamiliar procedure before enumerating resources. Search a short task in collection `docs`, then read only an exact returned URI with `resources/read` or use `dikciz_search_read` with collection and ID. Collection `tools` returns ranked installed schemas that can be called directly. Search runs locally without a model or network. Reuse current contracts until the installed build or access context changes. See [offline search](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/search.md) for aliases, spelling correction and bounded pagination.
+
+Owner collections require explicit requested indexing through `dikciz_search_index`. Do not crawl private files or messages merely to populate search. Built-in collections are protected. Read-only turns hide writable tool contracts and reject index mutations through the trusted executor.
 
 ## Complete capability reference
 

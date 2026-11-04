@@ -1,10 +1,14 @@
 # Agent integrations
 
-The Android APK is the MCP server. Each owner supplies a reachable phone endpoint such as `http://phone.example:19002/mcp` and, when enabled, its bearer password. There is no shared hosted phone service. The plugin supplies operating instructions; the MCP connection points directly to the installed launcher. Use [private-network setup](automation-control.md#connect-without-usb) first.
+The Android APK is the MCP server. Each owner supplies a reachable phone endpoint such as `http://phone.example:19002/mcp` and, when enabled, an owner credential or scoped bearer token. There is no shared hosted phone service. The plugin supplies operating instructions; the MCP connection points directly to the installed launcher. Use [private-network setup](automation-control.md#connect-without-usb) first.
 
 ## Assistant inside the launcher
 
 Dikciz also has its own [on-device chat](embedded-chat.md). Add an OpenAI-compatible or Anthropic-compatible provider connection in the cheese panel, choose its API models per conversation, and configure token budgets or read-only access under Model settings. That agent discovers the existing local MCP tools and documentation directly; external MCP clients still connect as described below. Its profiles, conversations, event rules and visibility use the shared `dikciz_chat` tool.
+
+## Find procedures and tool contracts
+
+Use `dikciz_search_query` with collection `docs` for relevant operating guides and recipes, then read the exact returned documentation URI. Collection `tools` returns ranked installed schemas directly. Reuse current contracts while the build and access context remain unchanged. The embedded assistant exposes `phone_search` and uses the same engine for `phone_tools`. Search is local and requires no embedding model. See [offline search](search.md) for separate owner collections, aliases, spelling correction and access rules.
 
 ## Codex
 
@@ -18,7 +22,7 @@ Load the token into that environment variable from your secret store before star
 
 ## Claude Code
 
-The Claude plugin declares `mcp_url` and sensitive `bearer_token` user configuration. Set the URL to your phone's complete `/mcp` endpoint and the token to its bearer password. Its MCP mapping uses those values, not a maintainer endpoint. Without the plugin, configure a remote HTTP MCP entry with the same URL and `Authorization` header in your private client configuration. Do not place actual credentials in repository settings.
+The Claude plugin declares `mcp_url` and sensitive `bearer_token` user configuration. Set the URL to your phone's complete `/mcp` endpoint and the token to the selected bearer credential. Its MCP mapping uses those values, not a maintainer endpoint. Without the plugin, configure a remote HTTP MCP entry with the same URL and `Authorization` header in your private client configuration. Do not place actual credentials in repository settings.
 
 From a repository checkout, load the local plugin with:
 
@@ -47,3 +51,5 @@ No plugin lifecycle hook runs a local shell or installs an Android package. Expl
 `glama.json` identifies the repository maintainer for Glama ownership. It is not proof that a listing has been submitted, reviewed or approved. A private phone address is not a public hosted MCP endpoint. Public catalog submissions must describe installation of the APK and user-supplied connection settings accurately.
 
 The official registry descriptor uses its embedded-application format and links to installation instructions. It advertises no shared remote URL and no invented npm or Docker package. A tag-gated OIDC job publishes metadata only after APK release. Schema validity does not establish publication or directory approval; those are checked after release.
+
+Use a separate [named token](remote-access-tokens.md) for each external agent. Read `dikciz_remote_access_info` and discover its filtered catalog before invoking tools. A denied call cannot gain additional access through a different transport. Built-in chat retains its direct owner binding and independent read-only checks.

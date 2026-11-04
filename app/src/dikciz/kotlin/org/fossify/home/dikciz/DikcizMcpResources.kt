@@ -24,6 +24,13 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
         }
     }
 
+    private val library by lazy {
+        val documents = assets.open(DikcizSearch.CORPUS_ASSET).bufferedReader(StandardCharsets.UTF_8).use {
+            JSONArray(it.readText())
+        }
+        (0 until documents.length()).map(documents::getJSONObject).associateBy { it.getString(KEY_URI) }
+    }
+
     fun list(params: JSONObject): JSONObject {
         validateFields(params, setOf(KEY_CURSOR))
         val offset = if (params.has(KEY_CURSOR)) cursorOffset(params.opt(KEY_CURSOR)) else 0
@@ -44,12 +51,13 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
         if (uri !is String || uri.isBlank() || uri.length > MAXIMUM_URI_CHARACTERS) {
             throw DikcizMcpResourceException(MESSAGE_INVALID_URI)
         }
-        val section = sections.firstOrNull { it.uri == uri }
+        val text = sections.firstOrNull { it.uri == uri }?.text
+            ?: library[uri]?.getString(KEY_TEXT)
             ?: throw DikcizMcpResourceException(MESSAGE_NOT_FOUND, uri)
         return complete().put(KEY_CONTENTS, JSONArray().put(JSONObject()
-            .put(KEY_URI, section.uri)
+            .put(KEY_URI, uri)
             .put(KEY_MIME_TYPE, MIME_TYPE_MARKDOWN)
-            .put(KEY_TEXT, section.text)))
+            .put(KEY_TEXT, text)))
     }
 
     fun templates(params: JSONObject): JSONObject {
@@ -95,7 +103,7 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
         const val KEY_RESOURCES = "resources"
         const val KEY_URI = "uri"
         const val JSON_RPC_INVALID_PARAMS = -32602
-        const val INSTRUCTIONS = "Read dikciz://docs/index for short task guides and recipes. List resources with resources/list; follow nextCursor. Read only needed sections with resources/read. Discover current command schemas with tools/list."
+        const val INSTRUCTIONS = "Read dikciz://docs/index for short task guides and recipes. Search tasks with dikciz_search_query, collection docs or tools. Read exact returned resource URIs or use dikciz_search_read for full sections. Search returns installed tool schemas. resources/list remains a browsable guide catalog."
         private const val URI_PREFIX = "dikciz://docs/"
         private const val ASSET_PREFIX = "mcp/"
         private const val MARKDOWN_EXTENSION = ".md"
@@ -125,6 +133,7 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
             "guides/chat-events" to "Event-driven conversations",
             "guides/connect" to "Connect to the phone",
             "guides/discovery" to "Discover the running build",
+            "guides/search" to "Offline documentation and collection search",
             "guides/permissions" to "Android permissions",
             "guides/access" to "Android access by feature",
             "guides/actions-state" to "Typed actions for state and events",

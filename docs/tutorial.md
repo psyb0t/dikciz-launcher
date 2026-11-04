@@ -214,7 +214,7 @@ python3 scripts/dikciz-control.py mcp dikciz_snapshot --host phone.example --por
 | WebSocket | `ws://phone.example:19001/v1/automation` | Persistent commands and live events |
 | HTML and Lua | Local native bridge | Visible widgets and background event scripts |
 
-These bindings share validation, execution, Android access and outcome semantics. Transport envelopes differ. Discover current names and required arguments instead of guessing their spelling. MCP resources start at `dikciz://docs/index`; fetch the relevant small guide or recipe as needed. The embedded agent uses compact discovery/call/resource wrappers around these same tools.
+These bindings share validation, execution, Android access and outcome semantics. Transport envelopes differ. Discover current names and required arguments instead of guessing their spelling. Search a task with `dikciz_search_query` in collection `docs`, then read the relevant result URI. Collection `tools` returns installed input schemas. The embedded agent exposes `phone_search` directly and uses the same ranked engine for tool discovery. `searchIndex` can also index explicitly supplied owner text in separate persistent collections. See [offline search](search.md) for aliases, spelling correction, pagination and read-only behavior. MCP browsing still starts at `dikciz://docs/index`.
 
 A writable call can opt into owner review with `autoRequestPermissions: true`. For a direct review request, discover `requestDeviceAccess` or MCP `dikciz_request_device_access` and choose the required capability. Read the returned status, review-delivery result and instructions. The user still approves in Android; a review request is not a grant or completed action. Read-only conversations cannot request these prompts.
 

@@ -29,7 +29,7 @@ internal class DikcizMcpControlPlane(
     private val target: DikcizAutomationTarget,
     private val logger: DikcizLogger,
     private val remoteAccessAuth: DikcizRemoteAccessAuth,
-    private val executeHttpCommand: (JSONObject, String?, Boolean) -> String,
+    private val executeHttpCommand: (JSONObject, String?, Boolean, Boolean) -> String,
     private val resources: DikcizMcpResources,
 ) {
     /** The port of the running listener, or the port the next start would bind. */
@@ -168,7 +168,7 @@ internal class DikcizMcpControlPlane(
                 handleHttpStream(command, request, output, connection)
                 return
             }
-            val response = executeHttpCommand(command, request.headers[HEADER_AUTHORIZATION], false)
+            val response = executeHttpCommand(command, request.headers[HEADER_AUTHORIZATION], false, true)
             val document = JSONObject(response)
             writeJson(output, document)
             if (document.optString(DikcizAutomationControlPlane.KEY_TYPE) == DikcizAutomationControlPlane.TYPE_RESULT) {
@@ -193,6 +193,7 @@ internal class DikcizMcpControlPlane(
     private fun deleteSession(request: HttpRequest, output: BufferedOutputStream) {
         val sessionID = request.headers[HEADER_MCP_SESSION_ID]
             ?: throw McpHttpException(HTTP_STATUS_BAD_REQUEST, REASON_SESSION_REQUIRED, MESSAGE_SESSION_REQUIRED)
+        requireSession(request.headers)
         if (sessions.remove(sessionID) == null) {
             throw McpHttpException(HTTP_STATUS_NOT_FOUND, REASON_UNKNOWN_SESSION, MESSAGE_UNKNOWN_SESSION)
         }
@@ -234,7 +235,7 @@ internal class DikcizMcpControlPlane(
 
             METHOD_TOOLS_LIST -> {
                 requireInitialized(session)
-                writeJson(output, jsonRpcSuccess(message.requireID(), toolsListResult()))
+                writeJson(output, jsonRpcSuccess(message.requireID(), toolsListResult(access = requireAccess(request.headers[HEADER_AUTHORIZATION]))))
             }
 
             DikcizMcpResources.METHOD_LIST,
@@ -275,6 +276,8 @@ internal class DikcizMcpControlPlane(
         val requestID = rawCommand.optString(DikcizAutomationControlPlane.KEY_REQUEST_ID)
         try {
             val command = DikcizPermissionRequests.operation(rawCommand)
+            requireAccess(request.headers[HEADER_AUTHORIZATION])
+                .requireCommand(command.getString(DikcizAutomationControlPlane.KEY_TYPE), command)
             if (requestID.length != 36 || runCatching { UUID.fromString(requestID).toString() }.getOrNull() != requestID) {
                 throw DikcizAutomationRequestException(DikcizAutomationControlPlane.ERROR_VALIDATION_FAILED, DikcizAutomationControlPlane.MESSAGE_INVALID_REQUEST_ID)
             }
@@ -320,6 +323,8 @@ internal class DikcizMcpControlPlane(
             else HTTP_STREAM_OWNER_PREFIX + (request.headers[HEADER_AUTHORIZATION] ?: HTTP_ANONYMOUS_OWNER)
         try {
             val arguments = DikcizPermissionRequests.operation(rawArguments)
+            requireAccess(request.headers[HEADER_AUTHORIZATION])
+                .requireCommand(if (stop) DikcizShellStreams.TYPE_STOP else DikcizShellStreams.TYPE_START, arguments)
             DikcizShellStreams.validate(arguments, stop)
             if (stop) {
                 writeJson(output, jsonRpcSuccess(requestID, toolSuccess(shellStreams.stop(owner, arguments))))
@@ -414,7 +419,7 @@ internal class DikcizMcpControlPlane(
             throw McpHttpException(HTTP_STATUS_TOO_MANY_REQUESTS, REASON_SESSION_LIMIT, MESSAGE_SESSION_LIMIT)
         }
         val sessionID = UUID.randomUUID().toString()
-        sessions[sessionID] = McpSession(negotiatedVersion)
+        sessions[sessionID] = McpSession(negotiatedVersion, remoteAccessAuth.resolve(headers[HEADER_AUTHORIZATION])?.id)
         logger.info(EVENT_MCP_SESSION_CREATED)
         val result = JSONObject()
             .put(KEY_PROTOCOL_VERSION, negotiatedVersion)
@@ -465,7 +470,7 @@ internal class DikcizMcpControlPlane(
         return when (method) {
             "tools/list" -> toolsListResult(readOnly)
             "tools/call" -> try {
-                callTool(JSONObject().put("params", params), null, readOnly)
+                callTool(JSONObject().put("params", params), null, readOnly, remote = false)
             } catch (exception: McpHttpException) {
                 toolFailure(exception.message.orEmpty(), exception.reason)
             }
@@ -483,20 +488,10 @@ internal class DikcizMcpControlPlane(
         }
     }
 
-    private fun toolsListResult(readOnly: Boolean = false): JSONObject {
-        val tools = JSONArray()
-        TOOL_DEFINITIONS.filter { !readOnly || it.readOnly }.forEach { definition -> tools.put(definition.toJson()) }
-        DikcizNativeCommands.DEFINITIONS.values.filter { !readOnly || it.readOnly }.forEach { definition -> tools.put(definition.toolDocument()) }
-        if (readOnly) {
-            for (index in 0 until tools.length()) {
-                tools.getJSONObject(index).getJSONObject(KEY_INPUT_SCHEMA).getJSONObject(KEY_PROPERTIES)
-                    .remove(DikcizPermissionRequests.KEY_AUTO_REQUEST)
-            }
-        }
-        return JSONObject().put(KEY_RESULT_TYPE, RESULT_TYPE_COMPLETE).put(KEY_TOOLS, tools)
-    }
+    private fun toolsListResult(readOnly: Boolean = false, access: DikcizRemoteAccess? = null): JSONObject =
+        DikcizRemotePolicy.filterCatalogue(toolCatalogue(readOnly), access)
 
-    private fun callTool(message: JSONObject, authorization: String?, readOnly: Boolean = false): JSONObject {
+    private fun callTool(message: JSONObject, authorization: String?, readOnly: Boolean = false, remote: Boolean = true): JSONObject {
         val params = message.requireObject(KEY_PARAMS)
         val toolName = params.requireMcpString(KEY_NAME)
         val commandType = TOOL_COMMANDS[toolName]
@@ -515,7 +510,7 @@ internal class DikcizMcpControlPlane(
             val command = JSONObject(rawArguments.toString())
                 .put(DikcizAutomationControlPlane.KEY_TYPE, commandType)
                 .put(DikcizAutomationControlPlane.KEY_REQUEST_ID, UUID.randomUUID().toString())
-            val response = JSONObject(executeHttpCommand(command, authorization, readOnly))
+            val response = JSONObject(executeHttpCommand(command, authorization, readOnly, remote))
             if (response.optString(DikcizAutomationControlPlane.KEY_TYPE) == DikcizAutomationControlPlane.TYPE_ERROR) {
                 return toolFailure(
                     response.getString(DikcizAutomationControlPlane.KEY_MESSAGE),
@@ -592,6 +587,9 @@ internal class DikcizMcpControlPlane(
         command: DikcizAutomationCommand,
         authorization: String?,
     ): JSONObject {
+        val access = remoteAccessAuth.resolve(authorization)
+            ?: throw DikcizAutomationRequestException("remote_auth_required", "A valid remote credential is required")
+        access.requireCommand(command.type, command.request)
         if (command.type in DikcizAutomationControlPlane.REMOTE_AUTH_COMMAND_TYPES) {
             try {
                 return remoteAccessAuth.executeRemoteCommand(command.type, authorization)
@@ -671,6 +669,10 @@ internal class DikcizMcpControlPlane(
         throw McpHttpException(HTTP_STATUS_FORBIDDEN, REASON_ORIGIN, MESSAGE_ORIGIN)
     }
 
+    private fun requireAccess(authorization: String?): DikcizRemoteAccess =
+        remoteAccessAuth.resolve(authorization)
+            ?: throw McpHttpException(HTTP_STATUS_UNAUTHORIZED, REASON_AUTHORIZATION, MESSAGE_REMOTE_AUTH_REQUIRED, REMOTE_AUTH_CHALLENGE_HEADER)
+
     private fun validateRemoteAuthorization(headers: Map<String, String>) {
         if (remoteAccessAuth.acceptsAuthorization(headers[HEADER_AUTHORIZATION])) {
             return
@@ -687,8 +689,12 @@ internal class DikcizMcpControlPlane(
         cleanExpiredSessions()
         val sessionID = headers[HEADER_MCP_SESSION_ID]
             ?: throw McpHttpException(HTTP_STATUS_BAD_REQUEST, REASON_SESSION_REQUIRED, MESSAGE_SESSION_REQUIRED)
-        return sessions[sessionID]
+        val session = sessions[sessionID]
             ?: throw McpHttpException(HTTP_STATUS_NOT_FOUND, REASON_UNKNOWN_SESSION, MESSAGE_UNKNOWN_SESSION)
+        if (session.identity != remoteAccessAuth.resolve(headers[HEADER_AUTHORIZATION])?.id) {
+            throw McpHttpException(HTTP_STATUS_NOT_FOUND, REASON_UNKNOWN_SESSION, MESSAGE_UNKNOWN_SESSION)
+        }
+        return session
     }
 
     private fun requireInitialized(session: McpSession) {
@@ -1003,6 +1009,7 @@ internal class DikcizMcpControlPlane(
 
     private class McpSession(
         val protocolVersion: String,
+        val identity: String? = null,
     ) {
         val isInitialized = AtomicBoolean()
         val lastTouched = AtomicLong(System.currentTimeMillis())
@@ -1086,6 +1093,20 @@ internal class DikcizMcpControlPlane(
     ) : IllegalArgumentException(message)
 
     companion object {
+        internal fun toolCatalogue(readOnly: Boolean = false): JSONObject {
+            val tools = JSONArray()
+            TOOL_DEFINITIONS.filter { !readOnly || it.readOnly }.forEach { definition -> tools.put(definition.toJson()) }
+            DikcizNativeCommands.DEFINITIONS.values.filter { !readOnly || it.readOnly }.forEach { definition -> tools.put(definition.toolDocument()) }
+            if (readOnly) {
+                for (index in 0 until tools.length()) {
+                    tools.getJSONObject(index).getJSONObject(KEY_INPUT_SCHEMA).getJSONObject(KEY_PROPERTIES)
+                        .remove(DikcizPermissionRequests.KEY_AUTO_REQUEST)
+                }
+            }
+            return JSONObject().put(KEY_RESULT_TYPE, RESULT_TYPE_COMPLETE).put(KEY_TOOLS, tools)
+        }
+
+
         private const val KEY_SCHEMA_DEFAULT = "default"
         private const val KEY_SCHEMA_MAX_LENGTH = "maxLength"
         const val HTTP_COMMAND_PATH = "/v1/automation"

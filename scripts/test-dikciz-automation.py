@@ -437,6 +437,8 @@ FILE_MCP_TOOLS = {
     TYPE_APK_INSTALL_STATUS: "dikciz_apk_install_status",
 }
 NATIVE_COMMAND_FIELDS = {
+    "remoteAccessInfo": (),
+    "remoteTokens": ("action", "id", "name", "permissions", "enabled"),
     "nativeDataStatus": (),
     "contentQuery": ("resource", "query", "columns", "filter", "limit", "offset"),
     "contentWrite": ("resource", "operation", "id", "values"),
@@ -472,7 +474,15 @@ NATIVE_COMMAND_FIELDS.update({"usbRequestAccess": ("deviceId",), "usbTransfer": 
 NATIVE_COMMAND_FIELDS.update({"jobStart": ("command", "idempotencyKey", "retentionHours"), "jobStatus": ("jobId",), "jobsList": ("offset", "limit"), "jobCancel": ("jobId",)})
 NATIVE_COMMAND_FIELDS.update({"notificationManage": ("action", "notificationKey", "actionToken", "text", "durationMilliseconds"), "fileManage": ("action", "path", "destination", "recursive", "query", "maximumEntries", "offset", "limit")})
 NATIVE_COMMAND_FIELDS.update({'androidApiDiscover': ('className', 'query', 'limit', 'offset'), 'androidApiRead': ('className', 'member', 'target', 'arguments', 'thread', 'timeoutMilliseconds'), 'androidApiInvoke': ('className', 'member', 'target', 'arguments', 'thread', 'timeoutMilliseconds', 'idempotencyKey'), 'androidApiObjects': ('objectRef', 'afterSequence', 'limit', 'offset'), 'androidApiRelease': ('objectRef', 'close'), 'androidApiCallback': ('className', 'returns', 'constructor', 'arguments')})
+NATIVE_COMMAND_FIELDS.update({
+    "searchQuery": ("collection", "query", "limit", "offset", "fuzzy"),
+    "searchRead": ("collection", "id"),
+    "searchCollections": ("limit", "offset"),
+    "searchIndex": ("collection", "action", "documents", "ids"),
+})
 NATIVE_READ_COMMANDS = {
+    "remoteAccessInfo",
+    "searchQuery", "searchRead", "searchCollections",
     "nativeDataStatus", "contentQuery", "smsStatus", "simList", "clipboardGet",
     "sensorReadings", "cameraList", "speechVoices",
     "locationGet", "notificationsList", "mediaSessionsList", "deviceState", "appIcon",
@@ -483,6 +493,12 @@ NATIVE_READ_COMMANDS.update({"speechLanguages", "speechModelStatus"})
 NATIVE_READ_COMMANDS.update({"jobStatus", "jobsList", "geocode", "gnssStatus", "nfcRead", "bluetoothScan"})
 NATIVE_READ_COMMANDS.update({"speechRecognitionStatus", "bluetoothDevices", "usbDevices", "nfcStatus", "wifiScanResults", "audioDevices", "cameraCapabilities"})
 NATIVE_MCP_TOOLS = {
+    "remoteAccessInfo": "dikciz_remote_access_info",
+    "remoteTokens": "dikciz_remote_tokens",
+    "searchQuery": "dikciz_search_query",
+    "searchRead": "dikciz_search_read",
+    "searchCollections": "dikciz_search_collections",
+    "searchIndex": "dikciz_search_index",
     "nativeDataStatus": "dikciz_native_data_status",
     "contentQuery": "dikciz_content_query", "contentWrite": "dikciz_content_write",
     "contentBatch": "dikciz_content_batch", "smsSend": "dikciz_sms_send",

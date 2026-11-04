@@ -6,6 +6,7 @@ This directory contains live Android acceptance tests, their data, and external-
 
 | Path | Responsibility |
 | --- | --- |
+| `search/` | Deterministic corpus generation, preservation of code content and stale-output rejection. Live `test_local_search` scenarios verify real Android SQLite, all bindings and trusted agent access. |
 | `conftest.py` | Guard Android Lab device operations, pass their environment, report failures, and collect the log audit last. |
 | [Live controls](live_control/README.md) | Pytest scenarios and helpers for real Android UI, persistence, automation, and both control planes. |
 | [Fixtures](fixtures/README.md) | Version 4 configuration used as the isolated starting home. |
@@ -117,3 +118,5 @@ Peripheral selectors validate NFC tag selection and unavailable hardware, Blueto
 `test_microphone_stream_` covers actual PCM byte/frame accounting, cross-transport replay, hardware ownership, explicit replay loss, pagination/capacity, duration expiry, permission/startup cleanup, background capture and the owner notification Stop action. Use the minified APK override to check release-mode behavior. Physical audio quality and carrier call audio are separate from these emulator checks.
 
 `make dikciz-android-sdk-test` checks generated public SDK contracts, policy validity and deterministic assets. The focused live selector `test_android_sdk` covers typed reads, writes, SDK objects/callbacks, idempotency, pagination and both trusted read-only enforcement layers using mock provider endpoints. See [SDK bridge](../docs/android-sdk.md).
+
+Named-token coverage runs with `make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_remote_tokens` after building the debug APK. It covers scope-filtered schemas/search, forced-call denial across three transports, live revocation, session identity, native management and credential storage.

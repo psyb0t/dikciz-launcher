@@ -39,10 +39,12 @@ All Kotlin files below live in `kotlin/org/fossify/home/dikciz/`.
 | `DikcizChatRuntime.kt`, `DikcizChatAgent.kt`, `DikcizChatService.kt` | Serialized persistent queue, tool loop, context selection, event routing, live activity notifications, turn-bound Stop and reply notifications. |
 | `DikcizChatStore.kt`, `DikcizChatSettings.kt`, `DikcizChatProvider.kt`, `DikcizChatAnthropicStream.kt` | SQLite transcripts, Keystore-encrypted credentials, validated budgets and Koog provider/SSE adapters. See [embedded chat](../../../docs/embedded-chat.md). |
 | `DikcizChatToolArguments.kt` | Normalizes empty provider calls, rejects non-object arguments before execution and makes old tool history safe for provider replay without discarding recorded outcomes. |
+| `search/LocalSearchIndex.kt`, `DikcizSearch.kt` | Reusable SQLite FTS4 persistence, BM25 ranking, aliases, spelling correction, protected documentation/tool collections and shared search commands. See [offline search](../../../docs/search.md). |
 | `DikcizMcpResources.kt` | Maps exact documentation URIs to packaged Markdown, validates resource parameters and paginates the fixed catalog. |
 | `DikcizDeviceAccessActivity.kt` | Owns the separate full-access setup task, recomputes Android grants on resume and exposes its active controls to the existing Home command target. |
 | `DikcizPermissionRequests.kt` | Validates permission-recovery options, persists targeted owner reviews and posts permission notifications without replaying commands. |
-| `DikcizControlPorts.kt`, `DikcizRemoteAccessAuth.kt` | Own device listen-address and port settings and bearer-password verification. |
+| `DikcizControlPorts.kt`, `DikcizRemoteAccessAuth.kt` | Own listener settings, owner-password verification and atomic named-token storage. |
+| `DikcizRemotePolicy.kt`, `DikcizRemoteTokensSettings.kt` | Define token grants, filtered discovery/results and native token management. |
 | `DikcizAutomation.kt`, `DikcizAutomationActionDocument.kt` | Define policies, events, subscriptions and typed action documents. |
 | `DikcizAutomationService.kt`, `DikcizAutomationRuntime.kt`, `DikcizLuaRuntime.kt` | Collect Android events, dispatch subscriptions, enforce policies and execute Lua. |
 | `DikcizScriptWidgetBridge.kt`, `DikcizLuaScriptRunStatus.kt` | Resolve page/widget addresses and represent persisted script outcomes. |
@@ -79,6 +81,8 @@ Keep product changes in this source set or a Dikciz-specific combined source set
 Pages use a fixed native grid and transparent canvases over one launcher background. Placement and grid changes must respect bounds and collisions. Locks prevent editing while preserving widget actions and navigation. Style parsing belongs in `DikcizStyleCodec`, so editors and renderers use the same rules.
 
 Both remote listeners default to device loopback and execute through the same command target. The owner can configure a numeric network listen address in `control/ports.json`. The configuration watcher applies address and port edits by restarting the listeners, without rebuilding the home. Keep human accessibility labels readable and machine identities in the semantic snapshot. The [automation-control guide](../../../docs/automation-control.md) owns commands, events, authentication, origin checks and limits. Debug-only event fixtures live in [the combined debug source set](../dikcizDebug/README.md); the control planes remain in this release source set.
+
+Remote credentials resolve to trusted access outside request JSON. The shared executor checks command and resource/action grants before dispatch. Tool discovery, provider enums and tools search use the same policy. MCP sessions bind to identity; WebSocket snapshots and broadcasts check grants and live credential validity. Local chat, HTML and Lua keep direct owner bindings; chat read-only remains an independent execution restriction. See [remote access tokens](../../../docs/remote-access-tokens.md).
 
 MCP documentation resources use a fixed URI allowlist and immutable APK assets. The catalog returns eight descriptors per page and enforces a 4096-byte UTF-8 budget per section. Asset reads run on MCP workers, with cached content and new response objects per request. Authentication, Origin and the selected modern/legacy protocol checks precede resource dispatch. The [resource guide](../../../docs/mcp-resources.md) owns the public contract.
 

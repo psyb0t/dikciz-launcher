@@ -184,6 +184,7 @@ internal object DikcizAccessibilityAutomation {
         nodeID: String,
         actionName: String,
         text: String?,
+        allowDikcizControl: Boolean = true,
     ): JSONObject {
         val activeService = requireService()
         val descriptor = snapshots[snapshotID]
@@ -208,6 +209,11 @@ internal object DikcizAccessibilityAutomation {
                 ERROR_WINDOW_UNAVAILABLE,
                 MESSAGE_WINDOW_UNAVAILABLE,
             )
+        if (!allowDikcizControl && root.packageName?.toString().let {
+                it == activeService.packageName || it == "eu.psyb0t.dikciz.launcher" || it == "eu.psyb0t.dikciz.launcher.debug"
+            }) {
+            throw DikcizAutomationRequestException(DikcizRemotePolicy.ERROR_DENIED, "Scoped UI control cannot change Dikciz")
+        }
         if (!matchesDescriptor(descriptor, root)) {
             throw DikcizAccessibilityAutomationException(ERROR_SNAPSHOT_STALE, MESSAGE_SNAPSHOT_STALE)
         }
@@ -478,7 +484,7 @@ internal object DikcizAccessibilityAutomation {
             .put(KEY_NODE_ID, nodeID)
             .put(KEY_PACKAGE_NAME, boundedText(packageName))
             .put(KEY_SCROLLABLE, isScrollable)
-            .put(KEY_TEXT, boundedText(text))
+            .put(KEY_TEXT, if (isPassword) JSONObject.NULL else boundedText(text))
             .put(KEY_VIEW_ID_RESOURCE_NAME, boundedText(viewIdResourceName))
             .put(KEY_VISIBLE_TO_USER, isVisibleToUser)
     }

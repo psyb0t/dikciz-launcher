@@ -13,6 +13,7 @@ Start with the [README](../README.md) for installation, or choose the task below
 | Look up every typed action, its fields and Lua policy name | [Typed actions](typed-actions.md) |
 | Check Android grants, foreground requirements and privilege boundaries | [Android access](android-access.md) |
 | Write Lua and HTML, publish events, use policies and the native bridge | [Scripting tutorial](scripting-tutorial.md) |
+| Give clients named credentials with separate grants | [Remote access tokens](remote-access-tokens.md) |
 | Connect HTTP/WebSocket/MCP, authenticate, discover and request permissions | [Automation control](automation-control.md) |
 | Look up contacts, send tracked SMS, use calendars, calls, clipboard and media | [Native device data](native-device-control.md) |
 | Resume custom and native automation events | [Event replay](event-replay.md) |
@@ -34,6 +35,7 @@ Start with the [README](../README.md) for installation, or choose the task below
 | Browse and transfer files, install APKs, run/stream shell | [Files, APKs and shell](files-and-apks.md) |
 | Restart, hand off release/debug control, inspect packages and capture screens | [Remote device control](remote-device-control.md) |
 | Connect Claude Code, Codex and other agents | [Agent integrations](agent-integrations.md) |
+| Search offline documentation, recipes, tool schemas and owner collections | [Offline search](search.md) |
 | Fetch short guides and recipes through MCP | [MCP resources](mcp-resources.md) |
 | Submit, poll and cancel durable commands | [Command jobs](command-jobs.md) |
 | Dismiss, snooze and reply to notifications | [Notification management](notification-management.md) |

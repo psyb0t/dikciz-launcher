@@ -15,6 +15,7 @@ These scripts connect the Dikciz checkout to Android Lab, exercise the control p
 | `dikciz-upstream.sh` | Compare, stage, validate, back up, and replace Fossify source through checked overlays. |
 | `test-upstream-refresh.sh` | Exercise refresh preservation and overlay contracts against a temporary source tree. |
 | `generate-dikciz-android-sdk.py` | Verify the pinned public SDK source and generate indexed class/member assets and read classifications. See [SDK bridge](../docs/android-sdk.md). |
+| `generate-dikciz-search.py` | Deterministically package Markdown sections and reviewed aliases for offline search. Make exposes generation, stale-corpus checks and generator tests. |
 | `lint.sh`, `format.sh` | Check or format shell scripts and compile-check Python scripts. |
 
 ## Boundaries

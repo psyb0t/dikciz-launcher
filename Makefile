@@ -282,7 +282,7 @@ version: ## Print the launcher repository version
 release-apk: ensure-dev-image ## Build the signed Dikciz release APK into dist/ (needs SIGNING_KEY_ALIAS, SIGNING_KEY_PASSWORD, SIGNING_STORE_PASSWORD)
 	@[[ "$(DIKCIZ_RELEASE_KEYSTORE)" != /* && "$(DIKCIZ_RELEASE_KEYSTORE)" != *..* ]] || { printf '%s\n' "DIKCIZ_RELEASE_KEYSTORE must be a workspace-relative path" >&2; exit 1; }
 	@$(subst -w /work,-e SIGNING_KEY_ALIAS -e SIGNING_KEY_PASSWORD -e SIGNING_STORE_PASSWORD -e SIGNING_STORE_FILE=/work/$(DIKCIZ_RELEASE_KEYSTORE) -e DIKCIZ_RELEASE_CERT_SHA256=$(DIKCIZ_RELEASE_CERT_SHA256) -w /work,$(DEV_RUN)) bash scripts/dikciz-release-apk.sh "$(DIKCIZ_RELEASE_APK)"
-test-tooling: audit-compose dikciz-command-docs-test dikciz-android-sdk-test ## Check lab contracts, command docs and reversible upstream refresh
+test-tooling: audit-compose dikciz-command-docs-test dikciz-android-sdk-test dikciz-search-docs-test dikciz-search-docs-check ## Check lab contracts, command docs and reversible upstream refresh
 	@$(DEV_RUN) bash scripts/test-upstream-refresh.sh
 check-images: emulator-ready ## Check both local lab images, installing the pinned release once the SDK license is accepted
 build: GRADLE_TASK := :app:assembleDikcizDebug
@@ -322,9 +322,20 @@ app-test: gradle ## Run the default Fossify-compatible local Kotlin tests
 app-lint: GRADLE_TASK := :app:lintCoreDebug
 app-lint: gradle ## Run Android lint for the default Fossify-compatible debug variant
 
-lint: ensure-dev-image ## Check scripts and run Android lint for minified Dikciz
+lint: ensure-dev-image dikciz-search-docs-check ## Check scripts and run Android lint for minified Dikciz
 	@$(DEV_RUN) bash scripts/lint.sh
 	@$(MAKE) --no-print-directory gradle GRADLE_TASK=:app:lintDikcizMinified
+
+.PHONY: dikciz-search-docs dikciz-search-docs-check dikciz-search-docs-test
+
+dikciz-search-docs: ensure-dev-image ## Generate the packaged offline documentation search corpus
+	@$(DEV_RUN) python3 scripts/generate-dikciz-search.py
+
+dikciz-search-docs-check: ensure-dev-image ## Reject a stale packaged documentation search corpus
+	@$(DEV_RUN) python3 scripts/generate-dikciz-search.py --check
+
+dikciz-search-docs-test: ensure-dev-image ## Test deterministic documentation search corpus generation
+	@$(DEV_RUN) python3 -m pytest -q tests/search
 
 .PHONY: dikciz-command-docs dikciz-command-docs-test
 

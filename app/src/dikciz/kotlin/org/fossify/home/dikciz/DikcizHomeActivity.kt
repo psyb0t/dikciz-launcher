@@ -272,6 +272,7 @@ class DikcizHomeActivity : Activity() {
                 return try {
                     DikcizActivityLaunches.capture { executeAutomationCommand(command) }.also { result ->
                         if (command.type == DikcizNativeCommands.TYPE_SIM_LIST &&
+                            command.access?.let { it.isOwner || DikcizRemotePolicy.PERMISSION_SIM_READ in it.permissions } != false &&
                             !result.optBoolean(DikcizSimSubscriptions.KEY_NUMBER_PERMISSION_GRANTED)
                         ) {
                             result.put(DikcizPermissionRequests.KEY_RECOVERY,
@@ -283,6 +284,10 @@ class DikcizHomeActivity : Activity() {
                     }
                 } catch (exception: DikcizAutomationRequestException) {
                     val recovery = if (command.type == DikcizNativeCommands.TYPE_SIM_LIST &&
+                        command.access?.let { it.isOwner || DikcizRemotePolicy.PERMISSION_SIM_READ in it.permissions } == false
+                    ) {
+                        null
+                    } else if (command.type == DikcizNativeCommands.TYPE_SIM_LIST &&
                         exception.code == DikcizSimSubscriptions.ERROR_PHONE_STATE_PERMISSION
                     ) {
                         permissionRequests.request(DikcizDeviceAccessRequirement.PhoneNumbers, command.autoRequestPermissions)
@@ -3830,7 +3835,9 @@ class DikcizHomeActivity : Activity() {
             .put(KEY_CONTENT_DESCRIPTION, boundedAutomationText(view.contentDescription?.toString()))
             .put(
                 KEY_TEXT,
-                boundedAutomationText((view as? TextView)?.text?.toString()),
+                boundedAutomationText(if (view is EditText &&
+                    view.transformationMethod is android.text.method.PasswordTransformationMethod) null
+                    else (view as? TextView)?.text?.toString()),
             )
             .put(
                 KEY_BOUNDS,
@@ -4109,6 +4116,7 @@ class DikcizHomeActivity : Activity() {
                 snapshotID = command.request.getString(DikcizAutomationControlPlane.KEY_SNAPSHOT_ID),
                 nodeID = command.request.getString(DikcizAutomationControlPlane.KEY_NODE_ID),
                 actionName = action,
+                allowDikcizControl = command.access?.isOwner != false,
                 text = if (command.request.has(DikcizAutomationControlPlane.KEY_TEXT)) {
                     command.request.getString(DikcizAutomationControlPlane.KEY_TEXT)
                 } else {
@@ -4524,7 +4532,7 @@ class DikcizHomeActivity : Activity() {
                 }
             }
 
-            is Switch -> {
+            is CompoundButton -> {
                 if (!view.isEnabled) {
                     false
                 } else {
@@ -7226,10 +7234,10 @@ class DikcizHomeActivity : Activity() {
                         R.string.dikciz_remote_auth_password_cleared,
                         Toast.LENGTH_SHORT,
                     ).show()
-                } catch (_: DikcizRemoteAccessAuthException) {
+                } catch (exception: DikcizRemoteAccessAuthException) {
                     Toast.makeText(
                         this@DikcizHomeActivity,
-                        R.string.dikciz_remote_auth_record_error,
+                        exception.message ?: getString(R.string.dikciz_remote_auth_record_error),
                         Toast.LENGTH_SHORT,
                     ).show()
                 }
@@ -7237,6 +7245,24 @@ class DikcizHomeActivity : Activity() {
         }
         form.addView(saveButton)
         form.addView(clearButton)
+        val tokensButton = Button(this).apply {
+            text = "Manage access tokens"
+            contentDescription = text
+            setOnClickListener {
+                DikcizRemoteTokensSettings(this@DikcizHomeActivity, remoteAccessAuth) { tokenDialog, views ->
+                    showActiveDialog(tokenDialog, onShown = {
+                        clearRemoteAuthAutomationViews()
+                        automationViews.keys.filter { it.startsWith("remote-tokens:") }.toList().forEach(automationViews::remove)
+                        views().forEach { (id, view) -> registerAutomationView(id, view) }
+                    }, onDismiss = {
+                        if (activeDialog === tokenDialog) {
+                            automationViews.keys.filter { it.startsWith("remote-tokens:") }.toList().forEach(automationViews::remove)
+                        }
+                    })
+                }.show()
+            }
+        }
+        form.addView(tokensButton)
         authEnabled.setOnCheckedChangeListener { _, enabled ->
             if (!authEnabled.isPressed) {
                 return@setOnCheckedChangeListener
@@ -7246,11 +7272,11 @@ class DikcizHomeActivity : Activity() {
                 val updatedStatus = remoteAccessAuth.status()
                 summary.text = remoteAccessAuthSummary(updatedStatus)
                 summary.contentDescription = summary.text
-            } catch (_: DikcizRemoteAccessAuthException) {
+            } catch (exception: DikcizRemoteAccessAuthException) {
                 authEnabled.isChecked = !enabled
                 Toast.makeText(
                     this@DikcizHomeActivity,
-                    R.string.dikciz_remote_auth_record_error,
+                    exception.message ?: getString(R.string.dikciz_remote_auth_record_error),
                     Toast.LENGTH_SHORT,
                 ).show()
             }
@@ -7264,6 +7290,7 @@ class DikcizHomeActivity : Activity() {
             dialog,
             onShown = {
                 clearRemoteAuthAutomationViews()
+                registerAutomationView("remote-auth:tokens", tokensButton)
                 registerAutomationView(SEMANTIC_REMOTE_AUTH_PASSWORD, passwordInput)
                 registerAutomationView(SEMANTIC_REMOTE_AUTH_PASSWORD_CONFIRMATION, confirmationInput)
                 registerAutomationView(SEMANTIC_REMOTE_AUTH_ENABLED, authEnabled)

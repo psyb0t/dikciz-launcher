@@ -2,6 +2,24 @@
 
 This history includes the releases made while Dikciz and Android Lab shared one repository.
 
+## [0.30.9] - 2026-11-04
+
+### Added
+
+- Named remote access tokens with per-feature grants, native management, filtered tool discovery and search, and shared execution enforcement across HTTP, WebSocket and MCP.
+- Immediate credential revocation checks, identity-bound MCP sessions and restricted WebSocket snapshots/event feeds.
+- Offline SQLite full-text search for packaged guides, public manual sections and installed tool schemas, with authored aliases, weighted ranking, prefixes, spelling correction and persistent owner collections.
+- Shared search, full-text reads, collection listing and atomic index commands through MCP, HTTP, WebSocket, HTML and Lua.
+
+### Changed
+
+- Embedded chat searches relevant documentation directly and uses ranked tool discovery, preserving trusted read-only visibility and execution checks.
+- Tooling and lint reject stale packaged search documentation.
+
+### Fixed
+
+- Native semantic checkbox taps report success after changing the checked state, including access-token grant selection.
+
 ## [0.30.8] - 2026-11-03
 
 ### Added

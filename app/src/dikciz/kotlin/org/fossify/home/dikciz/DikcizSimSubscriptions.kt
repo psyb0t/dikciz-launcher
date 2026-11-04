@@ -12,15 +12,16 @@ internal class DikcizSimSubscriptions(
     private val context: Context,
     private val logger: DikcizLogger,
 ) {
-    fun read(request: JSONObject): JSONObject {
+    fun read(request: JSONObject, readNumbers: Boolean = true): JSONObject {
         if (context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
             DikcizNativeCommands.failure(ERROR_PHONE_STATE_PERMISSION, "Android phone-state permission is required")
         }
         val manager = context.getSystemService(SubscriptionManager::class.java)
             ?: DikcizNativeCommands.failure(DikcizNativeCommands.ERROR_UNAVAILABLE, "Android subscription service is unavailable")
-        val canReadNumbers = context.checkSelfPermission(Manifest.permission.READ_PHONE_NUMBERS) == PackageManager.PERMISSION_GRANTED
+        val canReadNumbers = readNumbers && context.checkSelfPermission(Manifest.permission.READ_PHONE_NUMBERS) == PackageManager.PERMISSION_GRANTED
         val items = manager.activeSubscriptionInfoList.orEmpty().map { info ->
-            number(manager, info)
+            (if (readNumbers) number(manager, info) else JSONObject()
+                .put(KEY_NUMBER, JSONObject.NULL).put(KEY_NUMBER_STATUS, "access_denied"))
                 .put("subscriptionId", info.subscriptionId)
                 .put("slotIndex", info.simSlotIndex)
                 .put("displayName", info.displayName?.toString()?.take(DikcizNativeCommands.MAXIMUM_TEXT) ?: JSONObject.NULL)

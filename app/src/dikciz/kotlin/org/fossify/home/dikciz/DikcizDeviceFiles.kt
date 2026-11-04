@@ -307,7 +307,7 @@ internal object DikcizFileCommands {
 
     private fun credentialFiles(): List<File> {
         val record = File(android.os.Environment.getExternalStorageDirectory(), "Dikciz/" + DikcizRemoteAccessAuth.CONTROL_DIRECTORY_NAME + "/" + DikcizRemoteAccessAuth.RECORD_FILE_NAME).canonicalFile
-        return listOf(record, File(record.path + ".bak"), File(record.path + ".new"))
+        return listOf(record, File(record.path + ".bak"), File(record.path + ".new"), File(record.path + ".lock"))
     }
 
     fun isCredentialPath(file: File): Boolean = credentialFiles().any { it == file.canonicalFile }

@@ -61,8 +61,10 @@ Read the operation's terminal status. Request acceptance is not verified app lau
 
 ## Credentials and privilege limits
 
-File commands deny `/sdcard/Dikciz/control/remote-auth.json`, its atomic `.bak`/`.new` aliases and canonical aliases. File management also refuses moves/deletes of containing ancestors. HTTP binary transfers use the same file-command checks. This restriction covers those APIs, not an independently authorized shell: an app-UID or root shell can access what its Android identity permits. The verifier is not guaranteed ADB-only.
+File commands deny `/sdcard/Dikciz/control/remote-auth.json`, its atomic `.bak`/`.new` aliases, record lock and canonical aliases. File management also refuses moves/deletes of containing ancestors. HTTP binary transfers use the same file-command checks. This restriction covers those APIs, not an independently authorized shell: an app-UID or root shell can access what its Android identity permits. The verifier is not guaranteed ADB-only.
 
 Enabling a Lua script or installing trusted HTML gives its command binding owner authority. Lua returned-action policies control automatic delivery and returned typed actions; they do not sandbox `context.request`. Keep untrusted code out of enabled scripts/widgets. Safe mode blocks ordinary mutations while preserving documented diagnostics and recovery.
 
 Dikciz does not expose every Android SDK method. Ordinary permissions do not grant cellular call-audio capture/injection, silent grants, arbitrary private databases or protected system settings. Camera/microphone privacy controls remain active. A stopped app cannot revive itself over its absent listener; fastboot/bootloader modes run outside the Android process. The [coverage table](capability-coverage.md) lists remaining implementations separately from platform restrictions.
+
+[Named access tokens](remote-access-tokens.md) restrict remote clients before Android access checks. Grants are separate from Android permissions and from local chat read-only mode. Shell, SDK and scripting authority require owner access because they can bypass narrower data grants.

@@ -168,7 +168,7 @@ internal object DikcizNativeCommands {
         Definition(DikcizHardwareControl.TYPE_AUDIO, "dikciz_audio_devices", "List Android audio input and output devices, sample rates and channel counts.", PAGE_FIELDS, emptySet(), readOnly = true),
         Definition(DikcizHardwareControl.TYPE_CAMERA, "dikciz_camera_capabilities", "Read JPEG and recorder sizes, camera frame-rate ranges, digital zoom, exposure range/EV step, sensor orientation and autofocus modes for one camera.", mapOf("cameraId" to string("Camera ID from cameraList.", 128)), setOf("cameraId"), readOnly = true),
         Definition(TYPE_DEVICE_STATE, "dikciz_device_state", "Read screen, battery, charging, audio, network, RAM, storage, CPU samples and bounded sensor inventory. System CPU may be unavailable under Android restrictions; sensor inventory does not claim live readings.", emptyMap()),
-    ).plus(DikcizMicrophoneStreams.DEFINITIONS).plus(DikcizUssdControl.DEFINITION).plus(DikcizCameraVideo.DEFINITION).plus(DikcizEventJournal.DEFINITIONS).plus(DikcizShellSessions.DEFINITIONS).plus(DikcizSpeechModels.DEFINITIONS).plus(DikcizWifiControl.DEFINITIONS).plus(DikcizMicrophoneSession.DEFINITIONS).plus(DikcizAudioPlayback.DEFINITIONS).plus(DikcizNotificationControl.DEFINITIONS).plus(DikcizFileManagement.DEFINITIONS).plus(DikcizCommandJobs.DEFINITIONS).plus(DikcizUsbControl.DEFINITIONS).plus(DikcizLocationServices.DEFINITIONS).plus(DikcizNfcControl.DEFINITIONS).plus(DikcizBluetoothControl.DEFINITIONS).plus(DikcizGattControl.DEFINITIONS).plus(DikcizChatCommands.DEFINITION).plus(DikcizAndroidSdkCommands.DEFINITIONS).associateBy(Definition::type)
+    ).plus(DikcizRemotePolicy.DEFINITIONS).plus(DikcizSearch.DEFINITIONS).plus(DikcizMicrophoneStreams.DEFINITIONS).plus(DikcizUssdControl.DEFINITION).plus(DikcizCameraVideo.DEFINITION).plus(DikcizEventJournal.DEFINITIONS).plus(DikcizShellSessions.DEFINITIONS).plus(DikcizSpeechModels.DEFINITIONS).plus(DikcizWifiControl.DEFINITIONS).plus(DikcizMicrophoneSession.DEFINITIONS).plus(DikcizAudioPlayback.DEFINITIONS).plus(DikcizNotificationControl.DEFINITIONS).plus(DikcizFileManagement.DEFINITIONS).plus(DikcizCommandJobs.DEFINITIONS).plus(DikcizUsbControl.DEFINITIONS).plus(DikcizLocationServices.DEFINITIONS).plus(DikcizNfcControl.DEFINITIONS).plus(DikcizBluetoothControl.DEFINITIONS).plus(DikcizGattControl.DEFINITIONS).plus(DikcizChatCommands.DEFINITION).plus(DikcizAndroidSdkCommands.DEFINITIONS).associateBy(Definition::type)
     val FIELDS = DEFINITIONS.mapValues { (_, definition) -> definition.fields.keys }
     val REQUIRED_FIELDS = DEFINITIONS.mapValues { (_, definition) -> definition.required }
     val TOOLS = DEFINITIONS.values.associate { it.tool to it.type }
@@ -178,6 +178,8 @@ internal object DikcizNativeCommands {
     fun validate(type: String, request: JSONObject, envelope: Boolean = false) {
         val definition = DEFINITIONS.getValue(type)
         validateFields(request, definition.fields, definition.required, if (envelope) ENVELOPE else emptySet())
+        if (type == DikcizRemotePolicy.TYPE_TOKENS) DikcizRemotePolicy.validate(request)
+        if (type in DikcizSearch.TYPES) DikcizSearch.validate(type, request)
         if (type in DikcizAndroidSdkCommands.TYPES) DikcizAndroidSdkCommands.validate(request)
         if (type in DikcizMicrophoneStreams.TYPES) DikcizMicrophoneStreams.validate(type, request)
         if (type in DikcizEventJournal.TYPES) DikcizEventJournal.validate(type, request)

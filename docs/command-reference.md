@@ -2,7 +2,7 @@
 
 <!-- Regenerate with make dikciz-command-docs from captured tools/list discovery. -->
 
-This reference contains 135 discovered MCP tools and their complete input schemas. Discovery from the installed build is authoritative. Transport-independent procedures, Android permissions and results are described in the [automation guide](automation-control.md), [documentation index](index.md) and focused task guides. MCP tools use the same ordinary commands as HTTP, WebSocket, HTML and Lua.
+This reference contains 141 discovered MCP tools and their complete input schemas. Discovery from the installed build is authoritative. Transport-independent procedures, Android permissions and results are described in the [automation guide](automation-control.md), [documentation index](index.md) and focused task guides. MCP tools use the same ordinary commands as HTTP, WebSocket, HTML and Lua.
 
 Schemas include nested fields, required values, defaults and bounds. autoRequestPermissions requests owner review; it never grants access or retries the operation. Inspect returned state and errors before continuing.
 
@@ -3015,6 +3015,25 @@ Read installed version and launch component through Android PackageManager witho
 }
 ```
 
+## dikciz_remote_access_info
+
+Read the verified caller identity and effective remote-token grants. Local owner bindings need no bearer token. Does not return credentials or verifiers.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
 ## dikciz_remote_auth_disable
 
 Allow headerless local-tunnel control while retaining the existing phone-configured verifier.
@@ -3065,6 +3084,95 @@ Read remote WebSocket and MCP bearer-auth state without exposing its verifier.
       "default": false
     }
   },
+  "additionalProperties": false
+}
+```
+
+## dikciz_remote_tokens
+
+Owner-only remote access-token administration. catalog lists finite permission grants. list returns metadata; create requires name and permissions and returns its generated token once. update requires id and optional name/permissions/enabled; revoke requires id. Authentication must be enabled before creating tokens. Existing tokens, including disabled tokens, prevent disabling or clearing authentication. Local owner bindings and full-owner credentials can administer tokens. Scoped credentials cannot.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "maxLength": 16,
+      "enum": [
+        "catalog",
+        "list",
+        "create",
+        "update",
+        "revoke"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "maxLength": 16,
+      "pattern": "^[a-f0-9]{16}$"
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 1
+    },
+    "permissions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "maxLength": 64,
+        "enum": [
+          "apps.launch",
+          "apps.read",
+          "bluetooth.read",
+          "calendar.read",
+          "calendar.write",
+          "calls.control",
+          "calls.read",
+          "contacts.read",
+          "contacts.write",
+          "device.control",
+          "device.read",
+          "events.read",
+          "files.read",
+          "location.read",
+          "logs.read",
+          "media.read",
+          "nfc.read",
+          "notifications.control",
+          "notifications.read",
+          "owner",
+          "screen.capture",
+          "search.read",
+          "search.write",
+          "sensors.read",
+          "sim.read",
+          "sms.read",
+          "sms.send",
+          "speech.output",
+          "ui.control",
+          "ui.read",
+          "usb.read",
+          "wifi.read"
+        ]
+      }
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "action"
+  ],
   "additionalProperties": false
 }
 ```
@@ -3199,6 +3307,213 @@ Scroll the selected page to a semantic ID.
   "required": [
     "semanticId"
   ]
+}
+```
+
+## dikciz_search_collections
+
+List local search collections and document counts. docs and tools are protected, rebuilt from the installed APK. Other collections contain only explicitly indexed owner content.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20,
+      "default": 5
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000,
+      "default": 0
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## dikciz_search_index
+
+Atomically upsert, remove or clear owner search documents. Reserved docs/tools collections cannot be changed. Upsert replaces IDs and accepts at most 32 documents with id, title, text and optional aliases/uri. Remove requires ids; clear removes one collection. Search indexes do not crawl files or private data. Maximum 2000 documents per custom collection, 10000 overall. Mutations are unavailable in read-only mode.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "collection": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_.-]{0,63}$",
+      "description": "Lowercase collection name. docs and tools are protected built-ins; other names scope explicitly indexed owner text."
+    },
+    "action": {
+      "type": "string",
+      "maxLength": 16,
+      "enum": [
+        "upsert",
+        "remove",
+        "clear"
+      ]
+    },
+    "documents": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 256,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/#-]{0,255}$",
+            "description": "Exact opaque document ID. It is a database key, never a file path."
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1,
+            "description": "Human-readable document title."
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 32768,
+            "minLength": 1,
+            "description": "Nonempty searchable document text."
+          },
+          "aliases": {
+            "type": "string",
+            "maxLength": 8192,
+            "description": "Optional synonyms and alternative task descriptions."
+          },
+          "uri": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Optional source reference, never fetched automatically."
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "maxLength": 256,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/#-]{0,255}$",
+        "description": "Exact opaque document ID. It is a database key, never a file path."
+      }
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "collection",
+    "action"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_search_query
+
+Search offline collections with weighted BM25, exact identifier boosts, prefixes, authored aliases and bounded typo correction. No model or network. collection defaults to docs; tools returns current input schemas permitted by trusted turn access. Results include excerpts and IDs for searchRead. Plain text only, no SQL or FTS operators. Follow total/hasMore with limit and offset.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20,
+      "default": 5
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000,
+      "default": 0
+    },
+    "collection": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_.-]{0,63}$",
+      "description": "Lowercase collection name. docs and tools are protected built-ins; other names scope explicitly indexed owner text.",
+      "default": "docs"
+    },
+    "query": {
+      "type": "string",
+      "maxLength": 512,
+      "minLength": 1,
+      "description": "Plain text task, identifier or keywords, up to 16 normalized terms."
+    },
+    "fuzzy": {
+      "type": "boolean",
+      "default": true
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "query"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_search_read
+
+Read the full text of one exact search result ID in a collection. docs is the default. tools returns a live contract only when permitted by trusted turn access. Never reads paths or external URLs.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "collection": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_.-]{0,63}$",
+      "description": "Lowercase collection name. docs and tools are protected built-ins; other names scope explicitly indexed owner text.",
+      "default": "docs"
+    },
+    "id": {
+      "type": "string",
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/#-]{0,255}$",
+      "description": "Exact opaque document ID. It is a database key, never a file path."
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
 }
 ```
 

@@ -228,13 +228,16 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
         fun decode(document: String): Message = JSON.decodeFromString(Message.serializer(), document)
         private fun parameter(name: String, description: String) = ToolParameterDescriptor(name, description, ToolParameterType.String)
         val TOOLS = listOf(
-            ToolDescriptor("phone_tools", "Search the phone MCP tool catalogue and return input schemas. Discovery never executes an action. Search one keyword at a time; try a shorter keyword if empty. Use phone_call to execute a discovered tool. Follow hasMore with nextOffset to see more tools.",
-                requiredParameters = listOf(parameter("query", "Case-insensitive tool name or description search; empty lists the first page.")),
+            ToolDescriptor("phone_tools", "Search the phone MCP tool catalogue and return input schemas. Discovery never executes an action. Search a task, exact identifier or keywords. Ranked results support aliases, prefixes and typo correction. Use phone_call to execute a discovered tool. Follow hasMore with nextOffset to see more tools.",
+                requiredParameters = listOf(parameter("query", "Ranked task or identifier search; empty lists the first page.")),
                 optionalParameters = listOf(parameter("offset", "Decimal offset for the next page, initially 0."))),
-            ToolDescriptor("phone_call", "Call an exact tool from current phone_tools discovery. Supply its required native parameters with their advertised types inside the arguments_json string. Returns its real result, errors, permission recovery and a live toolContract when rejected. Never assume acceptance means completion.",
+            ToolDescriptor("phone_search", "Search offline phone documentation, recipes or current tool schemas. Returns ranked excerpts, exact IDs and URIs. No model or network required. Read a returned URI with phone_resource, or use dikciz_search_read through phone_call for the full document. Search a concise task; do not enumerate the entire resource catalog.",
+                requiredParameters = listOf(parameter("query", "Plain text task, keywords or identifier, at most 16 terms.")),
+                optionalParameters = listOf(parameter("collection", "docs by default, tools for exact installed contracts, or an owner collection."), parameter("limit", "Decimal string from 1 to 20; defaults to 5."), parameter("offset", "Decimal string from 0 to 10000; defaults to 0."))),
+            ToolDescriptor("phone_call", "Call an exact tool from current phone_tools or phone_search discovery. Supply its required native parameters with their advertised types inside the arguments_json string. Returns its real result, errors, permission recovery and a live toolContract when rejected. Never assume acceptance means completion.",
                 requiredParameters = listOf(parameter("name", "Exact discovered MCP tool name."), parameter("arguments_json", "String containing a strict JSON object matching the discovered inputSchema, including every required field. Use the string {} when the native tool takes no arguments."))),
             ToolDescriptor("phone_resources", "List the phone's short MCP documentation resources and recipes.", optionalParameters = listOf(parameter("cursor", "Opaque nextCursor from the previous resource page."))),
-            ToolDescriptor("phone_resource", "Read documentation using an exact URI returned by phone_resources. Do not invent URIs or use tool names as URIs. Resource errors are tool results; correct the URI and continue.", requiredParameters = listOf(parameter("uri", "Exact URI from phone_resources."))),
+            ToolDescriptor("phone_resource", "Read documentation using an exact URI returned by phone_search or phone_resources. Do not invent URIs or use tool names as URIs. Resource errors are tool results; correct the URI and continue.", requiredParameters = listOf(parameter("uri", "Exact URI from phone_search or phone_resources."))),
         )
     }
 }
