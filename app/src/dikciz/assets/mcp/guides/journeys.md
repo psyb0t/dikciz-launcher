@@ -11,3 +11,5 @@ geofenceSave requires title/latitude/longitude/radiusMeters, optional id/enabled
 journeyControl action start records one real route, optional title/sampleIntervalMilliseconds (1000..60000, default10000). Stop by id. journeysList and journeyRead use offset/limit/hasMore. Maximum64 journeys,10000 points each. Reboot interrupts recording. journeyDelete needs id and confirm true after stopping. The native preview draws recorded points locally.
 
 Private companion data is not currently included in home/chat backups.
+
+During cancellation grace, the shared service shows a countdown with Cancel SOS using an owner-enabled overlay, or a foreground dialog. An urgent notification offers the same cancellation. Alarm pulses, vibration and available offline English speech explain the pending send. Android volume/DND, lock-screen and overlay restrictions apply. sosStatus.warning reports presentation, remainingSeconds, screenVisible, alarmVolume and speechState. Cancel clears warning resources and future sends, not completed SMS or unrelated route monitoring.

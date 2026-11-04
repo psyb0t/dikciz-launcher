@@ -16,6 +16,8 @@ This source set adds the Dikciz home, public configuration, scripting and local 
 
 DikcizCompanionActivity uses the shared command target for safety, places, journeys, retained hardware, image processing, Health Connect and Wi-Fi. DikcizCompanionStore owns private plans and route history. DikcizJourneyService and DikcizConnectionsService own visible background lifetimes and Stop controls. DikcizForegroundActivity tracks actual interactive permission contexts. DikcizAssistantRoutines persists read-only task metadata through ordinary chat/event execution. DikcizVision bounds model work and resources; DikcizPackageCommands extends the existing PackageInstaller path. See [companion workflows](../../../docs/companion.md) for states, limits and storage exclusions.
 
+DikcizSosWarning owns the bounded SOS overlay/dialog, urgent cancellation notification channel and local warning audio. The journey service drives warning episodes; Home exposes their actual views to shared snapshots, screenshots and scrolling. See [SOS warning behavior](../../../docs/safety-and-journeys.md#audible-cancellation-warning).
+
 ## Main classes
 
 All Kotlin files below live in `kotlin/org/fossify/home/dikciz/`.

@@ -3616,6 +3616,12 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun automationSnapshot(): JSONObject {
+        DikcizSosWarning.current()?.takeIf { it.visibleRoot() != null }?.let { warning ->
+            return JSONObject().put(KEY_SCREEN, "sosWarning")
+                .put(KEY_SELECTED_PAGE_ID, homeConfiguration?.selectedPageID ?: JSONObject.NULL)
+                .put(KEY_PAGES, JSONArray()).put(KEY_WIDGET_REFERENCES, JSONArray()).put(KEY_SCROLL, warning.scrollState())
+                .put(KEY_NODES, JSONArray(warning.semanticViews().toSortedMap().map { (id, view) -> describeAutomationView(id, view) }))
+        }
         DikcizCompanionActivity.current()?.let { screen ->
             return JSONObject().put(KEY_SCREEN, "companion")
                 .put(KEY_SELECTED_PAGE_ID, homeConfiguration?.selectedPageID ?: JSONObject.NULL)
@@ -3751,6 +3757,7 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun automationScrollState(): JSONObject {
+        DikcizSosWarning.current()?.takeIf { it.visibleRoot() != null }?.let { return it.scrollState() }
         DikcizCompanionActivity.current()?.let { return it.scrollState() }
         DikcizOperationsActivity.current()?.let { return it.scrollState() }
         DikcizDeviceAccessActivity.current()?.let { return it.scrollState() }
@@ -4642,6 +4649,7 @@ class DikcizHomeActivity : Activity() {
 
     private fun scrollAutomationPage(command: DikcizAutomationCommand): JSONObject {
         val deltaY = command.request.getInt(DikcizAutomationControlPlane.KEY_DELTA_Y)
+        DikcizSosWarning.current()?.takeIf { it.visibleRoot() != null }?.let { it.scrollBy(deltaY); return it.scrollState() }
         DikcizCompanionActivity.current()?.let { it.scrollBy(deltaY); return it.scrollState() }
         DikcizOperationsActivity.current()?.let { it.scrollBy(deltaY); return it.scrollState() }
         val setup = DikcizDeviceAccessActivity.current()
@@ -4653,6 +4661,7 @@ class DikcizHomeActivity : Activity() {
     private fun scrollToAutomationView(command: DikcizAutomationCommand): JSONObject {
         val semanticID = command.request.getString(DikcizAutomationControlPlane.KEY_SEMANTIC_ID)
         val view = requireAutomationView(semanticID)
+        DikcizSosWarning.current()?.takeIf { it.visibleRoot() != null }?.let { it.scrollTo(view); return it.scrollState() }
         DikcizCompanionActivity.current()?.let { it.scrollTo(view); return it.scrollState() }
         DikcizOperationsActivity.current()?.let { it.scrollTo(view); return it.scrollState() }
         val setup = DikcizDeviceAccessActivity.current()
@@ -4969,7 +4978,8 @@ class DikcizHomeActivity : Activity() {
         val companion = DikcizCompanionActivity.current()
         val operations = DikcizOperationsActivity.current()
         val setup = DikcizDeviceAccessActivity.current()
-        val root = companion?.window?.decorView ?: operations?.window?.decorView ?: setup?.window?.decorView ?: window.decorView
+        val warningRoot = DikcizSosWarning.current()?.visibleRoot()
+        val root = warningRoot ?: companion?.window?.decorView ?: operations?.window?.decorView ?: setup?.window?.decorView ?: window.decorView
         val dialog = companion?.foregroundDialog() ?: operations?.foregroundDialog() ?: if (companion == null && operations == null && setup == null) activeDialog else null
         if (root.width <= SCROLL_X_ORIGIN || root.height <= SCROLL_Y_ORIGIN) {
             throw automationFailure(MESSAGE_SCREEN_UNAVAILABLE)
@@ -4977,7 +4987,7 @@ class DikcizHomeActivity : Activity() {
         val source = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(source)
         root.draw(canvas)
-        dialog?.takeIf { it.isShowing }?.window?.let { dialogWindow ->
+        dialog?.takeIf { warningRoot == null && it.isShowing }?.window?.let { dialogWindow ->
             val overlay = dialogWindow.decorView
             val rootLocation = IntArray(2)
             val overlayLocation = IntArray(2)
@@ -5070,6 +5080,7 @@ class DikcizHomeActivity : Activity() {
         semanticID: String,
         refreshProviderViews: Boolean = false,
     ): View? {
+        DikcizSosWarning.current()?.takeIf { it.visibleRoot() != null }?.let { return it.semanticViews()[semanticID] }
         DikcizCompanionActivity.current()?.let { return it.semanticViews()[semanticID] }
         DikcizOperationsActivity.current()?.let { return it.semanticViews()[semanticID] }
         DikcizDeviceAccessActivity.current()?.let { return it.semanticViews()[semanticID] }

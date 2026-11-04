@@ -78,6 +78,21 @@ internal object DikcizJourneys {
     }?.optLong("deadlineAt", 0) ?: 0
 
     @Synchronized
+    fun warningState(context: Context): JSONObject? {
+        val store = db(context)
+        val run = store.get(RUN_KIND, SINGLE) ?: return null
+        if (run.optString("state") !in setOf("warning", "active")) return null
+        val plan = store.get(PLAN_KIND, SINGLE) ?: return null
+        val remaining = (run.getLong("deadlineElapsed") - SystemClock.elapsedRealtime()).coerceAtLeast(0)
+        val grace = plan.getLong("graceSeconds")
+        if (run.getString("state") == "active" && remaining > grace * SECOND) return null
+        return JSONObject().put("runId", run.getString("id"))
+            .put("episodeId", run.getString("id") + "_" + run.getInt("updates"))
+            .put("remainingSeconds", (remaining + SECOND - 1) / SECOND)
+            .put("deadlineAt", run.getLong("deadlineAt")).put("graceSeconds", grace)
+            .put("recipientCount", plan.getJSONArray("contacts").length())
+    }
+    @Synchronized
     fun active(context: Context): Boolean = db(context).let { store ->
         store.get(RUN_KIND, SINGLE)?.optString("state") in ACTIVE_SOS ||
             store.all(FENCE_KIND).any { it.optBoolean("enabled") } ||
@@ -112,6 +127,7 @@ internal object DikcizJourneys {
             STATUS -> JSONObject().put("plan", store.get(PLAN_KIND, SINGLE) ?: JSONObject.NULL)
                 .put("run", store.get(RUN_KIND, SINGLE) ?: JSONObject.NULL)
                 .put("backgroundMonitoring", DikcizJourneyService.running)
+                .put("warning", DikcizSosWarning.status())
             PREVIEW -> {
                 val plan = store.get(PLAN_KIND, SINGLE) ?: DikcizNativeCommands.failure("sos_plan_missing", "Save an SOS contact plan first")
                 val fix = lastFix
@@ -206,7 +222,9 @@ internal object DikcizJourneys {
         if (action == "cancel") {
             val value = previous ?: JSONObject()
             value.put("state", "cancelled").put("updatedAt", now())
-            store.put(RUN_KIND, SINGLE, value); return value
+            store.put(RUN_KIND, SINGLE, value)
+            DikcizSosWarning.dismiss(value.optString("id"))
+            return value
         }
         if (action == "checkIn") {
             val run = previous ?: DikcizNativeCommands.failure("sos_not_armed", "No check-in is armed")
@@ -214,7 +232,9 @@ internal object DikcizJourneys {
             val plan = store.get(PLAN_KIND, SINGLE)!!
             run.put("state", "armed").put("deadlineElapsed", SystemClock.elapsedRealtime() + plan.getLong("checkInSeconds") * SECOND)
                 .put("deadlineAt", now() + plan.getLong("checkInSeconds") * SECOND).put("updatedAt", now())
-            store.put(RUN_KIND, SINGLE, run); return run
+            store.put(RUN_KIND, SINGLE, run)
+            DikcizSosWarning.dismiss(run.getString("id"))
+            return run
         }
         if (action !in setOf("arm", "trigger")) DikcizNativeCommands.invalid("Choose arm, trigger, checkIn or cancel")
         if (!request.optBoolean("confirm")) DikcizNativeCommands.invalid("Arming or triggering SMS requires confirm=true")
@@ -223,6 +243,11 @@ internal object DikcizJourneys {
         requireLocation(context)
         if (!context.getSystemService(android.app.NotificationManager::class.java).areNotificationsEnabled()) {
             DikcizNativeCommands.failure("sos_notifications_disabled", "Enable Dikciz notifications before arming safety monitoring")
+        }
+        DikcizSosWarning.createChannel(context)
+        val channel = context.getSystemService(android.app.NotificationManager::class.java).getNotificationChannel(DikcizSosWarning.CHANNEL)
+        if (channel.importance < android.app.NotificationManager.IMPORTANCE_HIGH) {
+            DikcizNativeCommands.failure("sos_warning_channel_disabled", "Enable urgent SOS countdown alerts in Android notification settings before arming")
         }
         DikcizNativeCommands.requirePermission(context, Manifest.permission.SEND_SMS, "sms")
         val delay = plan.getLong(if (action == "arm") "checkInSeconds" else "graceSeconds") * SECOND
@@ -396,7 +421,7 @@ internal object DikcizJourneys {
                 "updateSeconds" to integer(60, 86400, 600), "maximumUpdates" to integer(1, 24, 3), "subscriptionId" to integer(0, Int.MAX_VALUE.toLong())),
             setOf("contacts"), false),
         DikcizNativeCommands.Definition(PREVIEW, "dikciz_sos_preview", "Preview exact contacts, message and available cached location without sending or arming.", emptyMap()),
-        DikcizNativeCommands.Definition(STATUS, "dikciz_sos_status", "Read the saved SOS plan, durable run state, deadline and idempotency keys for smsStatus delivery inspection. Accepted updates are not confirmed delivery.", emptyMap()),
+        DikcizNativeCommands.Definition(STATUS, "dikciz_sos_status", "Read the saved SOS plan, durable run state, deadline and idempotency keys for smsStatus delivery inspection. Accepted updates are not confirmed delivery. warning reports observed countdown presentation, unlocked-screen visibility, remainingSeconds, alarmVolume and speechState. Warning audio follows Android volume/DND and never proves the owner heard it.", emptyMap()),
         DikcizNativeCommands.Definition(CONTROL, "dikciz_sos_control", "arm starts missed-check-in monitoring; trigger starts the configured cancellation grace; checkIn resets the deadline; cancel stops future sends. arm/trigger require confirm=true, SMS, precise location and notification access. Foreground start required. Android can delay alarms or stop execution. On reboot, an armed run needs owner review. No emergency service is called.",
             mapOf("action" to text(16).put("enum", JSONArray(listOf("arm", "trigger", "checkIn", "cancel"))), "confirm" to bool), setOf("action"), false),
         DikcizNativeCommands.Definition(FENCES, "dikciz_geofences_list", "Read saved geofence states and observed distances, with pagination.", page),

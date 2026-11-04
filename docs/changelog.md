@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.30.11] - 2026-11-04
+
+### Fixed
+
+- Display a visible SOS cancellation countdown with a pinned Cancel SOS button, a foreground dialog fallback and an urgent notification before configured messages are sent.
+- Explain pending SOS messages with offline speech, alarm pulses and vibration, then release warning audio and windows after cancellation or completion.
+- Keep cancellation reachable over other apps, in landscape and with larger text, including when Home has no attached command endpoint.
+- Expose warning state, semantic controls, screenshots and scrolling through the shared control interfaces.
+
 ## [0.30.10] - 2026-11-04
 
 ### Added

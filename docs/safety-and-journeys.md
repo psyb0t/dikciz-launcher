@@ -14,6 +14,18 @@ Monitoring requires foreground location, SMS sending and notification access. A 
 
 Each recipient/update has a persisted idempotency key and frozen message before dispatch. Retry after process failure reuses that key. A completed run stops at the configured update limit; rejected submissions need review.
 
+## Audible cancellation warning
+
+During cancellation grace, Dikciz shows a large countdown and **Cancel SOS** button over other apps when Draw over other apps access is granted. Without that access, it shows a dialog while a Dikciz activity is visible and retains an urgent **SOS message pending** notification with its own **Cancel SOS** action. Tapping the notification opens Safety controls. Android controls whether a heads-up or lock-screen notification appears; an overlay cannot bypass the keyguard or system-protected windows.
+
+The warning pulses an alarm tone and vibration and uses an installed offline English TTS voice to explain that SOS messages are pending and how to cancel. For grace periods longer than ten seconds, it speaks another warning near the final ten seconds. The app does not change volume or Do Not Disturb. An absent speech engine or offline voice leaves the visual and tone warning available. Arming requires the separate SOS countdown notification channel to remain urgent.
+
+`sosStatus.warning` reports whether a warning episode is active, the observed presentation, attached unlocked-screen visibility, remaining seconds, requested audio/vibration, alarm volume and speech state. These are execution observations, not proof that a person heard the alert. The same presentation runs for manual triggers, missed check-ins and the grace interval before subsequent configured updates. API/native cancellation stops future sends and warning resources. A message already submitted cannot be recalled. Ordinary geofences and route recording stay quiet and continue when only SOS is cancelled.
+
+<img src="images/companion/sos-warning.png" alt="SOS countdown card with remaining seconds and a large Cancel SOS button" width="360">
+
+The warning card above was captured on the isolated emulator before cancellation.
+
 ## Places
 
 `geofenceSave` accepts `title`, latitude, longitude and `radiusMeters` (100..1000000), optional ID, `enabled` (false by default) and `dwellMilliseconds`. Up to 32 fences can be saved. Monitoring uses Android location callbacks, accuracy checks and crossing hysteresis, with a visible location service. It emits `geofence.enter`, `geofence.exit` and optional `geofence.dwell` through the ordinary custom-event bus. Event payloads identify the fence and observed fix. Dwell uses elapsed time. A reboot establishes a fresh observation.

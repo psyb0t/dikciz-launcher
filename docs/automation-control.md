@@ -20,6 +20,8 @@ Both listeners default to device loopback. Set their listen address and ports th
 
 [Safety, journeys and devices](companion.md) adds typed commands through the same executor and all ordinary bindings, including HTML and Lua. Read the installed schemas and targeted permission recovery before performing effects.
 
+An attached SOS countdown appears as `snapshot.screen: "sosWarning"`, with stable `sos:warning:title`, `sos:warning:countdown`, `sos:warning:details` and `sos:warning:cancel` nodes. Existing snapshot, screenshot, tap and scroll commands operate on the actual warning view. `sosStatus.warning` reports its presentation and speech state; inspect [SOS warning behavior and Android limits](safety-and-journeys.md#audible-cancellation-warning) before claiming the owner saw or heard it.
+
 ## Offline search
 
 `searchQuery`, `searchRead`, `searchCollections` and `searchIndex` expose the shared persistent SQLite index. Search the protected documentation and installed-tool collections, or explicitly index owner data in separate collections. MCP uses the corresponding `dikciz_search_*` tools. HTML, Lua and embedded chat use the same execution and read-only checks. See [search, ranking, aliases and limits](search.md).

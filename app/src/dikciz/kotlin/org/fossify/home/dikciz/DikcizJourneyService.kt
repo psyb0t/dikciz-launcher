@@ -28,6 +28,50 @@ internal class DikcizJourneyService : Service(), LocationListener {
     private var alarmAt = 0L
     private var currentStartId = 0
     private var lastText = ""
+    private lateinit var warning: DikcizSosWarning
+    private var warningEpisode = ""
+
+    private fun cancelSos() {
+        worker.execute {
+            try {
+                val request = org.json.JSONObject().put("type", DikcizJourneys.CONTROL).put("action", "cancel")
+                // The owner must be able to cancel even while Home has no attached command endpoint.
+                DikcizOperations.withActor("sos:warning") {
+                    DikcizOperations.trace(request, null, false) {
+                        DikcizJourneys.execute(applicationContext, DikcizJourneys.CONTROL, request)
+                    }
+                }
+                handler.post { warning.close() }
+            } catch (exception: Exception) {
+                logger.error("sos_warning_cancel_failed", mapOf("error_class" to exception.javaClass.simpleName))
+                handler.post { warning.cancelFailed() }
+            }
+        }
+    }
+
+    private fun updateWarning() {
+        val state = DikcizJourneys.warningState(applicationContext)
+        warning.update(state)
+        val notifications = getSystemService(NotificationManager::class.java)
+        if (state == null) {
+            notifications.cancel(DikcizSosWarning.NOTIFICATION_ID)
+            warningEpisode = ""
+            return
+        }
+        val episode = state.getString("episodeId")
+        val open = PendingIntent.getActivity(this, DikcizSosWarning.NOTIFICATION_ID,
+            Intent(this, DikcizCompanionActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val cancel = PendingIntent.getService(this, DikcizSosWarning.NOTIFICATION_ID,
+            Intent(this, javaClass).setAction(ACTION_CANCEL_SOS), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        notifications.notify(DikcizSosWarning.NOTIFICATION_ID, Notification.Builder(this, DikcizSosWarning.CHANNEL)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert).setContentTitle("SOS message pending")
+            .setContentText("Sends in " + state.getLong("remainingSeconds") + " seconds. Cancel to stop pending SMS.")
+            .setCategory(Notification.CATEGORY_ALARM).setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setWhen(state.getLong("deadlineAt")).setUsesChronometer(true).setChronometerCountDown(true)
+            .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(episode == warningEpisode)
+            .addAction(Notification.Action.Builder(null, "Cancel SOS", cancel).build()).build())
+        warningEpisode = episode
+    }
     private val tick = object : Runnable {
         override fun run() {
             if (!running || busy) return
@@ -45,6 +89,7 @@ internal class DikcizJourneyService : Service(), LocationListener {
                 handler.post {
                     busy = false
                     if (!running) return@post
+                    updateWarning()
                     if (!active) { stopSelfResult(currentStartId); return@post }
                     if (lastText != text) {
                         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(text))
@@ -65,6 +110,8 @@ internal class DikcizJourneyService : Service(), LocationListener {
     override fun onCreate() {
         super.onCreate()
         logger = DikcizLogger("DikcizJourneys", HomeConfigStore(applicationContext).logDirectory)
+        warning = DikcizSosWarning(this, logger, ::cancelSos)
+        DikcizSosWarning.createChannel(this)
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, "Safety and journeys", NotificationManager.IMPORTANCE_LOW))
     }
@@ -81,6 +128,8 @@ internal class DikcizJourneyService : Service(), LocationListener {
             return START_NOT_STICKY
         }
         running = true
+        if (intent?.action == ACTION_CANCEL_SOS) cancelSos()
+        updateWarning()
         if (intent?.action == ACTION_STOP) {
             DikcizJourneys.stopAll(applicationContext, "owner_stopped")
             stopSelfResult(startId)
@@ -113,9 +162,15 @@ internal class DikcizJourneyService : Service(), LocationListener {
             }
         }
     }
+    override fun onConfigurationChanged(configuration: android.content.res.Configuration) {
+        super.onConfigurationChanged(configuration)
+        warning.relayout()
+    }
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onDestroy() {
         running = false
+        warning.close()
+        getSystemService(NotificationManager::class.java).cancel(DikcizSosWarning.NOTIFICATION_ID)
         handler.removeCallbacksAndMessages(null)
         if (registered) getSystemService(LocationManager::class.java).removeUpdates(this)
         getSystemService(AlarmManager::class.java).cancel(alarmIntent(this))
@@ -132,6 +187,7 @@ internal class DikcizJourneyService : Service(), LocationListener {
             .setOngoing(true).setOnlyAlertOnce(true).addAction(Notification.Action.Builder(null, "Stop all", stop).build()).build()
     }
     companion object {
+        const val ACTION_CANCEL_SOS = "org.fossify.home.dikciz.SOS_CANCEL"
         const val ACTION_STOP = "org.fossify.home.dikciz.JOURNEYS_STOP"
         private const val CHANNEL = "dikciz-safety-journeys"
         private const val NOTIFICATION_ID = 7310
