@@ -247,7 +247,7 @@ internal object DikcizCustomApps {
             val app = DikcizCustomAppStore(context).read(id)
             requireEnabled(context, app)
             val type = request.getString("type")
-            val cleanup = type == DikcizCustomAppCommands.STATE || type == DikcizCustomAppCommands.ALERT && request.optString("action") == "close" ||
+            val cleanup = type == DikcizJourneys.FENCE_DELETE || type == DikcizCustomAppCommands.STATE || type == DikcizCustomAppCommands.ALERT && request.optString("action") == "close" ||
                 type == DikcizCustomAppCommands.SCHEDULE && request.optString("action") in setOf("cancel", "cancelAll") ||
                 type == DikcizMicrophoneSession.TYPE && request.optString("action") in setOf("stop", "cancel")
             fun checkCancellation() {

@@ -14,6 +14,8 @@ This directory contains live Android acceptance tests, their data, and external-
 
 ## Running tests
 
+`make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_travel_todo` exercises the complete bundled todo reference across transports, task validation, shared custom events, actual emulator GPS with the UI closed, persisted state and location cleanup. It captures the [illustrated tutorial](../docs/todo-app-tutorial.md).
+
 After building, `make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_custom_apps` checks complete bundles, transport parity, approval, JS/Lua results, isolated state, archives, event/timer delivery, native app screens/editors and urgent cancellation. Run `DIKCIZ_TEST_SELECTOR=test_sos_warning` separately for SOS regressions. These use the private emulator and fictional SMS recipients. Minified builds can use either selector with `APK` set to the minified artifact.
 
 Run from the repository root through Make. `make dikciz-test` builds the debug APK, resets the shared emulator's Dikciz installation, and runs the live suite. To select a scenario against an already-built APK:

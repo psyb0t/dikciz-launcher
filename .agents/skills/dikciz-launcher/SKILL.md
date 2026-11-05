@@ -78,6 +78,8 @@ Use `dikciz_search_query` for an unfamiliar procedure before enumerating resourc
 
 Owner collections require explicit requested indexing through `dikciz_search_index`. Do not crawl private files or messages merely to populate search. Built-in collections are protected. Read-only turns hide writable tool contracts and reject index mutations through the trusted executor.
 
+Read `dikciz://docs/recipes/travel-todo` or the [GPS todo tutorial](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/todo-app-tutorial.md) for a complete source-linked UI/backend app. It subscribes to native geofence events and a custom task event. Opening never authorizes location monitoring; todo.watch requires owner intent, and todo.stop removes its fence.
+
 ## Background JavaScript
 
 Background scripts can select language javascript, using main.js and synchronous onEvent(event), alongside existing Lua. Fetch dikciz://docs/guides/javascript before creating one. They share policies, owner commands, state, subscriptions and logs; HTML widgets retain their rendered-page lifecycle. Direct owner commands are not sandboxed by the returned-action allowlist. No WebView, Node.js, browser timers or Promise completion is provided by this backend.

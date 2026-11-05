@@ -18,6 +18,8 @@ Both listeners default to device loopback. Set their listen address and ports th
 
 ## Companion workflows
 
+The [GPS todo example](todo-app-tutorial.md) demonstrates the same customAppEvent/state calls and native geofence events through a complete editable app.
+
 [Custom apps](custom-apps.md) expose list/read/install/control/event/state/schedule/alert/runtime through this same executor. Their full UI/backend bundles and app-local state are public files. Full owner authority is required; read-only agents see only list/read/runtime and cannot invoke or mutate an app. `snapshot.screen: "customApp"` includes the app ID, native manager controls and editor fields. Generic urgent modals use `customAppAlert` and `app:<id>:warning:*` semantic nodes; SOS retains its existing IDs below.
 
 [Safety, journeys and devices](companion.md) adds typed commands through the same executor and all ordinary bindings, including HTML and Lua. Read the installed schemas and targeted permission recovery before performing effects.

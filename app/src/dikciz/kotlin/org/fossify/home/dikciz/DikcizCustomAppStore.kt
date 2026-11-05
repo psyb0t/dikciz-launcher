@@ -247,7 +247,7 @@ internal class DikcizCustomAppStore(private val context: Context) {
         private const val MAXIMUM_ARCHIVE_BYTES = 2097152L
         private val ENTRY_NAMES = setOf(MANIFEST, HTML, CSS, UI_JAVASCRIPT, JAVASCRIPT, LUA)
         private val RESERVED_IDS = setOf("imports", "exports")
-        val BUNDLED = listOf("sos", "voice-notes", "agenda", "device-status")
+        val BUNDLED = listOf("sos", "voice-notes", "agenda", "device-status", "travel-todo")
 
         fun validateManifest(value: JSONObject) {
             if (value.keys().asSequence().any { it !in setOf("version", "id", "title", "description", "language", "commands", "events", "eventSubscriptions", "locationMonitoring") }) DikcizNativeCommands.invalid("Unknown app manifest field")

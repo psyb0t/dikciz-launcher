@@ -2,7 +2,7 @@
 
 This guide starts after you have downloaded and installed a Dikciz APK on your Android phone. It covers using the launcher on the phone. Each screenshot follows the step beside it.
 
-For events, HTML widgets, Lua scripts, and typed actions, start with the [scripting tutorial](scripting-tutorial.md). Read [Dikciz configuration](dikciz-configuration.md) for the editable-file layout and [automation control](automation-control.md) for WebSocket, MCP, and remote-control commands.
+For a complete editable app, follow [Travel todo](todo-app-tutorial.md). For events, HTML widgets, Lua/JavaScript scripts, and typed actions, start with the [scripting tutorial](scripting-tutorial.md). Read [Dikciz configuration](dikciz-configuration.md) for the editable-file layout and [automation control](automation-control.md) for WebSocket, MCP, and remote-control commands.
 
 Tap the cheese beside the launcher controls to open the [on-device assistant](embedded-chat.md). Configure its provider in chat Settings, create conversations, expand the panel or hide it while the agent works.
 
@@ -63,6 +63,14 @@ Open page search, type the name, then tap the matching row to return to it.
 New and reset homes start with 8 columns and 6 rows. Open **Settings**, then change grid columns, rows, gap, or outer padding. Dikciz shrinks widget rectangles to fit and relocates collisions into free cells. Full-width HTML follows the column count. Items that cannot fit are removed from their pages in saved order, and Settings reports the number removed. Removing a shortcut leaves its app installed. Removing a widget also removes its scoped state. The right and bottom pager rails provide their own outer spacing, so grid padding is not added twice beside them. Widget appearance margins still apply.
 
 ![Grid settings](images/user-guide/28-grid-settings.png)
+
+## Open and edit complete Dikciz apps
+
+Open **Settings > Custom apps** for SOS, Voice notes, Agenda, Device status and Travel todo. These have their own UI, backend and state, independent of page widgets. **Edit bundle** exposes their complete HTML, CSS, UI JavaScript, backend and manifest. Stop active work before changing source; saving requires enabling and approving the bundle again. **Export reusable bundle** shares source, without private state or recordings. **Remove app and its state** deletes that instance's public data.
+
+Travel todo is a working reference. Use the checklist normally, or grant location access and explicitly choose **Watch New York**. A matching GPS event checks off the trip even with the UI closed. Read [the full walkthrough](todo-app-tutorial.md) before changing the destination or event. Installation and opening do not start its location watch.
+
+<img src="images/custom-apps/custom-apps.png" alt="Custom apps manager with bundled source-editable apps" width="320">
 
 ## Add apps and widgets
 
@@ -150,13 +158,17 @@ Inside an HTML widget, use `selfWidget` to refer to the widget itself even after
 
 ### Open, enable, and run a script
 
-Lua scripts are background automation, not widgets. Open **Settings**, then **Scripts**. The script dashboard shows each script's status, most recent run, enable state, and logs.
+Lua and headless JavaScript scripts run in the background without keeping a widget open. Open **Settings**, then **Scripts**. Choose **New Lua script** or **New JavaScript script** for a standalone backend. The script dashboard shows each script's status, most recent run, enable state, and logs.
 
 ![Script manager](images/user-guide/25-script-manager.png)
 
 Open the bundled `low-battery` script to view its source, policy, state, and enable control. A policy blocks an action that is missing from its capability list. Dikciz records `capability_denied` in the script log rather than silently ignoring it.
 
 ![Bundled battery reminder](images/user-guide/26-script-editor.png)
+
+For JavaScript, implement synchronous `onEvent(event)` in `main.js`. The [background JavaScript guide](background-javascript.md) covers events, state, limits and archives. For a complete UI/backend bundle, use the [Travel todo app tutorial](todo-app-tutorial.md).
+
+![Native JavaScript source editor](images/user-guide/41-javascript-editor.png)
 
 ### Grant the Android access an automation needs
 

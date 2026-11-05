@@ -6,7 +6,7 @@ Dikciz packages short operating guides and recipes in the APK. MCP clients can d
 
 Initialization advertises `capabilities.resources: {}` and instructions pointing to the index. `resources/list` returns at most eight descriptors, each with `uri`, `name`, `title`, `description`, `mimeType` and UTF-8 byte `size`. Follow the opaque `nextCursor` until it is absent. Do not synthesize or alter cursors.
 
-Call `resources/read` with one exact URI. It returns one `text/markdown` content record. Every guide in the browsable catalog is at most 4096 UTF-8 bytes. Search also returns manual sections under `dikciz://docs/library/`, each bounded to 12000 characters. A read does not bundle linked sections automatically. The 66 browsable resources include connection, permissions, UI, apps, pages, HTML, Lua, events, files, shell, logs, security, native Android data, sensors, location, camera, microphone, speech and focused recipes. Separate resources cover feature access and typed actions for state/events, device operations and Accessibility. The contact/SMS recipe covers direct lookup, SIM selection, duplicate protection and receipts. The custom-event example splits setup, Lua source and HTML source into separate resources.
+Call `resources/read` with one exact URI. It returns one `text/markdown` content record. Every guide in the browsable catalog is at most 4096 UTF-8 bytes. Search also returns manual sections under `dikciz://docs/library/`, each bounded to 12000 characters. A read does not bundle linked sections automatically. The 69 browsable resources include connection, permissions, UI, apps, pages, HTML, Lua, headless JavaScript, custom apps, events, files, shell, logs, security, native Android data, sensors, location, camera, microphone, speech and focused recipes. Separate resources cover feature access and typed actions for state/events, device operations and Accessibility. The contact/SMS recipe covers direct lookup, SIM selection, duplicate protection and receipts. The custom-event example splits setup, Lua source and HTML source into separate resources.
 
 ```json
 {"method":"resources/read","params":{"uri":"dikciz://docs/recipes/event-setup"}}
@@ -15,6 +15,8 @@ Call `resources/read` with one exact URI. It returns one `text/markdown` content
 This shows the method and parameters only. A real request needs the JSON-RPC envelope and its protocol mode: modern request metadata/routing headers, or a negotiated legacy session. Existing clients handle those details. `resources/templates/list` returns an empty template list. These packaged resources do not advertise subscriptions or list-change notifications.
 
 SIM reads have a dedicated [numbers and permissions guide](../app/src/dikciz/assets/mcp/guides/sim.md). The assistant has a [tool-contract and access guide](../app/src/dikciz/assets/mcp/guides/chat-tools.md). Chat also has separate resources for [operation](../app/src/dikciz/assets/mcp/guides/chat.md), [context budgets](../app/src/dikciz/assets/mcp/guides/chat-context.md) and [event rules](../app/src/dikciz/assets/mcp/guides/chat-events.md).
+
+The [Travel todo recipe](../app/src/dikciz/assets/mcp/recipes/travel-todo.md), at `dikciz://docs/recipes/travel-todo`, explains the shipped app, geofence setup, custom-event input, state and cleanup. The [full illustrated tutorial](todo-app-tutorial.md) links every source file.
 
 ## Use the supplied client
 

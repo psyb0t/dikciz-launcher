@@ -9,6 +9,7 @@ Start with the [README](../README.md) for installation, or choose the task below
 | Install, choose Home, navigate, edit pages/widgets, manage apps and scripts | [Illustrated user guide](user-guide.md) |
 | Configure the on-device assistant and event-driven conversations | [Embedded chat](embedded-chat.md) |
 | Browse every bundled page, HTML template and Lua example | [Starter home](starter-home.md) |
+| Build a checklist that checks a task after GPS arrival | [Travel todo tutorial and source](todo-app-tutorial.md) |
 | Create complete UI/backend apps with state, timers and alerts | [Custom apps](custom-apps.md) |
 | Edit files, themes, grid, widget state, libraries, policies, logging and listeners | [Configuration](dikciz-configuration.md) |
 | Look up every typed action, its fields and Lua policy name | [Typed actions](typed-actions.md) |

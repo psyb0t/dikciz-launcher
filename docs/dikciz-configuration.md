@@ -14,6 +14,7 @@ Dikciz keeps its editable home under `/sdcard/Dikciz/`. The directory is the sou
 ├── pages/<page-id>/widgets/<widget-id>/items/<instance-id>/<custom-file>
 ├── scripts/<script-id>/script.json
 ├── scripts/<script-id>/main.lua
+├── scripts/<script-id>/main.js
 ├── scripts/<script-id>/state.json
 ├── scripts/<script-id>/run-status.json
 ├── scripts/imports/
@@ -42,6 +43,8 @@ Dikciz keeps its editable home under `/sdcard/Dikciz/`. The directory is the sou
 On first run, Android must grant Dikciz access to this directory. The storage screen links to Android's own access panel. Until Android grants it, the control planes still expose the storage screen for inspection but cannot load or change configuration.
 
 Each file has one job. `config.json` owns global settings and the home manifest. Pages own their metadata and widget references. Widgets, scripts, automation rules, themes, and library packages remain separate so a normal edit does not turn the root into one large document.
+
+The bundled [Travel todo](todo-app-tutorial.md) is a source-linked example of app state and native-event wiring.
 
 [Custom apps](custom-apps.md) live independently of `configGet` and page/widget configuration. Their manifest chooses `main.js` or `main.lua`, declared commands and subscriptions. UI edits reload that app; state updates reach its active WebView and backend source loads on invocation. Changing the approved manifest disables its execution until reviewed. Existing edited bundles survive updates. Their data and source are excluded from current encrypted home/chat backups.
 

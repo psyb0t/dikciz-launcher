@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.30.13] - 2026-11-05
+
+### Added
+
+- Travel todo, a complete editable reference app with a checklist, opt-in New York geofence, custom-event completion and saved state.
+- An illustrated source-linked app tutorial and updated launcher, scripting, MCP and operator documentation.
+- Current starter and native walkthrough screenshots, including complete app management and JavaScript editing.
+
+### Fixed
+
+- Allow declared geofence deletion during app cancellation cleanup so disabling Travel todo stops its location watch.
+
 ## [0.30.12] - 2026-11-05
 
 ### Added

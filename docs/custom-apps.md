@@ -8,6 +8,7 @@ These are apps inside Dikciz. Android does not install a separate APK or grant t
 
 | App | Behavior |
 | --- | --- |
+| Travel todo | Editable checklist with an opt-in GPS arrival rule and a custom-event input. Follow the [complete tutorial](todo-app-tutorial.md). |
 | SOS check-ins | Editable contact plans, preview, explicit arming, cancellation countdown, tracked SMS and periodic location updates. All workflow decisions live in `apps/sos/main.js`; the UI lives beside it. |
 | Voice notes | Record, save and replay local audio. Recording begins on a tap and stops when the app is hidden. Saved files belong to this app. |
 | Agenda and alarms | Upcoming calendar entries, next Android alarm and links to Android calendar/alarm apps. Calendar access is optional and requested explicitly. |
@@ -71,6 +72,8 @@ App-local `customAppRead`, `customAppState`, `customAppEvent`, `customAppSchedul
 
 `ui.html`, `ui.css` and `ui.js` use the existing injected `window.dikciz` bridge and app-local command binding. `selfWidget` exposes this app's state and `storagePath`, ending in `/apps/<id>/files`. Its state patch merges top-level fields into app state, preserving unrelated keys and explicit nulls. Use ordinary DOM listeners and await bridge results. An app can call `customAppEvent` to invoke its own backend while its UI is open. Subscribe to `dikciz-state` for persisted state changes and ordinary event callbacks for subscribed native/custom events.
 
+For a complete working reference, read [Travel todo](todo-app-tutorial.md) and its linked source files.
+
 The native manager's **Edit bundle** exposes the complete manifest, HTML, CSS, UI JavaScript and backend source. State can be edited with `customAppState` or the public file. Save disables the bundle for review. **Enable app** displays its declared commands before confirmation. A new app starts disabled. The native manager is a separate activity, reachable again after Android permission screens take the foreground. Hiding or closing its interface sends `app.ui.hidden` to its backend. Voice notes uses that event to stop its recorder and preserve a pending save for reopening; other apps decide their own hidden behavior.
 
 ## Timers and alerts
@@ -81,7 +84,7 @@ Timers are claimed durably before invoking the backend. A handler may reschedule
 
 `customAppAlert` shows an urgent dimmed modal using `action: show`, `episodeId`, `durationMilliseconds`, `title`, `detail`, `cancelLabel` and `cancelEvent`. Duration is 1000 through 3600000 ms. Optional `announcement` and `finalAnnouncement` use `{seconds}`. Only one app can own the urgent alert. Android notification access and an urgent countdown channel are required. Overlay access allows presentation over other apps; otherwise an active Dikciz activity can host a dialog. Keyguard, volume, DND and background restrictions remain Android-controlled. `action: close` releases it.
 
-The modal's cancellation button invokes the app's declared cancel event, then closes. Its native host owns window/audio/vibration cleanup. The app must cancel its pending timers and update its own state. The foreground notification's **Pause apps** invokes `app.stopped`, disables affected apps and cancels pending timers/alerts. For concurrent owner cancellation, `customAppEvent` accepts `interruptRunning: true`, which blocks further mutating calls from the current handler except state and cleanup commands. Already submitted effects cannot be recalled.
+The modal's cancellation button invokes the app's declared cancel event, then closes. Its native host owns window/audio/vibration cleanup. The app must cancel its pending timers and update its own state. The foreground notification's **Pause apps** invokes `app.stopped`, disables affected apps and cancels pending timers/alerts. For concurrent owner cancellation, `customAppEvent` accepts `interruptRunning: true`, which blocks further mutating calls from the current handler except state and cleanup commands, including declared geofence deletion. Already submitted effects cannot be recalled.
 
 ## Remote and assistant access
 

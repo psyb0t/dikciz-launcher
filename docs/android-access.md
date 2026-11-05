@@ -54,7 +54,7 @@ The complete **Settings**, **Automation**, **Set up full device access** checkli
 | Network `shellStream` | Connection/session-owned push output; HTTP/MCP use SSE. Disconnect stops the owned process. HTML/Lua cannot receive this streaming transport. |
 | Shell sessions, event journal and PCM streams | Ordinary cursor reads, including HTML/Lua, with bounded process-memory replay and explicit gaps. They survive network reconnects; process death loses history. Each feature has its own capacity and cleanup rules. |
 | Durable command jobs | App-private persisted arguments/results and caller idempotency; interrupted work is not replayed automatically. Cancellation does not undo external effects. |
-| HTML rendering and Lua | HTML visible interaction/polling uses native visibility. Lua handles configured background events. Neither creates an Android permission or an unlimited background-execution exemption. |
+| HTML rendering and scripts | HTML visible interaction/polling uses native visibility. Lua and headless JavaScript handle configured background events; complete apps can subscribe through their native host. None creates an Android permission or an unlimited background-execution exemption. |
 | Activity restart and APK update | `restart` recreates the activity within the same process. APK replacement kills the old process; listeners need reconnection and process-owned histories are lost. Public saved configuration survives compatible updates. |
 
 Read the operation's terminal status. Request acceptance is not verified app launch, message delivery, successful install or measured camera/audio quality. A client timeout can leave external work with an unknown outcome; do not repeat it blindly.

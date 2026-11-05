@@ -34,9 +34,9 @@ Search with dikciz_search_query; read relevant URIs. [Search](dikciz://docs/guid
 - [NFC](dikciz://docs/guides/nfc): NDEF and transactions.
 - [Bluetooth](dikciz://docs/guides/bluetooth): discovery, pairing, RFCOMM and GATT.
 - [Audio](dikciz://docs/guides/audio): playback and routing.
-- [Microphone streams](dikciz://docs/guides/microphone-streams): PCM.
+- [Microphone](dikciz://docs/guides/microphone-streams).
 - [Wi-Fi](dikciz://docs/guides/wifi): requested scans, cached results and freshness.
-- [Speech models](dikciz://docs/guides/speech-models): languages and downloads.
+- [Speech models](dikciz://docs/guides/speech-models).
 - [USSD](dikciz://docs/guides/ussd): carrier requests and outcomes.
 - [Camera video](dikciz://docs/guides/video): bounded MP4 recording.
 - [Event replay](dikciz://docs/guides/event-replay): cursor reads, long polling and explicit loss.
@@ -49,6 +49,7 @@ Chat: [operation](dikciz://docs/guides/chat), [context](dikciz://docs/guides/cha
 - [Live images and speech](dikciz://docs/guides/visual-streams): frames and transcripts.
 
 ## Recipes
+- [GPS todo app](dikciz://docs/recipes/travel-todo).
 - [Contact and tracked SMS](dikciz://docs/recipes/contact-sms).
 - [Inspect and act](dikciz://docs/recipes/inspect-ui).
 - [Launch an app](dikciz://docs/recipes/launch-app).

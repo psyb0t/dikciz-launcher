@@ -196,7 +196,7 @@ def test_custom_apps_archive_round_trip_excludes_state_and_rejects_traversal(app
     assert native_call("http", COMMAND_READ, {"appId": identifier})["state"] == {}
 
 
-@pytest.mark.parametrize("identifier", ["sos", "voice-notes", "agenda", "device-status"])
+@pytest.mark.parametrize("identifier", ["sos", "voice-notes", "agenda", "device-status", "travel-todo"])
 def test_custom_apps_bundled_screens_and_editor(websocket_control, identifier):
     restore_system_home()
     control(identifier, "open")

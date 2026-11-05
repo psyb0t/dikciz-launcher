@@ -30,6 +30,10 @@ The [files, APKs and shell guide](../docs/files-and-apks.md) documents `http`, `
 
 Fossify replacement requires `DIKCIZ_UPSTREAM_REFRESH=1`, a newer release marker, clean overlay application, and a verified backup. See the [Fossify source map](../.fossify/README.md) and root [source-update instructions](../README.md#fossify-source-updates).
 
+## Example app verification
+
+The [Travel todo tutorial](../docs/todo-app-tutorial.md) uses the packaged app directly. Run `make build`, then `make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_travel_todo` to exercise its backend, GPS arrival and screenshots on the private emulator. The source is ordinary bundled app files, without a separate install script.
+
 ## Companion fixtures
 
 generate-dikciz-vision-fixtures.py runs through make dikciz-vision-fixtures and writes deterministic text/QR PNGs. Its optional QR source fetch verifies a pinned source hash before import. Ordinary live tests use the committed PNGs.

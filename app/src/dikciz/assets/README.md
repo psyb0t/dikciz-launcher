@@ -1,6 +1,6 @@
 # Bundled home assets
 
-These assets provide the starter home and authoring libraries packaged with the [Dikciz flavour](../README.md). Runtime copies belong to the editable public tree described in the [configuration guide](../../../../docs/dikciz-configuration.md). The [scripting tutorial](../../../../docs/scripting-tutorial.md) explains the HTML and Lua APIs.
+These assets provide the starter home and authoring libraries packaged with the [Dikciz flavour](../README.md). Runtime copies belong to the editable public tree described in the [configuration guide](../../../../docs/dikciz-configuration.md). The [scripting tutorial](../../../../docs/scripting-tutorial.md) explains HTML, Lua and background JavaScript. The [GPS todo tutorial](../../../../docs/todo-app-tutorial.md) builds a complete app from the bundled reference.
 
 | Path | Runtime role |
 | --- | --- |
@@ -10,7 +10,7 @@ These assets provide the starter home and authoring libraries packaged with the 
 | `chat-model-limits.json` | Exact-ID token limits with source links for chat discovery and automatic model settings. Provider metadata takes precedence. |
 | `mcp/` | Small documentation resources served from an exact catalog, beginning with [the task index](mcp/index.md). These remain packaged assets rather than editable runtime copies. |
 | `widget-library/` | Complete packages that the picker adds as new HTML widgets with their own native grid placement. |
-| `apps/` | Complete SOS, Voice notes, Agenda and Device status apps with manifest, HTML/CSS/JS and Lua/JS backend. Runtime copies and app-local state live under `/sdcard/Dikciz/apps/`; see [custom apps](../../../../docs/custom-apps.md). |
+| `apps/` | Complete SOS, Voice notes, Agenda, Device status and Travel todo apps with manifest, HTML/CSS/JS and Lua/JS backend. Runtime copies and app-local state live under `/sdcard/Dikciz/apps/`; see [custom apps](../../../../docs/custom-apps.md). |
 | `themes/` | Bundled theme JSON discovered and installed by `DikcizThemeStore`. |
 | `fonts/` | Packaged typefaces loaded by `DikcizStyleRenderer`. |
 | `licenses/` | Licenses for the packaged fonts. |

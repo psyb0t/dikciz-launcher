@@ -30,4 +30,4 @@ Select the widget's page and wait for its rendered document. Dispatch through `d
 
 Replace the example address with the widget's actual full address. Read the Lua run status and saved `state.running: true`. Wait for the widget's saved `state.running: true` and visible `Running`. Send `example.stop`, then verify both states become false and the widget shows `Stopped`.
 
-Publication is asynchronous. An `executed` action alone does not prove either receiver ran. A hidden HTML widget does not receive events; Lua handles durable background work. Avoid resetting configuration to install this example.
+Publication is asynchronous. An `executed` action alone does not prove either receiver ran. A hidden HTML widget does not receive events; Lua or headless JavaScript handles background work. Avoid resetting configuration to install this example.

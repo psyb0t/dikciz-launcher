@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "id": "travel-todo",
+  "title": "Travel todo",
+  "description": "A complete example app: add tasks and check off Go to New York when a GPS geofence event arrives. Location monitoring starts only when you choose Watch New York.",
+  "language": "javascript",
+  "commands": ["geofenceSave", "geofenceDelete", "requestDeviceAccess"],
+  "events": ["geofence.enter", "example.todo.complete"]
+}

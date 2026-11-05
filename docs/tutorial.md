@@ -1,10 +1,10 @@
 # Dikciz tutorial
 
-Build a home you can edit, connect an AI that can use the phone, and make HTML widgets and Lua scripts react to events. This walkthrough starts with the signed APK and ends with direct Android SDK discovery. Follow it in order for a new installation, or jump to the part you need.
+Build a home you can edit, connect an AI that can use the phone, and make HTML widgets, Lua or headless JavaScript scripts and complete custom apps react to events. This walkthrough starts with the signed APK and ends with direct Android SDK discovery. Follow it in order for a new installation, or jump to the part you need.
 
 The examples inspect state and use a local custom-event pipeline. Messaging, calls, recordings and device changes have separate opt-in exercises. Exact accepted fields belong to the installed tool schemas and the [command reference](command-reference.md).
 
-Screenshots show Dikciz 0.30.7 on a private Android emulator. The populated starter uses a configured London location, live weather, sample calendar entries and an emulator recording. Chat replies and model lists use a local demonstration API with example model names; the native chat, database and phone tools are real. Provider forms also show the built-in OpenAI and Anthropic host templates. Command-result screens use a temporary HTML inspector to display actual API responses. Click an image for the full capture.
+Screenshots use a private Android emulator. The starter, native walkthrough and custom-app captures are refreshed from the current development build; older command-result and provider captures illustrate their unchanged contracts. The populated starter uses a configured London location, live weather, sample calendar entries and an emulator recording. Chat replies and model lists use a local demonstration API with example model names; the native chat, database and phone tools are real. Provider forms also show the built-in OpenAI and Anthropic host templates. Command-result screens use a temporary HTML inspector to display actual API responses. Click an image for the full capture.
 
 ## Contents
 
@@ -212,7 +212,7 @@ python3 scripts/dikciz-control.py mcp dikciz_snapshot --host phone.example --por
 | MCP | `http://phone.example:19002/mcp` | Tool discovery, typed calls and short documentation resources for agents |
 | HTTP | `http://phone.example:19002/v1/automation` | Individual JSON commands and ordinary client integrations |
 | WebSocket | `ws://phone.example:19001/v1/automation` | Persistent commands and live events |
-| HTML and Lua | Local native bridge | Visible widgets and background event scripts |
+| HTML, Lua and JavaScript | Local native bridge | Visible widgets and background event scripts |
 
 These bindings share validation, execution, Android access and outcome semantics. Transport envelopes differ. Discover current names and required arguments instead of guessing their spelling. Search a task with `dikciz_search_query` in collection `docs`, then read the relevant result URI. Collection `tools` returns installed input schemas. The embedded agent exposes `phone_search` directly and uses the same ranked engine for tool discovery. `searchIndex` can also index explicitly supplied owner text in separate persistent collections. See [offline search](search.md) for aliases, spelling correction, pagination and read-only behavior. MCP browsing still starts at `dikciz://docs/index`.
 
@@ -226,6 +226,12 @@ A writable call can opt into owner review with `autoRequestPermissions: true`. F
 
 ## 6. Build an event pipeline
 
+Start with [Build a todo app that reacts to GPS](todo-app-tutorial.md) for the shortest complete app example. **Settings > Custom apps > Travel todo** contains all five editable source files. Its explicit **Watch New York** action creates a native geofence, and its background JavaScript checks off the destination after the matching event. The same list accepts a custom event for another task. The walkthrough covers permissions, source editing, independent copies and stopping monitoring.
+
+<img src="images/custom-apps/todo-watching.png" alt="Travel todo with an opt-in New York rule" width="280"> <img src="images/custom-apps/todo-arrived.png" alt="Persisted task completion after a real emulator GPS event" width="280">
+
+For separate widgets and background scripts, continue with the Lua example below. [Headless JavaScript](background-javascript.md) is a second standalone script backend with the same policies, events and command access.
+
 Use the complete [custom-event exercise](scripting-tutorial.md#build-a-complete-custom-event-workflow) to connect your spare HTML widget to a Lua script:
 
 ```text
@@ -237,7 +243,7 @@ That exercise supplies the HTML, CSS, JavaScript, Lua, policy and subscription d
 
 The widget waits for `dikciz-ready` before using the bridge. It reads `selfWidget.state`, updates saved state through the bridge, and listens for `dikciz-state` without reloading the document. Custom events use the same bus as native sources. External clients can publish them too; discover the installed event-publishing command and its schema before calling it.
 
-HTML receives subscribed events while its page is selected and its WebView exists. Lua handles enabled subscriptions in the background. Put work that must survive page changes in Lua, and visible rendering in JavaScript. Add interval limits and filters for noisy sources such as sensors, location or notifications.
+HTML receives subscribed events while its page is selected and its WebView exists. Lua and headless JavaScript handle enabled subscriptions in the background. Put work that must survive page changes in a background script or app backend, and visible rendering in JavaScript. Add interval limits and filters for noisy sources such as sensors, location or notifications.
 
 After the custom pipeline works, inspect one of the disabled bundled Lua examples. Start with the low-battery rule before adapting a location or heat rule. Policies authorize script actions, but never grant Android permissions. Trusted script command access includes powerful file and shell operations; review the source before enabling it.
 
@@ -448,4 +454,4 @@ Use Settings, Activity & resources to inspect callers, failures and resource mea
 
 ## Companion workflows
 
-See [the focused companion guide](companion.md) for the new shared commands, native screens, required access and actual outcome states.
+See [the focused companion guide](companion.md) for safety, geofences, routes, peripherals, health and Wi-Fi, including grants and actual outcome states. SOS is an editable custom app. [Custom apps](custom-apps.md) explains complete UI/backend bundles, durable timers, dimmed urgent modals and source-only exports. [Travel todo](todo-app-tutorial.md) is the small working reference for that platform.

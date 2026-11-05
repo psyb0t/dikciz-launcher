@@ -2,6 +2,8 @@
 
 JavaScript is a second background script language alongside Lua. It runs in an embedded interpreter on the automation worker, without a WebView, DOM or selected home page. Both languages share event subscriptions, repeating alarms, typed actions, state persistence, Android access and run-status logs.
 
+The [Travel todo tutorial](todo-app-tutorial.md) shows a complete JavaScript app reacting to a native GPS event and a custom event, including its full source.
+
 For a complete interface/backend bundle, use [custom apps](custom-apps.md). They reuse this interpreter and add app-local state, declared command access, one-shot native timers and urgent modal hosting. Standalone automation scripts retain the lifecycle described below.
 
 ## Create a script

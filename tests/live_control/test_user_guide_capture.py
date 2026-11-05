@@ -156,7 +156,8 @@ def open_widget_action_sheet() -> None:
     is swallowed by the document, so the press is retried a few times.
     """
     for attempt in range(WIDGET_SHEET_OPEN_ATTEMPTS):
-        direct_long_press_at(*center(physical_page_scroll_bounds()))
+        handle = physical_description_bounds(WIDGET_MOVE_HANDLE_DESCRIPTION.format(STARTER_HOME_WIDGET_TITLE))
+        direct_long_press_at(*center(handle))
         try:
             wait_for_physical_text_bounds(WIDGET_MOVE_ACTION_LABEL)
             return
@@ -200,10 +201,7 @@ def test_capture_user_guide_screenshots(websocket_control: socket.socket) -> Non
     capture_page_full(websocket_control)
     capture_script_manager(websocket_control)
     capture_settings(websocket_control)
-    capture_grid_settings(websocket_control)
-    capture_themes(websocket_control)
-    capture_safe_mode(websocket_control)
-    capture_automation_access(websocket_control)
+    capture_settings_screens(websocket_control)
 
 
 
@@ -264,7 +262,7 @@ def ensure_guide_notes_page(connection: socket.socket) -> None:
         return
     home["pages"].append({
         "id": STARTER_NOTES_PAGE_ID, "title": "Guide workspace",
-        "position": {"column": 2, "row": 0},
+        "position": {"column": max(page["position"]["column"] for page in home["pages"]) + 1, "row": 0},
         "widgets": [{
             "id": NOTES_APP_TILE_WIDGET_ID, "type": "app", "enabled": True,
             "title": STARTER_ANDROID_SETTINGS_TITLE,
@@ -337,10 +335,18 @@ def capture_widget_picker(connection: socket.socket) -> None:
 
 def capture_page_full(connection: socket.socket) -> None:
     """The refusal a full page gives instead of placing a widget somewhere wrong."""
+    document = current_configuration(connection)
+    home = document["launcher"]["home"]
+    page = next(page for page in home["pages"] if page["id"] == home["selectedPageId"])
+    widget = next(widget for widget in page["widgets"] if widget["type"] == "html")
+    widget["cell"] = {"column": 0, "row": 0, "columnSpan": home["nativeGrid"]["columns"], "rowSpan": home["nativeGrid"]["rows"]}
+    page["widgets"] = [widget]
+    AUTOMATION.request(connection, "configReplace", config=document)
     open_launcher_control_route(connection, LAUNCHER_CONTROL_ADD_TO_PAGE_SEMANTIC_ID)
     wait_for_physical_text_bounds(PAGE_FULL_NOTICE)
     capture("24-page-full.png")
     close_active_dialog(connection)
+    reset_to_starter_home()
 
 
 def capture_settings(connection: socket.socket) -> None:
@@ -595,11 +601,10 @@ def capture_app_group(connection: socket.socket) -> None:
     target = physical_description_bounds(
         WIDGET_MOVE_HANDLE_DESCRIPTION.format(STARTER_ANDROID_SETTINGS_TITLE),
     )
-    direct_swipe(
-        center(source),
-        (center(target)[0], center(source)[1]),
-        GUIDE_DRAG_DURATION_MILLISECONDS,
-    )
+    direct_hold_then_drag(center(source), (center(target)[0], center(source)[1]))
+    saved = current_configuration(connection)
+    group_page = next(page for page in saved["launcher"]["home"]["pages"] if page["id"] == STARTER_NOTES_PAGE_ID)
+    assert len(group_page["widgets"]) == 1 and group_page["widgets"][0]["type"] == "appGroup"
     time.sleep(GUIDE_SETTLE_SECONDS)
     direct_tap_at(*center(target))
     capture("10-app-group.png")
@@ -648,7 +653,7 @@ def capture_script_editor(connection: socket.socket) -> None:
 def capture_grid_settings(connection: socket.socket) -> None:
     open_launcher_control_route(connection, LAUNCHER_CONTROL_SETTINGS_SEMANTIC_ID)
     wait_for_physical_text_bounds(DIKCIZ_SETTINGS_TITLE)
-    scroll_dialog_to_text(SETTINGS_GRID_COLUMNS_LABEL)
+    scroll_settings_along_left_edge(SETTINGS_GRID_COLUMNS_LABEL)
     capture("28-grid-settings.png")
     close_active_dialog(connection)
 
@@ -672,3 +677,45 @@ def capture_safe_mode(connection: socket.socket) -> None:
     scroll_settings_along_left_edge(SETTINGS_SAFE_MODE_LABEL)
     capture("30-safe-mode.png")
     close_active_dialog(connection)
+
+
+def capture_settings_screens(websocket_control):
+    from . import test_device_access_screen as access
+    from . import test_logging_settings as logging_ui
+    from . import test_control_ports as ports
+    capture_grid_settings(websocket_control)
+    capture_themes(websocket_control)
+    capture_safe_mode(websocket_control)
+    capture_automation_access(websocket_control)
+    access.open_setup(websocket_control)
+    capture("38-device-access-screen.png")
+    access.close_setup()
+    logging_ui.open_logging(websocket_control, from_home=True)
+    capture("39-logging-settings.png")
+    close_active_dialog(websocket_control)
+    capture_connection_and_javascript(websocket_control)
+
+
+def capture_connection_and_javascript(websocket_control):
+    from . import test_control_ports as ports
+    open_launcher_control_route(websocket_control, LAUNCHER_CONTROL_SETTINGS_SEMANTIC_ID)
+    AUTOMATION.request(websocket_control, "tap", semanticId=ports.SEMANTIC_SETTINGS_AUTOMATION)
+    AUTOMATION.request(websocket_control, "tap", semanticId=ports.SEMANTIC_SETTINGS_CONTROL_PORTS)
+    wait_for_snapshot_node(websocket_control, ports.SEMANTIC_CONTROL_PORTS_SAVE)
+    AUTOMATION.request(websocket_control, "setText", semanticId=ports.SEMANTIC_CONTROL_LISTEN_ADDRESS, text="0.0.0.0")
+    capture("40-control-ports.png")
+    close_active_dialog(websocket_control)
+    open_launcher_control_route(websocket_control, LAUNCHER_CONTROL_SETTINGS_SEMANTIC_ID)
+    AUTOMATION.request(websocket_control, "tap", semanticId=SETTINGS_SCRIPTS_SEMANTIC_ID)
+    AUTOMATION.request(websocket_control, "tap", semanticId="script:create:javascript")
+    capture("41-javascript-editor.png")
+    device_command("input keyevent KEYCODE_BACK")
+    reset_to_starter_home()
+
+
+def test_capture_user_guide_connection_and_javascript(websocket_control):
+    capture_connection_and_javascript(websocket_control)
+
+
+def test_capture_user_guide_settings_screens(websocket_control):
+    capture_settings_screens(websocket_control)

@@ -183,6 +183,7 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
             "recipes/inspect-ui" to "Inspect and act",
             "recipes/launch-app" to "Open an app reliably",
             "recipes/html-item" to "Edit part of an HTML document",
+            "recipes/travel-todo" to "Build a GPS todo app",
             "recipes/event-setup" to "Custom-event pipeline setup",
             "recipes/event-lua" to "Custom-event Lua source",
             "recipes/event-widget" to "Custom-event HTML source",
