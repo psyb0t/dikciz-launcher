@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "id": "voice-notes",
+  "title": "Voice notes",
+  "description": "Record, save and replay local voice notes. Microphone starts only on a tap and stops when this app is hidden.",
+  "commands": [
+    "microphoneSession",
+    "audioPlayback",
+    "fileMkdir",
+    "fileManage"
+  ],
+  "language": "javascript",
+  "events": []
+}

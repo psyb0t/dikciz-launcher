@@ -2,6 +2,7 @@
 
 import base64
 import json
+import shutil
 import time
 import pytest
 from . import *
@@ -14,6 +15,7 @@ def test_sos_warning_visible_countdown_cancel(websocket_control, protocol):
     grant_permissions(("android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION",
                        "android.permission.POST_NOTIFICATIONS", "android.permission.SEND_SMS"))
     restore_system_home()
+    device_command("cmd statusbar collapse")
     device_command(f"appops set {DIKCIZ_DEBUG_PACKAGE} SYSTEM_ALERT_WINDOW allow")
     native_call("http", "sosControl", {"action": "cancel"})
     native_call(protocol, "sosPlanSave", {"contacts": [{"address": "5550101", "label": "Emulator fixture"}],
@@ -29,6 +31,22 @@ def test_sos_warning_visible_countdown_cancel(websocket_control, protocol):
             time.sleep(.2)
         assert state.get("warning", {}).get("screenVisible"), state
         assert state["warning"]["presentation"] == "overlay"
+        device_command(f"am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p {DESKCLOCK_APP_PACKAGE}")
+        underlying_activity = run_device_operation("app-current")
+        assert DESKCLOCK_APP_PACKAGE in underlying_activity
+        snapshot = AUTOMATION.request(websocket_control, "snapshot")
+        backdrop = next((node for node in snapshot["nodes"] if node["semanticId"] == "sos:warning:backdrop"), None)
+        assert backdrop is not None, "SOS must present a modal backdrop, not a floating card"
+        cancel = next(node for node in snapshot["nodes"] if node["semanticId"] == "sos:warning:cancel")
+        assert backdrop["bounds"]["top"] < cancel["bounds"]["top"]
+        assert backdrop["bounds"]["bottom"] > cancel["bounds"]["bottom"]
+        bounds = backdrop["bounds"]
+        device_command(f"input tap {bounds['left'] + 10} {bounds['top'] + (bounds['bottom'] - bounds['top']) // 4}")
+        device_command("input keyevent 4")
+        assert run_device_operation("app-current") == underlying_activity
+        assert native_call(protocol, "sosStatus")["run"]["state"] == "warning"
+        run_device_operation("screenshot")
+        shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / ("sos-modal-" + protocol + ".png"))
         wait_for_snapshot_node(websocket_control, "sos:warning:cancel")
         first = state["warning"]["remainingSeconds"]
         time.sleep(2)
@@ -49,6 +67,7 @@ def test_sos_warning_visible_countdown_cancel(websocket_control, protocol):
         assert state["run"]["state"] == "cancelled", state
         assert state["run"]["updates"] == 0 and not state["run"]["receipts"]
         assert not state["warning"]["active"] and not state["warning"]["screenVisible"]
+        wait_for_snapshot_node(websocket_control, "sos:warning:backdrop", should_exist=False)
     finally:
         native_call("http", "sosControl", {"action": "cancel"})
 
@@ -57,6 +76,7 @@ def _warning_setup():
     grant_permissions(("android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION",
                        "android.permission.POST_NOTIFICATIONS", "android.permission.SEND_SMS"))
     restore_system_home()
+    device_command("cmd statusbar collapse")
     native_call("http", "sosControl", {"action": "cancel"})
 
 
@@ -70,6 +90,12 @@ def test_sos_warning_followup_dialog_without_overlay(websocket_control):
         state = native_call("http", "sosStatus")
         assert state["warning"]["presentation"] == "dialog", state
         assert state["warning"]["screenVisible"]
+        snapshot = AUTOMATION.request(websocket_control, "snapshot")
+        assert any(node["semanticId"] == "sos:warning:backdrop" for node in snapshot["nodes"])
+        device_command("input keyevent 4")
+        assert native_call("http", "sosStatus")["run"]["state"] == "warning"
+        run_device_operation("screenshot")
+        shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "sos-modal-dialog.png")
         tap(websocket_control, "sos:warning:cancel")
         time.sleep(1)
         state = native_call("http", "sosStatus")
@@ -88,7 +114,7 @@ def test_sos_warning_followup_missed_checkin_over_another_app(websocket_control)
     try:
         native_call("http", "sosControl", {"action": "arm", "confirm": True})
         assert not native_call("http", "sosStatus")["warning"]["active"]
-        device_command("am start -a android.settings.SETTINGS")
+        device_command(f"am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p {DESKCLOCK_APP_PACKAGE}")
         deadline = time.monotonic() + 75
         state = {}
         while time.monotonic() < deadline:
@@ -103,6 +129,8 @@ def test_sos_warning_followup_missed_checkin_over_another_app(websocket_control)
         time.sleep(2)
         AUTOMATION.request(websocket_control, "scrollTo", semanticId="sos:warning:cancel")
         wait_for_snapshot_node(websocket_control, "sos:warning:cancel")
+        run_device_operation("screenshot")
+        shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "sos-modal-landscape.png")
         capture = native_call("http", "screenshot")
         (ARTIFACT_DIRECTORY / "sos-warning-background.png").write_bytes(base64.b64decode(capture["pngBase64"]))
         native_call("mcp", "sosControl", {"action": "cancel"})
@@ -116,6 +144,7 @@ def test_sos_warning_followup_missed_checkin_over_another_app(websocket_control)
         device_command("settings put system user_rotation 0")
         device_command("settings put system accelerometer_rotation 1")
         restore_system_home()
+    device_command("cmd statusbar collapse")
 
 
 def test_sos_warning_followup_terminal_cleanup(websocket_control):

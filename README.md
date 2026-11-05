@@ -8,13 +8,13 @@
 
 *yes, it's dick cheese*
 
-Dikciz is a programmable Android home screen. Build pages from HTML widgets, native app shortcuts and Android widgets, write Lua automations, and control your phone through WebSocket, MCP or HTTP over USB, Wi-Fi or Tailscale.
+Dikciz is a programmable Android home screen. Build pages from HTML widgets, native app shortcuts and Android widgets, write Lua or background JavaScript automations, and control your phone through WebSocket, MCP or HTTP over USB, Wi-Fi or Tailscale.
 
 Your home lives in editable files under `/sdcard/Dikciz/`. The signed release includes scripting, inspection and remote control. Ordinary launcher control needs neither a debug build nor root. Android permissions govern access to the rest of the phone.
 
 ## Who this is for
 
-**TL;DR: Your phone, your controls.** Dikciz is for developers, tinkerers and anyone who wants to program their phone: build a home screen in HTML/CSS/JavaScript, automate events with Lua, and let their own AI use the phone through MCP.
+**TL;DR: Your phone, your controls.** Dikciz is for developers, tinkerers and anyone who wants to program their phone: build a home screen in HTML/CSS/JavaScript, automate events with Lua or JavaScript, and let their own AI use the phone through MCP.
 
 Also for goblins who want their phone to say "peen goes in vageen", flash the torch like Christmas and play alien noises. Speech, audio, lights and SMS are programmable too. Build something useful, something ridiculous, or both.
 
@@ -65,8 +65,9 @@ Release packages use `eu.psyb0t.dikciz.launcher`; debug packages use `eu.psyb0t.
 
 - Native pages arranged across two axes, each with a fixed grid, stable identity and configurable layout.
 - Local HTML, CSS and JavaScript widgets with persistent state, events and the `window.dikciz` bridge.
+- [Custom apps](docs/custom-apps.md) with complete editable HTML/CSS/JavaScript interfaces, Lua or JavaScript backends, independent state, event subscriptions and native timers.
 - Native app shortcuts, app groups and third-party Android AppWidget providers.
-- Lua scripts with event subscriptions, typed actions, owner command access and a native script dashboard. Enable only trusted scripts; their command access includes files and shell.
+- Lua and [background JavaScript](docs/background-javascript.md) scripts with event subscriptions, typed actions, owner command access and a native script dashboard. Enable only trusted scripts; their command access includes files and shell.
 - Themes, fonts, wallpaper, widget appearance, editing locks and a chosen Android Home destination.
 - Semantic UI inspection, screenshots, logs, configuration editing and device actions through the remote APIs.
 
@@ -91,6 +92,8 @@ Tap the cheese beside the launcher controls for an on-device assistant. Add an O
 ## Safety, journeys and devices
 
 Open **Settings**, **Safety, journeys and devices** for inactive contact plans, opt-in missed check-ins/SOS, geofences, recorded routes, retained Bluetooth/USB/NFC connections, image OCR/barcodes/PDFs, Health Connect records and Android-approved Wi-Fi flows. All use the shared phone APIs. [Read the setup and limits](docs/companion.md) before enabling background work. The optional Vehicle console template reads a paired ELM327 adapter. Chat also offers five [read-only routines](docs/assistant-routines.md).
+
+**Settings**, **Custom apps** opens complete editable apps. SOS is an ordinary bundled app whose message/check-in logic lives in `/sdcard/Dikciz/apps/sos/main.js`, beside its HTML/CSS/JavaScript UI and state. Voice notes, Agenda and Device status also ship as independent apps. Create or import your own, review declared commands, then enable it. [The app guide](docs/custom-apps.md) covers source, state, events, timers, dimmed alerts and reusable archives.
 
 ## Configure it
 
@@ -180,7 +183,8 @@ Start with the [documentation index](docs/index.md) for every guide and the [cov
 | [Offline search](docs/search.md) | Ranked docs, recipes, live schemas, aliases, typo correction and persistent owner collections. |
 | [On-device chat](docs/embedded-chat.md) | Provider profiles, streaming Markdown, conversations, context budgets and event-driven agents. |
 | [Configuration](docs/dikciz-configuration.md) | Public files, validation, reload behavior, themes and logs. |
-| [Scripting](docs/scripting-tutorial.md) | Lua, HTML, events, policies and typed actions. |
+| [Scripting](docs/scripting-tutorial.md) | Lua, background JavaScript, HTML, events, policies and typed actions. |
+| [Custom apps](docs/custom-apps.md) | Complete UI/backend bundles, app-local state, native timers, urgent modals and editable SOS. |
 | [Access tokens](docs/remote-access-tokens.md) | Named client credentials, grants, revocation and filtered discovery. |
 | [Automation control](docs/automation-control.md) | Direct connections, ADB forwarding, authentication, WebSocket, MCP and HTTP. |
 | [Files, APKs and shell](docs/files-and-apks.md) | Browse, upload, download, install APKs and read CLI results. |

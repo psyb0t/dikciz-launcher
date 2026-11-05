@@ -200,6 +200,8 @@ internal class DikcizHealthConnectDailyStepsSource(
                 }
             }
             .mapNotNull(DikcizAutomationSubscription::healthRefreshIntervalMilliseconds)
+            .plus(DikcizCustomApps.subscriptions().asSequence().filter { it.event == DikcizAutomationEventType.HealthDailySteps }
+                .mapNotNull(DikcizAutomationSubscription::healthRefreshIntervalMilliseconds))
             .minOrNull()
     }
 

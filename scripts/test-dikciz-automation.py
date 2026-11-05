@@ -727,6 +727,21 @@ NATIVE_MCP_TOOLS.update({key: value[0] for key, value in COMPANION_COMMANDS.item
 NATIVE_COMMAND_FIELDS.update({key: value[1] for key, value in COMPANION_COMMANDS.items()})
 NATIVE_READ_COMMANDS.update(key for key, value in COMPANION_COMMANDS.items() if value[2])
 
+CUSTOM_APP_COMMANDS = {
+    "customAppsList": ("dikciz_custom_apps_list", ("offset", "limit"), True),
+    "customAppRead": ("dikciz_custom_app_read", ("appId",), True),
+    "customAppInstall": ("dikciz_custom_app_install", ("manifest", "html", "css", "javascript", "backgroundSource", "confirm"), False),
+    "customAppControl": ("dikciz_custom_app_control", ("appId", "action", "path", "confirm"), False),
+    "customAppEvent": ("dikciz_custom_app_event", ("appId", "event", "payload", "interruptRunning"), False),
+    "customAppState": ("dikciz_custom_app_state", ("appId", "action", "state"), False),
+    "customAppSchedule": ("dikciz_custom_app_schedule", ("appId", "action", "timerId", "delayMilliseconds", "event", "payload"), False),
+    "customAppAlert": ("dikciz_custom_app_alert", ("appId", "action", "episodeId", "durationMilliseconds", "title", "detail", "cancelLabel", "cancelEvent", "announcement", "finalAnnouncement"), False),
+    "customAppRuntime": ("dikciz_custom_app_runtime", (), True),
+}
+NATIVE_MCP_TOOLS.update({key: value[0] for key, value in CUSTOM_APP_COMMANDS.items()})
+NATIVE_COMMAND_FIELDS.update({key: value[1] for key, value in CUSTOM_APP_COMMANDS.items()})
+NATIVE_READ_COMMANDS.update(key for key, value in CUSTOM_APP_COMMANDS.items() if value[2])
+
 CONTROL_STATUS_COMMAND_FIELDS = {
     "shellStream": ("chunkBytes", "command", "root", "timeoutMilliseconds"),
     "shellStreamStop": ("streamId",),

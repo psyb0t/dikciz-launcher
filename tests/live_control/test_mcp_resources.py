@@ -16,7 +16,7 @@ RESOURCE_PREFIX = "dikciz://docs/"
 INDEX_URI = RESOURCE_PREFIX + "index"
 PAGE_SIZE = 8
 SECTION_BYTES = 4096
-SECTION_COUNT = 66
+SECTION_COUNT = 68
 INVALID_PARAMS = -32602
 READ_METHOD = "resources/read"
 LIST_METHOD = "resources/list"
@@ -118,6 +118,7 @@ def test_mcp_resources_walk_all_pages_and_read_each_section(websocket_control):
     uris = {item["uri"] for item in descriptors}
     assert len(uris) == len(descriptors) == SECTION_COUNT
     assert descriptors[0]["uri"] == INDEX_URI
+    assert {RESOURCE_PREFIX + "guides/javascript", RESOURCE_PREFIX + "guides/custom-apps"} <= uris
     for descriptor in descriptors:
         assert descriptor["name"] and descriptor["title"] and descriptor["description"]
         text = read_resource(descriptor["name"])

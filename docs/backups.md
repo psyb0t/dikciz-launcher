@@ -8,6 +8,8 @@ A backup contains home configuration, page and widget documents and state, scrip
 
 Remote passwords, access tokens, control listener settings, logs and operational databases are excluded. A restore preserves the destination device's authentication and listener address/ports. Android permissions and special access are device settings and must be granted separately. Package installations are not backed up.
 
+[Custom apps](custom-apps.md), including SOS plan/run state and app recordings under `apps/`, are also excluded. Their reusable export contains source only. Preserve requested state/data separately and cancel active app work before restoring related home assets.
+
 Limits are 4096 public files, 32 MiB of public file data, 128 provider profiles, 1000 conversations, 10,000 messages and 64 MiB encoded archive size. Large recordings or conversation histories can exceed those bounds. Backups fail explicitly rather than omitting files.
 
 ## Preview before replacing data

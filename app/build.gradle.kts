@@ -164,6 +164,7 @@ detekt {
 dependencies {
     implementation(libs.fossify.commons)
     add("dikcizImplementation", "org.luaj:luaj-jse:3.0.1")
+    add("dikcizImplementation", "org.mozilla:rhino:1.9.2")
     add("dikcizImplementation", "com.linkedin.dexmaker:dexmaker:2.28.6")
     add("dikcizImplementation", "com.jakewharton.android.repackaged:dalvik-dx:9.0.0_r3")
     add("dikcizImplementation", "androidx.health.connect:connect-client:1.1.0")
@@ -189,6 +190,7 @@ dependencies {
 
 // Keep checksum verification scoped to pinned extension artifacts and Dikciz variants.
 val dikcizSdkDependencyHashes = mapOf(
+    "org.mozilla:rhino:1.9.2" to "0d28c18bb7d60c736556700ac2d51e2e1bf11b173fe5a16f9893092abc7e3d90",
     "com.google.mlkit:text-recognition:16.0.1" to "da753265d02479a8cfe4dbf891ba7d189248e7c8430b6f72bd4d532c757a69b3",
     "com.google.mlkit:barcode-scanning:17.3.0" to "64c5cf48bb94b6c54f2c785c660640a7d167aff6ad72bc2c920706dc4187b79a",
     "com.linkedin.dexmaker:dexmaker:2.28.6" to "fdb1d3632c66694ed4cd3445cd86da70286f93b55d613e30361abec6d23404ac",

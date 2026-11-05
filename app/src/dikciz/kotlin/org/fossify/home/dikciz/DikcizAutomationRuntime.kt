@@ -227,6 +227,7 @@ internal object DikcizAutomationEventBus {
         DikcizEventJournal.append(event)
         DikcizChatRuntime.get(context).onEvent(event)
         runtime(context).dispatch(event)
+        DikcizCustomApps.onEvent(context, event)
         eventListeners[context.packageName]?.invoke(event)
         remoteEventListeners[context.packageName]?.invoke(event)
     }
@@ -272,6 +273,7 @@ internal class DikcizAutomationRuntime(
     private val homeConfigStore = HomeConfigStore(context)
     private val logger = DikcizLogger(LOG_TAG, homeConfigStore.logDirectory)
     private val luaRuntime = DikcizLuaRuntime()
+    private val javascriptRuntime = DikcizJavaScriptRuntime(luaRuntime::decodeJsonEventResult)
     private val privilegedShell = DikcizPrivilegedShell()
     private val appActionRunner = DikcizAppActionRunner(
         context = context,
@@ -398,14 +400,15 @@ internal class DikcizAutomationRuntime(
         val accessibilitySnapshot = accessibilitySnapshot(event)
         matchingSubscriptions.forEach { _ ->
             val commandReplies = mutableListOf<DikcizLocalCommands.Reply>()
-            val result = luaRuntime.executeEvent(
+            val executeScript = if (script.language == DikcizScriptLanguage.JavaScript) javascriptRuntime::executeEvent else luaRuntime::executeEvent
+            val result = executeScript(
                 script,
                 visibleEvent,
                 actionConfiguration.limits,
                 actionConfiguration.scriptWidgetContext(),
                 accessibilitySnapshot,
                 DikcizAutomationStatus.androidAccessDocument(context),
-                executeCommand = { serialized ->
+                { serialized ->
                     val current = loadConfiguration()
                     val reply = if (current != null && ownerScriptEnabled(current, script.id)) {
                         DikcizLocalCommands.executeJson(LOCAL_COMMAND_OWNER_PREFIX + script.id, serialized)

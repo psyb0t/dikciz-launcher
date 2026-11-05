@@ -2,7 +2,7 @@
 
 <!-- Regenerate with make dikciz-command-docs from captured tools/list discovery. -->
 
-This reference contains 206 discovered MCP tools and their complete input schemas. Discovery from the installed build is authoritative. Transport-independent procedures, Android permissions and results are described in the [automation guide](automation-control.md), [documentation index](index.md) and focused task guides. MCP tools use the same ordinary commands as HTTP, WebSocket, HTML and Lua.
+This reference contains 215 discovered MCP tools and their complete input schemas. Discovery from the installed build is authoritative. Transport-independent procedures, Android permissions and results are described in the [automation guide](automation-control.md), [documentation index](index.md) and focused task guides. MCP tools use the same ordinary commands as HTTP, WebSocket, HTML and Lua.
 
 Schemas include nested fields, required values, defaults and bounds. autoRequestPermissions requests owner review; it never grants access or retries the operation. Inspect returned state and errors before continuing.
 
@@ -2467,6 +2467,441 @@ Read the complete local command contract, limits, transports, and safe-mode stat
       "default": false
     }
   },
+  "additionalProperties": false
+}
+```
+
+## dikciz_custom_app_alert
+
+Show/close a reusable dimmed urgent countdown modal with a notification fallback and cancel button. show needs episodeId, durationMilliseconds, title, detail, cancelLabel, cancelEvent. Optional announcement/finalAnnouncement are spoken via offline TTS, {seconds} is substituted. Cancellation dispatches cancelEvent to this app. Requires enabled notifications and high-priority alert channel. The response reports requested presentation; inspect customAppRead.alert for observed state. Android protected screens may hide overlays.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "appId": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+    },
+    "action": {
+      "type": "string",
+      "maxLength": 96,
+      "enum": [
+        "show",
+        "close"
+      ]
+    },
+    "episodeId": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "durationMilliseconds": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 3600000
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "detail": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "cancelLabel": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "cancelEvent": {
+      "type": "string",
+      "maxLength": 96,
+      "pattern": "[A-Za-z][A-Za-z0-9_.-]{0,95}"
+    },
+    "announcement": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "finalAnnouncement": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "appId",
+    "action"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_custom_app_control
+
+open opens app UI; enable requires confirm=true to approve declared commands and subscriptions; disable cancels timers and alerts; remove requires confirm=true and deletes only this app's directory; export writes a bounded .dikciz-app.zip; import requires path and confirm=true and installs disabled. Opening UI requires an enabled app. Export excludes state and runtime files. To copy an app, install its source with a different manifest.id, then enable that independent instance.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "appId": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+    },
+    "action": {
+      "type": "string",
+      "maxLength": 96,
+      "enum": [
+        "open",
+        "enable",
+        "disable",
+        "remove",
+        "export",
+        "import"
+      ]
+    },
+    "path": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "confirm": {
+      "type": "boolean"
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "action"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_custom_app_event
+
+Synchronously invoke an enabled app's Lua/JS on_event/onEvent handler. event is a name, payload an object. Returns outcome/status/result and current state. A handler result.error with code/message becomes the canonical command error. Shared budgets apply. Calls serialize with timers and cancellation. interruptRunning=true blocks subsequent effects from an already running handler before this event acquires its execution lock. No automatic retry of effects.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "appId": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+    },
+    "event": {
+      "type": "string",
+      "maxLength": 96,
+      "pattern": "[A-Za-z][A-Za-z0-9_.-]{0,95}"
+    },
+    "payload": {
+      "type": "object"
+    },
+    "interruptRunning": {
+      "type": "boolean",
+      "description": "Immediately refuse further mutating host calls from the running handler before queuing this event, for cancellation controls."
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "appId",
+    "event"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_custom_app_install
+
+Install or replace a complete app bundle after confirm=true. manifest has version:1,id,title,description,language (lua/javascript), commands (exact native command types), events (event names), optional locationMonitoring boolean. Sources use html/css/javascript/backgroundSource. Installation is disabled until explicitly enabled. Replacing requires no pending timers or alert and preserves current state. All entrypoints share validation.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "minLength": 1
+        },
+        "language": {
+          "type": "string",
+          "maxLength": 96,
+          "enum": [
+            "lua",
+            "javascript"
+          ]
+        },
+        "commands": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 96,
+            "pattern": "[A-Za-z][A-Za-z0-9_.-]{0,95}"
+          }
+        },
+        "events": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 96,
+            "pattern": "[A-Za-z][A-Za-z0-9_.-]{0,95}"
+          }
+        },
+        "eventSubscriptions": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "object"
+          },
+          "description": "Canonical event subscription objects, as in HTML widget eventSubscriptions. Use event, minimumIntervalMilliseconds and event-specific sensorTypes/samplingPeriodMicroseconds/locationPrecision/alarmIntervalMilliseconds/healthRefreshIntervalMilliseconds/packageNames. See the event recipe."
+        },
+        "locationMonitoring": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "version",
+        "id",
+        "title",
+        "description",
+        "language",
+        "commands",
+        "events"
+      ]
+    },
+    "html": {
+      "type": "string",
+      "maxLength": 262144
+    },
+    "css": {
+      "type": "string",
+      "maxLength": 262144
+    },
+    "javascript": {
+      "type": "string",
+      "maxLength": 262144
+    },
+    "backgroundSource": {
+      "type": "string",
+      "maxLength": 262144
+    },
+    "confirm": {
+      "type": "boolean"
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "manifest",
+    "html",
+    "confirm"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_custom_app_read
+
+Read one app manifest, full HTML/CSS/JS, optional Lua/JS background source, state, run status and durable timers. Sources live under /sdcard/Dikciz/apps/<appId>. This owner-only read can contain private app data.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "appId": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "appId"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_custom_app_runtime
+
+Read native clock/boot identity, Android access, notification/channel availability and app service state. Elapsed time is monotonic within boot. Does not grant access or start effects.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## dikciz_custom_app_schedule
+
+Schedule/cancel one durable app timer by timerId, or cancelAll. schedule needs delayMilliseconds (1000..604800000), event and optional payload. Same ID replaces only pending work; a unique generation identifies each delivery. Android can delay alarms. A claimed timer is never automatically replayed after a crash; interrupted/rebooted work needs review. Timer cancellation cannot recall submitted effects. Scheduling starts a visible service with Stop.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "appId": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+    },
+    "action": {
+      "type": "string",
+      "maxLength": 96,
+      "enum": [
+        "schedule",
+        "cancel",
+        "cancelAll"
+      ]
+    },
+    "timerId": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+    },
+    "delayMilliseconds": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 604800000
+    },
+    "event": {
+      "type": "string",
+      "maxLength": 96,
+      "pattern": "[A-Za-z][A-Za-z0-9_.-]{0,95}"
+    },
+    "payload": {
+      "type": "object"
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "appId",
+    "action"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_custom_app_state
+
+Read or atomically replace app state.json. replace requires state. Backends and UI share this state. Script patchState actions merge keys. Use customAppRead for a read-only agent. An app binding cannot address another app.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "appId": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+    },
+    "action": {
+      "type": "string",
+      "maxLength": 96,
+      "enum": [
+        "read",
+        "replace"
+      ]
+    },
+    "state": {
+      "type": "object"
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "appId",
+    "action"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_custom_apps_list
+
+List installed editable Dikciz apps. Follow hasMore; disabled apps cannot execute background code. Apps are independent of Android APKs.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
   "additionalProperties": false
 }
 ```

@@ -11,9 +11,13 @@ Use this catalog to choose the right feature. Use the running build's `controlSt
 - Host real third-party Android AppWidgets, including their Android configuration flow.
 - Create HTML widgets, install library packages, save complete documents as library templates, edit HTML/CSS/JavaScript/state, fit content within assigned cells, and change native widget appearance.
 - Select themes, custom or system fonts, wallpapers and widget-style overrides. Locks prevent edits without blocking normal interaction.
-- Manage Lua scripts through the native dashboard: create, edit, enable, disable, run, import/export, inspect status and logs.
+- Manage Lua and background JavaScript scripts through the native dashboard: create, edit, enable, disable, run, import/export, inspect status and logs.
 
 Read the [user guide](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/user-guide.md) for native UI steps. Page and widget identities come from the current home, not from example names or guessed screen coordinates.
+
+## Custom apps
+
+Settings > Custom apps manages complete app.json, ui.html/ui.css/ui.js and main.js or main.lua bundles under /sdcard/Dikciz/apps/<id>, with independent state/files. Declared commands and native/custom subscriptions require manifest approval; UI source reloads and backend source loads per invocation. The shared customApp* APIs install disabled bundles, open UI, invoke backends, persist state, schedule durable one-shot events and host dimmed cancellation modals. Read [custom apps](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/custom-apps.md) or dikciz://docs/guides/custom-apps for limits and recovery. SOS uses this platform; Voice notes, Agenda and Device status are bundled examples. Source-only export excludes private data. Home/chat backups exclude apps. Scoped tokens cannot use these owner tools; read-only chat exposes list/read/runtime and blocks execution/mutations.
 
 ## Embedded assistant
 
@@ -21,7 +25,7 @@ The cheese control opens half/full-screen streaming Markdown chat with separate 
 
 ## Configuration and recovery
 
-The public root is `/sdcard/Dikciz/`. `config.json` references separate page and widget documents. Scripts have metadata, Lua source, state and run-status files. Automation policies and subscriptions, complete widget-library templates, themes, fonts, wallpapers, control-port and remote-auth configuration, and logs have their own paths.
+The public root is `/sdcard/Dikciz/`. `config.json` references separate page and widget documents. Scripts have metadata, Lua or JavaScript source, state and run-status files. Automation policies and subscriptions, complete widget-library templates, themes, fonts, wallpapers, control-port and remote-auth configuration, and logs have their own paths.
 
 Valid home and rendering-asset edits are watched and applied without restarting the app. Valid listen-address and control-port edits automatically restart the affected listeners. Configuration replacement validates and saves atomically. Preserve unrelated root namespaces and avoid whole-document replacement for a narrow change. Read the [configuration guide](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/dikciz-configuration.md) before editing files or assembling a replacement.
 

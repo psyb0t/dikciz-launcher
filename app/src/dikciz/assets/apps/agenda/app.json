@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "id": "agenda",
+  "title": "Agenda and alarms",
+  "description": "Upcoming calendar entries and the next Android alarm, with links to the system calendar and alarm apps.",
+  "commands": [
+    "contentQuery",
+    "deviceState",
+    "intent",
+    "nativeDataStatus",
+    "requestDeviceAccess"
+  ],
+  "language": "javascript",
+  "events": []
+}

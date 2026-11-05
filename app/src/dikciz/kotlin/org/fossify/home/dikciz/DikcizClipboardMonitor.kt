@@ -11,7 +11,7 @@ internal object DikcizClipboardMonitor {
 
     @Synchronized
     fun sync(context: Context, configuration: HomeConfiguration) {
-        if (!hasEnabledSubscription(configuration)) {
+        if (!hasEnabledSubscription(configuration) && DikcizCustomApps.subscriptions().none { it.event == DikcizAutomationEventType.ClipboardChanged }) {
             stop()
             return
         }

@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+## [0.30.12] - 2026-11-05
+
+### Added
+
+- Complete custom apps with editable HTML/CSS/JavaScript interfaces, Lua or JavaScript backends, app-local state, declared commands, native event subscriptions, persistent one-shot timers and urgent dimmed modals.
+- Native app creation, complete-source editing, manifest approval and source-only import/export, shared through HTTP, WebSocket, MCP and local bindings.
+- Bundled SOS, Voice notes, Agenda and Device status apps. SOS message/check-in decisions now run from editable public JavaScript with migration of existing plans and review of interrupted runs.
+- Background JavaScript scripts alongside Lua, with editable main.js source, shared event subscriptions, state, actions, phone commands and native archive import/export.
+
+### Fixed
+
+- Present SOS warnings in a reusable modal with a dimmed background, blocked background taps and an explicit cancellation action.
+
 ## [0.30.11] - 2026-11-04
 
 ### Fixed

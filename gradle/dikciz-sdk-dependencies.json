@@ -38,5 +38,29 @@
     "artifact": "dalvik-dx-9.0.0_r3.pom",
     "sha256": "d2db0401ef7ce6e83bf2d5fcd0129625d16dbf5181d4901dde037d40f218aafb",
     "url": "https://repo.maven.apache.org/maven2/com/jakewharton/android/repackaged/dalvik-dx/9.0.0_r3/dalvik-dx-9.0.0_r3.pom"
+  },
+  {
+    "group": "org.mozilla",
+    "name": "rhino",
+    "version": "1.9.2",
+    "artifact": "rhino-1.9.2.jar",
+    "sha256": "0d28c18bb7d60c736556700ac2d51e2e1bf11b173fe5a16f9893092abc7e3d90",
+    "url": "https://repo.maven.apache.org/maven2/org/mozilla/rhino/1.9.2/rhino-1.9.2.jar"
+  },
+  {
+    "group": "org.mozilla",
+    "name": "rhino",
+    "version": "1.9.2",
+    "artifact": "rhino-1.9.2.pom",
+    "sha256": "6a6a73aa90d6f9c9435be9a2d72db7381e0a7cf382ce607c3f802c7868d16fce",
+    "url": "https://repo.maven.apache.org/maven2/org/mozilla/rhino/1.9.2/rhino-1.9.2.pom"
+  },
+  {
+    "group": "org.mozilla",
+    "name": "rhino",
+    "version": "1.9.2",
+    "artifact": "rhino-1.9.2.module",
+    "sha256": "eec8a783bd41a73f27534239ba84f2bf6d0c16a5ae692f4c5adaf9d2406f21aa",
+    "url": "https://repo.maven.apache.org/maven2/org/mozilla/rhino/1.9.2/rhino-1.9.2.module"
   }
 ]

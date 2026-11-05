@@ -3,7 +3,7 @@
 Search with dikciz_search_query; read relevant URIs. [Search](dikciz://docs/guides/search).
 
 ## Guides
-- [Companion](dikciz://docs/guides/companion): safety, routes, connections, vision, health, Wi-Fi and routines.
+- [Companion](dikciz://docs/guides/companion): phone workflows.
 - [SDK](dikciz://docs/guides/android-sdk): public APIs and access.
 - [Connection](dikciz://docs/guides/connect): addresses and authentication.
 - [Discovery](dikciz://docs/guides/discovery): versions and responses.
@@ -12,8 +12,10 @@ Search with dikciz_search_query; read relevant URIs. [Search](dikciz://docs/guid
 - Typed actions: [state/events](dikciz://docs/guides/actions-state), [device](dikciz://docs/guides/actions-device), [UI](dikciz://docs/guides/actions-ui).
 - [UI](dikciz://docs/guides/ui): nodes and screenshots.
 - [Apps](dikciz://docs/guides/apps): verified launches and recent tasks.
+- [Custom apps](dikciz://docs/guides/custom-apps): UI/backend bundles.
 - [Pages](dikciz://docs/guides/pages): addresses, layout and locks.
 - [HTML](dikciz://docs/guides/html): bridge, state and item controls.
+- [JavaScript](dikciz://docs/guides/javascript): headless scripts and shared events.
 - [Lua](dikciz://docs/guides/lua): scripts, policies and outcomes.
 - [Events](dikciz://docs/guides/events): custom events and subscriptions.
 - [Files](dikciz://docs/guides/files): binary transfer and APKs.
@@ -32,7 +34,7 @@ Search with dikciz_search_query; read relevant URIs. [Search](dikciz://docs/guid
 - [NFC](dikciz://docs/guides/nfc): NDEF and transactions.
 - [Bluetooth](dikciz://docs/guides/bluetooth): discovery, pairing, RFCOMM and GATT.
 - [Audio](dikciz://docs/guides/audio): playback and routing.
-- [Microphone streams](dikciz://docs/guides/microphone-streams): live PCM, replay and owner stop.
+- [Microphone streams](dikciz://docs/guides/microphone-streams): PCM.
 - [Wi-Fi](dikciz://docs/guides/wifi): requested scans, cached results and freshness.
 - [Speech models](dikciz://docs/guides/speech-models): languages and downloads.
 - [USSD](dikciz://docs/guides/ussd): carrier requests and outcomes.

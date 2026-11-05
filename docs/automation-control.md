@@ -18,9 +18,11 @@ Both listeners default to device loopback. Set their listen address and ports th
 
 ## Companion workflows
 
+[Custom apps](custom-apps.md) expose list/read/install/control/event/state/schedule/alert/runtime through this same executor. Their full UI/backend bundles and app-local state are public files. Full owner authority is required; read-only agents see only list/read/runtime and cannot invoke or mutate an app. `snapshot.screen: "customApp"` includes the app ID, native manager controls and editor fields. Generic urgent modals use `customAppAlert` and `app:<id>:warning:*` semantic nodes; SOS retains its existing IDs below.
+
 [Safety, journeys and devices](companion.md) adds typed commands through the same executor and all ordinary bindings, including HTML and Lua. Read the installed schemas and targeted permission recovery before performing effects.
 
-An attached SOS countdown appears as `snapshot.screen: "sosWarning"`, with stable `sos:warning:title`, `sos:warning:countdown`, `sos:warning:details` and `sos:warning:cancel` nodes. Existing snapshot, screenshot, tap and scroll commands operate on the actual warning view. `sosStatus.warning` reports its presentation and speech state; inspect [SOS warning behavior and Android limits](safety-and-journeys.md#audible-cancellation-warning) before claiming the owner saw or heard it.
+An attached SOS countdown appears as `snapshot.screen: "sosWarning"`, with stable `sos:warning:backdrop`, `sos:warning:title`, `sos:warning:countdown`, `sos:warning:details` and `sos:warning:cancel` nodes. Existing snapshot, screenshot, tap and scroll commands operate on the actual warning view. `sosStatus.warning` reports its presentation and speech state; inspect [SOS warning behavior and Android limits](safety-and-journeys.md#audible-cancellation-warning) before claiming the owner saw or heard it.
 
 ## Offline search
 
@@ -474,3 +476,5 @@ Embedded chat supports per-conversation `settings:{"readOnly":true}`. Discovery 
 The event journal persists its epoch, sequence, retained events and configured limits in private SQLite storage. Process restart preserves replay while normal retention still expires old records. The eventConsumerRead command resumes from a named consumer's durable acknowledged cursor without advancing it. After handling a page, call eventConsumerAck with its nextCursor. Acknowledgements cannot move backwards or beyond the last dispatched event. Inspect historyGap and lostEvents before processing. Acknowledgement does not run or retry side effects.
 
 Use eventConsumersList to page through up to 64 named consumers and eventConsumerForget to remove one. Consumer administration requires owner access. Names contain 1 to 80 letters, digits, dots, underscores or hyphens, beginning with a letter or digit. These commands use the same validation, Android access checks and response contracts through HTTP, WebSocket and MCP.
+
+Background scripts accept `language: "javascript"` through the existing configuration commands and run through the same `automationTrigger`, event subscriptions and script-status/log paths. The native create control is `script:create:javascript`; existing `lua-script:*` editor IDs remain stable for both languages. See [background JavaScript](background-javascript.md).

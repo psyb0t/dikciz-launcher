@@ -18,6 +18,13 @@ Dikciz keeps its editable home under `/sdcard/Dikciz/`. The directory is the sou
 ├── scripts/<script-id>/run-status.json
 ├── scripts/imports/
 ├── scripts/exports/
+├── apps/<app-id>/app.json
+├── apps/<app-id>/ui.html
+├── apps/<app-id>/ui.css
+├── apps/<app-id>/ui.js
+├── apps/<app-id>/main.js
+├── apps/<app-id>/state.json
+├── apps/<app-id>/files/
 ├── widget-library/<package-id>/widget.json
 ├── widget-library/<package-id>/index.html
 ├── widget-library/<package-id>/style.css
@@ -35,6 +42,8 @@ Dikciz keeps its editable home under `/sdcard/Dikciz/`. The directory is the sou
 On first run, Android must grant Dikciz access to this directory. The storage screen links to Android's own access panel. Until Android grants it, the control planes still expose the storage screen for inspection but cannot load or change configuration.
 
 Each file has one job. `config.json` owns global settings and the home manifest. Pages own their metadata and widget references. Widgets, scripts, automation rules, themes, and library packages remain separate so a normal edit does not turn the root into one large document.
+
+[Custom apps](custom-apps.md) live independently of `configGet` and page/widget configuration. Their manifest chooses `main.js` or `main.lua`, declared commands and subscriptions. UI edits reload that app; state updates reach its active WebView and backend source loads on invocation. Changing the approved manifest disables its execution until reviewed. Existing edited bundles survive updates. Their data and source are excluded from current encrypted home/chat backups.
 
 ## Edit and inspect configuration
 
@@ -249,7 +258,7 @@ The JavaScript bridge and event model are documented in [Automation control](aut
 
 ## Lua scripts and automation
 
-Lua scripts are background or event-driven logic, not home widgets. Each script has four files:
+Lua and JavaScript scripts are background or event-driven logic. Metadata accepts optional `language`, either `lua` (the default) or `javascript`. JavaScript uses `main.js`; Lua uses `main.lua`. The [background JavaScript guide](background-javascript.md) covers its handler and shared contracts. Each script has four files:
 
 ```text
 scripts/<script-id>/script.json      metadata and enabled state

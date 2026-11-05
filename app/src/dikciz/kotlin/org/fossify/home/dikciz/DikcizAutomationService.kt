@@ -359,7 +359,7 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
         configuration = loadedConfiguration
         logger.configure(loadedConfiguration.logging)
         DikcizAutomationEventBus.acceptConfiguration(applicationContext, loadedConfiguration)
-        if (!loadedConfiguration.requiresBackgroundAutomationService() && !DikcizChatRuntime.get(this).hasRules()) {
+        if (!loadedConfiguration.requiresBackgroundAutomationService() && !DikcizChatRuntime.get(this).hasRules() && DikcizCustomApps.subscriptions().isEmpty()) {
             cancelAlarm()
             unregisterSources()
             unregisterLocation()
@@ -416,6 +416,8 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val serviceType = if (usesLocation) {
                     android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
                 } else {
                     android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
                 }
@@ -994,7 +996,7 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
             .filter(HtmlHomeWidget::enabled)
             .flatMap { widget -> widget.eventSubscriptions.asSequence() }
             .filter { subscription -> event == null || subscription.event == event }
-            .toList() + DikcizChatRuntime.get(this).subscriptions(configuration).filter { event == null || it.event == event }
+            .toList() + (DikcizChatRuntime.get(this).subscriptions(configuration) + DikcizCustomApps.subscriptions()).filter { event == null || it.event == event }
     }
 
     private fun registeredSubscriptions(

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "sos",
+  "title": "SOS and check-ins",
+  "description": "Editable safety app with exact contacts, previews, missed check-ins, audible cancellation and tracked SMS updates. Inactive until explicitly armed.",
+  "language": "javascript",
+  "commands": ["locationGet", "smsSend", "smsStatus", "contentQuery", "requestDeviceAccess"],
+  "events": [],
+  "locationMonitoring": true
+}

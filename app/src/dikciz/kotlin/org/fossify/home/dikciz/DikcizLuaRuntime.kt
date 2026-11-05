@@ -3,6 +3,7 @@ package org.fossify.home.dikciz
 import android.os.Debug
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
 import org.luaj.vm2.Globals
 import org.luaj.vm2.LuaError
 import org.luaj.vm2.LuaTable
@@ -79,7 +80,7 @@ internal class DikcizLuaRuntime {
             )
             executionBudget.throwIfExceeded()
             val parsedResult = parseEventResult(result, limits)
-            DikcizLuaAutomationResult.Actions(parsedResult.actions, parsedResult.status)
+            DikcizLuaAutomationResult.Actions(parsedResult.actions, parsedResult.status, parsedResult.result)
         } catch (_: DikcizLuaExecutionCancelled) {
             DikcizLuaAutomationResult.Failure(DikcizLuaFailure.Cancelled)
         } catch (_: DikcizLuaMemoryBudgetExceeded) {
@@ -96,6 +97,31 @@ internal class DikcizLuaRuntime {
         } catch (_: IllegalArgumentException) {
             DikcizLuaAutomationResult.Failure(DikcizLuaFailure.InvalidResult)
         }
+    }
+
+    fun decodeJsonEventResult(serialized: String, limits: DikcizLimits): DikcizLuaAutomationResult.Actions {
+        val value = JSONTokener(serialized).nextValue()
+        val statePatches = mutableMapOf<Int, JSONObject>()
+        (value as? JSONObject)?.optJSONArray(EVENT_ACTIONS_FIELD)?.let { actions ->
+            repeat(actions.length()) { index ->
+                val action = actions.optJSONObject(index) ?: return@repeat
+                if (action.optString(TYPE_FIELD) == PATCH_STATE_ACTION_TYPE) {
+                    val values = action.optJSONObject(VALUES_FIELD) ?: throw IllegalArgumentException("patchState values must be an object")
+                    statePatches[index] = DikcizAutomationActionDocument.statePatch(values, limits)
+                    // Lua nil removes JSON nulls and array slots; validate JSON state before the shared action conversion.
+                    action.put(VALUES_FIELD, JSONObject())
+                }
+            }
+        }
+        val response = (value as? JSONObject)?.let { document ->
+            if (document.has("result") && document.opt("result") !is JSONObject) throw IllegalArgumentException("result must be an object")
+            document.optJSONObject("result")?.also { document.remove("result") }
+        }
+        val parsed = parseEventResult(scriptStateValueToLuaValue(value), limits)
+        val actions = parsed.actions.mapIndexed { index, action ->
+            statePatches[index]?.let(DikcizLuaAutomationAction::PatchState) ?: action
+        }
+        return DikcizLuaAutomationResult.Actions(actions, parsed.status, response ?: parsed.result)
     }
 
     private fun createExecutionGlobals(
@@ -336,7 +362,7 @@ internal class DikcizLuaRuntime {
             return DikcizLuaEventResult(emptyList(), null)
         }
         val table = result.checktable()
-        if (table.get(EVENT_ACTIONS_FIELD).istable() || table.get(EVENT_STATUS_FIELD).isstring()) {
+        if (table.get(EVENT_ACTIONS_FIELD).istable() || table.get(EVENT_STATUS_FIELD).isstring() || table.get("result").istable()) {
             requireExactKeys(table, EVENT_RESULT_KEYS)
             val status = optionalBoundedString(table, EVENT_STATUS_FIELD, limits.maxTitleCharacters)
             val actions = if (table.get(EVENT_ACTIONS_FIELD).isnil()) {
@@ -344,7 +370,10 @@ internal class DikcizLuaRuntime {
             } else {
                 parseEventActions(table.get(EVENT_ACTIONS_FIELD), limits)
             }
-            return DikcizLuaEventResult(actions, status)
+            val response = table.get("result").takeUnless { it.isnil() }?.let {
+                luaTableToJson(it.checktable(), limits, 0, allowProviderKeys = true)
+            }
+            return DikcizLuaEventResult(actions, status, response)
         }
         return DikcizLuaEventResult(parseEventActions(result, limits), null)
     }
@@ -1158,10 +1187,10 @@ internal class DikcizLuaRuntime {
         const val JAVASCRIPT_FIELD = "javascript"
         const val LEVEL_PERCENT_FIELD = "levelPercent"
         const val INVALID_ACTION_TYPE_MESSAGE = "Lua action type is unsupported"
-        const val MAXIMUM_EXECUTION_DURATION_NANOS = 50_000_000L
-        const val MAXIMUM_SETUP_DURATION_NANOS = 250_000_000L
-        const val MAXIMUM_EXECUTION_MEMORY_DELTA_BYTES = 2L * 1024L * 1024L
-        const val MAXIMUM_INSTRUCTION_COUNT = 50_000
+        const val MAXIMUM_EXECUTION_DURATION_NANOS = DikcizScriptExecutionLimits.HANDLER_CPU_NANOS
+        const val MAXIMUM_SETUP_DURATION_NANOS = DikcizScriptExecutionLimits.SETUP_CPU_NANOS
+        const val MAXIMUM_EXECUTION_MEMORY_DELTA_BYTES = DikcizScriptExecutionLimits.MEMORY_BYTES
+        const val MAXIMUM_INSTRUCTION_COUNT = DikcizScriptExecutionLimits.INSTRUCTIONS
         const val MAXIMUM_EVENT_ACTIONS = 8
         const val MAXIMUM_ACCESSIBILITY_ACTION_CHARACTERS = 32
         const val MAXIMUM_ACCESSIBILITY_GESTURE_CHARACTERS = 16
@@ -1338,7 +1367,7 @@ internal class DikcizLuaRuntime {
         val PATCH_WIDGET_ACTION_KEYS = setOf(TYPE_FIELD, VALUES_FIELD, WIDGET_ADDRESS_FIELD)
         val POST_NOTIFICATION_ACTION_KEYS = setOf(TEXT_FIELD, TITLE_FIELD, TYPE_FIELD)
         val SEND_SMS_ACTION_KEYS = setOf(BODY_FIELD, RECIPIENT_FIELD, TYPE_FIELD)
-        val EVENT_RESULT_KEYS = setOf(EVENT_ACTIONS_FIELD, EVENT_STATUS_FIELD)
+        val EVENT_RESULT_KEYS = setOf(EVENT_ACTIONS_FIELD, EVENT_STATUS_FIELD, "result")
         val UNBOUNDED_STRING_FUNCTIONS = setOf("format", "gsub", "rep")
         val UNBOUNDED_TABLE_FUNCTIONS = setOf("concat", "move", "unpack")
     }
@@ -1348,6 +1377,7 @@ internal sealed interface DikcizLuaAutomationResult {
     data class Actions(
         val actions: List<DikcizLuaAutomationAction>,
         val status: String?,
+        val result: JSONObject? = null,
     ) : DikcizLuaAutomationResult
 
     data class Failure(
@@ -1363,6 +1393,7 @@ internal sealed interface DikcizLuaAutomationResult {
 private data class DikcizLuaEventResult(
     val actions: List<DikcizLuaAutomationAction>,
     val status: String?,
+    val result: JSONObject? = null,
 )
 
 internal enum class DikcizLuaFailure(
@@ -1372,8 +1403,10 @@ internal enum class DikcizLuaFailure(
     ExecutionDeadlineExceeded("execution_deadline_exceeded"),
     InstructionBudgetExceeded("instruction_budget_exceeded"),
     InvalidLua("invalid_lua"),
+    InvalidJavaScript("invalid_javascript"),
     InvalidResult("invalid_result"),
     MemoryBudgetExceeded("memory_budget_exceeded"),
+    RuntimeUnavailable("runtime_unavailable"),
     ;
 
 }

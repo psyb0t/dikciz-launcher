@@ -314,6 +314,10 @@ internal object DikcizAutomationActionDocument {
 
     private fun requireStatePatch(action: JSONObject, limits: DikcizLimits): JSONObject {
         val values = action.optJSONObject(FIELD_VALUES) ?: throw IllegalArgumentException(MESSAGE_INVALID_STATE_PATCH)
+        return statePatch(values, limits)
+    }
+
+    fun statePatch(values: JSONObject, limits: DikcizLimits): JSONObject {
         validateStateValue(values, limits, ROOT_STATE_DEPTH)
         return JSONObject(values.toString())
     }

@@ -9,6 +9,7 @@ Start with the [README](../README.md) for installation, or choose the task below
 | Install, choose Home, navigate, edit pages/widgets, manage apps and scripts | [Illustrated user guide](user-guide.md) |
 | Configure the on-device assistant and event-driven conversations | [Embedded chat](embedded-chat.md) |
 | Browse every bundled page, HTML template and Lua example | [Starter home](starter-home.md) |
+| Create complete UI/backend apps with state, timers and alerts | [Custom apps](custom-apps.md) |
 | Edit files, themes, grid, widget state, libraries, policies, logging and listeners | [Configuration](dikciz-configuration.md) |
 | Look up every typed action, its fields and Lua policy name | [Typed actions](typed-actions.md) |
 | Check Android grants, foreground requirements and privilege boundaries | [Android access](android-access.md) |
@@ -55,3 +56,5 @@ A transport reply proves only what its result states. Accepted intents are not v
 Android permissions, special access, roles, hardware, foreground state and system privilege are independent checks. A manifest declaration is not an implementation or grant. Missing capability is explicit. Root shell is optional privileged access, not a portable replacement for ordinary Android APIs.
 
 [Activity, resources and visual rules](operations.md) covers command history, resource measurements, interruption and simulated rule testing.
+
+[Background JavaScript](background-javascript.md) covers the second script backend, headless events, state, limits and archives.

@@ -52,8 +52,17 @@ internal class DikcizNativeData(
 
     fun execute(command: DikcizAutomationCommand): JSONObject {
         DikcizNativeCommands.validate(command.type, command.request, true)
+        if (command.readOnly && command.type !in DikcizNativeCommands.READ_ONLY_TYPES) DikcizNativeCommands.failure("native_read_only", "Read-only execution cannot mutate the phone")
+        if (command.type == DikcizJourneys.CONTROL && command.request.optString("action") in setOf("cancel", "checkIn")) {
+            DikcizCustomApps.signalCancellation(DikcizCustomApps.SAFETY_ID)
+        }
+        if (command.type == DikcizCustomAppCommands.EVENT && command.request.optBoolean("interruptRunning") ||
+            command.type == DikcizCustomAppCommands.CONTROL && command.request.optString("action") in setOf("disable", "remove")) {
+            DikcizCustomApps.signalCancellation(command.request.getString("appId"))
+        }
         try {
             val result = when (command.type) {
+                in DikcizCustomAppCommands.TYPES -> DikcizCustomApps.execute(context, command.type, command.request)
                 DikcizPackageCommands.INSTALL_SET -> DikcizApkInstaller(context.applicationContext, logger).installSet(command.request)
                 DikcizPackageCommands.CANCEL -> DikcizApkInstaller(context.applicationContext, logger).cancel(command.request)
                 in DikcizWifiNetworks.TYPES -> DikcizWifiNetworks.execute(DikcizForegroundActivity.current(context) ?: context, logger, command.type, command.request)

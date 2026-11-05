@@ -2,7 +2,7 @@
 
 For installation, the starter home, AI chat, remote connections and Android hardware, start with the [complete Dikciz tutorial](tutorial.md). This guide is the hands-on HTML and Lua companion.
 
-Dikciz has two ways to make the home react to the phone. HTML widgets draw and handle visible interaction. Lua scripts run in the background when an event arrives. Both use the same event bus, page and widget addresses, action executor, Android access state, and logs.
+Dikciz has two ways to make the home react to the phone. HTML widgets draw and handle visible interaction. Lua and background JavaScript scripts run when an event arrives. Both use the same event bus, page and widget addresses, action executor, Android access state, and logs.
 
 This tutorial builds one small pipeline that you can copy and extend:
 
@@ -16,12 +16,14 @@ The [configuration guide](dikciz-configuration.md) owns the public file schema. 
 
 ## Start with the right pieces
 
+For an installable package containing both an interface and background logic, read [custom apps](custom-apps.md). An app has its own UI files, Lua/JavaScript backend, state, subscriptions and declared commands. The bundled SOS workflow uses this public platform. The standalone script/widget pipeline below remains available.
+
 Install Dikciz, make it your Android Home app, and grant shared-storage access. The first run creates `/sdcard/Dikciz/`, which holds every script, policy, subscription, widget, package, state file, and log.
 
 Use the native launcher for the visible parts:
 
 1. Add an **HTML widget** from **Add to this page** when you need a visible control or display.
-2. Open **Settings**, then **Scripts**, then **New Lua script** when you need background or event-driven logic.
+2. Open **Settings**, then **Scripts**, then **New Lua script** or **New JavaScript script** for background or event-driven logic. The [JavaScript guide](background-javascript.md) documents `onEvent`, shared actions and runtime limits; the Lua examples below use `on_event`.
 3. Open **Settings**, then **Automation**, then **Set up full device access** before using an Android source or action that needs owner approval.
 
 The script editor writes a script's title, enabled state, source, and state. The public automation files choose which events it receives and which actions it may return. A script without both an enabled policy and an enabled subscription can show source in the editor but cannot complete an automation action.

@@ -123,6 +123,12 @@ internal object DikcizLuaScriptApi {
     const val CURRENT_VERSION = 1
 }
 
+internal enum class DikcizScriptLanguage(val persistedValue: String, val sourceFileName: String) {
+    Lua("lua", "main.lua"),
+    JavaScript("javascript", "main.js"),
+    ;
+}
+
 internal data class DikcizLuaScript(
     val id: String,
     val title: String,
@@ -130,6 +136,7 @@ internal data class DikcizLuaScript(
     val source: String,
     val apiVersion: Int = DikcizLuaScriptApi.CURRENT_VERSION,
     val state: JSONObject = JSONObject(),
+    val language: DikcizScriptLanguage = DikcizScriptLanguage.Lua,
 ) {
     val serializedState: String = state.toString()
 }

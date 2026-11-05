@@ -14,6 +14,8 @@ This directory contains live Android acceptance tests, their data, and external-
 
 ## Running tests
 
+After building, `make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_custom_apps` checks complete bundles, transport parity, approval, JS/Lua results, isolated state, archives, event/timer delivery, native app screens/editors and urgent cancellation. Run `DIKCIZ_TEST_SELECTOR=test_sos_warning` separately for SOS regressions. These use the private emulator and fictional SMS recipients. Minified builds can use either selector with `APK` set to the minified artifact.
+
 Run from the repository root through Make. `make dikciz-test` builds the debug APK, resets the shared emulator's Dikciz installation, and runs the live suite. To select a scenario against an already-built APK:
 
 ```bash
@@ -133,4 +135,6 @@ Run make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_companion for shared
 
 The tests keep operation outcomes distinct from acceptance and clean up their own saved fences/routes, conversations, fixture package and copied files.
 
-Run `make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_sos_warning` for real countdown visibility and cancellation across HTTP, WebSocket and MCP, foreground-dialog fallback, missed-check-in warnings over another app, large-font rotation and terminal resource cleanup. Fixtures use only the private emulator and a fictional recipient. Speech state verifies Android TTS callbacks; physical audibility remains a device acceptance check.
+Run `make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_sos_warning` for real modal backdrops, blocked background taps and Back, countdown visibility and cancellation across HTTP, WebSocket and MCP, foreground-dialog fallback, missed-check-in warnings over another app, large-font rotation and terminal resource cleanup. Fixtures use only the private emulator and a fictional recipient. Speech state verifies Android TTS callbacks; physical audibility remains a device acceptance check.
+
+Run `make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_background_javascript` after a current debug build for both language records, cross-language events through HTTP/WebSocket/MCP, strict metadata, bounded JS failures, source reload, screen-off alarms and native JavaScript editing/archive transfer. Tests use only the isolated emulator.

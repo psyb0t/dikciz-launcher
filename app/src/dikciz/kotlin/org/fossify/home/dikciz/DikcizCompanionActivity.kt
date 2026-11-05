@@ -7,7 +7,6 @@ import android.graphics.Rect
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.provider.ContactsContract
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
@@ -32,52 +31,17 @@ internal class DikcizCompanionActivity : Activity() {
     private var tab="Safety"
     private var mode=""
     private var draft=JSONObject()
-    private var contacts=JSONArray()
     private var selectedImages=mutableListOf<String>()
     private var modal: AlertDialog?=null
     private var generation=0
     private var busy=false
     private var visible=false
     private var labelId=0
-    private var safetyRun: JSONObject?=null
-    private var safetyLive: TextView?=null
-    private var polling=false
-    private val refreshSafety=object : Runnable {
-        override fun run() {
-            if (!visible) return
-            val run=safetyRun
-            val remaining=run?.optLong("deadlineElapsed",0)?.minus(android.os.SystemClock.elapsedRealtime()) ?: 0
-            safetyLive?.text=if (run?.optString("state") in setOf("armed","warning","active")) {
-                run!!.getString("state").replace('_',' ')+" · next deadline in "+((remaining.coerceAtLeast(0)+999)/1000)+" seconds"
-            } else run?.optString("state","Not armed")?.replace('_',' ') ?: "Not armed"
-            if (tab=="Safety" && mode.isEmpty() && !busy && !polling && modal?.isShowing!=true) {
-                val expected=generation
-                polling=true
-                worker.execute {
-                    try {
-                        val result=DikcizUiCommands.execute("settings:companion",DikcizJourneys.STATUS,JSONObject())
-                        handler.post {
-                            polling=false
-                            if (!visible || isDestroyed || expected!=generation) return@post
-                            val next=result.optJSONObject("run")
-                            val changed=next?.optString("state")!=safetyRun?.optString("state")
-                            safetyRun=next
-                            if (changed) render()
-                        }
-                    } catch (exception: Exception) {
-                        handler.post { polling=false; if (visible) status.text="Safety status could not refresh. Open Activity for details." }
-                    }
-                }
-            }
-            handler.postDelayed(this,1000)
-        }
-    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         tab=savedInstanceState?.getString("tab") ?: "Safety"
         mode=savedInstanceState?.getString("mode") ?: ""
         draft=JSONObject(savedInstanceState?.getString("draft") ?: "{}")
-        contacts=JSONArray(savedInstanceState?.getString("contacts") ?: "[]")
         selectedImages=savedInstanceState?.getStringArrayList("images")?.toMutableList() ?: mutableListOf()
         WindowCompat.setDecorFitsSystemWindows(window,false)
         val root=column().apply { setBackgroundColor(DikcizUiStyle.BACKGROUND); setPadding(dp(20),dp(12),dp(20),0) }
@@ -103,13 +67,13 @@ internal class DikcizCompanionActivity : Activity() {
         }
         render()
     }
-    override fun onResume() { super.onResume(); foreground=WeakReference(this); visible=true; handler.post(refreshSafety) }
-    override fun onPause() { visible=false; handler.removeCallbacks(refreshSafety); if (foreground?.get()===this) foreground=null; super.onPause() }
+    override fun onResume() { super.onResume(); foreground=WeakReference(this); visible=true;  }
+    override fun onPause() { visible=false; if (foreground?.get()===this) foreground=null; super.onPause() }
     override fun onDestroy() { worker.shutdown(); super.onDestroy() }
     override fun onSaveInstanceState(out: Bundle) {
         captureDraft()
         out.putString("tab",tab); out.putString("mode",mode); out.putString("draft",draft.toString())
-        out.putString("contacts",contacts.toString()); out.putStringArrayList("images",ArrayList(selectedImages))
+        out.putStringArrayList("images",ArrayList(selectedImages))
         super.onSaveInstanceState(out)
     }
     private fun captureDraft() { fields.forEach { (key,value) -> if (key!="passphrase") draft.put(key,value.text.toString()) } }
@@ -123,11 +87,10 @@ internal class DikcizCompanionActivity : Activity() {
             }
         }
         views.keys.filter { !it.startsWith("companion:tab:") && it !in setOf("companion:close","companion:status") }.forEach(views::remove)
-        content.removeAllViews(); safetyLive=null; scroll.scrollTo(0,0)
+        content.removeAllViews(); scroll.scrollTo(0,0)
         if (mode.isNotEmpty()) {
             content.addView(button("companion:back","Back") { mode=""; draft=JSONObject(); render() })
             when (mode) {
-                "plan" -> planForm()
                 "fence" -> fenceForm()
                 "connection" -> connectionForm()
                 "wifi" -> wifiForm()
@@ -168,97 +131,11 @@ internal class DikcizCompanionActivity : Activity() {
         }
     }
     private fun safety() {
-        content.addView(label("Check-ins and SOS",22))
-        content.addView(label("Choose exact contacts, review a message and arm monitoring when you need it. Android background restrictions still apply. No calls are placed.",15))
-        request(DikcizJourneys.STATUS) { result ->
-            val plan=result.optJSONObject("plan")
-            val run=result.optJSONObject("run")
-            safetyRun=run
-            val state=run?.optString("state") ?: "not armed"
-            safetyLive=label(state.replace('_',' '),18).also { it.visibility=if (state in setOf("armed","warning","active")) View.VISIBLE else View.GONE; content.addView(it) }
-            card("Current state",state.replace('_',' ')).apply {
-                run?.optLong("deadlineAt",0)?.takeIf { it>0 && state in setOf("armed","warning","active") }?.let { addView(label("Next deadline: "+java.time.Instant.ofEpochMilli(it),14)) }
-                addView(button("companion:sos:edit","Edit safety plan") {
-                    draft=plan?.let { JSONObject(it.toString()) } ?: JSONObject()
-                    contacts=plan?.optJSONArray("contacts")?.let { JSONArray(it.toString()) } ?: JSONArray()
-                    mode="plan"; render()
-                })
-            }
-            if (plan==null) return@request
-            val recipients=plan.getJSONArray("contacts")
-            card("Contacts", (0 until recipients.length()).joinToString("\n") {
-                recipients.getJSONObject(it).optString("label",recipients.getJSONObject(it).getString("address"))
-            })
-            content.addView(button("companion:sos:preview","Preview message") {
-                request(DikcizJourneys.PREVIEW) { preview ->
-                    show(AlertDialog.Builder(this).setTitle("Preview only")
-                        .setMessage(preview.getString("message")+"\n\nNo SMS was submitted.").setPositiveButton("Close",null).show())
-                }
-            })
-            if (state in setOf("armed","warning","active")) {
-                content.addView(button("companion:sos:check-in","I'm safe. Reset check-in") { request(DikcizJourneys.CONTROL,JSONObject().put("action","checkIn")) { render() } })
-                content.addView(button("companion:sos:cancel","Cancel future SOS updates") { request(DikcizJourneys.CONTROL,JSONObject().put("action","cancel")) { render() } })
-            } else {
-                content.addView(button("companion:sos:arm","Arm missed check-in",true) {
-                    confirm("Arm check-in?", "If you miss the deadline, the cancellation grace runs before SMS updates go to these contacts.") {
-                        request(DikcizJourneys.CONTROL,JSONObject().put("action","arm").put("confirm",true).put("autoRequestPermissions",true)) { render() }
-                    }
-                })
-                content.addView(button("companion:sos:trigger","Start SOS countdown") {
-                    confirm("Start SOS?", "SMS updates begin after "+plan.getInt("graceSeconds")+" seconds. You can cancel before then.") {
-                        request(DikcizJourneys.CONTROL,JSONObject().put("action","trigger").put("confirm",true).put("autoRequestPermissions",true)) { render() }
-                    }
-                })
-            }
-            run?.optJSONArray("receipts")?.let { receipts ->
-                if (receipts.length()>0) card("Submitted updates",receipts.length().toString()+" recipient outcomes. Delivery remains dependent on carrier callbacks.")
-            }
-        }
-    }
-    private fun planForm() {
-        content.addView(label("Safety plan",22))
-        content.addView(label("Saving stays inactive. Arming and triggering are separate actions.",15))
-        for (index in 0 until contacts.length()) {
-            val contact=contacts.getJSONObject(index)
-            card(contact.optString("label","Contact"),contact.getString("address")).addView(button("companion:contact:remove:"+index,"Remove contact") {
-                captureDraft(); contacts.remove(index); render()
-            })
-        }
-        content.addView(button("companion:contact:pick","Choose contact") {
-            captureDraft()
-            startActivityForResult(Intent(Intent.ACTION_PICK,ContactsContract.CommonDataKinds.Phone.CONTENT_URI),CONTACT_REQUEST)
+        content.addView(label("SOS and check-ins",22))
+        content.addView(label("Safety is an editable Dikciz app. Its UI, background script and state use the same host as custom apps.",15))
+        content.addView(button("companion:sos:open","Open SOS app",true) {
+            request(DikcizCustomAppCommands.CONTROL,JSONObject().put("action","open").put("appId",DikcizCustomApps.SAFETY_ID)) { }
         })
-        content.addView(button("companion:contact:manual","Enter a number") { manualContact() })
-        input("checkInMinutes","Check-in interval, minutes",(draft.optLong("checkInSeconds",3600)/60).toString(),true)
-        input("graceSeconds","Cancellation grace, seconds",draft.optInt("graceSeconds",60).toString(),true)
-        input("updateMinutes","Update interval, minutes",(draft.optLong("updateSeconds",600)/60).toString(),true)
-        input("maximumUpdates","Maximum updates per recipient",draft.optInt("maximumUpdates",3).toString(),true)
-        input("message","Message",draft.optString("message","I need help. Last known location: {location}. Accuracy: {accuracyMeters} m. Fix time: {timestamp}."),multiline=true)
-        content.addView(button("companion:plan:save","Save inactive plan",true) {
-            val plan=JSONObject().put("contacts",contacts).put("checkInSeconds",long("checkInMinutes")*60)
-                .put("graceSeconds",long("graceSeconds")).put("updateSeconds",long("updateMinutes")*60)
-                .put("maximumUpdates",long("maximumUpdates")).put("message",text("message"))
-            draft.opt("subscriptionId")?.let { plan.put("subscriptionId",it) }
-            request(DikcizJourneys.PLAN,plan) { mode=""; render() }
-        })
-    }
-    private fun manualContact() {
-        val body=column(); val name=EditText(this).apply { hint="Name"; contentDescription="Contact label" }
-        val phone=EditText(this).apply { hint="Phone number"; contentDescription="Contact number"; inputType=InputType.TYPE_CLASS_PHONE }
-        body.addView(name); body.addView(phone)
-        val dialog=AlertDialog.Builder(this).setTitle("Add SOS contact").setView(body).setPositiveButton("Add",null).setNegativeButton("Cancel",null).create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                try { addContact(name.text.toString(),DikcizNativeCommands.normalizedRecipient(phone.text.toString())); dialog.dismiss() }
-                catch (exception: DikcizAutomationRequestException) { phone.error=exception.message }
-            }
-        }
-        dialog.show(); show(dialog)
-    }
-    private fun addContact(name: String,address: String) {
-        if (contacts.length()>=10) DikcizNativeCommands.invalid("At most ten contacts")
-        if ((0 until contacts.length()).any { contacts.getJSONObject(it).getString("address")==address }) DikcizNativeCommands.invalid("Contact already selected")
-        captureDraft(); contacts.put(JSONObject().put("label",name.ifBlank { address }).put("address",address)); render()
     }
     private fun places() {
         content.addView(label("Places",22))
@@ -483,15 +360,6 @@ internal class DikcizCompanionActivity : Activity() {
     override fun onActivityResult(requestCode: Int,resultCode: Int,data: Intent?) {
         super.onActivityResult(requestCode,resultCode,data)
         if (resultCode!=RESULT_OK || data==null) return
-        if (requestCode==CONTACT_REQUEST) {
-            try {
-                val uri=data.data ?: return
-                if (uri.scheme!="content" || uri.authority!=ContactsContract.AUTHORITY) throw IllegalArgumentException("Unsupported contact provider")
-                contentResolver.query(uri,arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER,ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME),null,null,null)?.use { cursor ->
-                    if (cursor.moveToFirst()) addContact(cursor.getString(1).orEmpty(),DikcizNativeCommands.normalizedRecipient(cursor.getString(0).orEmpty()))
-                }
-            } catch (exception: Exception) { status.text=exception.message ?: "Contact could not be added" }
-        }
         if (requestCode==IMAGE_REQUEST) {
             val uris=if (data.clipData!=null) (0 until data.clipData!!.itemCount).map { data.clipData!!.getItemAt(it).uri } else listOfNotNull(data.data)
             if (uris.size !in 1..20) { status.text="Choose one to twenty images"; return }
@@ -612,7 +480,6 @@ internal class DikcizCompanionActivity : Activity() {
     private fun dp(value: Int)=(value*resources.displayMetrics.density).toInt()
     companion object {
         private val TABS=listOf("Safety","Places","Trips","Devices","Scan","Health","Wi-Fi")
-        private const val CONTACT_REQUEST=7314
         private const val IMAGE_REQUEST=7315
         private var foreground: WeakReference<DikcizCompanionActivity>?=null
         fun current()=foreground?.get()?.takeUnless { it.isDestroyed || it.isFinishing }

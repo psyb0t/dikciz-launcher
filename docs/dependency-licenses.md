@@ -7,3 +7,7 @@ Recognition processes image input and results on the device. Google states that 
 Pinned direct AAR checksums are verified by the Dikciz Gradle dependency check. Build integration is kept in the flavor dependencies and matching upstream overlay. The optional fixture regeneration command fetches a SHA-pinned MIT-licensed Nayuki QR generator; its source header is retained in the verified cache. Committed PNG fixtures need no generator download during ordinary live tests.
 
 The flavor's ProGuard rules preserve ML Kit registrar constructors referenced through manifest metadata. Run recognition against the minified APK when checking a release; compilation does not exercise registrar loading.
+
+## JavaScript interpreter
+
+Background scripts bundle Mozilla Rhino 1.9.2 under the [Mozilla Public License 2.0](https://www.mozilla.org/en-US/MPL/2.0/). The unmodified runtime and its source are published by [Mozilla Rhino](https://github.com/mozilla/rhino/releases/tag/Rhino1_9_2_Release). Dikciz pins its version and verifies its JAR checksum in every Dikciz variant. It runs locally in interpreted mode; direct Java class access is disabled.

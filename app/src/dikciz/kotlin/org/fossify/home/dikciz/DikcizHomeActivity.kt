@@ -369,7 +369,7 @@ class DikcizHomeActivity : Activity() {
         reloadConfiguration(true)
         startLauncherServicesIfReady()
         if (!isSafeMode) {
-            try { DikcizJourneys.resume(applicationContext) }
+            try { DikcizCustomApps.resumeAsync(applicationContext); DikcizJourneys.resume(applicationContext) }
             catch (exception: DikcizAutomationRequestException) {
                 dikcizLogger.warn("journey_resume_rejected", mapOf("code" to exception.code))
             }
@@ -3617,10 +3617,16 @@ class DikcizHomeActivity : Activity() {
 
     private fun automationSnapshot(): JSONObject {
         DikcizSosWarning.current()?.takeIf { it.visibleRoot() != null }?.let { warning ->
-            return JSONObject().put(KEY_SCREEN, "sosWarning")
+            return JSONObject().put(KEY_SCREEN, if (DikcizSosWarning.status().optString("appId") == "sos") "sosWarning" else "customAppAlert")
                 .put(KEY_SELECTED_PAGE_ID, homeConfiguration?.selectedPageID ?: JSONObject.NULL)
                 .put(KEY_PAGES, JSONArray()).put(KEY_WIDGET_REFERENCES, JSONArray()).put(KEY_SCROLL, warning.scrollState())
                 .put(KEY_NODES, JSONArray(warning.semanticViews().toSortedMap().map { (id, view) -> describeAutomationView(id, view) }))
+        }
+        DikcizCustomAppActivity.current()?.let { screen ->
+            return JSONObject().put(KEY_SCREEN, "customApp").put("appId", screen.appId() ?: JSONObject.NULL)
+                .put(KEY_SELECTED_PAGE_ID, homeConfiguration?.selectedPageID ?: JSONObject.NULL)
+                .put(KEY_PAGES, JSONArray()).put(KEY_WIDGET_REFERENCES, JSONArray()).put(KEY_SCROLL, screen.scrollState())
+                .put(KEY_NODES, JSONArray(screen.semanticViews().toSortedMap().map { (id, view) -> describeAutomationView(id, view) }))
         }
         DikcizCompanionActivity.current()?.let { screen ->
             return JSONObject().put(KEY_SCREEN, "companion")
@@ -3758,6 +3764,7 @@ class DikcizHomeActivity : Activity() {
 
     private fun automationScrollState(): JSONObject {
         DikcizSosWarning.current()?.takeIf { it.visibleRoot() != null }?.let { return it.scrollState() }
+        DikcizCustomAppActivity.current()?.let { return it.scrollState() }
         DikcizCompanionActivity.current()?.let { return it.scrollState() }
         DikcizOperationsActivity.current()?.let { return it.scrollState() }
         DikcizDeviceAccessActivity.current()?.let { return it.scrollState() }
@@ -4650,6 +4657,7 @@ class DikcizHomeActivity : Activity() {
     private fun scrollAutomationPage(command: DikcizAutomationCommand): JSONObject {
         val deltaY = command.request.getInt(DikcizAutomationControlPlane.KEY_DELTA_Y)
         DikcizSosWarning.current()?.takeIf { it.visibleRoot() != null }?.let { it.scrollBy(deltaY); return it.scrollState() }
+        DikcizCustomAppActivity.current()?.let { it.scrollBy(deltaY); return it.scrollState() }
         DikcizCompanionActivity.current()?.let { it.scrollBy(deltaY); return it.scrollState() }
         DikcizOperationsActivity.current()?.let { it.scrollBy(deltaY); return it.scrollState() }
         val setup = DikcizDeviceAccessActivity.current()
@@ -4662,6 +4670,7 @@ class DikcizHomeActivity : Activity() {
         val semanticID = command.request.getString(DikcizAutomationControlPlane.KEY_SEMANTIC_ID)
         val view = requireAutomationView(semanticID)
         DikcizSosWarning.current()?.takeIf { it.visibleRoot() != null }?.let { it.scrollTo(view); return it.scrollState() }
+        DikcizCustomAppActivity.current()?.let { it.scrollTo(view); return it.scrollState() }
         DikcizCompanionActivity.current()?.let { it.scrollTo(view); return it.scrollState() }
         DikcizOperationsActivity.current()?.let { it.scrollTo(view); return it.scrollState() }
         val setup = DikcizDeviceAccessActivity.current()
@@ -4975,12 +4984,13 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun captureAutomationScreenshot(): JSONObject {
+        val app = DikcizCustomAppActivity.current()
         val companion = DikcizCompanionActivity.current()
         val operations = DikcizOperationsActivity.current()
         val setup = DikcizDeviceAccessActivity.current()
         val warningRoot = DikcizSosWarning.current()?.visibleRoot()
-        val root = warningRoot ?: companion?.window?.decorView ?: operations?.window?.decorView ?: setup?.window?.decorView ?: window.decorView
-        val dialog = companion?.foregroundDialog() ?: operations?.foregroundDialog() ?: if (companion == null && operations == null && setup == null) activeDialog else null
+        val root = warningRoot ?: app?.window?.decorView ?: companion?.window?.decorView ?: operations?.window?.decorView ?: setup?.window?.decorView ?: window.decorView
+        val dialog = app?.foregroundDialog() ?: companion?.foregroundDialog() ?: operations?.foregroundDialog() ?: if (app == null && companion == null && operations == null && setup == null) activeDialog else null
         if (root.width <= SCROLL_X_ORIGIN || root.height <= SCROLL_Y_ORIGIN) {
             throw automationFailure(MESSAGE_SCREEN_UNAVAILABLE)
         }
@@ -5081,6 +5091,7 @@ class DikcizHomeActivity : Activity() {
         refreshProviderViews: Boolean = false,
     ): View? {
         DikcizSosWarning.current()?.takeIf { it.visibleRoot() != null }?.let { return it.semanticViews()[semanticID] }
+        DikcizCustomAppActivity.current()?.let { return it.semanticViews()[semanticID] }
         DikcizCompanionActivity.current()?.let { return it.semanticViews()[semanticID] }
         DikcizOperationsActivity.current()?.let { return it.semanticViews()[semanticID] }
         DikcizDeviceAccessActivity.current()?.let { return it.semanticViews()[semanticID] }
@@ -6829,6 +6840,11 @@ class DikcizHomeActivity : Activity() {
                 }
                 registerAutomationView("settings:companion", this)
             })
+            addView(Button(this@DikcizHomeActivity).apply {
+                text = "Custom apps"; contentDescription = "Manage editable Dikciz apps"
+                setOnClickListener { activeDialog?.dismiss(); startActivity(Intent(this@DikcizHomeActivity, DikcizCustomAppActivity::class.java)) }
+                registerAutomationView("settings:custom-apps", this)
+            })
             addView(createWidgetTitle(getString(R.string.dikciz_settings_appearance)))
             AppearanceDefaultScope.entries.forEach { scope ->
                 addView(
@@ -8046,6 +8062,7 @@ class DikcizHomeActivity : Activity() {
         val configuration = homeConfiguration ?: return
         val scriptButtons = mutableMapOf<String, Button>()
         lateinit var createButton: Button
+        lateinit var createJavaScriptButton: Button
         lateinit var importButton: Button
         val form = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -8082,6 +8099,13 @@ class DikcizHomeActivity : Activity() {
             setOnClickListener { showLuaScriptEditor(null) }
             createButton = this
         })
+        form.addView(Button(this).apply {
+            text = getString(R.string.dikciz_script_create_javascript)
+            contentDescription = text
+            isAllCaps = false
+            setOnClickListener { showLuaScriptEditor(null, DikcizScriptLanguage.JavaScript) }
+            createJavaScriptButton = this
+        })
         val dialog = AlertDialog.Builder(this)
             .setTitle(R.string.dikciz_script_manager_title)
             .setView(ScrollView(this).apply { addView(form) })
@@ -8092,6 +8116,7 @@ class DikcizHomeActivity : Activity() {
                 registerAutomationView(luaScriptSemanticID(scriptID), scriptButton)
             }
             registerAutomationView(SEMANTIC_LUA_SCRIPT_CREATE, createButton)
+            registerAutomationView("script:create:javascript", createJavaScriptButton)
             registerAutomationView(SEMANTIC_LUA_SCRIPT_IMPORT, importButton)
             dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.let { closeButton ->
                 registerAutomationView(SEMANTIC_LUA_SCRIPT_CLOSE, closeButton)
@@ -8298,7 +8323,10 @@ class DikcizHomeActivity : Activity() {
         showLuaScriptManager()
     }
 
-    private fun showLuaScriptEditor(script: DikcizLuaScript?) {
+    private fun showLuaScriptEditor(
+        script: DikcizLuaScript?,
+        language: DikcizScriptLanguage = script?.language ?: DikcizScriptLanguage.Lua,
+    ) {
         val titleInput = EditText(this).apply {
             hint = getString(R.string.dikciz_dialog_title_hint)
             contentDescription = getString(R.string.dikciz_script_title_input)
@@ -8315,7 +8343,9 @@ class DikcizHomeActivity : Activity() {
             contentDescription = getString(R.string.dikciz_script_source_input)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
             minLines = SCRIPT_EDITOR_MINIMUM_LINES
-            setText(script?.source ?: DEFAULT_LUA_SCRIPT_SOURCE)
+            setText(script?.source ?: if (language == DikcizScriptLanguage.JavaScript) {
+                "function onEvent(event) {\n    return {status: \"Ready\"};\n}\n"
+            } else DEFAULT_LUA_SCRIPT_SOURCE)
         }
         val stateInput = EditText(this).apply {
             hint = getString(R.string.dikciz_script_state_input)
@@ -8329,6 +8359,7 @@ class DikcizHomeActivity : Activity() {
             setPadding(standardPadding(), NO_PADDING, standardPadding(), NO_PADDING)
             addView(titleInput)
             addView(enabledInput)
+            addView(createWidgetTitle("Language: " + language.persistedValue))
             addView(createWidgetTitle(getString(R.string.dikciz_script_source_label)))
             addView(sourceInput)
             addView(createWidgetTitle(getString(R.string.dikciz_script_state_label)))
@@ -8343,7 +8374,9 @@ class DikcizHomeActivity : Activity() {
             }.also(form::addView)
         }
         val dialog = AlertDialog.Builder(this)
-            .setTitle(if (script == null) R.string.dikciz_script_create else R.string.dikciz_script_edit)
+            .setTitle(if (script != null) R.string.dikciz_script_edit else if (language == DikcizScriptLanguage.JavaScript) {
+                R.string.dikciz_script_create_javascript
+            } else R.string.dikciz_script_create)
             .setView(ScrollView(this).apply { addView(form) })
             .setNegativeButton(R.string.dikciz_dialog_cancel, null)
             .setPositiveButton(R.string.dikciz_dialog_save, null)
@@ -8389,6 +8422,7 @@ class DikcizHomeActivity : Activity() {
                     enabled = enabledInput.isChecked,
                     source = sourceInput.text.toString(),
                     state = state,
+                    language = language,
                 )
                 val didSave = updateConfiguration { current ->
                     if (script == null) {
@@ -10997,7 +11031,7 @@ class DikcizHomeActivity : Activity() {
             return
         }
         DikcizClipboardMonitor.sync(this, configuration)
-        if (!configuration.requiresBackgroundAutomationService() && !DikcizChatRuntime.get(this).hasRules()) {
+        if (!configuration.requiresBackgroundAutomationService() && !DikcizChatRuntime.get(this).hasRules() && DikcizCustomApps.subscriptions().isEmpty()) {
             requestAutomationServiceStop()
             return
         }

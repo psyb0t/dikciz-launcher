@@ -62,6 +62,8 @@ The bundled home has four pages: Home combines time/weather, app icons ranked by
 
 ## Companion workflows
 
+Complete custom apps combine editable HTML/CSS/JS, Lua or JS backend, app-local state and native event/timer/alert hosting. Fetch dikciz://docs/guides/custom-apps or read [custom apps](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/custom-apps.md) before creating one. Use discovered customAppsList/read/install/control/event/state/schedule/alert/runtime commands. Install/import stays disabled; explicit enable approves its manifest. Broad shell/files/SDK declarations remain owner trust. Read-only agents see list/read/runtime only and executor enforcement blocks direct mutations. SOS logic is apps/sos/main.js, with legacy sos* commands delegating to it. Its preview enforces read-only. Edited bundles survive updates; export excludes state/recordings, and current encrypted home/chat backups exclude apps. Cancel pending work before removing an app; removal deletes its state/files. Inspect run/timers and actual UI visibility instead of treating queued work as success.
+
 For SOS/check-ins, geofences/routes, retained peripherals, OCR/documents, Health Connect records, Wi-Fi approval, read-only routines or split APK installation, read [references/operations.md](references/operations.md) and the focused resource dikciz://docs/guides/companion. Saving/previewing safety plans never authorizes arming or SMS. Obtain requested scope for effects and verify actual receipt/install/network states.
 
 ## On-device assistant
@@ -75,6 +77,10 @@ Use `dikciz_sim_list` for own SIM numbers before opening Settings. Each subscrip
 Use `dikciz_search_query` for an unfamiliar procedure before enumerating resources. Search a short task in collection `docs`, then read only an exact returned URI with `resources/read` or use `dikciz_search_read` with collection and ID. Collection `tools` returns ranked installed schemas that can be called directly. Search runs locally without a model or network. Reuse current contracts until the installed build or access context changes. See [offline search](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/search.md) for aliases, spelling correction and bounded pagination.
 
 Owner collections require explicit requested indexing through `dikciz_search_index`. Do not crawl private files or messages merely to populate search. Built-in collections are protected. Read-only turns hide writable tool contracts and reject index mutations through the trusted executor.
+
+## Background JavaScript
+
+Background scripts can select language javascript, using main.js and synchronous onEvent(event), alongside existing Lua. Fetch dikciz://docs/guides/javascript before creating one. They share policies, owner commands, state, subscriptions and logs; HTML widgets retain their rendered-page lifecycle. Direct owner commands are not sandboxed by the returned-action allowlist. No WebView, Node.js, browser timers or Promise completion is provided by this backend.
 
 ## Complete capability reference
 

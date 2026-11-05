@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "device-status",
+  "title": "Device status",
+  "description": "Live battery, memory, storage, process CPU history and per-core data exposed by Android.",
+  "commands": [
+    "deviceState"
+  ],
+  "language": "javascript",
+  "events": []
+}

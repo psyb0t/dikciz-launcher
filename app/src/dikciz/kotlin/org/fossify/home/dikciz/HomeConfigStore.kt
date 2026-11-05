@@ -452,14 +452,14 @@ internal class HomeConfigStore(
                     JSONObject()
                         .put(SCRIPT_ARCHIVE_VERSION_KEY, CURRENT_SCRIPT_ARCHIVE_VERSION)
                         .put(SCRIPT_ID_KEY, script.id)
-                        .put(SCRIPT_ARCHIVE_KIND_KEY, SCRIPT_ARCHIVE_KIND)
+                        .put(SCRIPT_ARCHIVE_KIND_KEY, if (script.language == DikcizScriptLanguage.Lua) SCRIPT_ARCHIVE_KIND else JAVASCRIPT_ARCHIVE_KIND)
                         .toString(JSON_INDENTATION_SPACES),
                 )
                 writeScriptArchiveEntry(
                     SCRIPT_METADATA_FILE_NAME,
                     script.toMetadataJson().toString(JSON_INDENTATION_SPACES),
                 )
-                writeScriptArchiveEntry(SCRIPT_SOURCE_FILE_NAME, script.source)
+                writeScriptArchiveEntry(script.language.sourceFileName, script.source)
                 writeScriptArchiveEntry(
                     SCRIPT_STATE_FILE_NAME,
                     script.serializedState,
@@ -500,7 +500,7 @@ internal class HomeConfigStore(
                 SCRIPT_ARCHIVE_KIND_KEY,
                 SCRIPT_ARCHIVE_MANIFEST_FILE_NAME,
                 MAXIMUM_SCRIPT_ARCHIVE_KIND_LENGTH,
-            ) != SCRIPT_ARCHIVE_KIND
+            ) !in setOf(SCRIPT_ARCHIVE_KIND, JAVASCRIPT_ARCHIVE_KIND)
         ) {
             throw HomeConfigException("script archive kind is unsupported")
         }
@@ -517,8 +517,15 @@ internal class HomeConfigStore(
         if (metadata.requireIdentifier(ID_KEY, SCRIPT_METADATA_FILE_NAME, limits) != manifestScriptID) {
             throw HomeConfigException("script archive identifiers do not match")
         }
+        val expectedKind = if (metadata.requireScriptLanguage(SCRIPT_METADATA_FILE_NAME) == DikcizScriptLanguage.Lua) {
+            SCRIPT_ARCHIVE_KIND
+        } else JAVASCRIPT_ARCHIVE_KIND
+        if (manifest.getString(SCRIPT_ARCHIVE_KIND_KEY) != expectedKind) {
+            throw HomeConfigException("script archive kind does not match language")
+        }
         return JSONObject(metadata.toString())
-            .put(SCRIPT_SOURCE_KEY, String(entries.getValue(SCRIPT_SOURCE_FILE_NAME), StandardCharsets.UTF_8))
+            .put(SCRIPT_SOURCE_KEY, String(entries[metadata.requireScriptLanguage(SCRIPT_METADATA_FILE_NAME).sourceFileName]
+                ?: throw HomeConfigException("script archive source does not match language"), StandardCharsets.UTF_8))
             .put(
                 STATE_KEY,
                 parseScriptArchiveJson(
@@ -560,7 +567,7 @@ internal class HomeConfigStore(
             ZipInputStream(archive.inputStream()).use { input ->
                 while (true) {
                     val entry = input.nextEntry ?: break
-                    if (entry.isDirectory || entry.name !in SCRIPT_ARCHIVE_ENTRY_NAMES) {
+                    if (entry.isDirectory || entry.name !in SCRIPT_ARCHIVE_ENTRY_NAMES + JAVASCRIPT_SOURCE_FILE_NAME) {
                         throw HomeConfigException("script archive has an invalid entry")
                     }
                     if (entries.containsKey(entry.name)) {
@@ -570,7 +577,7 @@ internal class HomeConfigStore(
                     input.closeEntry()
                 }
             }
-            if (entries.keys != SCRIPT_ARCHIVE_ENTRY_NAMES) {
+            if (entries.keys != SCRIPT_ARCHIVE_ENTRY_NAMES && entries.keys != (SCRIPT_ARCHIVE_ENTRY_NAMES - SCRIPT_SOURCE_FILE_NAME + JAVASCRIPT_SOURCE_FILE_NAME)) {
                 throw HomeConfigException("script archive is incomplete")
             }
             entries
@@ -604,7 +611,7 @@ internal class HomeConfigStore(
         return when (entryName) {
             SCRIPT_ARCHIVE_MANIFEST_FILE_NAME -> MAXIMUM_SCRIPT_ARCHIVE_MANIFEST_BYTES
             SCRIPT_METADATA_FILE_NAME -> MAXIMUM_SCRIPT_ARCHIVE_METADATA_BYTES
-            SCRIPT_SOURCE_FILE_NAME -> MAXIMUM_LUA_SCRIPT_SOURCE_BYTES.toInt()
+            SCRIPT_SOURCE_FILE_NAME, JAVASCRIPT_SOURCE_FILE_NAME -> MAXIMUM_LUA_SCRIPT_SOURCE_BYTES.toInt()
             SCRIPT_STATE_FILE_NAME -> MAXIMUM_SCRIPT_STATE_BYTES
             else -> throw HomeConfigException("script archive has an invalid entry")
         }
@@ -900,9 +907,10 @@ internal class HomeConfigStore(
         if (persistedScriptID != scriptID) {
             throw HomeConfigException("script reference $scriptID does not match script id $persistedScriptID")
         }
-        val sourceFile = File(scriptDirectory(scriptID), SCRIPT_SOURCE_FILE_NAME)
+        val sourceFileName = metadata.requireScriptLanguage(SCRIPT_METADATA_FILE_NAME).sourceFileName
+        val sourceFile = File(scriptDirectory(scriptID), sourceFileName)
         if (!sourceFile.isFile) {
-            throw HomeConfigException("$SCRIPTS_DIRECTORY_NAME/$scriptID/$SCRIPT_SOURCE_FILE_NAME is missing")
+            throw HomeConfigException("$SCRIPTS_DIRECTORY_NAME/$scriptID/$sourceFileName is missing")
         }
         if (sourceFile.length() > maximumScriptSourceBytes(limits)) {
             throw HomeConfigException("script $scriptID exceeds the source size limit")
@@ -1007,7 +1015,7 @@ internal class HomeConfigStore(
                 script.toMetadataJson().toString(JSON_INDENTATION_SPACES),
             )
             writeAtomicFileIfChanged(
-                File(scriptDirectory(script.id), SCRIPT_SOURCE_FILE_NAME),
+                File(scriptDirectory(script.id), script.language.sourceFileName),
                 script.source,
             )
             writeAtomicFileIfChanged(
@@ -1575,7 +1583,15 @@ internal class HomeConfigStore(
             source = source,
             apiVersion = requireScriptApiVersion(context),
             state = parseScriptState(context, limits),
+            language = requireScriptLanguage(context),
         )
+    }
+
+    private fun JSONObject.requireScriptLanguage(context: String): DikcizScriptLanguage {
+        if (!has(SCRIPT_LANGUAGE_KEY)) return DikcizScriptLanguage.Lua
+        val value = opt(SCRIPT_LANGUAGE_KEY)
+        return DikcizScriptLanguage.entries.firstOrNull { it.persistedValue == value }
+            ?: throw HomeConfigException("$context.$SCRIPT_LANGUAGE_KEY must be lua or javascript")
     }
 
     private fun JSONObject.requireScriptApiVersion(context: String): Int {
@@ -2728,6 +2744,7 @@ internal class HomeConfigStore(
         .put(TITLE_KEY, title)
         .put(ENABLED_KEY, enabled)
         .put(API_VERSION_KEY, apiVersion)
+        .apply { if (language != DikcizScriptLanguage.Lua) put(SCRIPT_LANGUAGE_KEY, language.persistedValue) }
 
     private fun HomeConfiguration.toHomeJson(): JSONObject {
         return JSONObject()
@@ -3347,6 +3364,9 @@ internal class HomeConfigStore(
         private const val SCRIPT_ARCHIVE_VERSION_KEY = "archiveVersion"
         private const val SCRIPT_METADATA_FILE_NAME = "script.json"
         private const val SCRIPT_SOURCE_FILE_NAME = "main.lua"
+        private const val JAVASCRIPT_SOURCE_FILE_NAME = "main.js"
+        private const val SCRIPT_LANGUAGE_KEY = "language"
+        private const val JAVASCRIPT_ARCHIVE_KIND = "dikciz-javascript-script"
         private const val SCRIPT_SOURCE_KEY = "source"
         private const val SCRIPT_STATE_FILE_NAME = "state.json"
         private const val SCRIPT_RUN_LAST_RUN_AT_KEY = "lastRunAt"
@@ -3450,6 +3470,7 @@ internal class HomeConfigStore(
             MAX_WIDGETS_PER_PAGE_KEY,
         )
         private val SCRIPT_KEYS = setOf(
+            SCRIPT_LANGUAGE_KEY,
             API_VERSION_KEY,
             ENABLED_KEY,
             ID_KEY,
@@ -3458,6 +3479,7 @@ internal class HomeConfigStore(
             TITLE_KEY,
         )
         private val SCRIPT_METADATA_KEYS = setOf(
+            SCRIPT_LANGUAGE_KEY,
             API_VERSION_KEY,
             ENABLED_KEY,
             ID_KEY,

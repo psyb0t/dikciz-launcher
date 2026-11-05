@@ -1,10 +1,8 @@
 package org.fossify.home.dikciz
 
-import android.app.AlertDialog
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
-import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.media.AudioAttributes
 import android.media.AudioManager
@@ -18,7 +16,6 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.view.Gravity
 import android.view.View
-import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -27,17 +24,15 @@ import java.lang.ref.WeakReference
 import java.util.Locale
 import org.json.JSONObject
 
-/** One service-owned warning episode. No recipient numbers or coordinates enter the window. */
+/** Shared urgent app window; app code supplies its text, deadline and cancellation event. */
 internal class DikcizSosWarning(
     private val context: Context,
     private val logger: DikcizLogger,
     private val cancel: () -> Unit,
 ) {
     private val handler = Handler(Looper.getMainLooper())
-    private val manager = context.getSystemService(WindowManager::class.java)
+    private val modal = DikcizAlertModal(context, logger)
     private val views = linkedMapOf<String, View>()
-    private var dialog: AlertDialog? = null
-    private var overlay: View? = null
     private var root: View? = null
     private var scroll: ScrollView? = null
     private var countdown: TextView? = null
@@ -66,12 +61,10 @@ internal class DikcizSosWarning(
             startSpeech(key)
         }
         state = next
-        if (root?.isAttachedToWindow != true && !presentationFailed) present()
+        if (modal.visibleRoot() == null && !presentationFailed) present()
         val seconds = next.getLong("remainingSeconds")
-        countdown?.text = if (seconds > 0) "$seconds seconds" else "Sending may already be starting"
-        views[DETAIL_ID]?.let { (it as TextView).text =
-            "An SOS SMS will be sent to ${next.getInt("recipientCount")} configured contact(s). " +
-            "Tap Cancel SOS to stop pending messages. A submitted message cannot be recalled." }
+        countdown?.text = if (seconds > 0) "$seconds seconds" else "Countdown reached"
+        views[semanticID("details")]?.let { (it as TextView).text = next.getString("detail") }
         if (!cancelling) {
             val now = android.os.SystemClock.elapsedRealtime()
             if (now >= nextPulse) {
@@ -80,7 +73,7 @@ internal class DikcizSosWarning(
             }
             if (seconds in 1..FINAL_SECONDS && !finalAnnouncement && next.optLong("graceSeconds") > FINAL_SECONDS) {
                 finalAnnouncement = true
-                announce("SOS message sends in $seconds seconds. Tap Cancel SOS to stop it.")
+                announce(next.optString("finalAnnouncement").replace("{seconds}", seconds.toString()))
             }
         }
         publish()
@@ -97,19 +90,19 @@ internal class DikcizSosWarning(
             background = GradientDrawable().apply { setColor(DikcizUiStyle.BACKGROUND); cornerRadius = dp(24).toFloat() }
         }
         val body = LinearLayout(ui).apply { orientation = LinearLayout.VERTICAL }
-        scroll = ScrollView(ui).apply { addView(body); contentDescription = "SOS warning details" }
+        scroll = ScrollView(ui).apply { addView(body); contentDescription = "App alert details" }
         column.addView(scroll, LinearLayout.LayoutParams(-1, -2, 1f))
         fun text(id: String, value: String, size: Float, color: Int): TextView = TextView(ui).apply {
             text = value; textSize = size; setTextColor(color); gravity = Gravity.CENTER
             setPadding(0, dp(8), 0, dp(8)); views[id] = this
             body.addView(this, LinearLayout.LayoutParams(-1, -2))
         }
-        text(TITLE_ID, "SOS MESSAGE PENDING", 24f, DikcizUiStyle.ERROR)
-        countdown = text(COUNTDOWN_ID, "Preparing countdown", 40f, DikcizUiStyle.FOREGROUND)
+        text(semanticID("title"), state?.optString("title", "Urgent countdown").orEmpty(), 24f, DikcizUiStyle.ERROR)
+        countdown = text(semanticID("countdown"), "Preparing countdown", 40f, DikcizUiStyle.FOREGROUND)
         countdown?.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
-        text(DETAIL_ID, "", 17f, DikcizUiStyle.FOREGROUND)
+        text(semanticID("details"), "", 17f, DikcizUiStyle.FOREGROUND)
         cancelButton = Button(ui).apply {
-            text = "Cancel SOS"; contentDescription = "Cancel SOS"
+            text = state?.optString("cancelLabel", "Cancel").orEmpty(); contentDescription = text
             DikcizUiStyle.button(this, true); textSize = 22f; minimumHeight = dp(72)
             setOnClickListener {
                 if (!cancelling) {
@@ -119,40 +112,22 @@ internal class DikcizSosWarning(
                     cancel()
                 }
             }
-            views[CANCEL_ID] = this
+            views[semanticID("cancel")] = this
             column.addView(this, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) })
         }
-        root = column.apply { contentDescription = "SOS cancellation countdown" }
+        root = column.apply { contentDescription = "App cancellation countdown" }
     }
 
     private fun present() {
         val view = root ?: return
         try {
-            if (Settings.canDrawOverlays(context)) {
-                val width = (context.resources.displayMetrics.widthPixels - dp(WINDOW_MARGIN * 2)).coerceAtLeast(dp(200))
-                val height = (context.resources.displayMetrics.heightPixels - dp(WINDOW_MARGIN * 2)).coerceAtLeast(dp(160))
-                val parameters = WindowManager.LayoutParams(width.coerceAtMost(dp(480)), WindowManager.LayoutParams.WRAP_CONTENT,
-                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
-                    PixelFormat.TRANSLUCENT).apply { gravity = Gravity.CENTER }
-                view.measure(View.MeasureSpec.makeMeasureSpec(parameters.width, View.MeasureSpec.EXACTLY),
-                    View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.AT_MOST))
-                parameters.height = view.measuredHeight.coerceAtMost(height)
-                manager.addView(view, parameters)
-                overlay = view
-                presentation = "overlay"
-            } else {
-                val activity = DikcizForegroundActivity.current(context) ?: return
-                dialog = AlertDialog.Builder(activity).setView(view).setCancelable(false).create().also {
-                    it.show()
-                    it.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                    it.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
-                }
-                presentation = "dialog"
+            if (modal.show(view)) {
+                presentation = modal.presentation
             }
         } catch (exception: RuntimeException) {
             presentationFailed = true
             presentation = "notification"
+            modal.close()
             logger.warn("sos_warning_window_unavailable", mapOf("error_class" to exception.javaClass.simpleName))
         }
     }
@@ -175,6 +150,7 @@ internal class DikcizSosWarning(
     }
 
     private fun startSpeech(key: String) {
+        if (state?.optString("announcement").isNullOrBlank()) { speechState = "disabled"; return }
         speechState = "initializing"
         try {
             speech = TextToSpeech(context) { result -> handler.post {
@@ -201,7 +177,7 @@ internal class DikcizSosWarning(
                     })
                     speechState = "ready"
                     val seconds = state?.optLong("remainingSeconds") ?: 0
-                    announce("SOS alert. A message will be sent to your configured contacts in $seconds seconds. Tap Cancel SOS to stop it.")
+                    announce(state?.optString("announcement").orEmpty().replace("{seconds}", seconds.toString()))
                 }
                 publish()
             } }
@@ -216,6 +192,7 @@ internal class DikcizSosWarning(
     } }
 
     private fun announce(text: String) {
+        if (text.isBlank()) return
         val engine = speech ?: return
         if (speechState == "initializing" || speechState == "unavailable" || cancelling) return
         if (engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, episode) == TextToSpeech.ERROR) speechState = "unavailable"
@@ -225,7 +202,7 @@ internal class DikcizSosWarning(
     private fun publish() {
         val value = state ?: return
         published = JSONObject(value.toString()).put("active", true)
-            .put("presentation", presentation).put("screenVisible", root?.isAttachedToWindow == true &&
+            .put("presentation", presentation).put("screenVisible", modal.visibleRoot() != null &&
                 context.getSystemService(android.os.PowerManager::class.java).isInteractive &&
                 !context.getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked)
             .put("soundRequested", !cancelling).put("vibrationRequested", !cancelling)
@@ -234,8 +211,8 @@ internal class DikcizSosWarning(
     }
 
     fun cancelFailed() { cancelling = false; cancelButton?.isEnabled = true }
-    fun semanticViews(): Map<String, View> = if (root?.isAttachedToWindow == true) views else emptyMap()
-    fun visibleRoot(): View? = root?.takeIf { it.isAttachedToWindow }
+    fun semanticViews(): Map<String, View> = modal.visibleRoot()?.let { views + (semanticID("backdrop") to it) } ?: emptyMap()
+    fun visibleRoot(): View? = modal.visibleRoot()
     fun scrollState(): JSONObject {
         val view = scroll
         return JSONObject().put("y", view?.scrollY ?: 0).put("range", view?.getChildAt(0)?.height ?: 0)
@@ -262,12 +239,8 @@ internal class DikcizSosWarning(
     }
 
     private fun removePresentation() {
-        dialog?.dismiss(); dialog = null
-        overlay?.let {
-            try { manager.removeViewImmediate(it) }
-            catch (exception: IllegalArgumentException) { logger.warn("sos_warning_window_already_removed") }
-        }
-        overlay = null; root = null; scroll = null; views.clear(); countdown = null; cancelButton = null
+        modal.close()
+        root = null; scroll = null; views.clear(); countdown = null; cancelButton = null
     }
 
     fun close() {
@@ -282,7 +255,12 @@ internal class DikcizSosWarning(
         }
     }
 
-    private fun dp(value: Int) = (value * context.resources.displayMetrics.density).toInt()
+    private fun semanticID(suffix: String): String {
+        val appId = state?.optString("appId").orEmpty()
+        val prefix = if (appId == "sos") "sos:warning" else "app:$appId:warning"
+        return "$prefix:$suffix"
+    }
+
     companion object {
         const val CHANNEL = "dikciz-sos-warning-v1"
         const val NOTIFICATION_ID = 7316
@@ -295,16 +273,24 @@ internal class DikcizSosWarning(
         private const val TONE_VOLUME = 80
         private const val TONE_MILLISECONDS = 350
         private const val VIBRATION_MILLISECONDS = 300L
-        private const val WINDOW_MARGIN = 24
+        private const val BACKDROP_ID = "sos:warning:backdrop"
         private const val IDLE = "{\"active\":false,\"screenVisible\":false,\"speechState\":\"idle\"}"
         @Volatile private var published = IDLE
         @Volatile private var current = WeakReference<DikcizSosWarning>(null)
         fun current() = current.get()
-        fun status() = JSONObject(published)
+        fun status(): JSONObject {
+            val value = JSONObject(published)
+            current.get()?.let { warning ->
+                value.put("screenVisible", warning.modal.visibleRoot() != null &&
+                    warning.context.getSystemService(android.os.PowerManager::class.java).isInteractive &&
+                    !warning.context.getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked)
+            }
+            return value
+        }
         fun createChannel(context: Context) {
             context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-                NotificationChannel(CHANNEL, "SOS countdown alerts", NotificationManager.IMPORTANCE_HIGH).apply {
-                    description = "Urgent cancellation countdown before configured SOS messages"
+                NotificationChannel(CHANNEL, "Urgent app countdowns", NotificationManager.IMPORTANCE_HIGH).apply {
+                    description = "Owner-enabled custom app alerts with a visible cancellation countdown"
                     setSound(android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION),
                         AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build())
                 })

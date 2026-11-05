@@ -23,8 +23,6 @@ internal object DikcizJourneys {
     const val TRIPS = "journeysList"
     const val TRIP_READ = "journeyRead"
     const val TRIP_DELETE = "journeyDelete"
-    private const val PLAN_KIND = "sos-plan"
-    private const val RUN_KIND = "sos-run"
     private const val FENCE_KIND = "geofence"
     private const val TRIP_KIND = "trip"
     private const val SINGLE = "current"
@@ -33,7 +31,6 @@ internal object DikcizJourneys {
     private const val MAXIMUM_POINTS = 10000
     private const val MAXIMUM_TRIPS = 64
     private const val MAXIMUM_FENCES = 32
-    private val ACTIVE_SOS = setOf("armed", "warning", "active")
     private val ID = Regex("[A-Za-z0-9][A-Za-z0-9_.-]{0,79}")
     private var storage: DikcizCompanionStore? = null
     private var lastFix: Location? = null
@@ -61,11 +58,6 @@ internal object DikcizJourneys {
     @Synchronized
     fun resume(context: Context) {
         val store = db(context)
-        val run = store.get(RUN_KIND, SINGLE)
-        if (run != null && run.optString("state") in ACTIVE_SOS && run.optInt("boot") != boot(context)) {
-            run.put("state", "needs_review").put("reason", "device_rebooted")
-            store.put(RUN_KIND, SINGLE, run)
-        }
         store.all(TRIP_KIND).filter { it.optString("state") == "recording" && it.optInt("boot") != boot(context) }.forEach {
             it.put("state", "interrupted").put("reason", "device_rebooted")
             store.put(TRIP_KIND, it.getString("id"), it)
@@ -73,68 +65,18 @@ internal object DikcizJourneys {
         if (active(context)) start(context)
     }
     @Synchronized
-    fun deadline(context: Context): Long = db(context).get(RUN_KIND, SINGLE)?.takeIf {
-        it.optString("state") in ACTIVE_SOS
-    }?.optLong("deadlineAt", 0) ?: 0
-
-    @Synchronized
-    fun warningState(context: Context): JSONObject? {
-        val store = db(context)
-        val run = store.get(RUN_KIND, SINGLE) ?: return null
-        if (run.optString("state") !in setOf("warning", "active")) return null
-        val plan = store.get(PLAN_KIND, SINGLE) ?: return null
-        val remaining = (run.getLong("deadlineElapsed") - SystemClock.elapsedRealtime()).coerceAtLeast(0)
-        val grace = plan.getLong("graceSeconds")
-        if (run.getString("state") == "active" && remaining > grace * SECOND) return null
-        return JSONObject().put("runId", run.getString("id"))
-            .put("episodeId", run.getString("id") + "_" + run.getInt("updates"))
-            .put("remainingSeconds", (remaining + SECOND - 1) / SECOND)
-            .put("deadlineAt", run.getLong("deadlineAt")).put("graceSeconds", grace)
-            .put("recipientCount", plan.getJSONArray("contacts").length())
-    }
-    @Synchronized
     fun active(context: Context): Boolean = db(context).let { store ->
-        store.get(RUN_KIND, SINGLE)?.optString("state") in ACTIVE_SOS ||
-            store.all(FENCE_KIND).any { it.optBoolean("enabled") } ||
+        store.all(FENCE_KIND).any { it.optBoolean("enabled") } ||
             store.all(TRIP_KIND).any { it.optString("state") == "recording" }
     }
-    @Synchronized
     fun execute(context: Context, type: String, request: JSONObject): JSONObject {
+        if (type in setOf(PLAN, PREVIEW, STATUS, CONTROL)) return DikcizBundledSafety.execute(context, type, request)
+        return executeJourney(context, type, request)
+    }
+    @Synchronized
+    private fun executeJourney(context: Context, type: String, request: JSONObject): JSONObject {
         val store = db(context)
         return when (type) {
-            PLAN -> {
-                if (store.get(RUN_KIND, SINGLE)?.optString("state") in ACTIVE_SOS) {
-                    DikcizNativeCommands.failure("sos_active", "Cancel the active check-in before changing its plan")
-                }
-                val plan = JSONObject(request.toString()).apply { remove("type"); remove("requestId"); remove("autoRequestPermissions") }
-                val contacts = plan.getJSONArray("contacts")
-                val seen = mutableSetOf<String>()
-                for (index in 0 until contacts.length()) {
-                    val contact = contacts.getJSONObject(index)
-                    val address = DikcizNativeCommands.normalizedRecipient(contact.getString("address"))
-                    if (!seen.add(address)) DikcizNativeCommands.invalid("Duplicate SOS address")
-                    contact.put("address", address)
-                }
-                plan.put("checkInSeconds", request.optInt("checkInSeconds", 3600))
-                    .put("graceSeconds", request.optInt("graceSeconds", 60))
-                    .put("updateSeconds", request.optInt("updateSeconds", 600))
-                    .put("maximumUpdates", request.optInt("maximumUpdates", 3))
-                    .put("message", request.optString("message", "I need help. Last known location: {location}. Accuracy: {accuracyMeters} m. Fix time: {timestamp}."))
-                if (plan.getString("message").isBlank()) DikcizNativeCommands.invalid("SOS message cannot be blank")
-                store.put(PLAN_KIND, SINGLE, plan)
-                JSONObject().put("state", "saved").put("armed", false).put("plan", plan)
-            }
-            STATUS -> JSONObject().put("plan", store.get(PLAN_KIND, SINGLE) ?: JSONObject.NULL)
-                .put("run", store.get(RUN_KIND, SINGLE) ?: JSONObject.NULL)
-                .put("backgroundMonitoring", DikcizJourneyService.running)
-                .put("warning", DikcizSosWarning.status())
-            PREVIEW -> {
-                val plan = store.get(PLAN_KIND, SINGLE) ?: DikcizNativeCommands.failure("sos_plan_missing", "Save an SOS contact plan first")
-                val fix = lastFix
-                JSONObject().put("dryRun", true).put("smsSubmitted", false).put("contacts", plan.getJSONArray("contacts"))
-                    .put("message", message(plan, fix)).put("location", fix?.let(::point) ?: JSONObject.NULL)
-            }
-            CONTROL -> control(context, request)
             FENCES -> DikcizNativeCommands.page(store.all(FENCE_KIND), request)
             FENCE_SAVE -> {
                 val id = request.optString("id").ifBlank { UUID.randomUUID().toString() }
@@ -215,115 +157,10 @@ internal object DikcizJourneys {
             else -> DikcizNativeCommands.invalid()
         }
     }
-    private fun control(context: Context, request: JSONObject): JSONObject {
-        val store = db(context)
-        val action = request.getString("action")
-        val previous = store.get(RUN_KIND, SINGLE)
-        if (action == "cancel") {
-            val value = previous ?: JSONObject()
-            value.put("state", "cancelled").put("updatedAt", now())
-            store.put(RUN_KIND, SINGLE, value)
-            DikcizSosWarning.dismiss(value.optString("id"))
-            return value
-        }
-        if (action == "checkIn") {
-            val run = previous ?: DikcizNativeCommands.failure("sos_not_armed", "No check-in is armed")
-            if (run.optString("state") !in ACTIVE_SOS) DikcizNativeCommands.failure("sos_not_armed", "No check-in is armed")
-            val plan = store.get(PLAN_KIND, SINGLE)!!
-            run.put("state", "armed").put("deadlineElapsed", SystemClock.elapsedRealtime() + plan.getLong("checkInSeconds") * SECOND)
-                .put("deadlineAt", now() + plan.getLong("checkInSeconds") * SECOND).put("updatedAt", now())
-            store.put(RUN_KIND, SINGLE, run)
-            DikcizSosWarning.dismiss(run.getString("id"))
-            return run
-        }
-        if (action !in setOf("arm", "trigger")) DikcizNativeCommands.invalid("Choose arm, trigger, checkIn or cancel")
-        if (!request.optBoolean("confirm")) DikcizNativeCommands.invalid("Arming or triggering SMS requires confirm=true")
-        if (previous?.optString("state") in ACTIVE_SOS) DikcizNativeCommands.failure("sos_active", "Use checkIn or cancel for the current run")
-        val plan = store.get(PLAN_KIND, SINGLE) ?: DikcizNativeCommands.failure("sos_plan_missing", "Save an SOS contact plan first")
-        requireLocation(context)
-        if (!context.getSystemService(android.app.NotificationManager::class.java).areNotificationsEnabled()) {
-            DikcizNativeCommands.failure("sos_notifications_disabled", "Enable Dikciz notifications before arming safety monitoring")
-        }
-        DikcizSosWarning.createChannel(context)
-        val channel = context.getSystemService(android.app.NotificationManager::class.java).getNotificationChannel(DikcizSosWarning.CHANNEL)
-        if (channel.importance < android.app.NotificationManager.IMPORTANCE_HIGH) {
-            DikcizNativeCommands.failure("sos_warning_channel_disabled", "Enable urgent SOS countdown alerts in Android notification settings before arming")
-        }
-        DikcizNativeCommands.requirePermission(context, Manifest.permission.SEND_SMS, "sms")
-        val delay = plan.getLong(if (action == "arm") "checkInSeconds" else "graceSeconds") * SECOND
-        val run = JSONObject().put("id", UUID.randomUUID().toString()).put("state", if (action == "arm") "armed" else "warning")
-            .put("boot", boot(context)).put("startedAt", now()).put("updatedAt", now())
-            .put("deadlineAt", now() + delay).put("deadlineElapsed", SystemClock.elapsedRealtime() + delay)
-            .put("updates", 0).put("receipts", JSONArray())
-        store.put(RUN_KIND, SINGLE, run)
-        try { start(context) } catch (exception: DikcizAutomationRequestException) {
-            run.put("state", "needs_review").put("reason", exception.code)
-            store.put(RUN_KIND, SINGLE, run); throw exception
-        }
-        return run
-    }
     @Synchronized
     fun tick(context: Context, logger: DikcizLogger): String {
-        val store = db(context)
         lastFix?.let { sample(context, it) }
-        val run = store.get(RUN_KIND, SINGLE) ?: return "Location monitoring active"
-        if (run.optString("state") !in ACTIVE_SOS) return "Location monitoring active"
-        if (run.optInt("boot") != boot(context)) {
-            run.put("state", "needs_review").put("reason", "device_rebooted")
-            store.put(RUN_KIND, SINGLE, run); return "Check-in needs review"
-        }
-        val remaining = run.getLong("deadlineElapsed") - SystemClock.elapsedRealtime()
-        if (remaining > 0) return if (run.getString("state") == "warning") "SOS sends in " + (remaining / SECOND + 1) + " seconds" else "Check-in monitoring active"
-        val plan = store.get(PLAN_KIND, SINGLE) ?: return "SOS plan unavailable"
-        if (run.getString("state") == "armed") {
-            run.put("state", "warning").put("deadlineElapsed", SystemClock.elapsedRealtime() + plan.getLong("graceSeconds") * SECOND)
-                .put("deadlineAt", now() + plan.getLong("graceSeconds") * SECOND)
-            store.put(RUN_KIND, SINGLE, run); emit(context, "sos.warning", JSONObject().put("runId", run.getString("id")))
-            return "Missed check-in. Cancel or check in now"
-        }
-        val update = run.getInt("updates")
-        if (update >= plan.getInt("maximumUpdates")) {
-            run.put("state", "completed").put("updatedAt", now())
-            store.put(RUN_KIND, SINGLE, run); return "SOS update limit reached"
-        }
-        val contacts = plan.getJSONArray("contacts")
-        val receipts = run.getJSONArray("receipts")
-        val fix = lastFix?.takeIf { SystemClock.elapsedRealtimeNanos() - it.elapsedRealtimeNanos <= MAXIMUM_AGE * 1000000 }
-        val batch = run.optJSONArray("pendingBatch") ?: JSONArray().also { values ->
-            for (index in 0 until contacts.length()) {
-                values.put(JSONObject().put("recipient", contacts.getJSONObject(index).getString("address"))
-                    .put("body", message(plan, fix))
-                    .put("idempotencyKey", "sos_" + run.getString("id") + "_" + update + "_" + index)
-                    .apply { plan.opt("subscriptionId")?.let { put("subscriptionId", it) } })
-            }
-            run.put("pendingBatch", values)
-            store.put(RUN_KIND, SINGLE, run)
-        }
-        var accepted = 0
-        for (index in 0 until batch.length()) {
-            val send = batch.getJSONObject(index)
-            val key = send.getString("idempotencyKey")
-            try {
-                val response = DikcizSmsStatus.send(context, send)
-                receipts.put(JSONObject().put("idempotencyKey", key).put("state", response.optString("state")))
-                if (response.optString("state") in setOf("accepted", "sent", "delivered")) accepted++
-            } catch (exception: DikcizAutomationRequestException) {
-                receipts.put(JSONObject().put("idempotencyKey", key).put("state", "rejected").put("code", exception.code))
-                logger.warn("sos_send_rejected", mapOf("code" to exception.code))
-            }
-        }
-        run.remove("pendingBatch")
-        val state = when {
-            accepted == 0 -> "needs_review"
-            update + 1 >= plan.getInt("maximumUpdates") -> "completed"
-            else -> "active"
-        }
-        run.put("updates", update + 1).put("state", state).put("updatedAt", now())
-            .put("deadlineElapsed", SystemClock.elapsedRealtime() + plan.getLong("updateSeconds") * SECOND)
-            .put("deadlineAt", now() + plan.getLong("updateSeconds") * SECOND)
-        store.put(RUN_KIND, SINGLE, run)
-        emit(context, "sos.update", JSONObject().put("runId", run.getString("id")).put("sequence", update + 1))
-        return if (accepted == 0) "SOS submission failed. Review permissions and receipts" else "SOS update submitted. Check delivery receipts"
+        return "Location monitoring active"
     }
     @Synchronized
     fun sample(context: Context, location: Location) {
@@ -387,9 +224,6 @@ internal object DikcizJourneys {
     @Synchronized
     fun stopAll(context: Context, reason: String) {
         val store = db(context)
-        store.get(RUN_KIND, SINGLE)?.takeIf { it.optString("state") in ACTIVE_SOS }?.let {
-            it.put("state", if (reason == "owner_stopped") "cancelled" else "needs_review").put("reason", reason); store.put(RUN_KIND, SINGLE, it)
-        }
         store.all(FENCE_KIND).forEach { it.put("enabled", false); store.put(FENCE_KIND, it.getString("id"), it) }
         store.all(TRIP_KIND).filter { it.optString("state") == "recording" }.forEach {
             it.put("state", "interrupted").put("reason", reason); store.put(TRIP_KIND, it.getString("id"), it)
@@ -397,10 +231,6 @@ internal object DikcizJourneys {
     }
     private fun point(location: Location) = JSONObject().put("latitude", location.latitude).put("longitude", location.longitude)
         .put("accuracyMeters", location.accuracy.toDouble()).put("timestampMilliseconds", location.time)
-    private fun message(plan: JSONObject, fix: Location?): String = plan.getString("message")
-        .replace("{location}", fix?.let { "https://maps.google.com/?q=" + it.latitude + "," + it.longitude } ?: "unavailable")
-        .replace("{accuracyMeters}", fix?.accuracy?.toInt()?.toString() ?: "unknown")
-        .replace("{timestamp}", fix?.let { java.time.Instant.ofEpochMilli(it.time).toString() } ?: "unknown")
     private fun emit(context: Context, name: String, value: JSONObject) {
         if (!DikcizAutomationEventBus.enqueueCustomEvent(context, name, "journeys", value, null, 0)) {
             DikcizNativeCommands.failure("event_rejected", "Journey event was rejected")

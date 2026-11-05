@@ -6,7 +6,7 @@ This source set adds the Dikciz home, public configuration, scripting and local 
 
 | Path | Purpose |
 | --- | --- |
-| `proguard-rules.pro` | Preserves LuaJ reflection targets and manifest-discovered ML Kit registrar constructors in minified builds. |
+| `proguard-rules.pro` | Preserves LuaJ and Rhino reflection targets and manifest-discovered ML Kit registrar constructors in minified builds. |
 | `AndroidManifest.xml` | Registers the Dikciz Home activity, permissions, services and receivers, and replaces the inherited Main activity declaration. |
 | `kotlin/org/fossify/home/dikciz/` | Dikciz implementation, retaining the Fossify Kotlin namespace. |
 | `res/` | Native home layout, controls, labels, appearance and Android service metadata. |
@@ -14,9 +14,13 @@ This source set adds the Dikciz home, public configuration, scripting and local 
 
 ## Companion boundary
 
-DikcizCompanionActivity uses the shared command target for safety, places, journeys, retained hardware, image processing, Health Connect and Wi-Fi. DikcizCompanionStore owns private plans and route history. DikcizJourneyService and DikcizConnectionsService own visible background lifetimes and Stop controls. DikcizForegroundActivity tracks actual interactive permission contexts. DikcizAssistantRoutines persists read-only task metadata through ordinary chat/event execution. DikcizVision bounds model work and resources; DikcizPackageCommands extends the existing PackageInstaller path. See [companion workflows](../../../docs/companion.md) for states, limits and storage exclusions.
+DikcizCompanionActivity uses the shared command target for places, journeys, retained hardware, image processing, Health Connect and Wi-Fi; its Safety tab opens the bundled SOS app. DikcizCompanionStore owns private geofences, route history and custom-app execution metadata. DikcizJourneyService and DikcizConnectionsService own visible background lifetimes and Stop controls. DikcizForegroundActivity tracks actual interactive permission contexts. DikcizAssistantRoutines persists read-only task metadata through ordinary chat/event execution. DikcizVision bounds model work and resources; DikcizPackageCommands extends the existing PackageInstaller path. See [companion workflows](../../../docs/companion.md) for states, limits and storage exclusions.
 
-DikcizSosWarning owns the bounded SOS overlay/dialog, urgent cancellation notification channel and local warning audio. The journey service drives warning episodes; Home exposes their actual views to shared snapshots, screenshots and scrolling. See [SOS warning behavior](../../../docs/safety-and-journeys.md#audible-cancellation-warning).
+DikcizAlertModal owns reusable full-screen dimmed alert presentation, bounded centered content, touch interception and overlay/dialog cleanup. DikcizSosWarning adapts generic app-provided countdown text and cancellation events, retaining the existing channel and SOS semantic identities. DikcizCustomAppService drives warning episodes; Home exposes actual views to shared snapshots, screenshots and scrolling. See [SOS warning behavior](../../../docs/safety-and-journeys.md#audible-cancellation-warning).
+
+## Custom-app boundary
+
+DikcizCustomAppStore validates public complete bundles, bounded JSON/state and exact source-only ZIPs, preserves state/data during staged replacement and rejects linked paths. DikcizCustomApps serializes handlers, enforces private manifest approvals and app-local bridge scope, reuses Lua/Rhino, feeds native event subscriptions and persists timer claims. Its cached subscriptions prevent per-event filesystem scans. File observers refresh manifests and the active app UI separately. DikcizCustomAppService owns foreground lifetime, native monotonic alarms and generic urgent windows. DikcizCustomAppActivity supplies native management, source editing and the ordinary HTML bridge host. DikcizCustomAppCommands registers one shared command contract. DikcizBundledSafety delegates legacy SOS commands to the public app; business rules remain in bundled main.js. See [custom-app architecture and contracts](../../../docs/custom-apps.md).
 
 ## Main classes
 
@@ -52,7 +56,7 @@ All Kotlin files below live in `kotlin/org/fossify/home/dikciz/`.
 | `DikcizControlPorts.kt`, `DikcizRemoteAccessAuth.kt` | Own listener settings, owner-password verification and atomic named-token storage. |
 | `DikcizRemotePolicy.kt`, `DikcizRemoteTokensSettings.kt` | Define token grants, filtered discovery/results and native token management. |
 | `DikcizAutomation.kt`, `DikcizAutomationActionDocument.kt` | Define policies, events, subscriptions and typed action documents. |
-| `DikcizAutomationService.kt`, `DikcizAutomationRuntime.kt`, `DikcizLuaRuntime.kt` | Collect Android events, dispatch subscriptions, enforce policies and execute Lua. |
+| `DikcizAutomationService.kt`, `DikcizAutomationRuntime.kt`, `DikcizLuaRuntime.kt`, `DikcizJavaScriptRuntime.kt` | Collect Android events, dispatch subscriptions, enforce policies and execute Lua or headless JavaScript. |
 | `DikcizScriptWidgetBridge.kt`, `DikcizLuaScriptRunStatus.kt` | Resolve page/widget addresses and represent persisted script outcomes. |
 | `DikcizDeviceAccess.kt`, `DikcizPrivilegedShell.kt`, `DikcizAccessibilityAutomationService.kt` | Report Android access, run bounded shell commands and implement cross-app Accessibility inspection and actions. |
 | `DikcizDeviceInspection.kt` | Reports actual package versions, Android information and launcher instance identity through native PackageManager APIs. |
@@ -107,3 +111,5 @@ DikcizOperations owns the private metadata history, token quota counters and res
 DikcizAutomationRules compiles and simulates generated Lua; DikcizAutomationRuleEditor creates and reopens its saved definitions. DikcizBackups validates encrypted archives, protects plaintext staging from file APIs, coordinates public-file rollback with the chat SQLite commit marker, and recovers before Home or background automation loads configuration. DikcizBackupSettings supplies preview and confirmation. See [operations](../../../docs/operations.md) and [backups](../../../docs/backups.md).
 
 DikcizCameraPreview reuses a Camera2 capture session. DikcizImageStreams and DikcizImageCaptureService own bounded JPEG replay and foreground owner Stop. DikcizSpeechStreams replays recognition partial/final callbacks; DikcizFileTranscription uploads an explicit saved recording with the chosen provider credential. See [live images and speech](../../../docs/visual-streams.md).
+
+DikcizJavaScriptRuntime supplies the headless JavaScript interpreter alongside DikcizLuaRuntime. The automation dispatcher selects by script language, then shares result validation, policy checks, owner commands, state and logging. DikcizScriptExecutionLimits holds their common budgets. Rhino is interpreter-only with safe globals and blocked Java class access. See [background JavaScript](../../../docs/background-javascript.md).
