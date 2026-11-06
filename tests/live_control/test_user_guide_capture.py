@@ -719,3 +719,19 @@ def test_capture_user_guide_connection_and_javascript(websocket_control):
 
 def test_capture_user_guide_settings_screens(websocket_control):
     capture_settings_screens(websocket_control)
+
+
+def test_capture_user_guide_context_menu_refresh(websocket_control):
+    """Exercise the compact action menus and bounded source editor."""
+    capture_widget_actions_and_grid_guides(websocket_control)
+    capture_widget_editor(websocket_control)
+    capture_html_edit_result(websocket_control)
+    capture_page_menu(websocket_control)
+    capture_widget_picker(websocket_control)
+    capture_html_package_library(websocket_control)
+    capture_provider_widgets(websocket_control)
+    capture_settings_screens(websocket_control)
+
+
+def test_capture_user_guide_page_creation_refresh(websocket_control):
+    capture_page_creation(websocket_control)

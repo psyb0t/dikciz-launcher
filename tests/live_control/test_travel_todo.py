@@ -8,6 +8,7 @@ import pytest
 from . import *
 from .test_native_data import native_call, grant_permissions, PROTOCOLS
 from .test_operations_ux import tap
+from .test_custom_apps import open_app_manager
 from .ui import direct_tap, direct_enter_text, direct_hide_keyboard, direct_swipe, physical_nodes, node_bounds, wait_for_physical_text_bounds
 
 APP_ID = "travel-todo"
@@ -94,9 +95,10 @@ def test_travel_todo_gps_arrival_with_closed_ui_and_persistence(todo):
     capture("todo-arrived.png")
     saved = native_call("http", "fileRead", {"path": "/sdcard/Dikciz/apps/" + APP_ID + "/state.json"})
     assert json.loads(base64.b64decode(saved["dataBase64"]))["tasks"][0]["done"]
-    tap(todo, "custom-app:back")
+    open_app_manager(todo)
     wait_for_snapshot_node(todo, "custom-app:new")
     capture("custom-apps.png")
+    tap(todo, "custom-app:" + APP_ID + ":more")
     tap(todo, "custom-app:" + APP_ID + ":edit")
     capture("todo-editor.png")
 
@@ -141,9 +143,10 @@ def test_travel_todo_manual_ui_and_editor_capture(todo):
     direct_tap(wait_for_physical_text_bounds("Add"))
     wait_for(lambda app: app["state"]["tasks"][-1]["title"] == "Visit a museum")
     capture("todo-checklist.png")
-    tap(todo, "custom-app:back")
+    open_app_manager(todo)
     wait_for_snapshot_node(todo, "custom-app:new")
-    AUTOMATION.request(todo, "scrollTo", semanticId="custom-app:" + APP_ID + ":edit")
+    AUTOMATION.request(todo, "scrollTo", semanticId="custom-app:" + APP_ID + ":more")
     capture("custom-apps.png")
+    tap(todo, "custom-app:" + APP_ID + ":more")
     tap(todo, "custom-app:" + APP_ID + ":edit")
     capture("todo-editor.png")

@@ -27,15 +27,16 @@ internal object DikcizUiStyle {
         view.backgroundTintList = null
         view.background = RippleDrawable(ColorStateList.valueOf(RIPPLE), GradientDrawable().apply {
             cornerRadius = dp(12).toFloat()
-            setColor(if (primary) ACCENT else SURFACE)
-            if (!primary) setStroke(dp(1), EDGE)
+            setColor(if (primary) ACCENT else android.graphics.Color.TRANSPARENT)
         }, null)
         view.isAllCaps = false
-        view.textSize = 14f
+        view.textSize = 16f
+        view.gravity = if (primary) android.view.Gravity.CENTER else
+            android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL
         view.minHeight = dp(48)
         view.minimumHeight = dp(48)
-        view.minWidth = 0
-        view.minimumWidth = 0
+        view.minWidth = dp(48)
+        view.minimumWidth = dp(48)
         view.setPadding(dp(12), dp(8), dp(12), dp(8))
         (view.layoutParams as? android.widget.LinearLayout.LayoutParams)?.let { layout ->
             layout.topMargin = maxOf(layout.topMargin, dp(3))
@@ -60,6 +61,10 @@ internal object DikcizUiStyle {
 
     private fun styleTree(view: View) {
         when (view) {
+            is android.widget.Spinner -> {
+                view.minimumHeight = (48 * view.resources.displayMetrics.density).toInt()
+                view.minimumWidth = (48 * view.resources.displayMetrics.density).toInt()
+            }
             is CompoundButton -> {
                 view.buttonTintList = ColorStateList.valueOf(ACCENT)
                 view.setTextColor(FOREGROUND)

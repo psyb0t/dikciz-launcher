@@ -60,6 +60,25 @@ def app_factory(websocket_control):
         native_call("http", COMMAND_CONTROL, {"appId": identifier, "action": "remove", "confirm": True}, allowed_errors=("custom_app_not_found",))
 
 
+def open_app_manager(connection):
+    restore_system_home()
+    tap(connection, "launcher:controls")
+    tap(connection, "launcher:controls:apps")
+    wait_for_snapshot_node(connection, "custom-app:new")
+
+
+def wait_app_visible(connection):
+    deadline = time.monotonic() + TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        snapshot = AUTOMATION.request(connection, "snapshot")
+        identifier = snapshot.get("appId")
+        if identifier and native_call("http", COMMAND_READ, {"appId": identifier})["uiVisible"]:
+            assert not any(node["semanticId"] in ("custom-app:back", "custom-app:close") for node in snapshot["nodes"])
+            return snapshot
+        time.sleep(POLL_SECONDS)
+    raise AssertionError("Custom app did not appear")
+
+
 def wait_state(identifier, key, expected):
     deadline = time.monotonic() + TIMEOUT_SECONDS
     last = {}
@@ -211,7 +230,7 @@ def test_custom_apps_bundled_screens_and_editor(websocket_control, identifier):
     restore_system_home()
     control(identifier, "open")
     try:
-        wait_for_snapshot_node(websocket_control, "custom-app:back")
+        wait_app_visible(websocket_control)
         deadline = time.monotonic() + TIMEOUT_SECONDS
         while True:
             snapshot = AUTOMATION.request(websocket_control, "snapshot")
@@ -223,10 +242,16 @@ def test_custom_apps_bundled_screens_and_editor(websocket_control, identifier):
         run_device_operation("screenshot")
         shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / ("custom-app-" + identifier + ".png"))
         assert native_call("http", COMMAND_READ, {"appId": identifier})["uiVisible"]
-        tap(websocket_control, "custom-app:back")
+        open_app_manager(websocket_control)
         wait_for_snapshot_node(websocket_control, "custom-app:new")
+        wait_for_snapshot_node(websocket_control, "custom-app:" + identifier + ":edit", should_exist=False)
+        tap(websocket_control, "custom-app:" + identifier + ":more")
         tap(websocket_control, "custom-app:" + identifier + ":edit")
         for field in ("manifest", "html", "css", "javascript", "backgroundSource"):
+            tap(websocket_control, "custom-app:editor:file")
+            title = {"manifest": "Manifest", "html": "HTML", "css": "CSS", "javascript": "UI JavaScript", "backgroundSource": "Background source"}[field]
+            direct_tap(wait_for_physical_text_bounds(title))
+            wait_for_snapshot_node(websocket_control, "custom-app:editor:" + field)
             AUTOMATION.request(websocket_control, "scrollTo", semanticId="custom-app:editor:" + field)
         run_device_operation("screenshot")
         shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / ("custom-app-editor-" + identifier + ".png"))
@@ -239,14 +264,20 @@ def test_custom_apps_native_editor_saves_complete_bundle(websocket_control, app_
     control(identifier, "enable", confirm=True)
     control(identifier, "open")
     try:
-        wait_for_snapshot_node(websocket_control, "custom-app:back")
-        tap(websocket_control, "custom-app:back")
+        wait_app_visible(websocket_control)
+        open_app_manager(websocket_control)
         wait_for_snapshot_node(websocket_control, "custom-app:new")
+        wait_for_snapshot_node(websocket_control, "custom-app:" + identifier + ":edit", should_exist=False)
+        tap(websocket_control, "custom-app:" + identifier + ":more")
         tap(websocket_control, "custom-app:" + identifier + ":edit")
         wait_for_snapshot_node(websocket_control, "custom-app:editor:save")
         replacements = {"html": "<h1>Edited app</h1>", "css": "body{color:gold}",
                         "javascript": "document.body.dataset.edited='yes';", "backgroundSource": fields["backgroundSource"]}
         for field, text in replacements.items():
+            tap(websocket_control, "custom-app:editor:file")
+            title = {"manifest": "Manifest", "html": "HTML", "css": "CSS", "javascript": "UI JavaScript", "backgroundSource": "Background source"}[field]
+            direct_tap(wait_for_physical_text_bounds(title))
+            wait_for_snapshot_node(websocket_control, "custom-app:editor:" + field)
             AUTOMATION.request(websocket_control, "scrollTo", semanticId="custom-app:editor:" + field)
             AUTOMATION.request(websocket_control, "setText", semanticId="custom-app:editor:" + field, text=text)
         tap(websocket_control, "custom-app:editor:save")
@@ -393,7 +424,7 @@ def test_custom_apps_voice_note_stops_when_ui_closes(websocket_control):
     original = native_call("http", COMMAND_READ, {"appId": "voice-notes"})["state"]
     try:
         control("voice-notes", "open")
-        wait_for_snapshot_node(websocket_control, "custom-app:back")
+        wait_app_visible(websocket_control)
         time.sleep(2)
         direct_tap(wait_for_physical_text_bounds("Record voice note"))
         deadline = time.monotonic() + TIMEOUT_SECONDS
@@ -404,7 +435,7 @@ def test_custom_apps_voice_note_stops_when_ui_closes(websocket_control):
             time.sleep(POLL_SECONDS)
         assert session, "Voice note did not start"
         time.sleep(2)
-        tap(websocket_control, "custom-app:back")
+        open_app_manager(websocket_control)
         wait_state("voice-notes", "sessionId", None)
         result = native_call("http", "microphoneSession", {"action": "status", "sessionId": session})
         assert result["state"] == "completed", result

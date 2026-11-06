@@ -61,8 +61,14 @@ internal class DikcizRemoteTokensSettings(
                         cornerRadius = inset.toFloat(); setColor(DikcizUiStyle.SURFACE)
                     }
                 }
-                val actions = LinearLayout(context)
-                val destructive = LinearLayout(context)
+                val actions = LinearLayout(context).apply { visibility = View.GONE }
+                val destructive = LinearLayout(context).apply { visibility = View.GONE }
+                val more = button("Manage " + item.getString(KEY_NAME)) {
+                    val expanded = actions.visibility != View.VISIBLE
+                    actions.visibility = if (expanded) View.VISIBLE else View.GONE
+                    destructive.visibility = actions.visibility
+                }
+                views["remote-tokens:$id:more"] = more
                 form.addView(entry, LinearLayout.LayoutParams(-1, -2).apply {
                     topMargin = (12 * context.resources.displayMetrics.density).toInt()
                 })
@@ -97,6 +103,7 @@ internal class DikcizRemoteTokensSettings(
                 views["remote-tokens:$id:rotate"] = rotate
                 val edit = button("Edit " + item.getString(KEY_NAME)) { edit(item) }
                 actions.addView(edit, 0, LinearLayout.LayoutParams(0, -2, 1f))
+                entry.addView(more)
                 entry.addView(actions)
                 views["remote-tokens:$id:edit"] = edit
                 val toggle = button(if (item.getBoolean(KEY_ENABLED)) "Disable" else "Enable") {

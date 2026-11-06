@@ -39,8 +39,10 @@ internal class DikcizDeviceAccessActivity : Activity() {
         entries = findViewById(R.id.dikciz_device_access_entries)
         progress = findViewById(R.id.dikciz_device_access_progress)
         nextButton = findViewById(R.id.dikciz_device_access_next)
-        findViewById<Button>(R.id.dikciz_device_access_close).setOnClickListener {
-            finishAndRemoveTask()
+        DikcizUiStyle.button(nextButton, primary = true)
+        findViewById<Button>(R.id.dikciz_device_access_close).apply {
+            DikcizUiStyle.button(this)
+            setOnClickListener { finishAndRemoveTask() }
         }
         renderAccess()
         if (!DikcizLocalCommands.isAvailable()) {
@@ -115,6 +117,7 @@ internal class DikcizDeviceAccessActivity : Activity() {
             views[SEMANTIC_ENTRY_PREFIX + entry.requirement.persistedValue] = label
             if (entry.state == DikcizDeviceAccessState.NeedsSetup) {
                 val button = Button(this).apply {
+                    DikcizUiStyle.button(this)
                     text = getString(R.string.dikciz_device_access_grant_next, title)
                     setOnClickListener { requestAccess(entry.requirement) }
                 }

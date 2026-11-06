@@ -266,6 +266,21 @@ internal object DikcizNativeCommands {
             val value = request.opt(key)
             val enumeration = schema.optJSONArray("enum")
             if (enumeration != null && (0 until enumeration.length()).none { enumeration.opt(it) == value }) invalid()
+            val alternatives = schema.optJSONArray("oneOf")
+            if (alternatives != null) {
+                var matches = 0
+                for (index in 0 until alternatives.length()) {
+                    try {
+                        validateFields(JSONObject().put(key, value), mapOf(key to alternatives.getJSONObject(index)), setOf(key))
+                        matches++
+                    } catch (exception: DikcizAutomationRequestException) {
+                        if (exception.code != "validation_failed") throw exception
+                    }
+                }
+                if (matches != 1) invalid()
+                continue
+            }
+            if (schema.has("const") && schema.opt("const") != value) invalid()
             when (schema.getString("type")) {
                 TYPE_STRING -> if (value !is String || value.length < schema.optInt("minLength", 0) || value.length > schema.optInt("maxLength", MAXIMUM_TEXT) || '\u0000' in value) invalid()
                 "number" -> {
@@ -289,7 +304,7 @@ internal object DikcizNativeCommands {
                 TYPE_ARRAY -> {
                     if (value !is JSONArray || value.length() < schema.optInt("minItems", 0) || value.length() > schema.optInt("maxItems", Int.MAX_VALUE)) invalid()
                     if (schema.optBoolean("uniqueItems", false) && (0 until value.length()).map { value.opt(it).toString() }.distinct().size != value.length()) invalid()
-                    schema.optJSONObject("items")?.takeIf { it.has("type") }?.let { item ->
+                    schema.optJSONObject("items")?.takeIf { it.has("type") || it.has("oneOf") }?.let { item ->
                         for (index in 0 until value.length()) validateFields(JSONObject().put("item", value.opt(index)),
                             mapOf("item" to item), setOf("item"))
                     }

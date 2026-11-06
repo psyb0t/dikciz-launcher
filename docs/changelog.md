@@ -1,6 +1,19 @@
 # Changelog
 
-## [Unreleased]
+## [0.31.1] - 2026-11-06
+
+### Changed
+
+- Use shared action styling in widget pickers, widget menus and device setup; compact page movement controls and bound long HTML editor fields.
+- Open each custom app in its own Android task with normal Home, Back and Recents behavior, without the manager toolbar. Native and remote launches reuse the same task per app.
+- Open apps by their title in a compact list, with bundle editing, execution controls, export and removal in each app's overflow menu.
+- Collapse token management actions until requested, lighten secondary controls and use larger left-aligned navigation labels.
+- Increase chat control touch targets to 48dp.
+
+### Fixed
+
+- Retain bundle editor drafts through rotation, confirm discarded edits and keep failed imports open for correction.
+- Validate alternative JSON schema types so the native automation rule editor can preview and save its condition values.
 
 ## [0.31.0] - 2026-11-06
 

@@ -170,7 +170,7 @@ internal class DikcizCustomAppService : Service(), LocationListener {
         val manager = getSystemService(NotificationManager::class.java)
         if (value == null) { manager.cancel(DikcizSosWarning.NOTIFICATION_ID); episode = ""; return }
         val open = PendingIntent.getActivity(this, DikcizSosWarning.NOTIFICATION_ID,
-            Intent(this, DikcizCustomAppActivity::class.java).putExtra("appId", value.getString("appId")), FLAGS)
+            DikcizCustomAppHostActivity.intent(this, value.getString("appId")), FLAGS)
         val cancel = PendingIntent.getService(this, DikcizSosWarning.NOTIFICATION_ID, Intent(this, javaClass).setAction(ACTION_CANCEL), FLAGS)
         manager.notify(DikcizSosWarning.NOTIFICATION_ID, Notification.Builder(this, DikcizSosWarning.CHANNEL)
             .setSmallIcon(android.R.drawable.ic_dialog_alert).setContentTitle(value.getString("title"))

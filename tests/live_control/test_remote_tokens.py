@@ -141,6 +141,8 @@ def test_remote_tokens_owner_credential_and_ui_manager(token_owner):
         assert identity["permissions"] == ["sensors.read"]
         identifier = identity["id"]
         AUTOMATION.request(connection, AUTOMATION.TYPE_TAP, semanticId="dialog:close")
+        wait_for_snapshot_node(connection, f"remote-tokens:{identifier}:more")
+        AUTOMATION.request(connection, AUTOMATION.TYPE_TAP, semanticId=f"remote-tokens:{identifier}:more")
         wait_for_snapshot_node(connection, f"remote-tokens:{identifier}:edit")
         assert not any(row["semanticId"] == "remote-tokens:copy" for row in AUTOMATION.request(connection, "snapshot")["nodes"])
         AUTOMATION.request(connection, AUTOMATION.TYPE_TAP, semanticId=f"remote-tokens:{identifier}:edit")
@@ -149,10 +151,13 @@ def test_remote_tokens_owner_credential_and_ui_manager(token_owner):
         AUTOMATION.request(connection, AUTOMATION.TYPE_TAP, semanticId="remote-tokens:grant:sms.read")
         AUTOMATION.request(connection, AUTOMATION.TYPE_TAP, semanticId="remote-tokens:save")
         assert call(copied, "remoteAccessInfo")["permissions"] == ["sms.read"]
+        AUTOMATION.request(connection, AUTOMATION.TYPE_TAP, semanticId=f"remote-tokens:{identifier}:more")
         AUTOMATION.request(connection, AUTOMATION.TYPE_TAP, semanticId=f"remote-tokens:{identifier}:toggle")
         assert http_command(copied, "remoteAccessInfo")[0] == 401
+        AUTOMATION.request(connection, AUTOMATION.TYPE_TAP, semanticId=f"remote-tokens:{identifier}:more")
         AUTOMATION.request(connection, AUTOMATION.TYPE_TAP, semanticId=f"remote-tokens:{identifier}:toggle")
         assert call(copied, "remoteAccessInfo")["id"] == identifier
+        AUTOMATION.request(connection, AUTOMATION.TYPE_TAP, semanticId=f"remote-tokens:{identifier}:more")
         AUTOMATION.request(connection, AUTOMATION.TYPE_TAP, semanticId=f"remote-tokens:{identifier}:revoke")
         wait_for_snapshot_node(connection, "remote-tokens:confirm-revoke")
         AUTOMATION.request(connection, AUTOMATION.TYPE_TAP, semanticId="remote-tokens:confirm-revoke")

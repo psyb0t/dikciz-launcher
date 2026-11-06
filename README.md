@@ -94,7 +94,7 @@ Tap the cheese beside the launcher controls for an on-device assistant. Add an O
 
 Open **Settings**, **Safety, journeys and devices** for inactive contact plans, opt-in missed check-ins/SOS, geofences, recorded routes, retained Bluetooth/USB/NFC connections, image OCR/barcodes/PDFs, Health Connect records and Android-approved Wi-Fi flows. All use the shared phone APIs. [Read the setup and limits](docs/companion.md) before enabling background work. The optional Vehicle console template reads a paired ELM327 adapter. Chat also offers five [read-only routines](docs/assistant-routines.md).
 
-**Dikciz**, **Apps** opens complete editable apps. SOS is an ordinary bundled app whose message/check-in logic lives in `/sdcard/Dikciz/apps/sos/main.js`, beside its HTML/CSS/JavaScript UI and state. Voice notes, Agenda, Device status and Travel todo also ship as independent apps. Create or import your own. Apps share the Android access granted to Dikciz. [The app guide](docs/custom-apps.md) covers source, state, events, timers, dimmed alerts and reusable archives.
+**Dikciz**, **Apps** opens complete editable apps. SOS is an ordinary bundled app whose message/check-in logic lives in `/sdcard/Dikciz/apps/sos/main.js`, beside its HTML/CSS/JavaScript UI and state. Voice notes, Agenda, Device status and Travel todo also ship as independent apps. Each app has its own Android task and Recents entry, without a manager toolbar. Create or import your own. Apps share the Android access granted to Dikciz. [The app guide](docs/custom-apps.md) covers source, state, events, timers, dimmed alerts and reusable archives.
 
 ## Build your first app
 

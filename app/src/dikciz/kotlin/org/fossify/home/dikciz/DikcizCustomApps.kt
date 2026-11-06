@@ -146,7 +146,7 @@ internal object DikcizCustomApps {
                     parseSubscriptions(context, app.manifest, HomeConfigStore(context).loadOrCreate().limits)
                     database(context).use { it.put(INSTALL_KIND, id, JSONObject().put("enabled", true)) }
                     changed(context, id, true)
-                    context.startActivity(Intent(context, DikcizCustomAppActivity::class.java).putExtra("appId", id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    context.startActivity(DikcizCustomAppHostActivity.intent(context, id))
                     JSONObject().put("state", "requested").put("appId", id)
                 }
                 else -> DikcizNativeCommands.invalid()

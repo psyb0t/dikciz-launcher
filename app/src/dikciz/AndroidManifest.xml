@@ -139,7 +139,16 @@
         android:label="@string/dikciz_app_name"
         android:roundIcon="@mipmap/dikciz_launcher_icon"
         tools:replace="android:icon,android:label,android:roundIcon">
-        <activity android:name=".dikciz.DikcizCustomAppActivity" android:exported="false" android:launchMode="singleTop" android:theme="@style/LauncherTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".dikciz.DikcizCustomAppActivity" android:enableOnBackInvokedCallback="true" android:exported="false" android:launchMode="singleTop" android:theme="@style/LauncherTheme" android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".dikciz.DikcizCustomAppHostActivity"
+            android:enableOnBackInvokedCallback="true"
+            android:exported="false"
+            android:documentLaunchMode="intoExisting"
+            android:taskAffinity="${applicationId}.customApps"
+            android:excludeFromRecents="false"
+            android:theme="@style/LauncherTheme"
+            android:windowSoftInputMode="adjustResize" />
         <receiver android:name=".dikciz.DikcizCustomAppAlarmReceiver" android:exported="false" />
         <service android:name=".dikciz.DikcizCustomAppService" android:exported="false" android:foregroundServiceType="specialUse|location">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Owner-enabled programmable applications with durable event timers, urgent cancellation windows and a visible Pause action" />

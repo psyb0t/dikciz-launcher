@@ -66,7 +66,7 @@ New and reset homes start with 8 columns and 6 rows. Open **Settings**, then cha
 
 ## Open and edit complete Dikciz apps
 
-Open **Dikciz > Apps** for SOS, Voice notes, Agenda, Device status and Travel todo. These have their own UI, backend and state, independent of page widgets. **Edit bundle** exposes their complete HTML, CSS, UI JavaScript, backend and manifest. Stop active work before changing source; saving preserves its running or stopped state. **Export reusable bundle** shares source, without private state or recordings. **Remove app and its state** deletes that instance's public data.
+Open **Dikciz > Apps** for SOS, Voice notes, Agenda, Device status and Travel todo. These have their own UI, backend and state, independent of page widgets. Each opens in its own Android task without a permanent Apps/Close toolbar. Use Home or Back to leave, Recents to switch, and Dikciz > Apps for management. **Edit bundle** exposes their complete HTML, CSS, UI JavaScript, backend and manifest. Stop active work before changing source; saving preserves its running or stopped state. **Export reusable bundle** shares source, without private state or recordings. **Remove app and its state** deletes that instance's public data.
 
 Travel todo is a working reference. Use the checklist normally, or grant location access and explicitly choose **Watch New York**. A matching GPS event checks off the trip even with the UI closed. Read [the full walkthrough](todo-app-tutorial.md) before changing the destination or event. Installation and opening do not start its location watch.
 
@@ -132,7 +132,7 @@ Drop one app shortcut on another to make an app group. Open the group to launch 
 
 ### Edit an HTML widget
 
-Long press the move handle at the top of an HTML widget, choose **Edit**, then change its title, HTML, CSS, JavaScript, or JSON state. The editor contains the source that widget runs.
+Long press the move handle at the top of an HTML widget, choose **Edit**, then change its title, HTML, CSS, JavaScript, or JSON state. The editor contains the source that widget runs. Long source fields scroll within a bounded area so CSS, JavaScript, state and save controls remain reachable.
 
 An HTML widget is one programmable document. Long press anywhere in its content or background to open the same whole-widget controls. **Edit** exposes all HTML, CSS, JavaScript and JSON state. To change one section, edit its markup and the code that renders it. **Delete** removes the entire WebView widget; it never means delete the section under your finger. Page and widget locks protect editing.
 

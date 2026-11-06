@@ -12,6 +12,8 @@ Create separate bearer credentials for clients that need different phone access.
 
 The existing owner password still grants full access. **Full owner access** tokens have the same authority, including creating or revoking other tokens. Keep them private. A scoped token cannot administer tokens or change authentication.
 
+Use **Manage** on a token to reveal edit, rotation, enable/disable and revoke actions. The list keeps token identity, grants and expiry visible.
+
 ## Choose grants
 
 Grants are additive. Select **Full owner access** alone, or combine specific grants. The native picker and `remoteTokens` action `catalog` provide the current list and descriptions.

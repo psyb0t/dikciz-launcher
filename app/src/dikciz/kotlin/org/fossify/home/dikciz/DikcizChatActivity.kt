@@ -101,24 +101,24 @@ internal class DikcizChatActivity : Activity() {
             background = null
             setTextColor(FOREGROUND)
         }
-        header.addView(title, LinearLayout.LayoutParams(0, dp(44), 1f))
-        header.addView(button("+", "New conversation") { newConversation() }, LinearLayout.LayoutParams(dp(44), dp(44)))
-        header.addView(button("⚙", "Chat provider settings") { chooseProfile() }, LinearLayout.LayoutParams(dp(44), dp(44)))
+        header.addView(title, LinearLayout.LayoutParams(0, dp(48), 1f))
+        header.addView(button("+", "New conversation") { newConversation() }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        header.addView(button("⚙", "Chat provider settings") { chooseProfile() }, LinearLayout.LayoutParams(dp(48), dp(48)))
         header.addView(button("↕", "Expand or reduce chat") {
             fullScreen = !fullScreen
             resize()
-        }, LinearLayout.LayoutParams(dp(44), dp(44)))
-        header.addView(button("×", "Hide Dikciz chat") { finish() }, LinearLayout.LayoutParams(dp(44), dp(44)))
+        }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        header.addView(button("×", "Hide Dikciz chat") { finish() }, LinearLayout.LayoutParams(dp(48), dp(48)))
         panel.addView(header)
         status = textView().apply { textSize = 11f; setTextColor(MUTED); contentDescription = "Chat agent status" }
 
         modelControls = DikcizChatModelControls(this, { conversationID }) { request, completed -> command(request, completed) }
         panel.addView(modelControls.view)
         val tasks = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        tasks.addView(taskButton("Make me a widget") { widgetTask() }, LinearLayout.LayoutParams(0, dp(44), 1f).apply { rightMargin = dp(8) })
+        tasks.addView(taskButton("Make me a widget") { widgetTask() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(8) })
         tasks.addView(taskButton("Explain this screen") {
             startTask(DikcizChatTasks.EXPLAIN_SCREEN, composer.text.toString().ifBlank { DikcizChatTasks.DEFAULT_SCREEN_QUESTION })
-        }, LinearLayout.LayoutParams(0, dp(44), 1f))
+        }, LinearLayout.LayoutParams(0, dp(48), 1f))
         panel.addView(tasks, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
         panel.addView(View(this).apply { setBackgroundColor(PANEL_EDGE) },
             LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(8) })
@@ -149,7 +149,7 @@ internal class DikcizChatActivity : Activity() {
         }
         content.addView(emptyState, FrameLayout.LayoutParams(-1, -1))
         latest = button("Latest ↓", "Jump to latest message") { followLatest = true; scrollLatest(); updateLatest() }
-        content.addView(latest, FrameLayout.LayoutParams(-2, dp(44), Gravity.BOTTOM or Gravity.END))
+        content.addView(latest, FrameLayout.LayoutParams(-2, dp(48), Gravity.BOTTOM or Gravity.END))
         panel.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
         panel.addView(status, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4); bottomMargin = dp(4) })
         val controls = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -538,7 +538,7 @@ internal class DikcizChatActivity : Activity() {
     private fun button(label: String, description: String, action: () -> Unit) = Button(this).apply {
         text = label; contentDescription = description; minWidth = 0; minimumWidth = 0
         isAllCaps = false
-        minimumHeight = dp(44)
+        minimumHeight = dp(48)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END
         backgroundTintList = null

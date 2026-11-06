@@ -13,6 +13,6 @@ internal class DikcizHealthPermissionRationaleActivity : Activity() {
             .setMessage(R.string.dikciz_health_permission_rationale_message)
             .setPositiveButton(R.string.dikciz_dialog_close, null)
             .setOnDismissListener { finish() }
-            .show()
+            .show().also(DikcizUiStyle::dialog)
     }
 }

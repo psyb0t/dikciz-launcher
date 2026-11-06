@@ -182,7 +182,7 @@ internal class DikcizChatModelControls(
                     isFocusable = false
                     isCursorVisible = false
                     setOnClickListener {
-                        AlertDialog.Builder(activity).setTitle(label).setItems(choices) { _, position -> setText(choices[position]) }.show()
+                        AlertDialog.Builder(activity).setTitle(label).setItems(choices) { _, position -> setText(choices[position]) }.show().also(DikcizUiStyle::dialog)
                     }
                 }
             }

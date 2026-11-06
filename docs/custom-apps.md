@@ -2,6 +2,8 @@
 
 Open **Dikciz**, **Apps** to open, create, edit, enable, disable, export or remove a complete app. Each app combines its own HTML/CSS/JavaScript interface with a Lua or headless JavaScript backend and persistent state. Closing its WebView leaves subscribed events and scheduled backend work available through the native host.
 
+Each app opens in its own Android task, with its title in Recents and its full interface below the system bars. There is no permanent Apps/Close toolbar around the app. Home leaves it available in Recents; Back exits its interface. Reopening the same app reuses its task. Return to **Dikciz > Apps** to manage bundles.
+
 These are apps inside Dikciz. Android does not install a separate APK or grant them separate Android identities. Every app inherits the Android access granted to Dikciz, including its phone commands, files, shell and SDK access. There is no separate app permission screen, command allowlist or manifest approval. Android still enforces the permissions and special access granted to the Dikciz package.
 
 ## Bundled apps
@@ -73,7 +75,7 @@ App-local `customAppRead`, `customAppState`, `customAppEvent`, `customAppSchedul
 
 For a complete working reference, read [Travel todo](todo-app-tutorial.md) and its linked source files.
 
-The native manager's **Edit bundle** exposes the complete manifest, HTML, CSS, UI JavaScript and backend source. State can be edited with `customAppState` or the public file. Saving preserves the app's running or stopped state. New apps start enabled. **Start app** and **Disable and stop** control execution without a permission dialog. Opening a stopped app starts it. The native manager is a separate activity, reachable again after Android permission screens take the foreground. Hiding or closing its interface sends `app.ui.hidden` to its backend. Voice notes uses that event to stop its recorder and preserve a pending save for reopening; other apps decide their own hidden behavior.
+Tap an app's name to open it. Its **More actions** overflow contains editing, start/stop, export and removal. The native manager's **Edit bundle** exposes the complete manifest, HTML, CSS, UI JavaScript and backend source. Choose a file above the editor; switching files and rotating the screen preserve unsaved edits. Back asks before discarding changes. Failed saves keep the editor open; failed imports retain the archive path for correction and retry. State can be edited with `customAppState` or the public file. Saving preserves the app's running or stopped state. New apps start enabled. **Start app** and **Disable and stop** control execution without a permission dialog. Opening a stopped app starts it. The native manager is a separate activity, reachable again after Android permission screens take the foreground. Hiding or closing its interface sends `app.ui.hidden` to its backend. Voice notes uses that event to stop its recorder and preserve a pending save for reopening; other apps decide their own hidden behavior.
 
 ## Timers and alerts
 

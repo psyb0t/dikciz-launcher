@@ -1744,7 +1744,19 @@ class DikcizHomeActivity : Activity() {
             gravity = Gravity.END
             orientation = LinearLayout.VERTICAL
             setPadding(standardPadding(), standardPadding(), standardPadding(), standardPadding())
-            background = createWidgetBackground(isEnabled = true)
+            minimumWidth = densityPixels(WIDGET_EDIT_MINIMUM_WIDTH_DP)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = densityPixels(WIDGET_EDIT_CORNER_RADIUS_DP).toFloat()
+                setColor(DikcizUiStyle.BACKGROUND)
+            }
+            addView(TextView(this@DikcizHomeActivity).apply {
+                text = widget.title
+                textSize = 18f
+                setTextColor(DikcizUiStyle.FOREGROUND)
+                setPadding(standardPadding(), NO_PADDING, standardPadding(), standardPadding())
+                maxLines = 2
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            })
             addView(createWidgetEditButtons(widget, widgetView))
         }
         val actionsPopup = PopupWindow(
@@ -1889,6 +1901,10 @@ class DikcizHomeActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
             orientation = LinearLayout.HORIZONTAL
             actionViews.forEach { actionView ->
+                if (actionView is Button) {
+                    DikcizUiStyle.button(actionView)
+                    actionView.gravity = Gravity.CENTER
+                }
                 addView(
                     actionView,
                     LinearLayout.LayoutParams(
@@ -5593,13 +5609,15 @@ class DikcizHomeActivity : Activity() {
         val actionButtons = mutableMapOf<PageMenuAction, Button>()
         val actionList = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            setPadding(standardPadding(), NO_PADDING, standardPadding(), NO_PADDING)
             PageMenuSection.entries.forEach { section ->
                 val sectionActions = actions.filter { action -> action.section == section }
                 if (sectionActions.isEmpty()) {
                     return@forEach
                 }
                 addView(createWidgetTitle(getString(section.labelResourceID)))
-                sectionActions.forEach { action ->
+                var moveRow: LinearLayout? = null
+                sectionActions.forEachIndexed { index, action ->
                     val button = Button(this@DikcizHomeActivity).apply {
                         text = getString(action.labelResourceID)
                         contentDescription = text
@@ -5614,13 +5632,14 @@ class DikcizHomeActivity : Activity() {
                         }
                     }
                     actionButtons[action] = button
-                    addView(
-                        button,
-                        LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ),
-                    )
+                    if (action.moveDirection != null) {
+                        if (index % 2 == 0) {
+                            moveRow = LinearLayout(this@DikcizHomeActivity).also { addView(it) }
+                        }
+                        moveRow?.addView(button, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    } else {
+                        addView(button, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                    }
                 }
             }
         }
@@ -9363,6 +9382,7 @@ class DikcizHomeActivity : Activity() {
             }
             if (deletablePage?.widgets?.isEmpty() == true) {
                 categoryContainer.addView(Button(this).apply {
+                    DikcizUiStyle.button(this)
                     text = getString(R.string.dikciz_delete_empty_page)
                     setOnClickListener {
                         dialog.dismiss()
@@ -9498,6 +9518,7 @@ class DikcizHomeActivity : Activity() {
                 )
             })
             val categoryButton = Button(this@DikcizHomeActivity).apply {
+                DikcizUiStyle.button(this)
                 text = category.label
                 isAllCaps = false
                 setOnClickListener {
@@ -9508,7 +9529,9 @@ class DikcizHomeActivity : Activity() {
                     }
                 }
             }
-            addView(categoryButton)
+            addView(categoryButton, LinearLayout.LayoutParams(
+                NO_LAYOUT_SIZE, ViewGroup.LayoutParams.WRAP_CONTENT, FULL_LAYOUT_WEIGHT,
+            ))
             registerWidgetPickerAutomationView(
                 pickerCategorySemanticID(pickerID, category.automationID),
                 categoryButton,
@@ -9551,6 +9574,7 @@ class DikcizHomeActivity : Activity() {
                     )
                 })
                 val applicationButton = Button(this@DikcizHomeActivity).apply {
+                    DikcizUiStyle.button(this)
                     text = application.label
                     contentDescription = getString(
                         R.string.dikciz_widget_picker_application_description,
@@ -9565,7 +9589,9 @@ class DikcizHomeActivity : Activity() {
                         }
                     }
                 }
-                addView(applicationButton)
+                addView(applicationButton, LinearLayout.LayoutParams(
+                    NO_LAYOUT_SIZE, ViewGroup.LayoutParams.WRAP_CONTENT, FULL_LAYOUT_WEIGHT,
+                ))
                 registerWidgetPickerAutomationView(
                     pickerApplicationSemanticID(pickerID, application.packageName),
                     applicationButton,
@@ -9582,6 +9608,7 @@ class DikcizHomeActivity : Activity() {
         entryDescriptionResource: Int = R.string.dikciz_widget_picker_entry_description,
     ): Button {
         return Button(this).apply {
+            DikcizUiStyle.button(this)
             text = if (entry.description.isBlank()) {
                 entry.label
             } else {
@@ -9850,6 +9877,7 @@ class DikcizHomeActivity : Activity() {
             hint = getString(R.string.dikciz_html_widget_html_input)
             contentDescription = getString(R.string.dikciz_html_widget_html_input)
             minLines = HTML_WIDGET_SOURCE_MINIMUM_LINES
+            maxLines = HTML_WIDGET_SOURCE_MAXIMUM_LINES
             setText(currentWidget.html)
             setSelectAllOnFocus(true)
             styleHtmlWidgetEditorInput(this, isSourceCode = true)
@@ -9858,6 +9886,7 @@ class DikcizHomeActivity : Activity() {
             hint = getString(R.string.dikciz_html_widget_css_input)
             contentDescription = getString(R.string.dikciz_html_widget_css_input)
             minLines = HTML_WIDGET_SOURCE_MINIMUM_LINES
+            maxLines = HTML_WIDGET_SOURCE_MAXIMUM_LINES
             setText(currentWidget.css)
             setSelectAllOnFocus(true)
             styleHtmlWidgetEditorInput(this, isSourceCode = true)
@@ -9866,6 +9895,7 @@ class DikcizHomeActivity : Activity() {
             hint = getString(R.string.dikciz_html_widget_javascript_input)
             contentDescription = getString(R.string.dikciz_html_widget_javascript_input)
             minLines = HTML_WIDGET_SOURCE_MINIMUM_LINES
+            maxLines = HTML_WIDGET_SOURCE_MAXIMUM_LINES
             setText(currentWidget.javascript)
             setSelectAllOnFocus(true)
             styleHtmlWidgetEditorInput(this, isSourceCode = true)
@@ -9874,6 +9904,7 @@ class DikcizHomeActivity : Activity() {
             hint = getString(R.string.dikciz_html_widget_state_input)
             contentDescription = getString(R.string.dikciz_html_widget_state_input)
             minLines = HTML_WIDGET_STATE_MINIMUM_LINES
+            maxLines = HTML_WIDGET_SOURCE_MAXIMUM_LINES
             setText(currentWidget.serializedState)
             setSelectAllOnFocus(true)
             styleHtmlWidgetEditorInput(this, isSourceCode = true)
@@ -11936,6 +11967,8 @@ class DikcizHomeActivity : Activity() {
         const val SCROLL_Y_ORIGIN = 0
         const val SETTINGS_TITLE_WEIGHT = 1F
         const val WIDGET_EDIT_ACTION_WEIGHT = 1F
+        const val WIDGET_EDIT_MINIMUM_WIDTH_DP = 240
+        const val WIDGET_EDIT_CORNER_RADIUS_DP = 16
         const val SCALE_SCREENSHOT_FILTER = true
         const val PAGE_CONTENT_EDGE_INSET_DP = 1
         const val PANEL_ROUTE_GAP_DP = 8
@@ -11951,6 +11984,7 @@ class DikcizHomeActivity : Activity() {
         const val SCRIPT_STATE_EDITOR_MINIMUM_LINES = 4
         const val SCRIPT_STATE_JSON_INDENTATION_SPACES = 2
         const val HTML_WIDGET_SOURCE_MINIMUM_LINES = 6
+        const val HTML_WIDGET_SOURCE_MAXIMUM_LINES = 12
         const val HTML_WIDGET_STATE_MINIMUM_LINES = 3
         const val SCRIPT_DASHBOARD_TEXT_SIZE_SP = 16F
         const val WIDGET_CORNER_RADIUS_DP = 12
