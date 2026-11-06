@@ -16,7 +16,7 @@ The [configuration guide](dikciz-configuration.md) owns the public file schema. 
 
 ## Start with the right pieces
 
-For an installable package containing both an interface and background logic, read [custom apps](custom-apps.md) and build the bundled [Travel todo example](todo-app-tutorial.md). An app has its own UI files, Lua/JavaScript backend, state, subscriptions and declared commands. The bundled SOS workflow uses this public platform. The standalone script/widget pipeline below remains available.
+For an installable package containing both an interface and background logic, read [custom apps](custom-apps.md) and build the bundled [Travel todo example](todo-app-tutorial.md). An app has its own UI files, Lua/JavaScript backend, state, subscriptions and shared Dikciz command access. The bundled SOS workflow uses this public platform. The standalone script/widget pipeline below remains available.
 
 Install Dikciz, make it your Android Home app, and grant shared-storage access. The first run creates `/sdcard/Dikciz/`, which holds every script, policy, subscription, widget, package, state file, and log.
 

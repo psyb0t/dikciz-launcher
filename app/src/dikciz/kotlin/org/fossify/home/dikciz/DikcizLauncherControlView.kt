@@ -14,6 +14,11 @@ internal enum class DikcizLauncherControlAction(
     val labelResourceID: Int,
     val iconResourceID: Int,
 ) {
+    DikcizApps(
+        "apps",
+        R.string.dikciz_launcher_control_apps,
+        R.drawable.dikciz_icon_route_app_drawer,
+    ),
     AppDrawer(
         "app-drawer",
         R.string.dikciz_launcher_control_app_drawer,

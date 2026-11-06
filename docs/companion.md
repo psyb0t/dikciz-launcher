@@ -2,7 +2,7 @@
 
 Open **Settings**, **Safety, journeys and devices**. Each tab uses the shared command executor, Android access checks and ordinary response contracts. Launcher controls display the installed version beside Close.
 
-The Safety tab opens the bundled SOS [custom app](custom-apps.md). Its complete UI and backend are editable under `/sdcard/Dikciz/apps/sos/`. **Settings**, **Custom apps** also includes Voice notes, Agenda, Device status and Travel todo, plus creation, complete-source editing and import/export. Places, Trips and the remaining companion tabs keep their native controls.
+The Safety tab opens the bundled SOS [custom app](custom-apps.md). Its complete UI and backend are editable under `/sdcard/Dikciz/apps/sos/`. **Dikciz**, **Apps** also includes Voice notes, Agenda, Device status and Travel todo, plus creation, complete-source editing and import/export. Places, Trips and the remaining companion tabs keep their native controls.
 
 | Task | Guide |
 | --- | --- |

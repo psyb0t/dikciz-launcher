@@ -226,7 +226,7 @@ A writable call can opt into owner review with `autoRequestPermissions: true`. F
 
 ## 6. Build an event pipeline
 
-Start with [Build a todo app that reacts to GPS](todo-app-tutorial.md) for the shortest complete app example. **Settings > Custom apps > Travel todo** contains all five editable source files. Its explicit **Watch New York** action creates a native geofence, and its background JavaScript checks off the destination after the matching event. The same list accepts a custom event for another task. The walkthrough covers permissions, source editing, independent copies and stopping monitoring.
+Start with [Build a todo app that reacts to GPS](todo-app-tutorial.md) for the shortest complete app example. **Dikciz > Apps > Travel todo** contains all five editable source files. Its explicit **Watch New York** action creates a native geofence, and its background JavaScript checks off the destination after the matching event. The same list accepts a custom event for another task. The walkthrough covers permissions, source editing, independent copies and stopping monitoring.
 
 <img src="images/custom-apps/todo-watching.png" alt="Travel todo with an opt-in New York rule" width="280"> <img src="images/custom-apps/todo-arrived.png" alt="Persisted task completion after a real emulator GPS event" width="280">
 

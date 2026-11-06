@@ -2,7 +2,7 @@
 
 Build one complete Dikciz app with a checklist, a JavaScript backend and saved state. Its **Go to New York** item checks itself when an accurate location fix enters an example destination circle. The backend keeps listening after you close its interface.
 
-The working reference ships as **Settings > Custom apps > Travel todo**. Its [five source files](../app/src/dikciz/assets/apps/travel-todo/) are also in this repository. It starts with location monitoring off. No API key, model, messages or calendar writes are involved.
+The working reference ships as **Dikciz > Apps > Travel todo**. Its [five source files](../app/src/dikciz/assets/apps/travel-todo/) are also in this repository. It starts with location monitoring off. No API key, model, messages or calendar writes are involved.
 
 <p><img src="images/custom-apps/todo-watching.png" alt="Travel todo with the New York location rule enabled and the trip still unchecked" width="280"> <img src="images/custom-apps/todo-arrived.png" alt="The same app reopened after an emulator GPS entry automatically checked Go to New York" width="280"></p>
 
@@ -21,9 +21,9 @@ flowchart LR
 
 ## 1. Open the reference
 
-Open **Settings > Custom apps > Travel todo**. Check a task manually or scroll down to add your own. The initial list has **Go to New York**, **Pack my bag** and **Charge my phone**. You can use the list with location access denied.
+Open **Dikciz > Apps > Travel todo**. Check a task manually or scroll down to add your own. The initial list has **Go to New York**, **Pack my bag** and **Charge my phone**. You can use the list with location access denied.
 
-To inspect the source, choose **Apps**, then **Edit bundle** beside Travel todo. The editor exposes the manifest, HTML, CSS, UI JavaScript and backend source together. Stop an active location watch before editing. Saving disables the app; return to the manager, review its commands and choose **Enable app**.
+To inspect the source, choose **Apps**, then **Edit bundle** beside Travel todo. The editor exposes the manifest, HTML, CSS, UI JavaScript and backend source together. Stop an active location watch before editing. Saving preserves whether the app is running or stopped. Open it directly, or choose **Start app** to resume a stopped backend.
 
 <p><img src="images/custom-apps/custom-apps.png" alt="Native custom-app manager with complete bundles and their controls" width="280"> <img src="images/custom-apps/todo-editor.png" alt="Complete bundle editor showing the travel app manifest" width="280"></p>
 
@@ -55,7 +55,7 @@ The manifest subscribes to two inputs:
 }
 ```
 
-It declares only `geofenceSave`, `geofenceDelete` and `requestDeviceAccess`. App-local state/event commands are supplied by the host. Neither the manifest nor enabling the app grants Android location access.
+The example uses `geofenceSave`, `geofenceDelete` and `requestDeviceAccess`. Its legacy `commands` metadata does not restrict access. All apps share Dikciz's Android grants; the host supplies app-local state/event bindings. Android must grant location to Dikciz before it can monitor a destination.
 
 ## 3. Send UI actions to the backend
 
@@ -69,7 +69,7 @@ const reply = await dikciz.command("customAppEvent", {
 const state = reply.state;
 ```
 
-The host fills in the calling app ID and rejects access to another app. `onEvent(event)` in `main.js` receives the event and a read-only `context.state`. It copies that state, changes the list and returns a `patchState` action. The host validates and saves it, then the visible UI receives `dikciz-state` and redraws. The UI uses DOM creation and `textContent`, so task titles remain text.
+The host fills in the calling app ID when omitted. An explicit app ID can address another app. `onEvent(event)` in `main.js` receives the event and a read-only `context.state`. It copies that state, changes the list and returns a `patchState` action. The host validates and saves it, then the visible UI receives `dikciz-state` and redraws. The UI uses DOM creation and `textContent`, so task titles remain text.
 
 This is the shared result shape:
 
@@ -135,7 +135,7 @@ For an app-specific request without publishing, use `customAppEvent` with `appId
 
 Press **Stop watching** to delete this app's fence. Arrival stops it automatically. Disabling or removing the app invokes its `app.stopped` backend cleanup; that also deletes its own fence while leaving unrelated fences alone. Stop monitoring before editing or replacing its source. Native geofences are separate persisted records, so inspect **Safety, journeys and devices > Places** if you edited away the cleanup code.
 
-Choose **Export reusable bundle** to share the five source files. Exports exclude private state and recordings. To make an independent copy, install the source with a new `app.json` ID, then explicitly enable it. The new ID gets separate state and an independent fence. Existing bundled copies preserve user edits during APK updates; a home reset does not restore edited app source. Current encrypted home/chat backups exclude custom apps.
+Choose **Export reusable bundle** to share the five source files. Exports exclude private state and recordings. To make an independent copy, install the source with a new `app.json` ID, then open it. The new ID gets separate state and an independent fence. Existing bundled copies preserve user edits during APK updates; a home reset does not restore edited app source. Current encrypted home/chat backups exclude custom apps.
 
 To use Lua for background logic, change the manifest language to `lua`, provide `main.lua` with `on_event(event)` and keep the same interface files. For standalone background scripts without an app UI, read [background JavaScript](background-javascript.md) and the [Lua/event tutorial](scripting-tutorial.md). The [custom-app guide](custom-apps.md) owns host permissions, timers, alerts, archives and recovery.
 

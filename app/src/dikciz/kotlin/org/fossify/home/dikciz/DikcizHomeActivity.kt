@@ -6422,6 +6422,7 @@ class DikcizHomeActivity : Activity() {
         )
         when (action) {
             DikcizLauncherControlAction.AppDrawer -> openAppDrawer(DRAWER_SOURCE_CONTROL)
+            DikcizLauncherControlAction.DikcizApps -> startActivity(Intent(this, DikcizCustomAppActivity::class.java))
             DikcizLauncherControlAction.AddToPage -> showWidgetPicker(page, page.widgets.size)
             DikcizLauncherControlAction.ManagePage -> showPageMenu(page)
             DikcizLauncherControlAction.DikcizSettings -> showSettingsDialog()
@@ -6839,11 +6840,6 @@ class DikcizHomeActivity : Activity() {
                     startActivity(Intent(this@DikcizHomeActivity, DikcizCompanionActivity::class.java))
                 }
                 registerAutomationView("settings:companion", this)
-            })
-            addView(Button(this@DikcizHomeActivity).apply {
-                text = "Custom apps"; contentDescription = "Manage editable Dikciz apps"
-                setOnClickListener { activeDialog?.dismiss(); startActivity(Intent(this@DikcizHomeActivity, DikcizCustomAppActivity::class.java)) }
-                registerAutomationView("settings:custom-apps", this)
             })
             addView(createWidgetTitle(getString(R.string.dikciz_settings_appearance)))
             AppearanceDefaultScope.entries.forEach { scope ->

@@ -66,7 +66,7 @@ New and reset homes start with 8 columns and 6 rows. Open **Settings**, then cha
 
 ## Open and edit complete Dikciz apps
 
-Open **Settings > Custom apps** for SOS, Voice notes, Agenda, Device status and Travel todo. These have their own UI, backend and state, independent of page widgets. **Edit bundle** exposes their complete HTML, CSS, UI JavaScript, backend and manifest. Stop active work before changing source; saving requires enabling and approving the bundle again. **Export reusable bundle** shares source, without private state or recordings. **Remove app and its state** deletes that instance's public data.
+Open **Dikciz > Apps** for SOS, Voice notes, Agenda, Device status and Travel todo. These have their own UI, backend and state, independent of page widgets. **Edit bundle** exposes their complete HTML, CSS, UI JavaScript, backend and manifest. Stop active work before changing source; saving preserves its running or stopped state. **Export reusable bundle** shares source, without private state or recordings. **Remove app and its state** deletes that instance's public data.
 
 Travel todo is a working reference. Use the checklist normally, or grant location access and explicitly choose **Watch New York**. A matching GPS event checks off the trip even with the UI closed. Read [the full walkthrough](todo-app-tutorial.md) before changing the destination or event. Installation and opening do not start its location watch.
 

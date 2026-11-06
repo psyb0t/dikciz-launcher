@@ -74,9 +74,8 @@ def wait_state(identifier, key, expected):
 @pytest.mark.parametrize("protocol", PROTOCOLS)
 def test_custom_apps_install_enable_invoke_and_native_binding(app_factory, protocol):
     source = "function onEvent(event) { var reply = context.request({type:'deviceInfo'}); var state = context.request({type:'deviceState',autoRequestPermissions:true}); return {result:{native:reply.type==='result' && state.type==='result'},actions:[{type:'patchState',values:{count:(context.state.count||0)+1}}]}; }"
-    identifier, fields = app_factory(protocol, source=source, commands=["deviceInfo", "deviceState"])
-    native_call(protocol, COMMAND_EVENT, {"appId": identifier, "event": "example.count"}, error="custom_app_disabled")
-    control(identifier, "enable", protocol, confirm=True)
+    identifier, fields = app_factory(protocol, source=source)
+    assert native_call(protocol, COMMAND_READ, {"appId": identifier})["enabled"]
     reply = native_call(protocol, COMMAND_EVENT, {"appId": identifier, "event": "example.count", "payload": {"text": "Unicode: 🧀"}})
     assert reply["outcome"] == "completed" and reply["result"] == {"native": True}
     assert reply["state"] == {"count": 1}
@@ -102,9 +101,10 @@ def test_custom_apps_lua_result_and_independent_state(app_factory):
 
 def test_custom_apps_owner_can_prepare_disabled_state(app_factory):
     identifier, _ = app_factory()
+    control(identifier, "disable")
     native_call("http", COMMAND_STATE, {"appId": identifier, "action": "replace", "state": {"count": 4}})
     native_call("http", COMMAND_EVENT, {"appId": identifier, "event": "example.count"}, error="custom_app_disabled")
-    control(identifier, "enable", confirm=True)
+    control(identifier, "enable")
     assert native_call("http", COMMAND_EVENT, {"appId": identifier, "event": "example.count"})["state"] == {"count": 5}
 
 
@@ -128,15 +128,15 @@ def test_custom_apps_host_state_patch_merges_existing_fields(app_factory):
     assert result["state"] == {"retained": True, "first": 1, "second": 2}
 
 
-def test_custom_apps_edited_invalid_subscription_cannot_be_approved(app_factory):
+def test_custom_apps_invalid_subscription_is_rejected_without_permission_approval(app_factory):
     identifier, fields = app_factory()
     fields["manifest"]["eventSubscriptions"] = [{"event": "sensor"}]
     native_call("http", "fileWrite", {"path": f"/sdcard/Dikciz/apps/{identifier}/app.json", "dataBase64": base64.b64encode(json.dumps(fields["manifest"]).encode()).decode(), "overwrite": True})
     native_call("http", COMMAND_CONTROL, {"appId": identifier, "action": "enable", "confirm": True}, error="validation_failed")
-    assert not native_call("http", COMMAND_READ, {"appId": identifier})["enabled"]
+    assert native_call("http", COMMAND_READ, {"appId": identifier})["enabled"]
 
 
-def test_custom_apps_replace_preserves_state_data_and_requires_approval(app_factory):
+def test_custom_apps_replace_preserves_state_data_and_running_state(app_factory):
     identifier, fields = app_factory()
     control(identifier, "enable", confirm=True)
     native_call("http", COMMAND_EVENT, {"appId": identifier, "event": "example.count"})
@@ -147,10 +147,8 @@ def test_custom_apps_replace_preserves_state_data_and_requires_approval(app_fact
     fields["html"] = "<h1>Replaced UI</h1>"
     native_call("http", COMMAND_INSTALL, fields)
     saved = native_call("http", COMMAND_READ, {"appId": identifier})
-    assert saved["state"] == {"count": 1} and not saved["enabled"]
+    assert saved["state"] == {"count": 1} and saved["enabled"]
     assert native_call("http", "fileRead", {"path": directory + "/fixture.bin"})["dataBase64"] == data
-    native_call("http", COMMAND_EVENT, {"appId": identifier, "event": "example.count"}, error="custom_app_disabled")
-    control(identifier, "enable", confirm=True)
     assert native_call("http", COMMAND_EVENT, {"appId": identifier, "event": "example.count"})["state"] == {"count": 2}
 
 
@@ -164,14 +162,26 @@ def test_custom_apps_manifest_validation_is_atomic(websocket_control, key, value
     assert native_call("http", COMMAND_LIST) == before
 
 
-def test_custom_apps_command_grants_and_cross_app_scope(app_factory):
+@pytest.mark.parametrize("protocol", PROTOCOLS)
+def test_custom_apps_inherit_phone_access_and_can_address_other_apps(app_factory, protocol):
     other, _ = app_factory()
-    source = "function onEvent(event) { var write=context.request({type:'smsSend',recipient:'5550101',body:'Never submit'}); var read=context.request({type:'customAppRead',appId:'" + other + "'}); return {result:{write:write.code,read:read.code}}; }"
-    identifier, _ = app_factory(source=source)
-    control(identifier, "enable", confirm=True)
-    result = native_call("http", COMMAND_EVENT, {"appId": identifier, "event": "example.check"})
-    assert result["result"] == {"write": "custom_app_command_denied", "read": "custom_app_scope_denied"}
-    assert native_call("http", COMMAND_READ, {"appId": other})["state"] == {}
+    control(other, "disable")
+    source = """
+function onEvent(event) {
+    var device = context.request({type:'deviceInfo'});
+    var apps = context.request({type:'customAppsList'});
+    var start = context.request({type:'customAppControl',appId:OTHER,action:'enable'});
+    var write = context.request({type:'customAppState',appId:OTHER,action:'replace',state:{shared:true}});
+    var read = context.request({type:'customAppRead',appId:OTHER});
+    return {result:{device:device.type,apps:apps.type,start:start.type,write:write.type,shared:read.result.state.shared}};
+}
+""".replace("OTHER", json.dumps(other))
+    identifier, fields = app_factory(source=source)
+    del fields["manifest"]["commands"]
+    native_call(protocol, COMMAND_INSTALL, fields)
+    result = native_call(protocol, COMMAND_EVENT, {"appId": identifier, "event": "example.check"})
+    assert result["result"] == {"device":"result", "apps":"result", "start":"result", "write":"result", "shared":True}
+    assert native_call(protocol, COMMAND_READ, {"appId": other})["state"] == {"shared":True}
 
 
 def test_custom_apps_archive_round_trip_excludes_state_and_rejects_traversal(app_factory):
@@ -186,7 +196,7 @@ def test_custom_apps_archive_round_trip_excludes_state_and_rejects_traversal(app
     control(identifier, "remove", confirm=True)
     native_call("http", COMMAND_CONTROL, {"action": "import", "path": exported["path"], "confirm": True})
     saved = native_call("http", COMMAND_READ, {"appId": identifier})
-    assert saved["state"] == {} and not saved["enabled"]
+    assert saved["state"] == {} and saved["enabled"]
     malformed = io.BytesIO()
     with zipfile.ZipFile(malformed, "w") as archive:
         archive.writestr("../escape", "hostile")
@@ -242,12 +252,9 @@ def test_custom_apps_native_editor_saves_complete_bundle(websocket_control, app_
         tap(websocket_control, "custom-app:editor:save")
         wait_for_snapshot_node(websocket_control, "custom-app:new")
         saved = native_call("http", COMMAND_READ, {"appId": identifier})
-        assert not saved["enabled"]
+        assert saved["enabled"]
         assert all(saved[field] == text for field, text in replacements.items())
-        tap(websocket_control, "custom-app:" + identifier + ":enable")
-        wait_for_snapshot_node(websocket_control, "custom-app:confirm")
-        tap(websocket_control, "custom-app:confirm")
-        wait_for_snapshot_node(websocket_control, "custom-app:new")
+        wait_for_snapshot_node(websocket_control, "custom-app:confirm", should_exist=False)
         assert native_call("http", COMMAND_READ, {"appId": identifier})["enabled"]
     finally:
         restore_system_home()
@@ -523,3 +530,43 @@ def test_custom_apps_list_pagination_and_state_boundaries(app_factory):
     native_call("http", COMMAND_STATE, {"appId": identifier, "action": "replace", "state": nested}, error="validation_failed")
     native_call("http", COMMAND_SCHEDULE, {"appId": identifier, "action": "schedule", "timerId": "bad", "delayMilliseconds": 0, "event": "example.bad"}, error="validation_failed")
     assert native_call("http", COMMAND_READ, {"appId": identifier})["state"] == {}
+
+
+def test_custom_apps_manifest_edits_keep_access_and_stopped_state(app_factory):
+    identifier, fields = app_factory()
+    fields["manifest"]["title"] = "Edited without approval"
+    native_call("http", "fileWrite", {"path":f"/sdcard/Dikciz/apps/{identifier}/app.json", "dataBase64":base64.b64encode(json.dumps(fields["manifest"]).encode()).decode(), "overwrite":True})
+    assert native_call("http", COMMAND_EVENT, {"appId":identifier,"event":"example.count"})["state"] == {"count":1}
+    control(identifier, "disable")
+    native_call("http", COMMAND_INSTALL, fields)
+    assert not native_call("http", COMMAND_READ, {"appId":identifier})["enabled"]
+    native_call("http", COMMAND_EVENT, {"appId":identifier,"event":"example.count"}, error="custom_app_disabled")
+    control(identifier, "enable")
+    assert native_call("http", COMMAND_READ, {"appId":identifier})["enabled"]
+
+
+def test_custom_apps_native_dikciz_menu_route_and_open_restarts(websocket_control, app_factory):
+    identifier, _ = app_factory()
+    control(identifier, "disable")
+    control(identifier, "open")
+    wait_for_physical_text_bounds("Custom app fixture")
+    assert native_call("http", COMMAND_READ, {"appId":identifier})["enabled"]
+    restore_system_home()
+    config = AUTOMATION.request(websocket_control, "configGet")["config"]
+    home = config["launcher"]["home"]
+    home["selectedPageId"] = next((page["id"] for page in home["pages"] if page["title"] == "Device"), home["selectedPageId"])
+    AUTOMATION.request(websocket_control, "configReplace", config=config)
+    tap(websocket_control, "launcher:controls")
+    wait_for_snapshot_node(websocket_control, "launcher:controls:apps")
+    wait_for_physical_text_bounds("Apps")
+    target = ARTIFACT_DIRECTORY / "open-apps"
+    target.mkdir(exist_ok=True)
+    run_device_operation("screenshot")
+    shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", target / "launcher-menu.png")
+    tap(websocket_control, "launcher:controls:apps")
+    wait_for_snapshot_node(websocket_control, "custom-app:new")
+    wait_for_physical_text_bounds("Dikciz apps")
+    wait_for_physical_text_bounds("Apps share the Android access granted to Dikciz. Open, edit or stop an app here.")
+    run_device_operation("screenshot")
+    shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", target / "apps-manager.png")
+    restore_system_home()

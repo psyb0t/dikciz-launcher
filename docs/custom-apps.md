@@ -1,8 +1,8 @@
 # Custom apps
 
-Open **Settings**, **Custom apps** to open, create, edit, enable, disable, export or remove a complete app. Each app combines its own HTML/CSS/JavaScript interface with a Lua or headless JavaScript backend and persistent state. Closing its WebView leaves subscribed events and scheduled backend work available through the native host.
+Open **Dikciz**, **Apps** to open, create, edit, enable, disable, export or remove a complete app. Each app combines its own HTML/CSS/JavaScript interface with a Lua or headless JavaScript backend and persistent state. Closing its WebView leaves subscribed events and scheduled backend work available through the native host.
 
-These are apps inside Dikciz. Android does not install a separate APK or grant them separate Android identities. Enable trusted code only. Declared commands restrict its ordinary bridge calls, but an app approved for broad file, shell or SDK access can exercise that authority. Android permissions remain separate.
+These are apps inside Dikciz. Android does not install a separate APK or grant them separate Android identities. Every app inherits the Android access granted to Dikciz, including its phone commands, files, shell and SDK access. There is no separate app permission screen, command allowlist or manifest approval. Android still enforces the permissions and special access granted to the Dikciz package.
 
 ## Bundled apps
 
@@ -29,7 +29,7 @@ Bundled source installs only when absent. Updates preserve customized bundles. R
   files/          # recordings and other app-owned data
 ```
 
-`app.json` declares version 1, ID, title, description, language, commands and events. IDs start with a letter and contain up to 64 letters, digits, underscores or hyphens. `imports` and `exports` are reserved. Example:
+`app.json` declares version 1, ID, title, description, language and events. The optional legacy `commands` array is informational metadata and never restricts access. IDs start with a letter and contain up to 64 letters, digits, underscores or hyphens. `imports` and `exports` are reserved. Example:
 
 ```json
 {
@@ -38,16 +38,15 @@ Bundled source installs only when absent. Updates preserve customized bundles. R
   "title": "Event counter",
   "description": "Count custom events without keeping a page open.",
   "language": "javascript",
-  "commands": ["deviceInfo"],
   "events": ["example.count"]
 }
 ```
 
 Optional `eventSubscriptions` uses the existing [automation subscription format](dikciz-configuration.md#lua-scripts-and-automation), including native source filters and intervals. `events` is shorthand for exact event names with no interval. Optional `locationMonitoring: true` requests a visible location foreground service while timers are pending; it grants no location permission.
 
-State belongs to the exact app ID, independent of page/widget state. Duplicate the bundle with a new manifest ID to get independent state and files. Removing an app deletes its entire public directory. Replacing its bundle preserves state and data but disables execution until its manifest is approved again. Export includes only manifest and source, excluding state, recordings and native execution records. These apps are not currently included in home/chat encrypted backups. Export code and preserve requested data separately.
+State belongs to the exact app ID, independent of page/widget state. Duplicate the bundle with a new manifest ID to get independent state and files. Removing an app deletes its entire public directory. Replacing its bundle preserves state, data and its running or stopped state. Export includes only manifest and source, excluding state, recordings and native execution records. These apps are not currently included in home/chat encrypted backups. Export code and preserve requested data separately.
 
-Enable records a manifest approval privately. Changing its declarations invalidates approval. UI source changes reload the visible app; state-file writes update its live state. Background source is loaded fresh for the next invocation. An invalid edit reports an error; fix the file before invoking again. A file edit does not grant new commands.
+Source and manifest edits require no permission approval. UI source changes reload the visible app; state-file writes update its live state. Background source loads fresh for the next invocation. Invalid files and subscriptions report validation errors. Stop and Start control background execution, not permissions.
 
 ## Backend
 
@@ -64,9 +63,9 @@ function onEvent(event) {
 }
 ```
 
-`result` is an optional JSON object returned to the caller. `patchState` merges fields; `emitEvent` publishes to the ordinary shared event bus. Other returned action types are rejected. Use `context.request({type: ...})` for declared phone commands and inspect the canonical `type: result` or `type: error` reply. Returning `result: {error: {code, message}}` rejects a request with that bounded app-defined error.
+`result` is an optional JSON object returned to the caller. `patchState` merges fields; `emitEvent` publishes to the ordinary shared event bus. Other returned action types are rejected. Use `context.request({type: ...})` for phone commands using Dikciz's granted Android access and inspect the canonical `type: result` or `type: error` reply. Returning `result: {error: {code, message}}` rejects a request with that bounded app-defined error.
 
-App-local `customAppRead`, `customAppState`, `customAppEvent`, `customAppSchedule` and `customAppAlert` bind to the calling app ID. Omitting `appId` selects self; addressing another app is rejected. `customAppRuntime` supplies native wall/elapsed clocks, boot count, invocation ID and access/background observations. Apps cannot install, enable or remove other apps through these bindings.
+App-local `customAppRead`, `customAppState`, `customAppEvent`, `customAppSchedule` and `customAppAlert` bind to the calling app ID. Omitting `appId` selects self; an explicit `appId` can address another app. `customAppRuntime` supplies native wall/elapsed clocks, boot count, invocation ID and access/background observations. Apps can use the same app installation and control commands as other owner code.
 
 ## Interface
 
@@ -74,7 +73,7 @@ App-local `customAppRead`, `customAppState`, `customAppEvent`, `customAppSchedul
 
 For a complete working reference, read [Travel todo](todo-app-tutorial.md) and its linked source files.
 
-The native manager's **Edit bundle** exposes the complete manifest, HTML, CSS, UI JavaScript and backend source. State can be edited with `customAppState` or the public file. Save disables the bundle for review. **Enable app** displays its declared commands before confirmation. A new app starts disabled. The native manager is a separate activity, reachable again after Android permission screens take the foreground. Hiding or closing its interface sends `app.ui.hidden` to its backend. Voice notes uses that event to stop its recorder and preserve a pending save for reopening; other apps decide their own hidden behavior.
+The native manager's **Edit bundle** exposes the complete manifest, HTML, CSS, UI JavaScript and backend source. State can be edited with `customAppState` or the public file. Saving preserves the app's running or stopped state. New apps start enabled. **Start app** and **Disable and stop** control execution without a permission dialog. Opening a stopped app starts it. The native manager is a separate activity, reachable again after Android permission screens take the foreground. Hiding or closing its interface sends `app.ui.hidden` to its backend. Voice notes uses that event to stop its recorder and preserve a pending save for reopening; other apps decide their own hidden behavior.
 
 ## Timers and alerts
 
@@ -84,11 +83,11 @@ Timers are claimed durably before invoking the backend. A handler may reschedule
 
 `customAppAlert` shows an urgent dimmed modal using `action: show`, `episodeId`, `durationMilliseconds`, `title`, `detail`, `cancelLabel` and `cancelEvent`. Duration is 1000 through 3600000 ms. Optional `announcement` and `finalAnnouncement` use `{seconds}`. Only one app can own the urgent alert. Android notification access and an urgent countdown channel are required. Overlay access allows presentation over other apps; otherwise an active Dikciz activity can host a dialog. Keyguard, volume, DND and background restrictions remain Android-controlled. `action: close` releases it.
 
-The modal's cancellation button invokes the app's declared cancel event, then closes. Its native host owns window/audio/vibration cleanup. The app must cancel its pending timers and update its own state. The foreground notification's **Pause apps** invokes `app.stopped`, disables affected apps and cancels pending timers/alerts. For concurrent owner cancellation, `customAppEvent` accepts `interruptRunning: true`, which blocks further mutating calls from the current handler except state and cleanup commands, including declared geofence deletion. Already submitted effects cannot be recalled.
+The modal's cancellation button invokes the app's declared cancel event, then closes. Its native host owns window/audio/vibration cleanup. The app must cancel its pending timers and update its own state. The foreground notification's **Pause apps** invokes `app.stopped`, disables affected apps and cancels pending timers/alerts. For concurrent owner cancellation, `customAppEvent` accepts `interruptRunning: true`, which blocks further mutating calls from the current handler except state and cleanup commands, including geofence deletion. Already submitted effects cannot be recalled.
 
 ## Remote and assistant access
 
-HTTP, WebSocket and MCP expose the same nine commands: `customAppsList`, `customAppRead`, `customAppInstall`, `customAppControl`, `customAppEvent`, `customAppState`, `customAppSchedule`, `customAppAlert` and `customAppRuntime`. Discover exact fields in the [command reference](command-reference.md). Install/import requires `confirm: true` and leaves the app disabled. Enable and remove also require confirmation. Archives use `.dikciz-app.zip`, exactly five manifest/source entries, no directory entries, no traversal and a 2 MiB compressed-file ceiling. Each source is bounded to 256 KiB; state to 128 KiB and depth 16. At most 64 apps are installed.
+HTTP, WebSocket and MCP expose the same nine commands: `customAppsList`, `customAppRead`, `customAppInstall`, `customAppControl`, `customAppEvent`, `customAppState`, `customAppSchedule`, `customAppAlert` and `customAppRuntime`. Discover exact fields in the [command reference](command-reference.md). Install/import requires `confirm: true` and starts a new app enabled. Replacing preserves its running or stopped state. Start needs no confirmation; removal retains its destructive-action confirmation. Archives use `.dikciz-app.zip`, exactly five manifest/source entries, no directory entries, no traversal and a 2 MiB compressed-file ceiling. Each source is bounded to 256 KiB; state to 128 KiB and depth 16. At most 64 apps are installed.
 
 These APIs require full owner remote authority. Scoped read grants do not gain execution access. Read-only chat sees only list, read and runtime; the trusted executor rejects hidden mutations even when called directly. Read-only SOS preview also passes its read-only restriction into app command execution and rejects returned actions. Listing or reading records does not invoke source code. `customAppControl: open` reports a request, while `customAppRead.uiVisible` and `snapshot` report observed presentation.
 

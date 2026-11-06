@@ -479,4 +479,5 @@
     <string name="dikciz_microphone_stream_channel">Microphone capture</string>
     <string name="dikciz_microphone_stream_active">Microphone audio is streaming. Stop recording when finished.</string>
     <string name="dikciz_microphone_stream_stop">Stop recording</string>
+    <string name="dikciz_launcher_control_apps">Apps</string>
 </resources>

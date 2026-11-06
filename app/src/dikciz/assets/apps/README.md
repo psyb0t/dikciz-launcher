@@ -10,4 +10,4 @@ Each directory is an independent manifest, HTML, CSS, UI JavaScript and backend 
 | `agenda/` | Calendar reads and links to Android calendar/alarm apps. |
 | `device-status/` | Live Android battery, resource and process measurements. |
 
-DikcizCustomAppStore.BUNDLED selects installed sources. New reusable exports contain source only. Installation/import does not authorize monitoring or outgoing effects. Review [host contracts](../../../../../docs/custom-apps.md), stop active work before editing, and keep app-specific decisions here rather than adding native product screens.
+DikcizCustomAppStore.BUNDLED selects installed sources. New reusable exports contain source only. Apps inherit the Android access granted to Dikciz; review their code before installation. Read [host contracts](../../../../../docs/custom-apps.md), stop active work before editing, and keep app-specific decisions here rather than adding native product screens.

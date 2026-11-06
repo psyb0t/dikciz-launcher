@@ -28,7 +28,6 @@ internal object DikcizCustomApps {
     private const val RUN_KIND = "app-run"
     private const val PENDING = "pending"
     private const val CLAIMED = "claimed"
-    private const val APPROVED = "approval"
     private val lua = DikcizLuaRuntime()
     private val javascript = DikcizJavaScriptRuntime(lua::decodeJsonEventResult)
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
@@ -61,16 +60,15 @@ internal object DikcizCustomApps {
     private fun logger(context: Context) = DikcizLogger("DikcizApps", HomeConfigStore(context).logDirectory)
     private fun database(context: Context) = DikcizCompanionStore(context)
     fun boot(context: Context) = Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1)
-    private fun approved(context: Context, app: DikcizCustomApp): Boolean = database(context).use {
-        it.get(INSTALL_KIND, app.id)?.let { record -> record.optBoolean("enabled") && record.optString(APPROVED) == app.approval } == true
+    private fun isEnabled(context: Context, app: DikcizCustomApp): Boolean = database(context).use {
+        it.get(INSTALL_KIND, app.id)?.optBoolean("enabled", true) ?: true
     }
 
     @Synchronized fun ensureBundled(context: Context) {
         val store = DikcizCustomAppStore(context)
         val removed = database(context).use { it.all(INSTALL_KIND).filter { value -> value.optBoolean("removed") }.map { value -> value.getString("appId") }.toSet() }
         for (id in store.installBundled(removed)) {
-            val app = store.read(id)
-            database(context).use { it.put(INSTALL_KIND, id, JSONObject().put("enabled", true).put(APPROVED, app.approval)) }
+            database(context).use { it.put(INSTALL_KIND, id, JSONObject().put("enabled", true)) }
         }
         if (SAFETY_ID in store.ids()) migrateSafety(context, store)
     }
@@ -95,7 +93,7 @@ internal object DikcizCustomApps {
         if (type == DikcizCustomAppCommands.RUNTIME) return runtime(context)
         if (type == DikcizCustomAppCommands.LIST) {
             val apps = store.ids().mapNotNull { id ->
-                try { val app = store.read(id); JSONObject().put("appId", id).put("title", app.title).put("description", app.manifest.getString("description")).put("enabled", approved(context, app)) }
+                try { val app = store.read(id); JSONObject().put("appId", id).put("title", app.title).put("description", app.manifest.getString("description")).put("enabled", isEnabled(context, app)) }
                 catch (exception: Exception) {
                     logger(context).warn("custom_app_invalid", mapOf("app_id" to id, "error_class" to exception.javaClass.simpleName)); null
                 }
@@ -107,10 +105,11 @@ internal object DikcizCustomApps {
             val app = if (type == DikcizCustomAppCommands.INSTALL) store.fromRequest(request) else store.import(request.getString("path"))
             parseSubscriptions(context, app.manifest, HomeConfigStore(context).loadOrCreate().limits)
             if (pending(context, app.id) || alert(context)?.optString("appId") == app.id) DikcizNativeCommands.failure("custom_app_active", "Disable app timers and alerts before replacing its bundle")
+            val enabled = isEnabled(context, app)
             store.write(app)
-            database(context).use { it.put(INSTALL_KIND, app.id, JSONObject().put("enabled", false)) }
+            database(context).use { it.put(INSTALL_KIND, app.id, JSONObject().put("enabled", enabled)) }
             changed(context, app.id, true)
-            return JSONObject().put("appId", app.id).put("state", "installed").put("enabled", false)
+            return JSONObject().put("appId", app.id).put("state", "installed").put("enabled", enabled)
         }
         val id = request.getString("appId")
         val app = store.read(id)
@@ -118,14 +117,13 @@ internal object DikcizCustomApps {
             DikcizCustomAppCommands.READ -> read(context, app)
             DikcizCustomAppCommands.CONTROL -> when (request.getString("action")) {
                 "enable" -> {
-                    if (!request.optBoolean("confirm")) DikcizNativeCommands.invalid("Enabling declared app commands requires confirm=true")
                     parseSubscriptions(context, app.manifest, HomeConfigStore(context).loadOrCreate().limits)
-                    database(context).use { it.put(INSTALL_KIND, id, JSONObject().put("enabled", true).put(APPROVED, app.approval)) }
+                    database(context).use { it.put(INSTALL_KIND, id, JSONObject().put("enabled", true)) }
                     changed(context, id, true); JSONObject().put("enabled", true).put("appId", id)
                 }
                 "disable", "remove" -> {
                     if (request.getString("action") == "remove" && !request.optBoolean("confirm")) DikcizNativeCommands.invalid("Removing an app requires confirm=true")
-                    if (approved(context, app)) {
+                    if (isEnabled(context, app)) {
                         try { invoke(context, app, "app.stopped", JSONObject().put("reason", "owner_disabled"), stopping = true) }
                         catch (exception: Exception) { logger(context).warn("custom_app_stop_handler_failed", mapOf("app_id" to id, "error_class" to exception.javaClass.simpleName)) }
                     }
@@ -145,7 +143,9 @@ internal object DikcizCustomApps {
                 }
                 "export" -> store.export(id)
                 "open" -> {
-                    requireEnabled(context, app)
+                    parseSubscriptions(context, app.manifest, HomeConfigStore(context).loadOrCreate().limits)
+                    database(context).use { it.put(INSTALL_KIND, id, JSONObject().put("enabled", true)) }
+                    changed(context, id, true)
                     context.startActivity(Intent(context, DikcizCustomAppActivity::class.java).putExtra("appId", id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     JSONObject().put("state", "requested").put("appId", id)
                 }
@@ -164,7 +164,7 @@ internal object DikcizCustomApps {
         }
     }
 
-    private fun read(context: Context, app: DikcizCustomApp) = JSONObject().put("manifest", app.manifest).put("enabled", approved(context, app))
+    private fun read(context: Context, app: DikcizCustomApp) = JSONObject().put("manifest", app.manifest).put("enabled", isEnabled(context, app))
         .put("html", app.html).put("css", app.css).put("javascript", app.javascript).put("backgroundSource", app.source).put("state", app.state)
         .put("directory", DikcizCustomAppStore(context).directory(app.id).absolutePath)
         .put("uiVisible", DikcizCustomAppActivity.current()?.appId() == app.id)
@@ -174,7 +174,7 @@ internal object DikcizCustomApps {
             ?: JSONObject().put("active", false).put("screenVisible", false).put("speechState", "idle"))
 
     private fun requireEnabled(context: Context, app: DikcizCustomApp) {
-        if (!approved(context, app)) DikcizNativeCommands.failure("custom_app_disabled", "Enable this app and approve its current manifest before execution")
+        if (!isEnabled(context, app)) DikcizNativeCommands.failure("custom_app_disabled", "This app is stopped. Open or start it to resume execution")
     }
 
     @Synchronized fun query(context: Context, id: String, event: String, payload: JSONObject): JSONObject =
@@ -210,7 +210,7 @@ internal object DikcizCustomApps {
                         DikcizNativeCommands.failure("custom_app_cancel_requested", "Owner cancellation blocks further emitted effects")
                     }
                     if (result.actions.any { it !is DikcizLuaAutomationAction.PatchState && it !is DikcizLuaAutomationAction.EmitEvent }) {
-                        DikcizNativeCommands.failure("custom_app_action_denied", "App actions support patchState and emitEvent; use declared commands for other effects")
+                        DikcizNativeCommands.failure("custom_app_action_denied", "App actions support patchState and emitEvent; use phone commands for other effects")
                     }
                     val state = DikcizCustomAppStore(context).read(app.id).state
                     result.actions.filterIsInstance<DikcizLuaAutomationAction.PatchState>().forEach { patch ->
@@ -261,11 +261,11 @@ internal object DikcizCustomApps {
                     type !in DikcizNativeCommands.READ_ONLY_TYPES && type !in DikcizFileCommands.READ_ONLY_TYPES)) {
                 DikcizNativeCommands.failure("native_read_only", "Read-only app queries cannot execute mutating commands")
             }
-            if (type == "automationDispatch") {
+            if (type == "automationDispatch" && !request.has("sourceWidgetAddress")) {
                 val actions = request.optJSONArray("actions") ?: DikcizNativeCommands.invalid("actions must be an array")
                 if (actions.length() != 1 || actions.getJSONObject(0).optString("type") != "patchState" ||
                     actions.getJSONObject(0).keys().asSequence().any { it !in setOf("type", "values") }) {
-                    DikcizNativeCommands.failure("custom_app_action_denied", "App UI dispatch supports one patchState; use declared commands for effects")
+                    DikcizNativeCommands.failure("custom_app_action_denied", "App-local dispatch supports one patchState; use phone commands or an HTML sourceWidgetAddress for other effects")
                 }
                 val state = JSONObject(app.state.toString())
                 val values = actions.getJSONObject(0).getJSONObject("values")
@@ -273,14 +273,8 @@ internal object DikcizCustomApps {
                 return scopedCommand(context, id, JSONObject().put("type", DikcizCustomAppCommands.STATE).put("action", "replace")
                     .put("state", state).put("requestId", requestId))
             }
-            if (type in DikcizCustomAppCommands.SCOPED) {
-                if (request.has("appId") && request.getString("appId") != id) DikcizNativeCommands.failure("custom_app_scope_denied", "App bindings cannot address another app")
+            if (type in DikcizCustomAppCommands.SCOPED && !request.has("appId")) {
                 request.put("appId", id)
-            } else if (type != DikcizCustomAppCommands.RUNTIME && type !in app.commands) {
-                DikcizNativeCommands.failure("custom_app_command_denied", "This command is not declared by the app")
-            }
-            if (type in setOf(DikcizCustomAppCommands.INSTALL, DikcizCustomAppCommands.CONTROL, DikcizCustomAppCommands.LIST)) {
-                DikcizNativeCommands.failure("custom_app_command_denied", "Apps cannot administer app installation or approvals")
             }
             if (type in DikcizNativeCommands.FIELDS) {
                 val command = DikcizPermissionRequests.command(type, request).copy(readOnly = readOnly)
@@ -451,7 +445,7 @@ internal object DikcizCustomApps {
                 }
                 if (ready.isEmpty()) continue
                 val app = store.read(id)
-                if (approved(context, app)) {
+                if (isEnabled(context, app)) {
                     ready.forEach { lastDispatch[id + ":" + it.index] = at }
                     invoke(context, app, event.name, event.payload)
                     main.post { DikcizCustomAppActivity.current()?.deliverEvent(id, event.toDocument()) }
@@ -494,7 +488,7 @@ internal object DikcizCustomApps {
 
     @Synchronized fun locationMonitoring(context: Context): Boolean = timers(context).filter { it.optString("state") == PENDING }.any {
         val app = DikcizCustomAppStore(context).read(it.getString("appId"))
-        approved(context, app) && app.manifest.optBoolean("locationMonitoring")
+        isEnabled(context, app) && app.manifest.optBoolean("locationMonitoring")
     }
 
     fun runtime(context: Context): JSONObject {
@@ -524,9 +518,9 @@ internal object DikcizCustomApps {
             try {
                 val manifest = store.manifest(id)
                 val app = DikcizCustomApp(manifest, "", "", "", "", JSONObject())
-                if (approved(context, app)) parseSubscriptions(context, manifest, configuration.limits).forEachIndexed { index, subscription -> entries.add(AppSubscription(id, index, subscription)) }
+                if (isEnabled(context, app)) parseSubscriptions(context, manifest, configuration.limits).forEachIndexed { index, subscription -> entries.add(AppSubscription(id, index, subscription)) }
                 else {
-                    cancelTimers(context, id, "manifest_approval_required")
+                    cancelTimers(context, id, "app_stopped")
                     closeAlert(context, id)
                 }
             } catch (exception: Exception) {

@@ -114,7 +114,7 @@ internal class DikcizCustomAppActivity : Activity() {
         generation++
         views.clear(); root.removeAllViews(); web = null; scroll = null
         val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        header.addView(label(if (selected == null) "Custom apps" else selected!!, 22f).also { views["custom-app:title"] = it }, LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(label(if (selected == null) "Dikciz apps" else selected!!, 22f).also { views["custom-app:title"] = it }, LinearLayout.LayoutParams(0, -2, 1f))
         if (selected != null) header.addView(button("custom-app:back", "Apps") { selected = null; render() })
         header.addView(button("custom-app:close", "Close") { finish() })
         root.addView(header)
@@ -128,7 +128,7 @@ internal class DikcizCustomAppActivity : Activity() {
     }
 
     private fun manager(result: JSONObject) {
-        status.text = "Editable apps with their own UI, background code and state. Import enables nothing automatically."
+        status.text = "Apps share the Android access granted to Dikciz. Open, edit or stop an app here."
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scroll = ScrollView(this).apply { addView(list); isFillViewport = true }
         content.addView(scroll, LinearLayout.LayoutParams(-1, -1))
@@ -140,16 +140,14 @@ internal class DikcizCustomAppActivity : Activity() {
             val id = app.getString("appId")
             list.addView(label(app.getString("title") + if (app.getBoolean("enabled")) "" else " (disabled)", 20f))
             list.addView(label(app.getString("description")))
-            list.addView(button("custom-app:$id:open", "Open " + app.getString("title")) { selected = id; render() })
+            list.addView(button("custom-app:$id:open", "Open " + app.getString("title")) {
+                perform({ control(id, "enable") }) { selected = id; render() }
+            })
             list.addView(button("custom-app:$id:edit", "Edit bundle") {
                 perform({ owner(DikcizCustomAppCommands.READ, JSONObject().put("appId", id)) }) { editor(it) }
             })
             if (app.getBoolean("enabled")) list.addView(button("custom-app:$id:disable", "Disable and stop") { perform({ control(id, "disable") }) })
-            else list.addView(button("custom-app:$id:enable", "Enable app") {
-                perform({ owner(DikcizCustomAppCommands.READ, JSONObject().put("appId", id)) }) { data ->
-                    confirm("Enable app?", "Allow declared commands: " + data.getJSONObject("manifest").getJSONArray("commands").join(", ")) { perform({ control(id, "enable", true) }) }
-                }
-            })
+            else list.addView(button("custom-app:$id:enable", "Start app") { perform({ control(id, "enable") }) })
             list.addView(button("custom-app:$id:export", "Export reusable bundle") {
                 perform({ control(id, "export") }) { status.text = "Saved " + it.getString("path") + ". State and recordings are excluded." }
             })
@@ -160,7 +158,7 @@ internal class DikcizCustomAppActivity : Activity() {
     }
 
     private fun app(data: JSONObject) {
-        if (!data.getBoolean("enabled")) { status.text = "This app is disabled. Return to Apps and enable its declared commands."; return }
+        if (!data.getBoolean("enabled")) { status.text = "This app is stopped. Return to Apps to open or start it."; return }
         val manifest = data.getJSONObject("manifest")
         val id = manifest.getString("id")
         (views["custom-app:title"] as? TextView)?.text = manifest.getString("title")
@@ -194,11 +192,11 @@ internal class DikcizCustomAppActivity : Activity() {
     private fun editor(data: JSONObject?) {
         generation++; views.clear(); root.removeAllViews(); web = null
         root.addView(button("custom-app:editor:cancel", "Back to apps") { selected = null; render() })
-        status = label("Edit complete app bundle. Saving disables it until its manifest is approved."); root.addView(status)
+        status = label("Edit this app's complete bundle. Saving preserves its running or stopped state."); root.addView(status)
         val form = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scroll = ScrollView(this).apply { addView(form) }; root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         val manifest = data?.getJSONObject("manifest") ?: JSONObject().put("version", 1).put("id", "my-app-" + java.util.UUID.randomUUID().toString().take(8)).put("title", "My app")
-            .put("description", "An editable custom app").put("language", "javascript").put("commands", JSONArray()).put("events", JSONArray())
+            .put("description", "An editable custom app").put("language", "javascript").put("events", JSONArray())
         val fields = linkedMapOf<String, EditText>()
         val values = linkedMapOf("manifest" to manifest.toString(2), "html" to (data?.getString("html") ?: "<h1>My app</h1>"),
             "css" to (data?.getString("css") ?: "body{padding:24px}"), "javascript" to (data?.getString("javascript") ?: ""),
@@ -223,7 +221,7 @@ internal class DikcizCustomAppActivity : Activity() {
     private fun importDialog() {
         val path = EditText(this).apply { hint = "/sdcard/Dikciz/apps/imports/example.dikciz-app.zip"; contentDescription = "App archive path" }
         modal = AlertDialog.Builder(this).setTitle("Import app bundle").setView(path).setNegativeButton("Cancel", null)
-            .setPositiveButton("Import disabled") { _, _ -> perform({ owner(DikcizCustomAppCommands.CONTROL, JSONObject().put("action", "import").put("path", path.text.toString()).put("confirm", true)) }) }
+            .setPositiveButton("Import app") { _, _ -> perform({ owner(DikcizCustomAppCommands.CONTROL, JSONObject().put("action", "import").put("path", path.text.toString()).put("confirm", true)) }) }
             .create().also { dialog ->
                 views["custom-app:import:path"] = path
                 dialog.setOnShowListener { views["custom-app:import:confirm"] = dialog.getButton(AlertDialog.BUTTON_POSITIVE) }

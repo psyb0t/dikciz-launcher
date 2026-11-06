@@ -1,6 +1,6 @@
 # Safety, places and journeys
 
-Open **Settings**, **Safety, journeys and devices** for the SOS app and native Places/Trips screens. SOS is also under **Settings**, **Custom apps**. Its complete HTML/CSS/JavaScript interface, JavaScript backend and state live in `/sdcard/Dikciz/apps/sos/`; its decisions use the same [custom-app platform](custom-apps.md) available to owner-created apps. The same operations are available through HTTP, WebSocket, MCP, HTML and Lua. Discover the installed schemas before sending commands.
+Open **Settings**, **Safety, journeys and devices** for the SOS app and native Places/Trips screens. SOS is also under **Dikciz**, **Apps**. Its complete HTML/CSS/JavaScript interface, JavaScript backend and state live in `/sdcard/Dikciz/apps/sos/`; its decisions use the same [custom-app platform](custom-apps.md) available to owner-created apps. The same operations are available through HTTP, WebSocket, MCP, HTML and Lua. Discover the installed schemas before sending commands.
 
 ## Contact plans and check-ins
 
@@ -38,6 +38,6 @@ List with `geofencesList` and ordinary offset/limit pagination. Delete one exact
 
 `journeysList` lists saved summaries. `journeyRead` pages ordered points using ID, offset and limit; follow `hasMore`. Each point includes fix time and accuracy. Up to 64 journeys and 10000 points per journey are retained. Reboot interrupts recording. Stop before deleting; `journeyDelete` requires ID and `confirm: true`, and removes owned route points too. The native route preview draws recorded coordinates locally.
 
-SOS plans and run state live in `/sdcard/Dikciz/apps/sos/state.json`, while manifest approvals, timer claims and native run observations remain private SQLite records. Existing private SOS plans migrate once; previously active runs require review. Geofences and route history remain private companion data. These records and custom apps are not currently included in portable home/chat backups.
+SOS plans and run state live in `/sdcard/Dikciz/apps/sos/state.json`, while running/stopped flags, timer claims and native run observations remain private SQLite records. Existing private SOS plans migrate once; previously active runs require review. Geofences and route history remain private companion data. These records and custom apps are not currently included in portable home/chat backups.
 
 A public-home reset does not recall SMS. Cancel active safety monitoring explicitly before resetting a setup, and preserve the SOS app state separately if needed.

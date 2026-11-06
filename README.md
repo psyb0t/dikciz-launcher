@@ -94,11 +94,11 @@ Tap the cheese beside the launcher controls for an on-device assistant. Add an O
 
 Open **Settings**, **Safety, journeys and devices** for inactive contact plans, opt-in missed check-ins/SOS, geofences, recorded routes, retained Bluetooth/USB/NFC connections, image OCR/barcodes/PDFs, Health Connect records and Android-approved Wi-Fi flows. All use the shared phone APIs. [Read the setup and limits](docs/companion.md) before enabling background work. The optional Vehicle console template reads a paired ELM327 adapter. Chat also offers five [read-only routines](docs/assistant-routines.md).
 
-**Settings**, **Custom apps** opens complete editable apps. SOS is an ordinary bundled app whose message/check-in logic lives in `/sdcard/Dikciz/apps/sos/main.js`, beside its HTML/CSS/JavaScript UI and state. Voice notes, Agenda, Device status and Travel todo also ship as independent apps. Create or import your own, review declared commands, then enable it. [The app guide](docs/custom-apps.md) covers source, state, events, timers, dimmed alerts and reusable archives.
+**Dikciz**, **Apps** opens complete editable apps. SOS is an ordinary bundled app whose message/check-in logic lives in `/sdcard/Dikciz/apps/sos/main.js`, beside its HTML/CSS/JavaScript UI and state. Voice notes, Agenda, Device status and Travel todo also ship as independent apps. Create or import your own. Apps share the Android access granted to Dikciz. [The app guide](docs/custom-apps.md) covers source, state, events, timers, dimmed alerts and reusable archives.
 
 ## Build your first app
 
-Open **Settings > Custom apps > Travel todo** for a complete editable app. Add tasks, then opt into **Watch New York**. An accurate GPS entry checks off **Go to New York**, even while its UI is closed. A custom event can check off another task. The [step-by-step tutorial](docs/todo-app-tutorial.md) explains every source file, permission, event and saved-state change; the [complete reference source](app/src/dikciz/assets/apps/travel-todo/) ships in the APK.
+Open **Dikciz > Apps > Travel todo** for a complete editable app. Add tasks, then opt into **Watch New York**. An accurate GPS entry checks off **Go to New York**, even while its UI is closed. A custom event can check off another task. The [step-by-step tutorial](docs/todo-app-tutorial.md) explains every source file, permission, event and saved-state change; the [complete reference source](app/src/dikciz/assets/apps/travel-todo/) ships in the APK.
 
 <p align="center">
 <img src="docs/images/custom-apps/todo-watching.png" alt="Travel todo waiting for a GPS entry near New York" width="280">

@@ -2542,7 +2542,7 @@ Show/close a reusable dimmed urgent countdown modal with a notification fallback
 
 ## dikciz_custom_app_control
 
-open opens app UI; enable requires confirm=true to approve declared commands and subscriptions; disable cancels timers and alerts; remove requires confirm=true and deletes only this app's directory; export writes a bounded .dikciz-app.zip; import requires path and confirm=true and installs disabled. Opening UI requires an enabled app. Export excludes state and runtime files. To copy an app, install its source with a different manifest.id, then enable that independent instance.
+open starts an app and opens its UI; enable starts it without permission approval; disable stops it and cancels timers and alerts; remove requires confirm=true and deletes only this app's directory; export writes a bounded .dikciz-app.zip; import requires path and confirm=true and installs a new enabled app. Apps inherit Dikciz Android access. Export excludes state and runtime files. To copy an app, install its source with a different manifest.id for an independent instance.
 
 ```json
 {
@@ -2626,7 +2626,7 @@ Synchronously invoke an enabled app's Lua/JS on_event/onEvent handler. event is 
 
 ## dikciz_custom_app_install
 
-Install or replace a complete app bundle after confirm=true. manifest has version:1,id,title,description,language (lua/javascript), commands (exact native command types), events (event names), optional locationMonitoring boolean. Sources use html/css/javascript/backgroundSource. Installation is disabled until explicitly enabled. Replacing requires no pending timers or alert and preserves current state. All entrypoints share validation.
+Install or replace a complete app bundle after confirm=true. manifest has version:1,id,title,description,language (lua/javascript), optional commands (legacy metadata), events (event names), optional locationMonitoring boolean. Sources use html/css/javascript/backgroundSource. New apps start enabled and inherit Dikciz Android access. Replacing requires no pending timers or alert and preserves data and running/stopped state. All entrypoints share validation.
 
 ```json
 {
@@ -2665,6 +2665,7 @@ Install or replace a complete app bundle after confirm=true. manifest has versio
           ]
         },
         "commands": {
+          "description": "Optional legacy metadata; apps inherit Dikciz Android access without command restrictions.",
           "type": "array",
           "maxItems": 128,
           "uniqueItems": true,
@@ -2702,7 +2703,6 @@ Install or replace a complete app bundle after confirm=true. manifest has versio
         "title",
         "description",
         "language",
-        "commands",
         "events"
       ]
     },
@@ -2841,7 +2841,7 @@ Schedule/cancel one durable app timer by timerId, or cancelAll. schedule needs d
 
 ## dikciz_custom_app_state
 
-Read or atomically replace app state.json. replace requires state. Backends and UI share this state. Script patchState actions merge keys. Use customAppRead for a read-only agent. An app binding cannot address another app.
+Read or atomically replace app state.json. replace requires state. Backends and UI share this state. Script patchState actions merge keys. Use customAppRead for a read-only agent. App bindings default to their own appId and may explicitly address another app.
 
 ```json
 {

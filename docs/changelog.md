@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-06
+
+### Changed
+
+- Open bundled and custom apps directly from Dikciz > Apps.
+- Breaking: apps inherit all Android access granted to Dikciz. Remove per-app command restrictions and manifest approval dialogs. The optional legacy commands array no longer limits access.
+- New apps start enabled. Opening a stopped app resumes it; source edits preserve running/stopped state.
+- Update API documentation, agent guides and native menu, app manager and editor screenshots.
+
+### Migration
+
+No manifest rewrite is required. Existing stopped apps remain stopped until opened or started.
+
 ## [0.30.13] - 2026-11-05
 
 ### Added

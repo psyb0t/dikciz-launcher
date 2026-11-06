@@ -26,9 +26,7 @@ internal data class DikcizCustomApp(
     val id: String get() = manifest.getString("id")
     val title: String get() = manifest.getString("title")
     val language: DikcizScriptLanguage get() = if (manifest.getString("language") == "lua") DikcizScriptLanguage.Lua else DikcizScriptLanguage.JavaScript
-    val commands: Set<String> get() = manifest.getJSONArray("commands").strings().toSet()
     val events: Set<String> get() = manifest.getJSONArray("events").strings().toSet()
-    val approval: String get() = MessageDigest.getInstance("SHA-256").digest(manifest.toString().toByteArray(UTF_8)).joinToString("") { "%02x".format(it) }
 }
 
 internal fun JSONArray.strings(): List<String> = (0 until length()).map { getString(it) }
@@ -259,11 +257,11 @@ internal class DikcizCustomAppStore(private val context: Context) {
             }
             if (value.opt("language") !in setOf("lua", "javascript")) DikcizNativeCommands.invalid("App language must be lua or javascript")
             for (key in listOf("commands", "events")) {
-                val items = value.optJSONArray(key) ?: DikcizNativeCommands.invalid("App commands and events must be arrays")
+                if (key == "commands" && !value.has(key)) continue
+                val items = value.optJSONArray(key) ?: DikcizNativeCommands.invalid("App events and optional commands metadata must be arrays")
                 if (items.length() > 128) DikcizNativeCommands.invalid("Too many app declarations")
                 val names = (0 until items.length()).map { items.opt(it) as? String ?: DikcizNativeCommands.invalid("Invalid app declaration") }
                 if (names.distinct().size != names.size || names.any { !DikcizCustomAppCommands.EVENT_PATTERN.matches(it) }) DikcizNativeCommands.invalid("Invalid or duplicate app declaration")
-                if (key == "commands" && names.any { it in setOf(DikcizCustomAppCommands.INSTALL, DikcizCustomAppCommands.CONTROL) }) DikcizNativeCommands.invalid("Apps cannot install, enable or remove apps")
             }
             if (value.has("locationMonitoring") && value.opt("locationMonitoring") !is Boolean) DikcizNativeCommands.invalid("locationMonitoring must be boolean")
             if (value.has("eventSubscriptions") && value.opt("eventSubscriptions") !is JSONArray) DikcizNativeCommands.invalid("eventSubscriptions must be an array")

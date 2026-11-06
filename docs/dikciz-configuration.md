@@ -46,7 +46,7 @@ Each file has one job. `config.json` owns global settings and the home manifest.
 
 The bundled [Travel todo](todo-app-tutorial.md) is a source-linked example of app state and native-event wiring.
 
-[Custom apps](custom-apps.md) live independently of `configGet` and page/widget configuration. Their manifest chooses `main.js` or `main.lua`, declared commands and subscriptions. UI edits reload that app; state updates reach its active WebView and backend source loads on invocation. Changing the approved manifest disables its execution until reviewed. Existing edited bundles survive updates. Their data and source are excluded from current encrypted home/chat backups.
+[Custom apps](custom-apps.md) live independently of `configGet` and page/widget configuration. Their manifest chooses `main.js` or `main.lua` and event subscriptions. All apps share the Android access granted to Dikciz. UI edits reload that app; state updates reach its active WebView and backend source loads on invocation. Manifest edits require no permission approval and preserve running/stopped state. Existing edited bundles survive updates. Their data and source are excluded from current encrypted home/chat backups.
 
 ## Edit and inspect configuration
 

@@ -1,6 +1,6 @@
 # Inspect and control UI
 
-Use `dikciz_snapshot` for the launcher's semantic screen, including controls, IDs and bounds. `find` and `waitFor` locate launcher nodes. Use `tap`, `longPress` or `setText` with an exact current `semanticId`; inspect tool schemas before calling them. A fresh snapshot after each meaningful change prevents stale targeting.
+Use `dikciz_snapshot` for the launcher's semantic screen, including controls, IDs and bounds. `find` and `waitFor` locate launcher nodes. Use `tap`, `longPress` or `setText` with an exact current `semanticId`; inspect tool schemas before calling them. A fresh snapshot after each meaningful change prevents stale targeting. Tap launcher:controls, then launcher:controls:apps for Dikciz > Apps; this is separate from the Android app drawer.
 
 For another Android app, use `accessibilitySnapshot` and `accessibilityAction`. They require owner-enabled **Dikciz cross-app automation**. Accessibility actions refer to the current `snapshotId` and node. Read the current schema rather than guessing node fields. Global navigation and coordinate gestures are typed `automationDispatch` actions; gestures require a current Accessibility snapshot and visible screen coordinates.
 
