@@ -5,6 +5,7 @@ Start with the [README](../README.md) for installation, or choose the task below
 | Task | Guide |
 | --- | --- |
 | Follow the illustrated setup, chat, scripting and Android-control walkthrough | [Dikciz tutorial](tutorial.md) |
+| Find a screen, dialog, menu or recovery step | [Screens and guided workflows](screens.md) |
 | Discover and invoke public SDK overloads, handles and callbacks | [Android SDK bridge](android-sdk.md) |
 | Install, choose Home, navigate, edit pages/widgets, manage apps and scripts | [Illustrated user guide](user-guide.md) |
 | Configure the on-device assistant and event-driven conversations | [Embedded chat](embedded-chat.md) |

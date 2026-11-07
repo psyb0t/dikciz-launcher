@@ -23,7 +23,7 @@ flowchart LR
 
 Open **Dikciz > Apps > Travel todo**. Check a task manually or scroll down to add your own. The initial list has **Go to New York**, **Pack my bag** and **Charge my phone**. You can use the list with location access denied.
 
-To inspect the source, choose **Apps**, then **Edit bundle** beside Travel todo. The editor exposes the manifest, HTML, CSS, UI JavaScript and backend source together. Stop an active location watch before editing. Saving preserves whether the app is running or stopped. Open it directly, or choose **Start app** to resume a stopped backend.
+To inspect the source, return to **Dikciz > Apps**, open **More actions** beside Travel todo, then choose **Edit bundle**. The file selector exposes the manifest, HTML, CSS, UI JavaScript and backend source. Switching files preserves the other drafts; Save bundle writes them together. See the [editor and recovery screens](screens.md#apps-and-complete-bundles). Stop an active location watch before editing. Saving preserves whether the app is running or stopped. Open it directly, or choose **Start app** to resume a stopped backend.
 
 <p><img src="images/custom-apps/custom-apps.png" alt="Native custom-app manager with complete bundles and their controls" width="280"> <img src="images/custom-apps/todo-editor.png" alt="Complete bundle editor showing the travel app manifest" width="280"></p>
 
@@ -135,7 +135,7 @@ For an app-specific request without publishing, use `customAppEvent` with `appId
 
 Press **Stop watching** to delete this app's fence. Arrival stops it automatically. Disabling or removing the app invokes its `app.stopped` backend cleanup; that also deletes its own fence while leaving unrelated fences alone. Stop monitoring before editing or replacing its source. Native geofences are separate persisted records, so inspect **Safety, journeys and devices > Places** if you edited away the cleanup code.
 
-Choose **Export reusable bundle** to share the five source files. Exports exclude private state and recordings. To make an independent copy, install the source with a new `app.json` ID, then open it. The new ID gets separate state and an independent fence. Existing bundled copies preserve user edits during APK updates; a home reset does not restore edited app source. Current encrypted home/chat backups exclude custom apps.
+Open **More actions**, **Export reusable bundle** to share the five source files. Exports exclude private state and recordings. To make an independent copy, install the source with a new `app.json` ID, then open it. The new ID gets separate state and an independent fence. Existing bundled copies preserve user edits during APK updates; a home reset does not restore edited app source. Current encrypted home/chat backups exclude custom apps.
 
 To use Lua for background logic, change the manifest language to `lua`, provide `main.lua` with `on_event(event)` and keep the same interface files. For standalone background scripts without an app UI, read [background JavaScript](background-javascript.md) and the [Lua/event tutorial](scripting-tutorial.md). The [custom-app guide](custom-apps.md) owns host permissions, timers, alerts, archives and recovery.
 

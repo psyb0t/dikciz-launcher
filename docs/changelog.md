@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.31.2] - 2026-11-07
+
+### Documentation
+
+- Refresh the starter, launcher walkthrough, assistant, provider, template and API screenshots from the current build.
+- Add illustrated workflows for app tasks and editing, conversations, model budgets, scoped credentials, backups, visual rules, permission handoffs and companion forms.
+- Update the GPS todo tutorial for the app overflow menu and complete-source file selector.
+- Add opt-in private-emulator capture scenarios for dialogs and recovery states.
+
+### Fixed
+
+- Keep background permission notifications available during app transitions. Present the pending review only after the launcher resumes.
+
 ## [0.31.1] - 2026-11-06
 
 ### Changed

@@ -14,6 +14,7 @@ These pytest scenarios exercise real Android UI and forwarded WebSocket, MCP and
 | `fixtures.py` | Per-test isolation, connection restoration, and provider installation lifecycle. |
 | `__init__.py` | Shared harness exports consumed by tests. |
 | Domain support modules | Accessibility, media sessions, notifications, alarms, and script-status helpers. |
+| `test_documentation_screens.py` | Explicit private-emulator capture of management dialogs, provider/model forms, app recovery, backups, permissions and cancelled confirmations. Requires `DIKCIZ_GUIDE_CAPTURE=true`. |
 | `test_travel_todo.py` | Bundled reference tasks, custom events, closed-UI GPS arrival, saved state, geofence cleanup and tutorial captures. |
 | `test_widget_instance_state.py` | Per-page/wrapper/card ownership, distinct copies, file watcher updates, source-driven cleanup, validation and legacy state migration. |
 | `test_html_card_presets.py` | Native intent URI validation through all transports. |
@@ -64,6 +65,8 @@ The [user-guide capture test](test_user_guide_capture.py) supplies images for th
 ## Configured starter screenshots
 
 The optional configured capture requires outbound internet on the private emulator and an installed app store for the complete native dock. It uses live Open-Meteo weather, a chosen London location, temporary Android calendar rows and a real emulator voice recording. It checks visible controls for clipping before capturing them.
+
+Android Lab 0.16.0 isolates the emulator on its internal device network. A live-weather capture needs temporary outbound access. Use `make status` to identify this project's Compose name, then attach only its emulator to its own edge network with `docker network connect <compose-project>_edge <compose-project>-emulator-1`. Run `make emulator-wifi-set EMULATOR_WIFI_STATE=connected` before capturing. Afterward, disconnect that same attachment with `docker network disconnect <compose-project>_edge <compose-project>-emulator-1`, then stop the lab. Substitute the actual project name in both commands.
 
 After building the debug APK, run:
 

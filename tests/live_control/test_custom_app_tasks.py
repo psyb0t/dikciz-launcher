@@ -56,6 +56,7 @@ def test_custom_app_tasks_independent_and_reused(websocket_control, app_factory,
 
 def test_custom_app_tasks_editor_draft_and_import_recovery(websocket_control, app_factory):
     from .test_custom_apps import open_app_manager
+    from .test_documentation_screens import capture
     from .test_operations_ux import tap
     from .ui import direct_tap, wait_for_physical_text_bounds
     identifier, fields = app_factory()
@@ -73,6 +74,7 @@ def test_custom_app_tasks_editor_draft_and_import_recovery(websocket_control, ap
         assert AUTOMATION.require_node(snapshot, "custom-app:editor:html")["text"] == draft
         device_command("input keyevent KEYCODE_BACK")
         wait_for_snapshot_node(websocket_control, "custom-app:confirm")
+        capture("app-discard")
         direct_tap(wait_for_physical_text_bounds("Cancel"))
         snapshot = wait_for_snapshot_node(websocket_control, "custom-app:editor:html")
         assert AUTOMATION.require_node(snapshot, "custom-app:editor:html")["text"] == draft
@@ -85,6 +87,7 @@ def test_custom_app_tasks_editor_draft_and_import_recovery(websocket_control, ap
         AUTOMATION.request(websocket_control, "setText", semanticId="custom-app:import:path", text=path)
         tap(websocket_control, "custom-app:import:confirm")
         snapshot = wait_for_snapshot_node(websocket_control, "custom-app:import:error")
+        capture("app-import-error")
         assert AUTOMATION.require_node(snapshot, "custom-app:import:path")["text"] == path
         assert AUTOMATION.require_node(snapshot, "custom-app:import:confirm")["enabled"]
     finally:

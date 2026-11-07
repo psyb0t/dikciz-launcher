@@ -189,6 +189,7 @@ Start with the [documentation index](docs/index.md) for every guide and the [cov
 | Guide | Covers |
 | --- | --- |
 | [Tutorial](docs/tutorial.md) | Illustrated setup, editable home, AI chat, remote control, events, hardware and SDK calls. |
+| [Screens](docs/screens.md) | Illustrated app, assistant, token, backup, activity and companion workflows. |
 | [User guide](docs/user-guide.md) | Installation, Android access, navigation and native editing, with screenshots. |
 | [Offline search](docs/search.md) | Ranked docs, recipes, live schemas, aliases, typo correction and persistent owner collections. |
 | [On-device chat](docs/embedded-chat.md) | Provider profiles, streaming Markdown, conversations, context budgets and event-driven agents. |

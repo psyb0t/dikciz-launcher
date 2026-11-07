@@ -154,13 +154,17 @@ def test_permission_request_dismissed_review_reports_cooldown(websocket_control)
 
 
 def test_permission_request_background_notification_button_opens_correct_target(websocket_control):
+    background_permission_review(websocket_control, "locationForeground", "location")
+
+
+def background_permission_review(websocket_control, requirement_id, expected_text):
     was_granted = REMOTE.remote_call("http", "automationStatus")["androidAccess"]["notificationPosting"]
     device_command("pm grant " + DIKCIZ_DEBUG_PACKAGE + " android.permission.POST_NOTIFICATIONS")
     device_command("appops set " + DIKCIZ_DEBUG_PACKAGE + " POST_NOTIFICATION allow")
     try:
         device_command("am start -a android.settings.SETTINGS")
         wait_for_foreground_application("com.android.settings")
-        result = REMOTE.remote_call("mcp", REQUEST, {"requirementId": "locationForeground"})
+        result = REMOTE.remote_call("mcp", REQUEST, {"requirementId": requirement_id})
         assert result["state"] == "user_action_required"
         assert result["notificationPosted"] is True
         assert result["promptState"] == "notification_posted"
@@ -174,17 +178,33 @@ def test_permission_request_background_notification_button_opens_correct_target(
             raise AssertionError("Android did not retain the permission notification")
         (ARTIFACT_DIRECTORY / "permission-notification-dump.txt").write_text(notifications)
         device_command("cmd statusbar expand-notifications")
+        wait_for_physical_text_bounds("Dikciz needs your permission")
         run_device_operation("screenshot")
         shutil.copyfile(ARTIFACT_DIRECTORY / SCREENSHOT_ARTIFACT_NAME, ARTIFACT_DIRECTORY / "permission-notification-shade.png")
+        deadline = time.monotonic() + PROVIDER_RENDER_TIMEOUT_SECONDS
+        while time.monotonic() < deadline:
+            nodes = physical_nodes()
+            if any(node.get("text") == "Allow access" for node in nodes):
+                break
+            for parent in reversed(nodes):
+                children = list(parent.iter("node"))
+                if not any(node.get("text") == "Dikciz needs your permission" for node in children):
+                    continue
+                expand = next((node for node in children if node.get("resource-id") == "android:id/expand_button" and node.get("content-desc") == "Expand"), None)
+                if expand is not None:
+                    direct_tap(node_bounds(expand))
+                    break
+            time.sleep(.1)
         bounds = wait_for_physical_text_bounds("Allow access")
         run_device_operation("screenshot")
-        shutil.copyfile(ARTIFACT_DIRECTORY / SCREENSHOT_ARTIFACT_NAME, ARTIFACT_DIRECTORY / "permission-notification.png")
+        shutil.copyfile(ARTIFACT_DIRECTORY / SCREENSHOT_ARTIFACT_NAME, ARTIFACT_DIRECTORY / "permission-notification-action.png")
         direct_tap(bounds)
         wait_for_foreground_application(DIKCIZ_DEBUG_PACKAGE)
         snapshot = wait_for_snapshot_node(websocket_control, "permission:allow")
         message = AUTOMATION.require_node(snapshot, "permission:message")
-        assert "location" in message["text"].lower()
+        assert expected_text in message["text"].lower()
         run_device_operation("screenshot")
+        shutil.copyfile(ARTIFACT_DIRECTORY / SCREENSHOT_ARTIFACT_NAME, ARTIFACT_DIRECTORY / "permission-notification.png")
         AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId="permission:dismiss")
     finally:
         device_command("cmd statusbar collapse")

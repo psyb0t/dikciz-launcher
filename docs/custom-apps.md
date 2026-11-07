@@ -71,6 +71,8 @@ App-local `customAppRead`, `customAppState`, `customAppEvent`, `customAppSchedul
 
 ## Interface
 
+The [illustrated app workflow](screens.md#apps-and-complete-bundles) shows the manager overflow, Android Recents, file selector, keyboard and recovery dialogs. To edit, return to Dikciz > Apps and use the overflow beside the app title; the running app itself has no permanent management toolbar.
+
 `ui.html`, `ui.css` and `ui.js` use the existing injected `window.dikciz` bridge and app-local command binding. `selfWidget` exposes this app's state and `storagePath`, ending in `/apps/<id>/files`. Its state patch merges top-level fields into app state, preserving unrelated keys and explicit nulls. Use ordinary DOM listeners and await bridge results. An app can call `customAppEvent` to invoke its own backend while its UI is open. Subscribe to `dikciz-state` for persisted state changes and ordinary event callbacks for subscribed native/custom events.
 
 For a complete working reference, read [Travel todo](todo-app-tutorial.md) and its linked source files.

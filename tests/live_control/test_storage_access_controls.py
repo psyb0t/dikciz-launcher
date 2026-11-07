@@ -123,6 +123,8 @@ def test_storage_access_handoff_is_semantic_and_configuration_is_still_gated() -
                 semanticId=STARTUP_DISMISS_SEMANTIC_ID,
             )
         wait_for_snapshot_node(storage_control, STARTUP_DISMISS_SEMANTIC_ID, should_exist=False)
+        run_device_operation("screenshot")
+        shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "first-run-storage.png")
         grant_bounds = wait_for_physical_button_bounds(STORAGE_ACCESS_GRANT_LABEL)
         window_bounds = node_bounds(physical_nodes()[0])
         assert window_bounds is not None
@@ -132,6 +134,9 @@ def test_storage_access_handoff_is_semantic_and_configuration_is_still_gated() -
         assert grant_bounds["right"] - grant_bounds["left"] >= minimum_touch_pixels
         direct_tap(grant_bounds)
         wait_for_foreground_application(STORAGE_ACCESS_SETTINGS_PACKAGE)
+        wait_for_physical_text_bounds("Allow access to manage all files")
+        run_device_operation("screenshot")
+        shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "first-run-storage-android.png")
     finally:
         if storage_control is not None:
             storage_control.close()

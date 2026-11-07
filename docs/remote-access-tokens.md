@@ -4,6 +4,8 @@ Create separate bearer credentials for clients that need different phone access.
 
 ## Set up a client
 
+The [illustrated token workflow](screens.md#remote-access-tokens) shows creation, grants, Manage, editing and revocation. After creating a token, copy its one-time secret to the client before closing the dialog. The gallery omits secrets.
+
 1. Open **Settings**, **Automation**, **Configure remote bearer authentication**. Set an owner password and enable authentication.
 2. Open **Manage access tokens**, then **Create token**. Name the client and select its grants.
 3. Copy the generated token once into the client's secret storage. Closing the copy screen discards the recoverable value. Revoke and create another token if it is lost.

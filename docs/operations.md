@@ -4,6 +4,8 @@ Open **Dikciz settings**, **Activity & resources** to inspect command outcomes a
 
 ## Activity history
 
+The [screen walkthrough](screens.md#activity-resources-and-rules) shows activity filters, resource measurements, pause confirmation and the visual rule editor. Filters change the displayed history; pausing a resource requires its separate confirmation.
+
 HTTP, WebSocket, MCP and local owner commands share the activity recorder. Local scripts and widgets retain their source identity; assistant tool calls identify the conversation. The activityRead command accepts limit, offset, optional exact actor, optional outcome and mutatingOnly. Outcomes are running, completed, rejected, failed and interrupted. The problem filter combines the last three problem states.
 
 History survives process death, retains up to 10,000 finished records and expires finished records after seven days. Work still marked running when the process restarts becomes interrupted with outcomeKnown=false. A completed command does not imply an external effect was verified. Inspect the operation's own result, such as SMS delivery or activity-launch verification.

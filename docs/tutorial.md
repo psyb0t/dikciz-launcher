@@ -4,7 +4,9 @@ Build a home you can edit, connect an AI that can use the phone, and make HTML w
 
 The examples inspect state and use a local custom-event pipeline. Messaging, calls, recordings and device changes have separate opt-in exercises. Exact accepted fields belong to the installed tool schemas and the [command reference](command-reference.md).
 
-Screenshots use a private Android emulator. The starter, native walkthrough and custom-app captures are refreshed from the current development build; older command-result and provider captures illustrate their unchanged contracts. The populated starter uses a configured London location, live weather, sample calendar entries and an emulator recording. Chat replies and model lists use a local demonstration API with example model names; the native chat, database and phone tools are real. Provider forms also show the built-in OpenAI and Anthropic host templates. Command-result screens use a temporary HTML inspector to display actual API responses. Click an image for the full capture.
+Screenshots use a private Android emulator. The starter, native menus, custom apps, provider forms, templates and command-result illustrations were captured from the current development build. The populated starter uses a configured London location, live weather, sample calendar entries and an emulator recording. Chat replies and model lists use a local demonstration API with example model names; the native chat, database and phone tools are real. Provider forms also show the built-in OpenAI and Anthropic host templates. Command-result screens use a temporary HTML inspector to display actual API responses. Click an image for the full capture.
+
+For menus, forms and recovery dialogs, use [Screens and guided workflows](screens.md). It includes app Recents, bundle editing, conversation management, provider/model setup, access tokens, backups and companion forms.
 
 ## Contents
 

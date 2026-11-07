@@ -6,6 +6,8 @@ For a complete editable app, follow [Travel todo](todo-app-tutorial.md). For eve
 
 Tap the cheese beside the launcher controls to open the [on-device assistant](embedded-chat.md). Configure its provider in chat Settings, create conversations, expand the panel or hide it while the agent works.
 
+Use [Screens and guided workflows](screens.md) for complete app management, assistant controls, providers, tokens, backups, permission reviews and device forms.
+
 ## Install Dikciz and make it your home screen
 
 1. Open the Dikciz APK from your browser, file manager, or Downloads app.
@@ -66,7 +68,7 @@ New and reset homes start with 8 columns and 6 rows. Open **Settings**, then cha
 
 ## Open and edit complete Dikciz apps
 
-Open **Dikciz > Apps** for SOS, Voice notes, Agenda, Device status and Travel todo. These have their own UI, backend and state, independent of page widgets. Each opens in its own Android task without a permanent Apps/Close toolbar. Use Home or Back to leave, Recents to switch, and Dikciz > Apps for management. **Edit bundle** exposes their complete HTML, CSS, UI JavaScript, backend and manifest. Stop active work before changing source; saving preserves its running or stopped state. **Export reusable bundle** shares source, without private state or recordings. **Remove app and its state** deletes that instance's public data.
+Open **Dikciz > Apps** for SOS, Voice notes, Agenda, Device status and Travel todo. These have their own UI, backend and state, independent of page widgets. Each opens in its own Android task without a permanent Apps/Close toolbar. Use Home or Back to leave, Recents to switch, and Dikciz > Apps for management. Open **More actions** beside an app title for **Edit bundle**, execution controls, export and removal. The file selector exposes complete HTML, CSS, UI JavaScript, backend and manifest drafts. Stop active work before changing source; saving preserves its running or stopped state. **Export reusable bundle** shares source, without private state or recordings. **Remove app and its state** deletes that instance's public data.
 
 Travel todo is a working reference. Use the checklist normally, or grant location access and explicitly choose **Watch New York**. A matching GPS event checks off the trip even with the UI closed. Read [the full walkthrough](todo-app-tutorial.md) before changing the destination or event. Installation and opening do not start its location watch.
 
@@ -110,7 +112,7 @@ If the page has no free grid rectangle, Dikciz shows a refusal. It does not plac
 
 ### Move, resize, group, lock, or remove an item
 
-Hold a native app shortcut or app group still for one second, then drag it to move. A swipe before that deadline cancels the move. Hold and release to open edit actions. Long press a native widget, or the top move handle of an HTML widget, for **Move**, **Resize**, **Edit**, **Appearance**, **Fit content**, **Lock**, and **Delete**. The available actions depend on the item type. HTML widgets keep the top 24Dp for moving, while their content keeps normal tap behaviour and item editing.
+Hold a native app shortcut or app group still for one second, then drag it to move. A swipe before that deadline cancels the move. Hold and release to open edit actions. Long press a native widget, or the top move handle of an HTML widget, for **Move**, **Resize**, **Edit**, **Appearance**, **Fit content**, **Lock**, and **Delete**. The available actions depend on the item type. HTML widgets keep the top 24Dp for moving, while their content keeps normal taps and scrolling. Long press anywhere in the HTML content or background for the same whole-widget controls.
 
 ![Widget action sheet](images/user-guide/11-widget-actions.png)
 

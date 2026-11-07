@@ -163,6 +163,7 @@ class DikcizHomeActivity : Activity() {
     private lateinit var permissionRequests: DikcizPermissionRequests
     private var controlPlanesStarted = false
     private var isActivityStarted = false
+    private var isActivityResumed = false
     private var controlPlaneStartAttemptsRemaining = CONTROL_PLANE_START_ATTEMPTS
     private var isControlPlaneStartRetryScheduled = false
     private var isConfigurationErrorVisible = false
@@ -381,7 +382,14 @@ class DikcizHomeActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        isActivityResumed = true
+        mainHandler.post { showPendingPermissionRequest() }
         DikcizChatService.showShortcut(applicationContext)
+    }
+
+    override fun onPause() {
+        isActivityResumed = false
+        super.onPause()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -7669,6 +7677,7 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun showPendingPermissionRequest() {
+        if (!isActivityResumed || isFinishing || isDestroyed) return
         val requirement = permissionRequests.peekPending() ?: return
         if (visiblePermissionRequirement == requirement && automationViews.containsKey(DikcizPermissionRequests.SEMANTIC_ALLOW)) return
         if (DikcizDeviceAccess.state(this, requirement) != DikcizDeviceAccessState.NeedsSetup) {

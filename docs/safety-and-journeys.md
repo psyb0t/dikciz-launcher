@@ -2,6 +2,17 @@
 
 Open **Settings**, **Safety, journeys and devices** for the SOS app and native Places/Trips screens. SOS is also under **Dikciz**, **Apps**. Its complete HTML/CSS/JavaScript interface, JavaScript backend and state live in `/sdcard/Dikciz/apps/sos/`; its decisions use the same [custom-app platform](custom-apps.md) available to owner-created apps. The same operations are available through HTTP, WebSocket, MCP, HTML and Lua. Discover the installed schemas before sending commands.
 
+## On the phone
+
+1. Open **Dikciz > Apps > SOS and check-ins**. Use **SMS access**, **Location access** and **Notifications** to review required Android access. **Contacts access** is optional when entering exact numbers.
+2. Enter a **Name** and **Exact phone number**, then tap **Add number**. Alternatively, use **Find a contact** and **Search contacts** to select a result. Review the resulting recipient list.
+3. Edit the message, check-in interval, cancellation grace, update interval and maximum updates. Tap **Save inactive plan**. Saving alone starts no monitoring or messages.
+4. Tap **Preview exact message** and inspect the recipients, location text and timing before starting anything.
+5. **Arm missed check-in** waits for the check-in deadline. **Start SOS countdown** begins cancellation grace immediately. Both require the app's confirmation. **I'm safe. Reset check-in** postpones an armed deadline.
+6. Use the modal's **Cancel SOS** or the app's **Cancel future messages** to stop pending work. Read **Submission and delivery** for actual callbacks. Cancellation cannot recall submitted messages.
+
+The [screen guide](screens.md#urgent-alerts-and-cancellation) shows the dimmed countdown and cancellation controls. The complete editable app is shown under [Apps](screens.md#apps-and-complete-bundles).
+
 ## Contact plans and check-ins
 
 Save exact contact addresses with `sosPlanSave`. Each contact has `address` and optional `label`. The app can search phone contacts without modifying them. Saving a plan stays inactive. Preview with `sosPreview`; it does not submit SMS. These compatibility commands invoke the bundled app backend; removing or disabling that app makes its commands unavailable until restored or enabled. Preview enforces read-only host commands even if its source has been edited.

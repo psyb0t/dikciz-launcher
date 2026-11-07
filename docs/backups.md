@@ -14,6 +14,8 @@ Limits are 4096 public files, 32 MiB of public file data, 128 provider profiles,
 
 ## Preview before replacing data
 
+Follow the [illustrated backup workflow](screens.md#backups-and-recovery) from archive creation to the restore preview. Creating an archive does not replace the running setup. Preview is a separate validation step; only its Restore confirmation replaces data.
+
 Select or enter an archive path, enter its passphrase and choose **Preview restore**. Preview checks encryption, file paths, checksums, configuration and chat records before showing counts. It stages plaintext privately, inaccessible through the ordinary file commands. Up to four previews can be staged; each expires after 15 minutes.
 
 Restore replaces the current home and chat history. Scripts and chat event subscriptions remain disabled unless activation is explicitly selected. Restored queued or running turns become interrupted; no old tool call is replayed. Stop active and queued assistant work first. Provider keys omitted from the archive must be entered again.

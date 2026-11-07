@@ -20,6 +20,8 @@ Companion commands currently require full owner remote authority. Scoped tokens 
 
 ## Native controls
 
+The [companion screen walkthrough](screens.md#places-trips-and-device-connections) covers every tab and the place, Bluetooth, USB, NFC and Wi-Fi forms. Entering a form does not start a connection, route or safety plan. Use the operation result to distinguish requested, approved, connected and failed states.
+
 <p>
 <img src="images/companion/custom-app-sos.png" alt="Editable SOS app with inactive plan and explicit arming controls" width="280">
 <img src="images/companion/devices.png" alt="Native device connection controls" width="280">

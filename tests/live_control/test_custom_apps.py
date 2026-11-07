@@ -2,6 +2,7 @@
 
 import base64
 import io
+import os
 import json
 import shutil
 import time
@@ -253,6 +254,10 @@ def test_custom_apps_bundled_screens_and_editor(websocket_control, identifier):
             direct_tap(wait_for_physical_text_bounds(title))
             wait_for_snapshot_node(websocket_control, "custom-app:editor:" + field)
             AUTOMATION.request(websocket_control, "scrollTo", semanticId="custom-app:editor:" + field)
+            if os.environ.get("DIKCIZ_GUIDE_CAPTURE") == "true":
+                run_device_operation("screenshot")
+                shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png",
+                                ARTIFACT_DIRECTORY / ("custom-app-editor-" + identifier + "-" + field + ".png"))
         run_device_operation("screenshot")
         shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / ("custom-app-editor-" + identifier + ".png"))
     finally:
