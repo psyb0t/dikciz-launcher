@@ -202,13 +202,13 @@ internal object DikcizAutomationRules {
                 }))))))
     val DEFINITIONS = listOf(
         DikcizNativeCommands.Definition(TYPE_DELETE, "dikciz_automation_rule_delete",
-            "Delete one saved visual rule, its Lua script and owned subscription. In-flight work may finish. Owner only.",
+            "Delete one saved visual rule, its Lua script and owned subscription. In-flight work may finish. Requires the matching explicit operation grant for scoped remote clients.",
             mapOf("id" to text(80)), setOf("id"), readOnly = false),
         DikcizNativeCommands.Definition(TYPE_PREVIEW, "dikciz_automation_rule_preview",
-            "Compile a visual rule into Lua and simulate it with the optional sample payload. Returns proposed commands without touching Android. Owner only.",
+            "Compile a visual rule into Lua and simulate it with the optional sample payload. Returns proposed commands without touching Android. Requires the matching explicit operation grant for scoped remote clients.",
             RULE_FIELD + ("sample" to JSONObject().put("type", "object")), setOf("rule")),
         DikcizNativeCommands.Definition(TYPE_SAVE, "dikciz_automation_rule_save",
-            "Validate and save a visual automation rule, Lua source and least-source-capability subscription. Disabled by default. Explicit enabled=true activates future events after reload. Owner only.",
+            "Validate and save a visual automation rule, Lua source and least-source-capability subscription. Disabled by default. Explicit enabled=true activates future events after reload. Requires the matching explicit operation grant for scoped remote clients.",
             RULE_FIELD, setOf("rule"), readOnly = false),
         DikcizNativeCommands.Definition(TYPE_LIST, "dikciz_automation_rules_list",
             "List saved visual rule definitions. Lua remains editable through the script editor.",

@@ -1,3 +1,11 @@
+---
+title: "Geocoding and GNSS status"
+description: "Geocode addresses and coordinates, inspect GNSS satellites and observe location availability with Android permissions and freshness limits."
+permalink: /location-services/
+nav_order: 8
+parent: "Phone APIs"
+---
+
 # Geocoding and GNSS status
 
 locationGet reads a permitted cached or fresh position. geocode resolves supplied text/coordinates through Android's geocoding provider. gnssStatus observes satellite status. These are separate operations; a resolved address or visible satellite is not proof of the phone's current position.

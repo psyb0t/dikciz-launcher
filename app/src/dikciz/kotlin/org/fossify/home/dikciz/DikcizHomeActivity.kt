@@ -41,6 +41,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.CompoundButton
@@ -277,7 +278,7 @@ class DikcizHomeActivity : Activity() {
                 return try {
                     DikcizActivityLaunches.capture { executeAutomationCommand(command) }.also { result ->
                         if (command.type == DikcizNativeCommands.TYPE_SIM_LIST &&
-                            command.access?.let { it.isOwner || DikcizRemotePolicy.PERMISSION_SIM_READ in it.permissions } != false &&
+                            command.access?.let { DikcizRemotePolicy.mayReadSimNumbers(it) } != false &&
                             !result.optBoolean(DikcizSimSubscriptions.KEY_NUMBER_PERMISSION_GRANTED)
                         ) {
                             result.put(DikcizPermissionRequests.KEY_RECOVERY,
@@ -289,7 +290,7 @@ class DikcizHomeActivity : Activity() {
                     }
                 } catch (exception: DikcizAutomationRequestException) {
                     val recovery = if (command.type == DikcizNativeCommands.TYPE_SIM_LIST &&
-                        command.access?.let { it.isOwner || DikcizRemotePolicy.PERMISSION_SIM_READ in it.permissions } == false
+                        command.access?.let { DikcizRemotePolicy.mayReadSimNumbers(it) } == false
                     ) {
                         null
                     } else if (command.type == DikcizNativeCommands.TYPE_SIM_LIST &&
@@ -330,7 +331,7 @@ class DikcizHomeActivity : Activity() {
         )
         DikcizLocalCommands.attach(
             automationInstanceID,
-            { request, source -> DikcizOperations.withActor(source) { automationControlPlane.executeLocalCommand(request) } },
+            { request, source, access, readOnly -> DikcizOperations.withActor(source) { automationControlPlane.executeLocalCommand(request, readOnly = readOnly, verifiedAccess = access) } },
             automationTarget::responseSent,
         )
         mcpControlPlane = DikcizMcpControlPlane(
@@ -338,7 +339,7 @@ class DikcizHomeActivity : Activity() {
             automationTarget,
             dikcizLogger,
             remoteAccessAuth,
-            automationControlPlane::executeLocalCommand,
+            { request, authorization, readOnly, remote -> automationControlPlane.executeLocalCommand(request, authorization, readOnly, remote) },
             DikcizMcpResources(assets),
         )
         DikcizChatRuntime.get(applicationContext).attachMcp(mcpControlPlane::executeOwnerRequest)
@@ -4595,6 +4596,8 @@ class DikcizHomeActivity : Activity() {
 
     private fun tapAutomationControl(view: View): Boolean {
         return when (view) {
+            is EditText -> focusAutomationEditor(view)
+
             is RadioButton -> {
                 if (!view.isEnabled) {
                     false
@@ -4615,6 +4618,14 @@ class DikcizHomeActivity : Activity() {
 
             else -> view.performClick()
         }
+    }
+
+    private fun focusAutomationEditor(view: EditText): Boolean {
+        if (!view.isEnabled) return false
+        if (view.performClick()) return true
+        if (!view.requestFocus()) return false
+        getSystemService(InputMethodManager::class.java)?.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT)
+        return true
     }
 
     private fun tapAutomationWidget(semanticID: String): Boolean {
@@ -4698,9 +4709,10 @@ class DikcizHomeActivity : Activity() {
         DikcizCompanionActivity.current()?.let { it.scrollTo(view); return it.scrollState() }
         DikcizOperationsActivity.current()?.let { it.scrollTo(view); return it.scrollState() }
         val setup = DikcizDeviceAccessActivity.current()
+        val nestedScrollState = if (setup == null) scrollToNestedAutomationView(view) else null
         if (setup != null) {
             setup.scrollTo(view)
-        } else {
+        } else if (nestedScrollState == null) {
             pageScrollTargetY(view)?.let { scrollY ->
                 pageScrollView.scrollTo(SCROLL_X_ORIGIN, scrollY)
             }
@@ -4709,7 +4721,17 @@ class DikcizHomeActivity : Activity() {
             EVENT_AUTOMATION_SCROLLED_TO,
             mapOf(FIELD_SEMANTIC_ID to loggableSemanticID(semanticID)),
         )
-        return automationScrollState()
+        return nestedScrollState ?: automationScrollState()
+    }
+
+    private fun scrollToNestedAutomationView(view: View): JSONObject? {
+        val scroll = generateSequence(view.parent as? View) { it.parent as? View }
+            .filterIsInstance<ScrollView>().firstOrNull() ?: return null
+        if (scroll === pageScrollView) return null
+        view.requestRectangleOnScreen(Rect(0, 0, view.width, view.height), true)
+        val contentHeight = (scroll.getChildAt(0)?.height ?: 0) + scroll.paddingTop + scroll.paddingBottom
+        return JSONObject().put(KEY_Y, scroll.scrollY)
+            .put(KEY_RANGE, contentHeight.coerceAtLeast(scroll.height)).put(KEY_EXTENT, scroll.height)
     }
 
     private fun setAutomationText(command: DikcizAutomationCommand): JSONObject {

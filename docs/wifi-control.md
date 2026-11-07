@@ -1,3 +1,11 @@
+---
+title: "Wi-Fi scans"
+description: "Request Wi-Fi scans and distinguish fresh results from cached access-point data under Android permission and scan-rate restrictions."
+permalink: /wifi-control/
+nav_order: 12
+parent: "Phone APIs"
+---
+
 # Wi-Fi scans
 
 `wifiScanResults` reads Android's existing scan cache without triggering radio work. `wifiScan` / `dikciz_wifi_scan` requests a scan and waits for Android's results-updated broadcast. Both return paginated network records: SSID, BSSID, frequency MHz, RSSI dBm, capabilities and Android's elapsed timestamp in microseconds.

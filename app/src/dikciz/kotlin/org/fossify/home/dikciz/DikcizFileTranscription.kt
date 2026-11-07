@@ -104,7 +104,7 @@ internal object DikcizFileTranscription {
 
     private fun text(size: Int) = JSONObject().put("type", "string").put("maxLength", size)
     val DEFINITION = DikcizNativeCommands.Definition(TYPE, "dikciz_speech_transcribe_file",
-        "Upload one audio file to the explicitly selected OpenAI-compatible provider's audio/transcriptions endpoint. Uses its encrypted saved API key. Requires profileId, model and path. Sends file contents outside the phone; never opens the microphone. Provider support and usage charges apply. Owner only.",
+        "Upload one audio file to the explicitly selected OpenAI-compatible provider's audio/transcriptions endpoint. Uses its encrypted saved API key. Requires profileId, model and path. Sends file contents outside the phone; never opens the microphone. Provider support and usage charges apply. Requires the matching explicit operation grant for scoped remote clients.",
         mapOf("path" to text(4096), "profileId" to text(80), "model" to text(256), "language" to text(2),
             "timeoutMilliseconds" to JSONObject().put("type", "integer").put("minimum", 1000).put("maximum", 300000).put("default", DEFAULT_TIMEOUT)),
         setOf("path", "profileId", "model"), readOnly = false)

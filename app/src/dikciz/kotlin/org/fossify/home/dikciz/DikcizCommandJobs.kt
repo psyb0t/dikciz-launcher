@@ -59,17 +59,17 @@ internal object DikcizCommandJobs {
     val TYPES = setOf(TYPE_START, TYPE_STATUS, TYPE_LIST, TYPE_CANCEL)
 
     @Synchronized
-    fun execute(context: Context, logger: DikcizLogger, type: String, request: JSONObject, autoRequestPermissions: Boolean): JSONObject {
+    fun execute(context: Context, logger: DikcizLogger, type: String, request: JSONObject, autoRequestPermissions: Boolean, access: DikcizRemoteAccess? = null, readOnly: Boolean = false): JSONObject {
         initialize(context, logger)
         prune()
         return when (type) {
-            TYPE_START -> start(request, logger, autoRequestPermissions)
+            TYPE_START -> start(request, logger, autoRequestPermissions, access, readOnly)
             TYPE_LIST -> {
-                val items = records.values.sortedByDescending { it.getLong(KEY_CREATED) }.map(::metadata)
+                val items = records.values.filter { access == null || access.isOwner || it.optString("actorId", "owner") == access.id }.sortedByDescending { it.getLong(KEY_CREATED) }.map(::metadata)
                 DikcizNativeCommands.page(items, request).put("total", items.size)
             }
-            TYPE_STATUS -> JSONObject(record(request).toString()).apply { remove(KEY_FINGERPRINT); remove(KEY_REQUEST) }
-            TYPE_CANCEL -> cancel(record(request))
+            TYPE_STATUS -> JSONObject(record(request, access).toString()).apply { remove(KEY_FINGERPRINT); remove(KEY_REQUEST) }
+            TYPE_CANCEL -> cancel(record(request, access))
             else -> DikcizNativeCommands.invalid()
         }
     }
@@ -111,13 +111,16 @@ internal object DikcizCommandJobs {
         directory = root
     }
 
-    private fun start(request: JSONObject, logger: DikcizLogger, autoRequestPermissions: Boolean): JSONObject {
+    private fun start(request: JSONObject, logger: DikcizLogger, autoRequestPermissions: Boolean, access: DikcizRemoteAccess? = null, readOnly: Boolean = false): JSONObject {
         val key = request.getString(KEY_REQUEST)
+        val actorId = access?.id ?: "owner"
         val command = JSONObject(request.getJSONObject(KEY_COMMAND).toString()).apply { remove("requestId") }
         if (autoRequestPermissions && !command.has(DikcizPermissionRequests.KEY_AUTO_REQUEST)) command.put(DikcizPermissionRequests.KEY_AUTO_REQUEST, true)
+        access?.requireCommand(command.getString("type"), command)
+        if (readOnly) DikcizMcpControlPlane.requireReadOnlyCommand(command.getString("type"), command)
         val digest = MessageDigest.getInstance("SHA-256").digest(canonical(command).toString().toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }
-        records.values.firstOrNull { it.getString(KEY_REQUEST) == key }?.let { existing ->
+        records.values.firstOrNull { it.getString(KEY_REQUEST) == key && it.optString("actorId", "owner") == actorId }?.let { existing ->
             if (existing.getString(KEY_FINGERPRINT) != digest) DikcizNativeCommands.failure("job_idempotency_conflict", "This idempotency key was used for a different command")
             return metadata(existing).put("deduplicated", true)
         }
@@ -125,7 +128,7 @@ internal object DikcizCommandJobs {
         val now = System.currentTimeMillis()
         val record = JSONObject().put(KEY_JOB, UUID.randomUUID().toString()).put(KEY_REQUEST, key).put(KEY_FINGERPRINT, digest)
             .put(KEY_STATE, STATE_QUEUED).put(KEY_CREATED, now).put(KEY_EXPIRES, now + request.optLong(KEY_RETENTION, 168) * HOUR_MILLISECONDS)
-            .put(KEY_CANCEL, false).put("commandType", command.getString("type")).put("outcomeKnown", false)
+            .put("actorId", actorId).put(KEY_CANCEL, false).put("commandType", command.getString("type")).put("outcomeKnown", false)
         val id = record.getString(KEY_JOB)
         persist(record)
         records[id] = record
@@ -137,7 +140,7 @@ internal object DikcizCommandJobs {
                     persist(record)
                 }
                 logger.info("command_job_started", mapOf("job_id" to id, "command_type" to command.getString("type")))
-                val reply = DikcizLocalCommands.execute("job:" + id, command)
+                val reply = DikcizLocalCommands.execute("job:" + id, command, access, readOnly)
                 synchronized(this) {
                     val response = reply.response
                     record.put("response", response).put("outcomeKnown", true)
@@ -196,8 +199,14 @@ internal object DikcizCommandJobs {
         }
     }
 
-    private fun record(request: JSONObject): JSONObject = records[request.getString(KEY_JOB)]
-        ?: DikcizNativeCommands.failure("job_not_found", "No retained command job with that ID")
+    private fun record(request: JSONObject, access: DikcizRemoteAccess?): JSONObject {
+        val record = records[request.getString(KEY_JOB)]
+            ?: DikcizNativeCommands.failure("job_not_found", "No retained command job with that ID")
+        if (access != null && !access.isOwner && record.optString("actorId", "owner") != access.id) {
+            DikcizNativeCommands.failure(DikcizRemotePolicy.ERROR_DENIED, "This job belongs to another caller")
+        }
+        return record
+    }
 
     private fun metadata(record: JSONObject) = JSONObject(record.toString()).apply {
         remove("response"); remove(KEY_FINGERPRINT); remove(KEY_REQUEST)
@@ -223,7 +232,7 @@ internal object DikcizCommandJobs {
             if (!keyPattern.matches(request.getString(KEY_REQUEST))) DikcizNativeCommands.invalid("Invalid job idempotency key")
             val command = request.getJSONObject(KEY_COMMAND)
             val commandType = command.opt("type")
-            if (commandType !is String || commandType !in DikcizAutomationControlPlane.COMMAND_KEYS || commandType in TYPES || commandType.startsWith("remoteAuth")) {
+            if (commandType !is String || commandType !in DikcizAutomationControlPlane.COMMAND_KEYS || commandType in TYPES || commandType == DikcizRemotePolicy.TYPE_TOKENS || commandType.startsWith("remoteAuth")) {
                 DikcizNativeCommands.invalid("Unsupported nested job command")
             }
         }

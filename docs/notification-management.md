@@ -1,3 +1,11 @@
+---
+title: "Notification management"
+description: "Read permitted notifications and dismiss, snooze or reply through allowlisted Android actions with listener access and explicit outcomes."
+permalink: /notification-management/
+nav_order: 14
+parent: "Phone APIs"
+---
+
 # Notification management
 
 `notificationsList` returns active notifications with their Android key, package, title, text, post time and action tokens. Its new `actions` array describes each exposed action with `actionToken`, bounded `title` and `supportsReply`. Tokens expire after 60 seconds, are single-use and become unavailable when the notification changes or disappears.

@@ -1,3 +1,11 @@
+---
+title: "Images, barcodes and documents"
+description: "Recognize text and barcodes in images, inspect PDF documents and handle model availability, accessible file inputs and bounded results."
+permalink: /image-recognition/
+nav_order: 3
+parent: "Companion"
+---
+
 # Images, barcodes and documents
 
 `imageRecognize` reads an accessible local file with bundled ML Kit Latin text and barcode models. Set `mode` to text, barcodes or both. The image is not uploaded. Decoded links and text are returned as untrusted data and never opened or executed.

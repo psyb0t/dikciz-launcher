@@ -1,3 +1,11 @@
+---
+title: "Microphone PCM streams"
+description: "Capture live microphone PCM, consume bounded frame history, reconnect after gaps and stop recordings through the shared command APIs."
+permalink: /microphone-streams/
+nav_order: 4
+parent: "Phone APIs"
+---
+
 # Microphone PCM streams
 
 Use microphoneStreamStart, microphoneStreamRead, microphoneStreamStop, microphoneStreamsList and microphoneStreamForget through HTTP, WebSocket, MCP, HTML or Lua. MCP names use dikciz_microphone_stream_start/read/stop/forget and dikciz_microphone_streams_list. Discover the exact schemas first.

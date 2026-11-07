@@ -175,7 +175,8 @@ def test_remote_tokens_owner_credential_and_ui_manager(token_owner):
 def test_remote_tokens_sms_grants_and_bypass_denial(token_owner, protocol):
     token, identifier = create(token_owner, ["sms.read"])
     identity = call(token, "remoteAccessInfo", protocol=protocol)
-    assert identity == {"id": identifier, "name": "Fixture token", "owner": False, "permissions": ["sms.read"]}
+    assert identity == {"id": identifier, "name": "Fixture token", "owner": False, "permissions": ["sms.read"],
+                        "expiresAt": 0, "requestsPerMinute": 0, "smsAddresses": []}
     tools = catalogue(token)
     assert tools["dikciz_content_query"]["inputSchema"]["properties"]["resource"]["enum"] == ["sms"]
     assert "dikciz_sms_send" not in tools and "dikciz_shell" not in tools and "dikciz_chat" not in tools
@@ -214,7 +215,7 @@ def test_remote_tokens_provider_resource_and_action_scopes(token_owner, protocol
     tools = catalogue(token)
     props = lambda name: tools[name]["inputSchema"]["properties"]
     assert set(props("dikciz_content_query")["resource"]["enum"]) == {"contacts", "phones", "emails", "rawContacts", "contactData", "callLog"}
-    assert set(props("dikciz_content_write")["resource"]["enum"]) == {"calendars", "calendarEvents", "calendarInstances", "calendarReminders"}
+    assert set(props("dikciz_content_write")["resource"]["enum"]) == {"calendarEvents", "calendarReminders"}
     assert props("dikciz_call_control")["action"]["enum"] == ["state"]
     assert tools["dikciz_call_control"]["annotations"]["readOnlyHint"] is True
     call(token, "callControl", {"action": "place", "recipient": "EXAMPLE-DO-NOT-USE"}, protocol, DENIED)
@@ -253,7 +254,7 @@ def test_remote_tokens_validation_lifecycle_and_live_revocation(token_owner):
     second, other = create(token_owner, ["screen.capture"], "Screenshot client")
     metadata = admin(token_owner, "list")
     assert first not in json.dumps(metadata) and second not in json.dumps(metadata)
-    assert all(set(row) == {"id", "name", "permissions", "enabled", "createdAt"} for row in metadata["tokens"])
+    assert all(set(row) == {"id", "name", "permissions", "enabled", "createdAt", "expiresAt", "requestsPerMinute", "smsAddresses", "expired", "lastUsedAt"} for row in metadata["tokens"])
     call(token_owner, "remoteAuthDisable", error="remote_auth_tokens_exist")
     with bearer.connected_bearer_websocket(first) as connection:
         assert AUTOMATION.request(connection, "remoteAccessInfo")["id"] == identifier
@@ -375,7 +376,8 @@ def test_remote_tokens_hashed_storage_atomic_recovery_and_restart(token_owner):
     while time.monotonic() < deadline:
         try:
             status, response = http_command(token, "remoteAccessInfo")
-            if status == 200:
+            if status == 200 and response.get("type") == "result":
+                assert http_command(None, "deviceInfo")[0] == 401
                 assert response["result"]["id"] == identifier
                 if call(token, "deviceInfo")["application"]["instanceId"] != initial_instance:
                     break
@@ -431,6 +433,7 @@ def test_remote_tokens_granted_operations_and_combined_scopes(token_owner, proto
 
 def test_remote_tokens_permission_catalogue(token_owner):
     grants = admin(token_owner, "catalog")["permissions"]
+    (ARTIFACT_DIRECTORY / "remote-grant-discovery.json").write_text(json.dumps({"permissions": grants}))
     identifiers = {row["id"] for row in grants}
     assert len(identifiers) == len(grants)
     assert {"owner", "sms.read", "sms.send", "screen.capture", "ui.read", "sensors.read"} <= identifiers
@@ -497,7 +500,10 @@ def test_remote_tokens_each_grant_has_discoverable_operations(token_owner):
         "usb.read": {"dikciz_usb_devices"},
         "nfc.read": {"dikciz_nfc_status", "dikciz_nfc_read"},
     }
-    assert {row["id"] for row in admin(token_owner, "catalog")["permissions"]} == {"owner", *cases}
+    assert {row["id"] for row in admin(token_owner, "catalog")["permissions"] if not row["id"].startswith("command.")} == {"owner", *cases}
+    coverage = {row["id"]: set(row["tools"]) for row in admin(token_owner, "catalog")["permissions"]}
+    for permission, expected in cases.items():
+        assert expected <= coverage[permission], (permission, expected - coverage[permission])
     admin_token, _ = create(token_owner, ["owner"], "Grant-catalogue administrator")
     for grant, expected in cases.items():
         token, identifier = create(admin_token, [grant], grant)
@@ -545,7 +551,13 @@ def test_remote_tokens_file_grants_protect_credentials(token_owner):
 
 def test_remote_tokens_admin_boundaries_and_owner_rotation(token_owner):
     administrator, identifier = create(token_owner, ["owner"], "Boundary administrator")
-    baseline = admin(administrator, "list")
+    def stable_metadata():
+        document = admin(administrator, "list")
+        for row in document["tokens"]:
+            last_used = row.pop("lastUsedAt")
+            assert last_used is None or isinstance(last_used, int)
+        return document
+    baseline = stable_metadata()
     invalid = [
         {},
         {"action": "imaginary"},
@@ -564,7 +576,7 @@ def test_remote_tokens_admin_boundaries_and_owner_rotation(token_owner):
     ]
     for arguments in invalid:
         call(administrator, "remoteTokens", arguments, error="validation_failed")
-        assert admin(administrator, "list") == baseline
+        assert stable_metadata() == baseline
     absent = "0" * 16
     assert absent != identifier
     for action, fields in (("revoke", {}), ("update", {"name": "Absent client"})):

@@ -16,7 +16,7 @@ internal object DikcizLocalCommands {
     @Synchronized
     fun attach(
         ownerID: String,
-        execute: (JSONObject, String) -> String,
+        execute: (JSONObject, String, DikcizRemoteAccess?, Boolean) -> String,
         delivered: (String, JSONObject) -> Unit,
     ) {
         endpoint = Endpoint(ownerID, execute, delivered)
@@ -41,7 +41,7 @@ internal object DikcizLocalCommands {
         return execute(sourceOwner, request)
     }
 
-    fun execute(sourceOwner: String, request: JSONObject): Reply {
+    fun execute(sourceOwner: String, request: JSONObject, access: DikcizRemoteAccess? = null, readOnly: Boolean = false): Reply {
         val command = JSONObject(request.toString())
         if (!command.has(DikcizAutomationControlPlane.KEY_REQUEST_ID)) {
             command.put(DikcizAutomationControlPlane.KEY_REQUEST_ID, UUID.randomUUID().toString())
@@ -58,7 +58,7 @@ internal object DikcizLocalCommands {
             ERROR_UNAVAILABLE,
             MESSAGE_UNAVAILABLE,
         )
-        val response = JSONObject(serving.execute(command, sourceOwner))
+        val response = JSONObject(serving.execute(command, sourceOwner, access, readOnly))
         val commandType = command.optString(DikcizAutomationControlPlane.KEY_TYPE)
         return Reply(response, commandType) {
             if (endpoint === serving && response.optString(DikcizAutomationControlPlane.KEY_TYPE) ==
@@ -100,7 +100,7 @@ internal object DikcizLocalCommands {
 
     private data class Endpoint(
         val ownerID: String,
-        val execute: (JSONObject, String) -> String,
+        val execute: (JSONObject, String, DikcizRemoteAccess?, Boolean) -> String,
         val delivered: (String, JSONObject) -> Unit,
     )
 

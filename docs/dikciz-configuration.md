@@ -1,3 +1,11 @@
+---
+title: "Dikciz configuration"
+description: "Edit the public configuration tree, page grids, widget state, themes, scripts, logging and listener ports, with validation and reload behavior."
+permalink: /dikciz-configuration/
+nav_order: 6
+parent: "Tutorial"
+---
+
 # Dikciz configuration
 
 Dikciz keeps its editable home under `/sdcard/Dikciz/`. The directory is the source of truth for the launcher. Valid changes reload automatically, within a couple of seconds of the write, whether the edit came from the launcher, a script, adb, or a file manager. An invalid file leaves the last accepted home visible and records the failure in the local log.
@@ -428,7 +436,7 @@ Dikciz writes JSON Lines diagnostics under `/sdcard/Dikciz/logs/YYYY-MM-DD.log`,
 
 ## Source map
 
-The [Dikciz source map](../app/src/dikciz/README.md) identifies the configuration store, style codec, theme loader, widget libraries, and automation runtime that implement this contract.
+The [Dikciz source map](https://github.com/psyb0t/dikciz-launcher/blob/main/app/src/dikciz/README.md) identifies the configuration store, style codec, theme loader, widget libraries, and automation runtime that implement this contract.
 
 ### HTML instance state and files
 

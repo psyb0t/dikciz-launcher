@@ -1,3 +1,11 @@
+---
+title: "Speech recognition"
+description: "Convert microphone speech to text through Android recognition providers, inspect session state and handle permissions and provider availability."
+permalink: /speech-recognition/
+nav_order: 6
+parent: "Phone APIs"
+---
+
 # Speech recognition
 
 Speech recognition is microphone input converted to text. `speechSpeak` is separate text-to-speech output; `microphoneRecord` saves an audio file without transcribing it.

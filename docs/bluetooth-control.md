@@ -1,3 +1,11 @@
+---
+title: "Bluetooth discovery and transactions"
+description: "Discover Bluetooth peers, request pairing and exchange RFCOMM or GATT data, with permissions, retained connections and explicit transaction results."
+permalink: /bluetooth-control/
+nav_order: 9
+parent: "Phone APIs"
+---
+
 # Bluetooth discovery and transactions
 
 These commands use the shared HTTP, WebSocket, MCP, HTML and Lua executor. Android Bluetooth access and an enabled adapter are required. Android 12 and later distinguish scan and connect access; older scans require location access. Requests do not silently enable the radio or bypass peripheral security.

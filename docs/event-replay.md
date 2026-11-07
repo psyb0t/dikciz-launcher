@@ -1,3 +1,11 @@
+---
+title: "Replay automation events"
+description: "Read retained automation events, handle history gaps and acknowledge consumer cursors across reconnects and process restarts."
+permalink: /event-replay/
+nav_order: 8
+parent: "Remote control"
+---
+
 # Replay automation events
 
 `eventJournalStatus`, `eventJournalRead` and `eventJournalConfigure` work through ordinary HTTP, WebSocket, MCP, HTML and Lua. The journal records events actually dispatched by the automation bus, including custom events and configured native sources. Reading it does not activate sensors, location or other subscriptions.

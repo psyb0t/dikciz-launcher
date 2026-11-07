@@ -1,3 +1,11 @@
+---
+title: "USB host control"
+description: "Discover USB peripherals, request Android device access and exchange data through supported interfaces, endpoints and transfer limits."
+permalink: /usb-control/
+nav_order: 11
+parent: "Phone APIs"
+---
+
 # USB host control
 
 USB commands operate on peripherals attached to the Android phone acting as a USB host. They do not control the phone through its computer-facing ADB connection.

@@ -1,0 +1,17 @@
+---
+layout: null
+permalink: /llms.txt
+sitemap: false
+---
+# Dikciz documentation
+
+> Programmable Android launcher and HTML/CSS/JavaScript app runtime with Lua and headless JavaScript backends, AI chat, and shared MCP, HTTP and WebSocket phone APIs.
+
+Discover schemas from the installed APK before invoking a command. Android permissions, scoped remote grants and chat read-only enforcement are separate boundaries. Accepted work does not prove an external effect completed.
+
+{% assign pages = site.pages | where_exp: "item", "item.description" | sort: "title" -%}
+{% for item in pages -%}
+{% unless item.search_exclude -%}
+- [{{ item.title }}]({{ item.url | absolute_url }}): {{ item.description }}
+{% endunless -%}
+{% endfor -%}

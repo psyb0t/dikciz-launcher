@@ -20,7 +20,10 @@ def test_packaged_corpus_matches_current_documentation():
     assert len({document["id"] for document in expected}) == len(expected)
     assert all(document["text"] and document["uri"].startswith("dikciz://docs/") for document in expected)
     assert all(len(document["text"]) <= corpus.MAXIMUM_SECTION for document in expected)
-    assert not any("library/command-reference/" in document["id"] for document in expected)
+    assert any("library/command-reference/" in document["id"] for document in expected)
+    assert any("library/token-permissions/" in document["id"] for document in expected)
+    assert any("library/javascript-api/" in document["id"] for document in expected)
+    assert any("library/lua-api/" in document["id"] for document in expected)
 
 
 def test_corpus_preserves_code_and_splits_headings_deterministically(tmp_path):
@@ -32,7 +35,7 @@ def test_corpus_preserves_code_and_splits_headings_deterministically(tmp_path):
     (assets / "mcp/guides/example.md").write_text("# Example\n\nA short guide.")
     source = "# Manual\n\n## First\n\n```xml\n<permission name=\"example\" />\n```\n\n## Second\n\n" + "long text " * 3000
     (tmp_path / "docs/manual.md").write_text(source)
-    (tmp_path / "docs/command-reference.md").write_text("# Excluded generated schemas")
+    (tmp_path / "docs/command-reference.md").write_text("# Included command schemas")
     first = corpus.build(tmp_path)
     assert first == corpus.build(tmp_path)
     assert first[0]["aliases"] == "example aliases"

@@ -13,7 +13,7 @@ OUTPUT = ROOT / "app/src/dikciz/assets/search/documentation.json"
 ALIASES = OUTPUT.with_name("aliases.json")
 GUIDES = ROOT / "app/src/dikciz/assets/mcp"
 MAXIMUM_SECTION = 12000
-EXCLUDED = {"command-reference.md", "changelog.md"}
+EXCLUDED = {"changelog.md", "404.md"}
 LOGGER = logging.getLogger(__name__)
 HEADING = re.compile(r"^#{1,6}\s+(.+)$")
 HTML_GALLERY = re.compile(r"^\s*</?(?:table|tr|td|img|a)(?:\s|>|/)", re.IGNORECASE)
@@ -67,27 +67,65 @@ def build(root=ROOT):
     for path in sorted(guides.rglob("*.md")):
         slug = path.relative_to(guides).with_suffix("").as_posix()
         text = path.read_text()
-        title = next((line.lstrip("# ").strip() for line in text.splitlines() if line.startswith("# ")), slug)
-        documents.append({
-            "id": slug, "title": title, "text": text, "aliases": aliases.get(slug, ""),
-            "uri": "dikciz://docs/" + slug,
-        })
+        text = re.sub(r"\A---\n.*?\n---\n", "", text, count=1, flags=re.DOTALL)
+        text = text.replace("<!-- {% raw %} -->\n", "").replace(
+            "<!-- {% endraw %} -->", ""
+        )
+        title = next(
+            (
+                line.lstrip("# ").strip()
+                for line in text.splitlines()
+                if line.startswith("# ")
+            ),
+            slug,
+        )
+        documents.append(
+            {
+                "id": slug,
+                "title": title,
+                "text": text,
+                "aliases": aliases.get(slug, ""),
+                "uri": "dikciz://docs/" + slug,
+            }
+        )
     for path in sorted((root / "docs").rglob("*.md")):
-        if path.name in EXCLUDED:
+        if path.name in EXCLUDED or path.stem.startswith("recipe-"):
             continue
         relative = path.relative_to(root).as_posix()
         text = path.read_text()
-        title = next((line.lstrip("# ").strip() for line in text.splitlines() if line.startswith("# ")), path.stem)
+        text = re.sub(r"\A---\n.*?\n---\n", "", text, count=1, flags=re.DOTALL)
+        text = text.replace("<!-- {% raw %} -->\n", "").replace(
+            "<!-- {% endraw %} -->", ""
+        )
+        title = next(
+            (
+                line.lstrip("# ").strip()
+                for line in text.splitlines()
+                if line.startswith("# ")
+            ),
+            path.stem,
+        )
         for number, (heading, section) in enumerate(sections(text)):
             # Screenshots and HTML gallery markup add no useful API instructions.
             section = without_galleries(section)
             for part, chunk in enumerate(chunks(section)):
-                identifier = "library/" + path.relative_to(root / "docs").with_suffix("").as_posix() + "/" + str(number) + "/" + str(part)
-                documents.append({
-                    "id": identifier, "title": title + (": " + heading if heading != title else ""),
-                    "text": chunk, "aliases": aliases.get(relative, ""),
-                    "uri": "dikciz://docs/" + identifier,
-                })
+                identifier = (
+                    "library/"
+                    + path.relative_to(root / "docs").with_suffix("").as_posix()
+                    + "/"
+                    + str(number)
+                    + "/"
+                    + str(part)
+                )
+                documents.append(
+                    {
+                        "id": identifier,
+                        "title": title + (": " + heading if heading != title else ""),
+                        "text": chunk,
+                        "aliases": aliases.get(relative, ""),
+                        "uri": "dikciz://docs/" + identifier,
+                    }
+                )
     if not documents or len({item["id"] for item in documents}) != len(documents):
         raise ValueError("Search documents must have unique IDs")
     return documents
@@ -95,9 +133,15 @@ def build(root=ROOT):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="Fail when the packaged corpus differs from current documentation")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Fail when the packaged corpus differs from current documentation",
+    )
     args = parser.parse_args()
-    spec = importlib.util.spec_from_file_location("search_generation_logging", ROOT / "scripts/dikciz-control.py")
+    spec = importlib.util.spec_from_file_location(
+        "search_generation_logging", ROOT / "scripts/dikciz-control.py"
+    )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module.configure_logging(ROOT / ".testing/search-corpus-generation.log")
@@ -112,10 +156,13 @@ def main():
             temporary = OUTPUT.with_suffix(".json.new")
             temporary.write_text(rendered)
             temporary.replace(OUTPUT)
-        LOGGER.info("Search corpus verified", extra={
-            "document_count": len(documents),
-            "content_hash": hashlib.sha256(rendered.encode()).hexdigest(),
-        })
+        LOGGER.info(
+            "Search corpus verified",
+            extra={
+                "document_count": len(documents),
+                "content_hash": hashlib.sha256(rendered.encode()).hexdigest(),
+            },
+        )
     except (OSError, ValueError, TypeError):
         LOGGER.exception("Search corpus generation failed")
         raise

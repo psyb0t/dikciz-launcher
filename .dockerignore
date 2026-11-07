@@ -1,1 +1,10 @@
 .telemetry/
+
+docs/
+.git/
+.testing/
+.agent_notes/
+.research_files/
+.env
+.env.*
+git-update.sh

@@ -326,7 +326,7 @@ app-test: gradle ## Run the default Fossify-compatible local Kotlin tests
 app-lint: GRADLE_TASK := :app:lintCoreDebug
 app-lint: gradle ## Run Android lint for the default Fossify-compatible debug variant
 
-lint: ensure-dev-image dikciz-search-docs-check ## Check scripts and run Android lint for minified Dikciz
+lint: ensure-dev-image dikciz-search-docs-check docs-recipes-check docs-check ## Check scripts and run Android lint for minified Dikciz
 	@$(DEV_RUN) bash scripts/lint.sh
 	@$(MAKE) --no-print-directory gradle GRADLE_TASK=:app:lintDikcizMinified
 
@@ -341,13 +341,18 @@ dikciz-search-docs-check: ensure-dev-image ## Reject a stale packaged documentat
 dikciz-search-docs-test: ensure-dev-image ## Test deterministic documentation search corpus generation
 	@$(DEV_RUN) python3 -m pytest -q tests/search
 
-.PHONY: dikciz-command-docs dikciz-command-docs-test
+.PHONY: dikciz-command-docs dikciz-command-docs-test dikciz-permission-docs dikciz-permission-docs-test
 
 dikciz-command-docs: ensure-dev-image ## Generate command input docs from .testing/mcp-command-discovery.json
 	@$(DEV_RUN) python3 scripts/generate-dikciz-command-reference.py
 
 dikciz-command-docs-test: ensure-dev-image ## Test command-reference generation with complete input schemas
 	@$(DEV_RUN) python3 -m pytest -q tests/command_reference
+
+dikciz-permission-docs: ensure-dev-image ## Generate every token grant and operation definition from captured discovery
+	@$(DEV_RUN) python3 scripts/generate-dikciz-permission-reference.py
+
+dikciz-permission-docs-test: dikciz-command-docs-test ## Check command and permission manual generation
 
 format: ensure-dev-image ## Format the lab shell and Python sources
 	@$(DEV_RUN) bash scripts/format.sh
@@ -1102,3 +1107,39 @@ dikciz-sdk-tooling-test: ensure-dev-image ## Check SDK scripts, source refresh p
 .PHONY: dikciz-split-fixture
 dikciz-split-fixture: ensure-dev-image ## Generate a signed base/config-split fixture from the built provider APK
 	@$(DEV_RUN) python3 scripts/generate-dikciz-split-fixture.py
+
+DOCS_BUILD_IMAGE := ghcr.io/actions/jekyll-build-pages:v1.0.13@sha256:6791ebfd912185ed59bfb5fb102664fa872496b79f87ff8b9cfba292a7345041
+DOCS_OUTPUT := .testing/docs-preview/dikciz-launcher
+DOCS_PREVIEW_PORT ?= 61327
+
+.PHONY: docs-build docs-check docs-preview docs-recipes docs-recipes-check
+
+docs-recipes: ensure-dev-image ## Generate browser-readable pages from the packaged MCP recipes
+	@$(DEV_RUN) python3 scripts/generate-dikciz-site-recipes.py
+
+docs-recipes-check: ensure-dev-image ## Reject stale website copies of packaged MCP recipes
+	@$(DEV_RUN) python3 scripts/generate-dikciz-site-recipes.py --check
+
+docs-build: ## Build the documentation with GitHub Pages' pinned Jekyll image
+	@mkdir -p .testing/docs-preview
+	@docker run --rm --init --user $(UID):$(GID) \
+		--cpus 2 --memory 2g --memory-swap 2g --pids-limit 256 \
+		--cap-drop ALL --security-opt no-new-privileges:true \
+		--read-only --tmpfs /tmp:rw,nosuid,size=512m \
+		-e HOME=/tmp -e GITHUB_WORKSPACE=/work \
+		-e GITHUB_REPOSITORY=psyb0t/dikciz-launcher \
+		-e INPUT_SOURCE=docs -e INPUT_DESTINATION=$(DOCS_OUTPUT) \
+		-e INPUT_VERBOSE=false -v "$(CURDIR):/work" $(DOCS_BUILD_IMAGE)
+
+docs-check: ensure-dev-image docs-build ## Check rendered documentation links, anchors, source paths and metadata
+	@$(DEV_RUN) python3 -I scripts/check-docs-site.py $(DOCS_OUTPUT) /dikciz-launcher https://github.com/psyb0t/dikciz-launcher . main
+
+docs-preview: ensure-dev-image docs-build ## Serve the documentation under its real base path on loopback port 61327
+	@[[ "$(DOCS_PREVIEW_PORT)" =~ ^[0-9]+$$ && "$(DOCS_PREVIEW_PORT)" -ge 1024 && "$(DOCS_PREVIEW_PORT)" -le 65535 ]] || { printf '%s\n' "DOCS_PREVIEW_PORT must be 1024 through 65535" >&2; exit 1; }
+	@docker run --rm --init --user $(UID):$(GID) \
+		--cpus 1 --memory 256m --memory-swap 256m --pids-limit 128 \
+		--cap-drop ALL --security-opt no-new-privileges:true --read-only \
+		--tmpfs /tmp:rw,noexec,nosuid,size=64m -e HOME=/tmp \
+		--name dikciz-docs-preview-$(UID) -p 127.0.0.1:$(DOCS_PREVIEW_PORT):8000 \
+		-v "$(CURDIR)/.testing/docs-preview:/site:ro" -w /site \
+		$(DEV_IMAGE) python3 -m http.server 8000 --bind 0.0.0.0

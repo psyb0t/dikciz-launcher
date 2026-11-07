@@ -1,3 +1,11 @@
+---
+title: "Remote device operations"
+description: "Launch and inspect Android apps, capture screens, restart Dikciz and recover control after updates or a release/debug package handoff."
+permalink: /remote-device-control/
+nav_order: 13
+parent: "Remote control"
+---
+
 # Remote device operations
 
 Connect over a private network with the [USB-free setup](automation-control.md#connect-without-usb). WebSocket, MCP and HTTP expose the same commands and Android access checks. Discover the installed build before acting, especially when release and debug packages are both installed.

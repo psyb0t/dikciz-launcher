@@ -1,3 +1,11 @@
+---
+title: "MCP protocol compatibility"
+description: "Understand MCP initialization, Streamable HTTP sessions, protocol negotiation, tool discovery and error behavior on the phone listener."
+permalink: /mcp-protocol/
+nav_order: 4
+parent: "Remote control"
+---
+
 # MCP protocol compatibility
 
 The phone serves Streamable HTTP at `/mcp`. Authentication and browser-Origin checks apply before either protocol mode. POST uses JSON content and accepts both application/json and text/event-stream. GET returns 405 because Dikciz does not provide a general server event stream there; WebSocket carries persistent launcher events. Shell streaming is a per-tool SSE response.

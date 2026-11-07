@@ -296,17 +296,17 @@ internal object DikcizOperations {
     private fun integer(minimum: Int, maximum: Int) = JSONObject().put("type", "integer").put("minimum", minimum).put("maximum", maximum)
     val DEFINITIONS = listOf(
         DikcizNativeCommands.Definition(TYPE_READ, "dikciz_activity_read",
-            "Read persistent command metadata without arguments or payloads. Owner only. Includes actor, request ID, duration and completed/rejected/failed/interrupted/running state. Interrupted outcomes may be unknown. Seven-day retention and bounded pagination.",
+            "Read persistent command metadata without arguments or payloads. Requires the matching explicit operation grant for scoped remote clients. Includes actor, request ID, duration and completed/rejected/failed/interrupted/running state. Interrupted outcomes may be unknown. Seven-day retention and bounded pagination.",
             mapOf("limit" to integer(1, 200), "offset" to integer(0, 1000000), "actor" to text(MAXIMUM_ACTOR), "outcome" to text(32), "mutatingOnly" to JSONObject().put("type", "boolean").put("default", false))),
         DikcizNativeCommands.Definition(TYPE_RESOURCES, "dikciz_resource_usage",
-            "Read measured process CPU/RAM/storage, UID network counters and command executor CPU grouped by actor. Explicitly excludes unmeasurable per-widget battery and WebView CPU attribution. Owner only.", emptyMap()),
+            "Read measured process CPU/RAM/storage, UID network counters and command executor CPU grouped by actor. Explicitly excludes unmeasurable per-widget battery and WebView CPU attribution. Requires the matching explicit operation grant for scoped remote clients.", emptyMap()),
         DikcizNativeCommands.Definition(TYPE_CONTROL, "dikciz_resource_control",
-            "Stop one resource: target script/widget disables future configuration work; conversation clears event rules and requests cancellation; imageStream/speechStream stops capture. Supply target and id, plus pageId for widgets. Legacy scriptId is accepted alone. Owner only.",
+            "Stop one resource: target script/widget disables future configuration work; conversation clears event rules and requests cancellation; imageStream/speechStream stops capture. Supply target and id, plus pageId for widgets. Legacy scriptId is accepted alone. Requires the matching explicit operation grant for scoped remote clients.",
             mapOf("scriptId" to text(MAXIMUM_ACTOR), "id" to text(MAXIMUM_ACTOR), "pageId" to text(MAXIMUM_ACTOR),
                 "target" to JSONObject().put("type", "string").put("enum", JSONArray(listOf("script", "widget", "conversation", "imageStream", "speechStream")))),
             readOnly = false),
         DikcizNativeCommands.Definition(TYPE_CANCEL, "dikciz_activity_cancel",
-            "Request best-effort thread interruption of one running activity. Does not roll back completed effects or prove Android stopped work. Poll activityRead. Owner only.",
+            "Request best-effort thread interruption of one running activity. Does not roll back completed effects or prove Android stopped work. Poll activityRead. Requires the matching explicit operation grant for scoped remote clients.",
             mapOf("activityId" to text(36)), setOf("activityId"), readOnly = false),
     )
     val TYPES = setOf(TYPE_READ, TYPE_RESOURCES, TYPE_CANCEL, TYPE_CONTROL)

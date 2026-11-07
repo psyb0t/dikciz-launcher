@@ -1,3 +1,11 @@
+---
+title: "Health Connect records"
+description: "Read and write supported Health Connect records through Android-approved access, with resource discovery, time ranges and platform requirements."
+permalink: /health-records/
+nav_order: 4
+parent: "Companion"
+---
+
 # Health Connect records
 
 `healthRecordsCatalogue` reports provider availability, exact record kinds, timestamp/value shapes, aggregate metric names and current read/write grants. The installed catalogue is authoritative. Availability is separate from permission.

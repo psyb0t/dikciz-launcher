@@ -1,3 +1,11 @@
+---
+title: "Hardware controls and discovery"
+description: "Discover hardware and device settings, control torch and vibration, inspect volume and display state, and understand Android privilege limits."
+permalink: /hardware-controls/
+nav_order: 1
+parent: "Phone APIs"
+---
+
 # Hardware controls and discovery
 
 These commands use the same registry, schemas, native executor and Android permission recovery across HTTP, WebSocket, MCP, HTML and Lua. Inventory reads do not enable radios, pair devices, record audio or request transfers. All fields are strict; unknown fields and invalid values fail before device work.

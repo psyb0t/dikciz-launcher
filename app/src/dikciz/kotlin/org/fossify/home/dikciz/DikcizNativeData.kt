@@ -99,7 +99,7 @@ internal class DikcizNativeData(
                 DikcizLocationServices.TYPE_GNSS -> locationServices.gnss(command.request)
                 DikcizUsbControl.TYPE_ACCESS -> usbControl.requestAccess(command.request)
                 DikcizUsbControl.TYPE_TRANSFER -> usbControl.transfer(command.request, command.autoRequestPermissions)
-                in DikcizCommandJobs.TYPES -> DikcizCommandJobs.execute(context.applicationContext, logger, command.type, command.request, command.autoRequestPermissions)
+                in DikcizCommandJobs.TYPES -> DikcizCommandJobs.execute(context.applicationContext, logger, command.type, command.request, command.autoRequestPermissions, command.access, command.readOnly)
                 DikcizFileManagement.TYPE -> fileManagement.execute(command.request)
                 DikcizNotificationControl.TYPE -> notificationControl.execute(command.request)
                 DikcizNativeCommands.TYPE_STATUS -> content.status()
@@ -109,7 +109,7 @@ internal class DikcizNativeData(
                 DikcizNativeCommands.TYPE_SMS_SEND -> DikcizSmsStatus.send(context, command.request)
                 DikcizNativeCommands.TYPE_SMS_STATUS -> DikcizSmsStatus.status(context, command.request)
                 DikcizNativeCommands.TYPE_SIM_LIST -> simSubscriptions.read(command.request,
-                    command.access?.let { it.isOwner || DikcizRemotePolicy.PERMISSION_SIM_READ in it.permissions } != false)
+                    command.access?.let { DikcizRemotePolicy.mayReadSimNumbers(it) } != false)
                 DikcizNativeCommands.TYPE_CALL -> call(command.request)
                 DikcizNativeCommands.TYPE_CLIPBOARD_GET -> clipboard()
                 DikcizNativeCommands.TYPE_CLIPBOARD_SET -> {

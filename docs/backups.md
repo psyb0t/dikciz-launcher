@@ -1,3 +1,11 @@
+---
+title: "Encrypted backup and restore"
+description: "Create encrypted portable backups, preview contents and restore selected Dikciz data while preserving destination remote authentication and ports."
+permalink: /backups/
+nav_order: 1
+parent: "Operations"
+---
+
 # Encrypted backup and restore
 
 Open **Dikciz settings**, **Backup and restore**. Enter a passphrase of at least 12 characters and create a backup. Archives are stored in /sdcard/Dikciz/backups with the .dikciz-backup extension. Copy an archive somewhere safe with the ordinary file tools.
@@ -31,10 +39,10 @@ The restore writes a rollback checkpoint before replacing public files and commi
 | backupPreview | Decrypt and validate path with passphrase. Returns previewId, sha256 and counts. |
 | backupRestore | Replace data using previewId, its exact sha256 and confirm=true. activateAutomation defaults false. |
 
-These owner-only operations use the shared HTTP, WebSocket, MCP, HTML and Lua command target. Create, preview and restore are hidden and blocked in read-only assistant mode because they write files or staging data. Listing is read-only. Inspect the installed schemas for exact bounds.
+These operations use the shared HTTP, WebSocket, MCP, HTML and Lua command target. Remote clients need owner access or explicit backup operation grants from the [permission reference](token-permissions.md). A backup grant can expose private data, and restore can replace executable configuration. Create, preview and restore are hidden and blocked in read-only assistant mode because they write files or staging data. Listing is read-only. Inspect the installed schemas for exact bounds.
 
 The archive format uses AES-256-GCM with a fresh 16-byte salt and 12-byte nonce, and PBKDF2-HMAC-SHA256 with 600,000 iterations. The passphrase is never saved. Losing it makes the archive unrecoverable.
 
 ## On the phone
 
-<img src="images/operations/backups.png" alt="Backup and restore with a passphrase, optional provider keys and a separate preview action." width="280">
+<img src="{{ "/images/operations/backups.png" | relative_url }}" alt="Backup and restore with a passphrase, optional provider keys and a separate preview action." width="280">

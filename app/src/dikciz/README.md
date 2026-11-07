@@ -54,7 +54,7 @@ All Kotlin files below live in `kotlin/org/fossify/home/dikciz/`.
 | `DikcizDeviceAccessActivity.kt` | Owns the separate full-access setup task, recomputes Android grants on resume and exposes its active controls to the existing Home command target. |
 | `DikcizPermissionRequests.kt` | Validates permission-recovery options, persists targeted owner reviews and posts permission notifications without replaying commands. |
 | `DikcizControlPorts.kt`, `DikcizRemoteAccessAuth.kt` | Own listener settings, owner-password verification and atomic named-token storage. |
-| `DikcizRemotePolicy.kt`, `DikcizRemoteTokensSettings.kt` | Define token grants, filtered discovery/results and native token management. |
+| `DikcizRemotePolicy.kt`, `DikcizRemoteCapabilities.kt`, `DikcizCommandChoices.kt`, `DikcizRemoteTokensSettings.kt` | Define compatible feature grants, schema-derived operation/selector grants, shared discovery/enforcement and searchable native token management. See the [complete permission reference](../../../docs/token-permissions.md). |
 | `DikcizAutomation.kt`, `DikcizAutomationActionDocument.kt` | Define policies, events, subscriptions and typed action documents. |
 | `DikcizAutomationService.kt`, `DikcizAutomationRuntime.kt`, `DikcizLuaRuntime.kt`, `DikcizJavaScriptRuntime.kt` | Collect Android events, dispatch subscriptions, enforce policies and execute Lua or headless JavaScript. |
 | `DikcizScriptWidgetBridge.kt`, `DikcizLuaScriptRunStatus.kt` | Resolve page/widget addresses and represent persisted script outcomes. |
@@ -113,3 +113,7 @@ DikcizAutomationRules compiles and simulates generated Lua; DikcizAutomationRule
 DikcizCameraPreview reuses a Camera2 capture session. DikcizImageStreams and DikcizImageCaptureService own bounded JPEG replay and foreground owner Stop. DikcizSpeechStreams replays recognition partial/final callbacks; DikcizFileTranscription uploads an explicit saved recording with the chosen provider credential. See [live images and speech](../../../docs/visual-streams.md).
 
 DikcizJavaScriptRuntime supplies the headless JavaScript interpreter alongside DikcizLuaRuntime. The automation dispatcher selects by script language, then shares result validation, policy checks, owner commands, state and logging. DikcizScriptExecutionLimits holds their common budgets. Rhino is interpreter-only with safe globals and blocked Java class access. See [background JavaScript](../../../docs/background-javascript.md).
+
+## Public programming contracts
+
+The [developer manual](../../../docs/developer-manual.md) connects the complete [JavaScript](../../../docs/javascript-api.md), [Lua](../../../docs/lua-api.md) and generated [command](../../../docs/command-reference.md) references. Command and permission documentation comes from installed tool discovery. Schema construction is metadata-free before capability initialization; do not eagerly enumerate token grants while building native definitions. Deferred jobs retain verified access outside request JSON and recheck the original credential at execution.

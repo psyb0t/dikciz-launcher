@@ -1,3 +1,11 @@
+---
+title: "Starter home"
+description: "Explore every bundled home page, complete HTML widget template and optional Lua script, including data sources, triggers and setup requirements."
+permalink: /starter-home/
+nav_order: 3
+parent: "Tutorial"
+---
+
 # Starter home
 
 Fresh installations and **Reset Dikciz home** use four pages: Home, Tools, Device and Goblin. Customized homes survive APK updates; a still-pristine starter may refresh to the bundled layout. Reset replaces pages, restores matching bundled utility scripts and the 8-column, 6-row grid, and preserves unrelated saved scripts and policies.
@@ -18,7 +26,7 @@ The final row contains native Phone, Camera and Android Settings shortcuts, then
 
 **Flash attack** requests eight brief torch pulses. Tap again to stop. Each on request has a native 250-millisecond off timer independent of JavaScript; leaving the page also requests off. Camera access is requested only after a tap. Missing flash hardware produces an explicit error. **Dikciz time** speaks its demonstration line through Android text-to-speech at the current speaker volume. Neither action starts automatically. Speech is not a cellular call.
 
-<img src="images/user-guide/01-first-launch.png" alt="Clock, weather, Android app icons and native dock on Home" width="280">
+<img src="{{ "/images/user-guide/01-first-launch.png" | relative_url }}" alt="Clock, weather, Android app icons and native dock on Home" width="280">
 
 ## Tools
 
@@ -28,7 +36,7 @@ The final row contains native Phone, Camera and Android Settings shortcuts, then
 
 Completed audio moves into this widget's directory with generated filenames. The five most recent recordings have playback buttons; earlier files and metadata remain. **Stop playback** releases playback. A failed move or metadata save leaves **Retry saving** available. Saved notes survive reopening; removing the widget deletes them. Copy recordings elsewhere before removing the widget to keep them. Active recorder sessions do not survive process death.
 
-<img src="images/user-guide/03-insights-page.png" alt="Agenda and voice notes on Tools" width="280">
+<img src="{{ "/images/user-guide/03-insights-page.png" | relative_url }}" alt="Agenda and voice notes on Tools" width="280">
 
 ## Device
 
@@ -36,7 +44,7 @@ Completed audio moves into this widget's directory with generated filenames. The
 
 The chart measures this Dikciz process as a percentage of available processor capacity. It excludes other apps and separate WebView renderer processes. Android can protect whole-phone CPU counters and clock files; a runtime permission cannot unlock them. Protected values stay unknown. Where exposed, core tiles show measured utilization or a clock frequency labeled in MHz or GHz. Clock speed is not a guessed utilization percentage.
 
-<img src="images/user-guide/04-device-page.png" alt="Live battery, memory and CPU dashboard on Device" width="280">
+<img src="{{ "/images/user-guide/04-device-page.png" | relative_url }}" alt="Live battery, memory and CPU dashboard on Device" width="280">
 
 ## Goblin
 
@@ -46,7 +54,7 @@ The chart measures this Dikciz process as a percentage of available processor ca
 
 London and speed run from native location events when their scripts and precise Android location access are enabled, including while the widget is hidden. Their units and accuracy come from [Android Location](https://developer.android.com/reference/android/location/Location). They do not bypass Android background-location or service restrictions. The London rule is a radius around 51.5074, -0.1278, not an administrative city boundary. Edit the Lua constants and phrases to customize triggers. Stored latches and timestamps suppress repeats across restarts. Speech failures remain visible in script status and are not marked spoken.
 
-<img src="images/user-guide/05-goblin-page.png" alt="Goblin control with live outdoor temperature and manual speech, sound and torch controls" width="280">
+<img src="{{ "/images/user-guide/05-goblin-page.png" | relative_url }}" alt="Goblin control with live outdoor temperature and manual speech, sound and torch controls" width="280">
 
 ## Optional complete templates
 

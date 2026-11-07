@@ -1,3 +1,11 @@
+---
+title: "Remote control"
+description: "Connect HTTP, WebSocket and MCP clients, set listener addresses, authenticate, inspect UI, dispatch events and recover missing permissions."
+permalink: /automation-control/
+nav_order: 4
+has_children: true
+---
+
 # Dikciz automation control
 
 Dikciz exposes WebSocket, Streamable HTTP MCP and plain HTTP commands through two listeners. They call the same launcher command target.
@@ -20,7 +28,7 @@ Both listeners default to device loopback. Set their listen address and ports th
 
 The [GPS todo example](todo-app-tutorial.md) demonstrates the same customAppEvent/state calls and native geofence events through a complete editable app.
 
-[Custom apps](custom-apps.md) expose list/read/install/control/event/state/schedule/alert/runtime through this same executor. Their full UI/backend bundles and app-local state are public files. Full owner authority is required; read-only agents see only list/read/runtime and cannot invoke or mutate an app. `snapshot.screen: "customApp"` includes the app ID, native manager controls and editor fields. Generic urgent modals use `customAppAlert` and `app:<id>:warning:*` semantic nodes; SOS retains its existing IDs below.
+[Custom apps](custom-apps.md) expose list/read/install/control/event/state/schedule/alert/runtime through this same executor. Their full UI/backend bundles and app-local state are public files. Full owner authority or the corresponding explicit operation grants are required; read-only agents see only list/read/runtime and cannot invoke or mutate an app. `snapshot.screen: "customApp"` includes the app ID, native manager controls and editor fields. Generic urgent modals use `customAppAlert` and `app:<id>:warning:*` semantic nodes; SOS retains its existing IDs below.
 
 [Safety, journeys and devices](companion.md) adds typed commands through the same executor and all ordinary bindings, including HTML and Lua. Read the installed schemas and targeted permission recovery before performing effects.
 
@@ -93,7 +101,7 @@ The endpoints do not provide TLS themselves. An encrypted VPN protects traffic o
 
 From the controlling computer, `nc -vz phone.example 19001` and `nc -vz phone.example 19002` test TCP reachability when netcat is installed. If debugging through an authorized ADB connection, `adb -s "$SERIAL" shell 'nc -n -z -w 3 127.0.0.1 19001'` checks the listener internally. Repeat for port `19002`, and use the phone's interface IP to distinguish a loopback-only binding. Internal success does not prove another device can connect.
 
-If direct access is unwanted, keep `127.0.0.1` and use [ADB forwarding](../.agents/skills/dikciz-launcher/references/setup.md#forward-the-control-ports). Deleting `control/ports.json` or choosing **Reset to defaults** restores loopback and the default device ports.
+If direct access is unwanted, keep `127.0.0.1` and use [ADB forwarding](https://github.com/psyb0t/dikciz-launcher/blob/main/.agents/skills/dikciz-launcher/references/setup.md#forward-the-control-ports). Deleting `control/ports.json` or choosing **Reset to defaults** restores loopback and the default device ports.
 
 ## Files, APKs and CLI results
 
@@ -306,7 +314,7 @@ A snapshot also reports the page grid. `grid` carries `columns`, `rows`, `gapDp`
 
 `homeGet` returns pages keyed by page ID, one-based page address such as `1H2V`, and the `home` alias. Each page contains widgets by simple ID and full address. That is also the map exposed to HTML widgets.
 
-The current page snapshot includes `scroll.y`, `scroll.extent`, and `scroll.range`. They report the actual native page scroll position and bounds, not a simulated value. `scrollBy` accepts integral `deltaY`. `scrollTo` accepts a current semantic ID.
+The current page snapshot includes `scroll.y`, `scroll.extent`, and `scroll.range`. They report the actual native page scroll position and bounds, not a simulated value. `scrollBy` accepts integral `deltaY`. `scrollTo` accepts a current semantic ID. For a control inside a native dialog or nested ScrollView, it scrolls that containing view and returns its actual `y`, `range` and `extent`. Semantic `tap` focuses editable fields and requests the keyboard. These procedures are shared by HTTP, WebSocket and MCP.
 
 A native page is one fixed viewport and does not grow, so on a normal home `scroll.range` equals `scroll.extent` and both commands are no-ops. Scrolling belongs to an HTML widget's own document or to an Android provider that owns its scrolling, never to native placement.
 
@@ -420,7 +428,7 @@ make dikciz-automation-smoke ANDROID_LAB_FORWARD_HOST_PORT=19001 ANDROID_LAB_MCP
 
 The mutation checks restore the original configuration. Use a focused `make dikciz-test-*` target for a particular UI or Android behavior.
 
-The [client and script map](../scripts/README.md), [live-test map](../tests/README.md), and [Dikciz source map](../app/src/dikciz/README.md) describe the implementations behind these commands.
+The [client and script map](https://github.com/psyb0t/dikciz-launcher/blob/main/scripts/README.md), [live-test map](https://github.com/psyb0t/dikciz-launcher/blob/main/tests/README.md), and [Dikciz source map](https://github.com/psyb0t/dikciz-launcher/blob/main/app/src/dikciz/README.md) describe the implementations behind these commands.
 
 ## MCP documentation resources
 

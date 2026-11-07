@@ -389,7 +389,7 @@ internal class DikcizAutomationControlPlane(
             .toString()
     }
 
-    internal fun executeLocalCommand(request: JSONObject, authorization: String? = null, readOnly: Boolean = false, remote: Boolean = false): String {
+    internal fun executeLocalCommand(request: JSONObject, authorization: String? = null, readOnly: Boolean = false, remote: Boolean = false, verifiedAccess: DikcizRemoteAccess? = null): String {
         val requestID = request.opt(KEY_REQUEST_ID) as? String
         if (requestID == null || !isValidRequestID(requestID)) {
             return errorResponse(null, ERROR_VALIDATION_FAILED, MESSAGE_INVALID_REQUEST_ID)
@@ -400,7 +400,7 @@ internal class DikcizAutomationControlPlane(
         )
         logger.debug(EVENT_COMMAND_RECEIVED, fields)
         return try {
-            val response = handleCommand(request, requestID, authorization, readOnly, remote)
+            val response = handleCommand(request, requestID, authorization, readOnly, remote, verifiedAccess)
             publishCommandCompletion(requestID, request, OUTCOME_SUCCEEDED)
             logger.info(EVENT_COMMAND_COMPLETED, fields)
             response
@@ -421,10 +421,11 @@ internal class DikcizAutomationControlPlane(
         authorization: String? = null,
         readOnly: Boolean = false,
         remote: Boolean = false,
+        verifiedAccess: DikcizRemoteAccess? = null,
     ): String {
-        val access = if (remote) remoteAccessAuth.resolve(authorization) else null
+        val access = verifiedAccess ?: if (remote) remoteAccessAuth.resolve(authorization) else null
         return DikcizOperations.trace(rawRequest, access, remote) {
-            handleVerifiedCommand(rawRequest, requestID, authorization, readOnly, remote)
+            handleVerifiedCommand(rawRequest, requestID, authorization, readOnly, remote, verifiedAccess)
         }
     }
 
@@ -434,10 +435,11 @@ internal class DikcizAutomationControlPlane(
         authorization: String? = null,
         readOnly: Boolean = false,
         remote: Boolean = false,
+        verifiedAccess: DikcizRemoteAccess? = null,
     ): String {
         val request = DikcizPermissionRequests.operation(rawRequest)
         val commandType = request.requireString(KEY_TYPE)
-        val access = if (!remote) null else (remoteAccessAuth.resolve(authorization)
+        val access = verifiedAccess ?: if (!remote) null else (remoteAccessAuth.resolve(authorization)
             ?: throw DikcizAutomationRequestException(ERROR_REMOTE_AUTH_REQUIRED, MESSAGE_REMOTE_AUTH_REQUIRED))
         access?.requireCommand(commandType, request)
         if (readOnly) DikcizMcpControlPlane.requireReadOnlyCommand(commandType, rawRequest)
@@ -457,7 +459,8 @@ internal class DikcizAutomationControlPlane(
         access?.let(DikcizOperations::consume)
         val result = if (commandType in REMOTE_AUTH_COMMAND_TYPES) {
             try {
-                remoteAccessAuth.executeRemoteCommand(commandType, authorization, request)
+                if (commandType == DikcizRemotePolicy.TYPE_INFO && verifiedAccess != null) verifiedAccess.toJson()
+                else remoteAccessAuth.executeRemoteCommand(commandType, authorization, request)
             } catch (exception: DikcizRemoteAccessAuthException) {
                 throw DikcizAutomationRequestException(exception.code, exception.message.orEmpty())
             }

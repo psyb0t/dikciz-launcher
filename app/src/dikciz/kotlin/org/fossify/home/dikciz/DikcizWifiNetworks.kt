@@ -234,10 +234,10 @@ internal object DikcizWifiNetworks {
             network+lifetime,setOf("ssid"),false),
         DikcizNativeCommands.Definition(STATUS,"dikciz_wifi_connection_status","Read actual callback state for a network request or Android save approval; does not connect.",identity,setOf("id")),
         DikcizNativeCommands.Definition(STOP,"dikciz_wifi_connection_stop","Release the exact local network request; does not remove saved Wi-Fi networks.",identity,setOf("id"),false),
-        DikcizNativeCommands.Definition(LIST,"dikciz_wifi_connections_list","List retained local network/hotspot requests with pagination. Hotspot credentials are owner-only.",
+        DikcizNativeCommands.Definition(LIST,"dikciz_wifi_connections_list","List retained local network/hotspot requests with pagination. Hotspot credentials require full owner access or this explicit command grant.",
             mapOf("offset" to integer(0,1000000,0),"limit" to integer(1,200,50))),
         DikcizNativeCommands.Definition(HOTSPOT_START,"dikciz_wifi_hotspot_start","Start a bounded Android local-only hotspot while foreground. Android selects SSID/passphrase and can reject the request. Poll wifiHotspotStatus. This does not enable cellular internet tethering, which ordinary apps cannot silently control.",lifetime,readOnly=false),
-        DikcizNativeCommands.Definition(HOTSPOT_STATUS,"dikciz_wifi_hotspot_status","Read retained local-only hotspot state and owner credentials. Starting requires wifiHotspotStart.",emptyMap()),
+        DikcizNativeCommands.Definition(HOTSPOT_STATUS,"dikciz_wifi_hotspot_status","Read retained local-only hotspot state and credentials with full owner access or this explicit command grant. Starting requires wifiHotspotStart.",emptyMap()),
         DikcizNativeCommands.Definition(HOTSPOT_STOP,"dikciz_wifi_hotspot_stop","Close an exact local-only hotspot reservation.",identity,setOf("id"),false),
     )
     val TYPES=DEFINITIONS.map { it.type }.toSet()

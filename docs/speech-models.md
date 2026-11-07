@@ -1,3 +1,11 @@
+---
+title: "Recognition languages and models"
+description: "Inspect Android speech recognition languages and on-device model support, request model downloads and track provider-specific availability."
+permalink: /speech-models/
+nav_order: 7
+parent: "Phone APIs"
+---
+
 # Recognition languages and models
 
 These operations inspect or prepare the installed Android recognition provider. They do not capture microphone audio. HTTP, WebSocket, MCP, HTML and Lua use the same command target. Language support depends on the selected provider and recognition request.

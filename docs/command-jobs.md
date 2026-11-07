@@ -1,6 +1,20 @@
+---
+title: "Durable command jobs"
+description: "Submit durable commands, poll results, cancel queued work and apply idempotency, caller ownership and permission checks across restarts."
+permalink: /command-jobs/
+nav_order: 9
+parent: "Remote control"
+---
+
 # Durable command jobs
 
 `jobStart`, `jobStatus`, `jobsList` and `jobCancel` share the ordinary command dispatcher across HTTP, WebSocket, MCP, HTML and Lua. Use them when a request should continue after its transport disconnects. Shell streaming remains a connection-owned stream and is not a job.
+
+## Remote authorization
+
+An explicit jobStart scope is not permission for its nested command. The host checks nested grants and SMS address rules before queuing, then carries the verified caller identity and read-only restriction into the shared executor. Credential changes/revocation stop subsequent authorization checks. A scoped caller can list, read and cancel only its own jobs; owner bindings can inspect all jobs. Idempotency keys are scoped to caller identity. The outer submission and the nested execution each count as accepted ordinary commands for rate limits. Interrupted work is not replayed.
+
+Older records without a caller tag belong to the local owner. Scoped tokens cannot read them. Named credentials now have separate idempotency namespaces, so inspect older submissions with owner access before retrying them after an upgrade.
 
 ## Submit and retrieve
 

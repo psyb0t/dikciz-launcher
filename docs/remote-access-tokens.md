@@ -1,3 +1,11 @@
+---
+title: "Remote access tokens"
+description: "Create named remote credentials with additive grants, expiry, request limits and SMS restrictions, then rotate or revoke them on the phone."
+permalink: /remote-access-tokens/
+nav_order: 1
+parent: "Remote control"
+---
+
 # Remote access tokens
 
 Create separate bearer credentials for clients that need different phone access. HTTP, WebSocket and MCP enforce the same grants in the shared executor, including direct calls to hidden tools. Android permissions remain a separate requirement.
@@ -12,13 +20,13 @@ The [illustrated token workflow](screens.md#remote-access-tokens) shows creation
 4. Send `Authorization: Bearer <token>` on every HTTP/MCP request and the WebSocket upgrade. The controller reads `DIKCIZ_REMOTE_BEARER_TOKEN` from its environment. Never put credentials in URLs, prompts or command arguments.
 5. Read `remoteAccessInfo` or `dikciz_remote_access_info`, then discover the permitted tools.
 
-The existing owner password still grants full access. **Full owner access** tokens have the same authority, including creating or revoking other tokens. Keep them private. A scoped token cannot administer tokens or change authentication.
+The existing owner password still grants full access. **Full owner access** tokens have the same authority, including creating or revoking other tokens. Keep them private. A scoped token can administer credentials only when explicitly given the corresponding command/action grant. Treat credential creation/update/rotation as owner-equivalent delegation.
 
 Use **Manage** on a token to reveal edit, rotation, enable/disable and revoke actions. The list keeps token identity, grants and expiry visible.
 
 ## Choose grants
 
-Grants are additive. Select **Full owner access** alone, or combine specific grants. The native picker and `remoteTokens` action `catalog` provide the current list and descriptions.
+Grants are additive. Select **Full owner access** alone, or combine specific grants. The native picker and `remoteTokens` action `catalog` provide the current list and descriptions. The [complete permission reference](token-permissions.md) lists every ID and command/action/resource combination. Search by ID, title or description; checked choices survive filtering. Common grants appear first; Show command permissions reveals explicit operation scopes.
 
 | Need | Grants |
 | --- | --- |
@@ -34,11 +42,11 @@ Grants are additive. Select **Full owner access** alone, or combine specific gra
 
 Other grants cover contact/calendar reads and edits, call history/control, app metadata, device readings/settings, location, notification reads/actions, media metadata, file reads, script logs, all automation events, custom search indexes, speech output, Bluetooth scans, Wi-Fi scans, USB inventory and NFC reads. Check the catalog for exact IDs.
 
-Provider access is checked by resource and action. An SMS reader can query only `sms`, even though `contentQuery` serves several providers. Write grants do not imply provider read grants. `sms.send` includes send-status and SIM selection; it hides own phone numbers unless `sim.read` is also granted.
+Provider access is checked by resource and action. An SMS reader can query only `sms`, even though `contentQuery` serves several providers. Write grants do not imply provider read grants. Calendar writes cover events and reminders; calendar metadata and expanded occurrences are read-only resources. `sms.send` includes send-status and SIM selection; it hides own phone numbers unless `sim.read` is also granted.
 
 Some grants confer broad authority. `ui.control` can send messages or change settings through another app's UI. It blocks component actions inside Dikciz itself. `notifications.control` can send inline replies. `files.read` can read every Android-accessible file outside protected credentials. `events.read` receives the shared event feed, including other operations' payloads. Combine grants only for trusted clients.
 
-Shell, arbitrary SDK calls, Lua/HTML installation, intents, configuration changes, durable jobs and background capture/session APIs require full owner access. These operations could execute arbitrary code or retain authority beyond a narrow grant. A token grant does not bypass Android restrictions or turn a normal shell into ADB/root.
+Every exposed command also has an explicit `command.<type>` grant. Finite schema selectors add narrower IDs such as `command.fileManage.action.stat`, `command.contentQuery.resource.sms` and `command.systemSetting.action.get.setting.brightness`. Select exact IDs from the catalog rather than constructing them from memory. Grants combine additively; broad grants are not narrowed by narrower ones. Shell, SDK, code installation/invocation, intents, configuration and credential-management scopes can confer broad owner-equivalent authority. They are operation permissions, not execution sandboxes. Android still governs access and root. Jobs additionally enforce the nested command grants and caller ownership.
 
 ## Administration API
 
@@ -88,3 +96,9 @@ The protected `/sdcard/Dikciz/control/remote-auth.json` record retains the owner
 Existing password-only records remain compatible. Token records use an extended version, saved atomically under a shared record lock. Invalid records fail closed. Tokens survive activity recreation and app updates.
 
 The built-in chat, HTML bridge and enabled Lua scripts keep their direct in-process owner bindings. They do not store a bearer token or make a loopback MCP connection. Chat's read-only mode still hides write tools and independently blocks writes in the executor. Remote token grants do not weaken that check.
+
+## Search the complete grant catalog
+
+Search matches permission IDs, names and definitions. Checked choices remain selected when the query changes. Use Show command permissions to browse operation scopes, or search an exact command directly. The [permission reference](token-permissions.md) defines every available choice.
+
+![Searchable token permission picker](images/screens/token-permission-search.png)

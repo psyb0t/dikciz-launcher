@@ -1,3 +1,11 @@
+---
+title: "Capability coverage"
+description: "Check which Android and Dikciz capabilities are implemented, partial or platform restricted, with the corresponding guides and boundaries."
+permalink: /capability-coverage/
+nav_order: 9
+parent: "Developer manual"
+---
+
 # Capability coverage
 
 This table describes dedicated Dikciz operations. Generic intents, shell and Accessibility can cover additional tasks, but do not turn them into a typed API. The installed build's discovery is authoritative. New commands in this working version are not present in older APKs.
@@ -9,6 +17,7 @@ This table describes dedicated Dikciz operations. Generic intents, shell and Acc
 | On-device assistant | OpenAI/Anthropic-compatible streaming providers, native Markdown chat, SQLite conversations, encrypted keys, context trimming/summarization, shared MCP tools/event rules and five enforced read-only routines | Additional provider wire protocols and exact per-model tokenizers. |
 | Offline search | Persistent SQLite collections, weighted ranking, prefixes, reviewed aliases, typo correction, full-text reads, live schemas and trusted read-only filtering across every ordinary binding | Semantic embeddings, automatic translation and automatic private-data crawling are not implemented. |
 | Recovery and operations | Persistent metadata timeline, scoped resource measurements and pause controls, visual Lua rule testing, encrypted home/chat backup with preview and rollback recovery | Per-widget battery attribution is unavailable from ordinary Android APIs. |
+| Token grants | Compatible named grants plus explicit grants for every command and finite selector combinations; shared discovery/execution enforcement and caller-scoped jobs | Operation grants are device-wide unless an API explicitly binds a resource to a caller. Executable code, shell, SDK and credential administration can delegate broad authority. |
 | Shared control | Ordinary HTTP, WebSocket, MCP, HTML and Lua commands; validation, Android permission review and incremental shell sessions and replayable event reads | Additional native stream formats and general push delivery for scripts. |
 | Speech input | Provider discovery, strict on-device/system modes, language, bounded recognition, alternatives/confidence, partial-result cursor streams, explicit recorded-file provider transcription, cancellation, provider language inventory and observed model-download requests | Provider-dependent partial support and additional transcription wire protocols. |
 | Speech output | Device text-to-speech, voice inventory, voice/language/rate/pitch selection, completion/errors, saved WAV synthesis and explicit stop | Engine-specific advanced synthesis features. |

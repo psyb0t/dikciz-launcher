@@ -1,3 +1,11 @@
+---
+title: "NFC tags"
+description: "Read and write presented NFC tags, inspect technologies and perform supported tag transactions with foreground and hardware requirements."
+permalink: /nfc-control/
+nav_order: 10
+parent: "Phone APIs"
+---
+
 # NFC tags
 
 NFC commands share schemas, permissions and the native executor across HTTP, WebSocket, MCP, HTML and Lua. Open and unlock Dikciz, enable NFC in Android settings, then present a tag. An absent adapter, disabled radio, foreground restriction or deadline is an explicit failure. Each request owns reader mode and closes its tag connection afterward.

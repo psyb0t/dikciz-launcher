@@ -1,3 +1,11 @@
+---
+title: "USSD requests"
+description: "Submit an owner-requested USSD code through a selected SIM and inspect Android carrier responses, permissions and platform limitations."
+permalink: /ussd-control/
+nav_order: 15
+parent: "Phone APIs"
+---
+
 # USSD requests
 
 `ussdRequest` / `dikciz_ussd_request` sends one complete USSD code through Android's native telephony API and observes the network callback. It uses the same validation, permission recovery and result through HTTP, WebSocket, MCP, HTML and Lua.

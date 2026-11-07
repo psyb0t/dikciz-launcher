@@ -1,3 +1,11 @@
+---
+title: "APK installation sets"
+description: "Inspect APK sets, create Android installer sessions and track split-package installation with owner confirmation and final status."
+permalink: /package-installation/
+nav_order: 12
+parent: "Remote control"
+---
+
 # APK installation sets
 
 `apkInstallSet` stages one base APK followed by its split APKs into one Android PackageInstaller session. Supply `apks: [{path: "...", sha256: "..."}]`; SHA-256 is optional, exact and verified while staging. The first file must be the base. There are at most 32 unique APKs, 512 MiB each and 1 GiB total. Paths obey the ordinary protected-file rules.

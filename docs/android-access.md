@@ -1,3 +1,11 @@
+---
+title: "Android access and execution boundaries"
+description: "Understand Android runtime permissions, special access, foreground requirements, roles and system privilege before using Dikciz phone commands."
+permalink: /android-access/
+nav_order: 7
+parent: "Tutorial"
+---
+
 # Android access and execution boundaries
 
 Dikciz acts with the Android identity and grants of its installed package. HTTP, WebSocket, MCP, HTML and enabled Lua ordinary commands share validation, Android access checks and outcomes. Root, network reachability, bearer authentication, Android permissions, special access, foreground state and hardware availability are separate checks.

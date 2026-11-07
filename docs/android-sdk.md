@@ -1,3 +1,11 @@
+---
+title: "Public Android SDK bridge"
+description: "Discover public Android SDK classes and exact overloads, exchange typed values and handles, receive callbacks and enforce read-only execution."
+permalink: /android-sdk/
+nav_order: 8
+parent: "Developer manual"
+---
+
 # Public Android SDK bridge
 
 The shared Android SDK bridge supplements the dedicated [native commands](native-device-control.md). `androidApiDiscover` indexes the pinned API 36 public SDK, including exact overloads, positional types, nullability, permission annotations and inheritance. A catalogue entry does not grant permissions or prove that a method exists on the running Android version. Inspect `bridgePermitted` and `runtimeAvailable` before execution. Hidden and private APIs are outside this contract.
@@ -26,7 +34,7 @@ Primitive values, explicit nulls, enum names and arrays are accepted according t
 
 The conversation access flag is executor metadata, not an argument supplied by the model. Every call rechecks saved access, so enabling read-only access during a running turn blocks subsequent writes immediately. A settings patch containing only readOnly:true is accepted during an active turn; other settings changes require stopping it first. Read-only agents see only approved read tools. SDK discovery also removes mutating and unaudited members. `androidApiRead` independently requires its exact member to be approved, even for a writable caller. A write sent through that command returns `read_only_violation` before resolving its target, arguments or permissions. Setters, writable invocations, callback creation and handle release are hidden and blocked in read-only conversations. `autoRequestPermissions: true` is also rejected in read-only mode.
 
-New members default to write access. The explicit policy is [read-policy.json](../app/src/dikciz/sdk/read-policy.json). Names beginning with `get`, `is` or `read` do not imply safety. Approved constructors create data-only output holders, such as ActivityManager.MemoryInfo. Reading an SDK output holder can update that in-memory holder without changing phone configuration.
+New members default to write access. The explicit policy is [read-policy.json](https://github.com/psyb0t/dikciz-launcher/blob/main/app/src/dikciz/sdk/read-policy.json). Names beginning with `get`, `is` or `read` do not imply safety. Approved constructors create data-only output holders, such as ActivityManager.MemoryInfo. Reading an SDK output holder can update that in-memory holder without changing phone configuration.
 
 ## Invocation and outcomes
 
@@ -50,6 +58,6 @@ The generic bridge excludes reflection, dynamic class loading, raw filesystem/da
 
 ## Source and dependency verification
 
-[source.json](../app/src/dikciz/sdk/source.json) pins the official AOSP public signatures by commit and SHA-256. `make dikciz-android-sdk` regenerates deterministic indexed assets; `ANDROID_SDK_SOURCE=relative/path/android.txt` uses a supplied source file while enforcing the same checksum. `make dikciz-android-sdk-test` checks parsing, exact types, policy entries, checksums, offsets and repeatability. Do not edit generated assets by hand.
+[source.json](https://github.com/psyb0t/dikciz-launcher/blob/main/app/src/dikciz/sdk/source.json) pins the official AOSP public signatures by commit and SHA-256. `make dikciz-android-sdk` regenerates deterministic indexed assets; `ANDROID_SDK_SOURCE=relative/path/android.txt` uses a supplied source file while enforcing the same checksum. `make dikciz-android-sdk-test` checks parsing, exact types, policy entries, checksums, offsets and repeatability. Do not edit generated assets by hand.
 
-Callback subclasses use LinkedIn DexMaker 2.28.6 and its repackaged Dalvik DX 9.0.0_r3 dependency, both Apache-2.0. [Pinned dependency metadata](../gradle/dikciz-sdk-dependencies.json) records the downloaded artifacts and hashes. Dikciz debug, release and minified builds verify the JAR checksums before compiling. SDK signatures come from the [AOSP SDK repository](https://android.googlesource.com/platform/prebuilts/sdk/).
+Callback subclasses use LinkedIn DexMaker 2.28.6 and its repackaged Dalvik DX 9.0.0_r3 dependency, both Apache-2.0. [Pinned dependency metadata](https://github.com/psyb0t/dikciz-launcher/blob/main/gradle/dikciz-sdk-dependencies.json) records the downloaded artifacts and hashes. Dikciz debug, release and minified builds verify the JAR checksums before compiling. SDK signatures come from the [AOSP SDK repository](https://android.googlesource.com/platform/prebuilts/sdk/).

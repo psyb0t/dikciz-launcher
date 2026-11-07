@@ -1,0 +1,53 @@
+title: Dikciz
+tagline: Programmable Android home and app runtime
+description: Editable Android homes, HTML/CSS/JavaScript apps, Lua and JavaScript automation, AI chat, and phone control over MCP, HTTP and WebSocket.
+lang: en
+url: https://psyb0t.github.io
+baseurl: /dikciz-launcher
+repository: psyb0t/dikciz-launcher
+author: Ciprian Mandache
+remote_theme: just-the-docs/just-the-docs@v0.12.0
+color_scheme: mocha
+plugins:
+  - jekyll-remote-theme
+  - jekyll-seo-tag
+  - jekyll-sitemap
+  - jekyll-relative-links
+  - jekyll-include-cache
+permalink: pretty
+relative_links:
+  enabled: true
+  collections: false
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+      seo:
+        type: TechArticle
+search:
+  heading_level: 3
+  previews: 3
+  focus_shortcut_key: k
+aux_links:
+  GitHub:
+    - https://github.com/psyb0t/dikciz-launcher
+  Download APK:
+    - https://github.com/psyb0t/dikciz-launcher/releases/latest
+aux_links_new_tab: true
+gh_edit_link: true
+gh_edit_link_text: Edit this page on GitHub
+gh_edit_repository: https://github.com/psyb0t/dikciz-launcher
+gh_edit_branch: main
+gh_edit_source: docs
+gh_edit_view_mode: tree
+back_to_top: true
+back_to_top_text: Back to top
+exclude:
+  - README.md
+
+mermaid:
+  version: "11.12.0"
+
+kramdown:
+  smart_quotes: [apos, apos, quot, quot]

@@ -1,9 +1,36 @@
-# Documentation
+---
+title: "Documentation"
+description: "Build an editable Android home, write JavaScript and Lua apps, connect an AI, and control phone data through the Dikciz guides and API manuals."
+nav_order: 1
+permalink: /
+seo:
+  type: WebSite
+---
 
-Start with the [README](../README.md) for installation, or choose the task below. The command reference records accepted inputs; the guides explain Android access, effects and recovery. Discover the installed build before using commands added after its release.
+# Dikciz documentation
+
+Your phone is programmable. Start with an editable Android home, build complete HTML/CSS/JavaScript apps, run Lua or JavaScript in the background, and connect your own AI to the same phone tools.
+
+<div class="docs-routes">
+<div><h2>Use your phone</h2><p>Install the APK, choose your home, grant Android access and set up chat.</p><p><a href="{{ '/tutorial/' | relative_url }}">Follow the illustrated tutorial</a></p></div>
+<div><h2>Build something</h2><p>Write widgets, background scripts and complete apps with their own saved state.</p><p><a href="{{ '/todo-app-tutorial/' | relative_url }}">Build the GPS todo app</a></p></div>
+<div><h2>Connect an agent</h2><p>Reach your phone over a private network and give each client the access it needs.</p><p><a href="{{ '/automation-control/' | relative_url }}">Connect HTTP, WebSocket or MCP</a></p></div>
+</div>
+
+<div class="docs-gallery">
+<a href="{{ '/user-guide/' | relative_url }}"><img src="{{ '/images/user-guide/01-first-launch.png' | relative_url }}" alt="Dikciz starter home with weather, app icons and native dock" loading="lazy" width="190"></a>
+<a href="{{ '/custom-apps/' | relative_url }}"><img src="{{ '/images/custom-apps/todo-watching.png' | relative_url }}" alt="Travel todo custom app with a GPS arrival task" loading="lazy" width="190"></a>
+</div>
+
+## Find a guide
+
+Use the [tutorial](tutorial.md) for installation and first steps, or choose a task below. Download the signed APK from [GitHub Releases](https://github.com/psyb0t/dikciz-launcher/releases/latest). The command reference records accepted inputs; the guides explain Android access, effects and recovery. Discover the installed build before using commands added after its release.
 
 | Task | Guide |
 | --- | --- |
+| Follow short procedures using exact shared commands | [Recipes](recipes.md) |
+| Build apps, scripts and controllers from documented APIs | [Developer manual](developer-manual.md), [JavaScript](javascript-api.md), [Lua](lua-api.md) |
+| Look up every token grant and exact operation/action/resource scope | [Token permission reference](token-permissions.md) |
 | Follow the illustrated setup, chat, scripting and Android-control walkthrough | [Dikciz tutorial](tutorial.md) |
 | Find a screen, dialog, menu or recovery step | [Screens and guided workflows](screens.md) |
 | Discover and invoke public SDK overloads, handles and callbacks | [Android SDK bridge](android-sdk.md) |
@@ -49,7 +76,8 @@ Start with the [README](../README.md) for installation, or choose the task below
 | Look up every discovered MCP input schema | [Command reference](command-reference.md) |
 | Check implemented, partial, planned and platform-restricted capabilities | [Coverage](capability-coverage.md) |
 | Inspect release changes and migration notes | [Changelog](changelog.md) |
-| Build, test and understand product architecture | [Source](../app/src/dikciz/README.md), [scripts](../scripts/README.md), [tests](../tests/README.md), [contributing](../CONTRIBUTING.md) |
+| Build and maintain source or the documentation website | [Source development](source-development.md), [documentation site](documentation-site.md) |
+| Build, test and understand product architecture | [Source](https://github.com/psyb0t/dikciz-launcher/blob/main/app/src/dikciz/README.md), [scripts](https://github.com/psyb0t/dikciz-launcher/blob/main/scripts/README.md), [tests](https://github.com/psyb0t/dikciz-launcher/blob/main/tests/README.md), [contributing](https://github.com/psyb0t/dikciz-launcher/blob/main/CONTRIBUTING.md) |
 
 ## Outcome rules
 

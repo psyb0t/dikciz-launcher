@@ -1,3 +1,11 @@
+---
+title: "Offline search"
+description: "Search documentation, recipes and live tool schemas offline with SQLite ranking, keyword aliases and typo correction, or index owner collections."
+permalink: /search/
+nav_order: 7
+parent: "Remote control"
+---
+
 # Offline search
 
 Dikciz has one persistent SQLite search service shared by HTTP, WebSocket, MCP, HTML, Lua and embedded chat. It runs on the phone without embeddings, a network connection, API keys or model downloads.
@@ -72,6 +80,6 @@ Trusted turn access filters writable tool documents before searching or reading 
 
 The generic `search/LocalSearchIndex.kt` owns SQLite persistence, collection isolation, FTS retrieval, ranking and corrections. `DikcizSearch.kt` adapts it to the shared commands, protected datasets and trusted access. The engine has no documentation, MCP, chat or provider dependency.
 
-Aliases are reviewed text in `app/src/dikciz/assets/search/aliases.json`. `make dikciz-search-docs` deterministically generates the bundled corpus from the current Markdown. Run it after changing documentation or aliases. `make dikciz-search-docs-check` rejects stale assets; normal lint and tooling CI include that check. `make dikciz-search-docs-test` checks generation. Live Android verification uses `make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_local_search`.
+Aliases are reviewed text in [`app/src/dikciz/assets/search/aliases.json`](https://github.com/psyb0t/dikciz-launcher/blob/main/app/src/dikciz/assets/search/aliases.json). `make dikciz-search-docs` deterministically generates the bundled corpus from the current Markdown. Run it after changing documentation or aliases. `make dikciz-search-docs-check` rejects stale assets; normal lint and tooling CI include that check. `make dikciz-search-docs-test` checks generation. Live Android verification uses `make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_local_search`.
 
 See [MCP resources](mcp-resources.md), [shared control](automation-control.md), [embedded chat](embedded-chat.md) and the generated [command reference](command-reference.md).

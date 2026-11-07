@@ -1,3 +1,11 @@
+---
+title: "Wi-Fi selection and local hotspot"
+description: "Use Android-approved Wi-Fi selection and local hotspot flows, inspect state and understand consent and network availability requirements."
+permalink: /wifi-networks/
+nav_order: 13
+parent: "Phone APIs"
+---
+
 # Wi-Fi selection and local hotspot
 
 These Android 10+ flows supplement [scan results](wifi-control.md). They preserve Android approval and foreground requirements. Shared tools are available through every ordinary binding; requesting or changing a network is mutating.

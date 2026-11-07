@@ -1,3 +1,11 @@
+---
+title: "Camera capture controls"
+description: "Capture camera JPEG images with supported options, inspect actual frame metadata and distinguish requested settings from applied camera output."
+permalink: /camera-control/
+nav_order: 2
+parent: "Phone APIs"
+---
+
 # Camera capture controls
 
 Use `cameraList`, then `cameraCapabilities` for the selected `cameraId`. Ordinary HTTP, WebSocket, MCP, HTML and Lua use the same `cameraCapture` command. Camera access and Android foreground eligibility are required. Missing access uses the common permission-review flow; explicitly retry after the owner grants it.

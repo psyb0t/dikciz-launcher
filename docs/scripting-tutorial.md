@@ -1,4 +1,14 @@
+---
+title: "Dikciz scripting tutorial"
+description: "Connect HTML widgets and Lua scripts through custom events, persistent state, automation policies and typed actions in runnable examples."
+permalink: /scripting-tutorial/
+nav_order: 5
+parent: "Developer manual"
+---
+
 # Dikciz scripting tutorial
+
+For definitions of every bridge member, context field, result and runtime distinction, read the [JavaScript API](javascript-api.md), [Lua API](lua-api.md) and [developer manual](developer-manual.md). The [typed action table](typed-actions.md) owns action fields and policy names.
 
 For installation, the starter home, AI chat, remote connections and Android hardware, start with the [complete Dikciz tutorial](tutorial.md). This guide is the hands-on HTML and Lua companion. For a smaller complete app with JavaScript UI/backend, start with [the GPS todo tutorial](todo-app-tutorial.md).
 

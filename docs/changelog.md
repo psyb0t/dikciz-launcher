@@ -1,4 +1,31 @@
+---
+title: "Changelog"
+description: "Read Dikciz release changes and migration notes for the launcher, app runtime, phone APIs, assistant, access controls and documentation."
+permalink: /changelog/
+nav_order: 10
+---
+
 # Changelog
+
+## Unreleased
+
+### Documentation
+
+- Publish the tutorials, illustrated guides, recipes and API manuals as a searchable dark documentation site with grouped navigation and stable links.
+- Add browser-ready MCP recipes, source development and site maintenance guides, sitemap and machine-readable page index.
+- Check rendered links, anchors and metadata through Make and CI while preserving literal JavaScript and Lua examples.
+
+### Added
+
+- Add explicit token grants for every command and finite action/resource/setting choices, while retaining existing named grants.
+- Add searchable permission selection and complete generated token/command references, plus JavaScript and Lua developer manuals.
+- Include ordinary command names and operation grants in MCP tool metadata.
+
+### Fixed
+
+- Retain caller grants and read-only authority for queued commands, scope job records and idempotency to their caller, and reject unauthorized nested work.
+- Make semantic scrolling reach native dialog fields and make semantic taps focus text editors across every command binding.
+- Declare finite choices in older command schemas so discovery and permission definitions agree. Exclude read-only provider resources from write discovery.
 
 ## [0.31.2] - 2026-11-07
 
@@ -660,7 +687,7 @@ HTML widget state now lives in page/widget directories instead of the widget JSO
 ### Documentation
 
 - "Who can connect" in the automation control guide and a README note explain that other installed apps can reach the control planes unless the bearer password is on.
-- Source, script, test and Fossify directories have their own README files, and the root README, configuration, automation and user guides match the current code. The automation guide documents MCP sessions and corrects the `patchDom` argument shape to a `values` object. A Fossify source refresh keeps `.fossify/README.md`.
+- Source, script, test and Fossify directories have their own README files, and the root README, configuration, automation and user guides match the current code. The automation guide documents MCP sessions and corrects the `patchDom` argument shape to a `values` object. A Fossify source refresh keeps [`.fossify/README.md`](https://github.com/psyb0t/dikciz-launcher/blob/main/.fossify/README.md).
 
 ## [0.14.1] - 2026-10-18
 
@@ -673,7 +700,7 @@ HTML widget state now lives in page/widget directories instead of the widget JSO
 ### Added
 
 - Tag pushes build a signed `dikcizRelease` APK and attach `dikciz-launcher-vX.Y.Z.apk` and its `.sha256` to the GitHub Release, so Obtainium can install and update Dikciz. The README publishes the signing certificate fingerprint.
-- `make release-apk` builds the signed release APK into `dist/` and fails unless it is signed with the published certificate and reports the version in `VERSION`.
+- `make release-apk` builds the signed release APK into `dist/` and fails unless it is signed with the published certificate and reports the version in [`VERSION`](https://github.com/psyb0t/dikciz-launcher/blob/main/VERSION).
 
 ### Changed
 
@@ -683,7 +710,7 @@ HTML widget state now lives in page/widget directories instead of the widget JSO
 
 ### Fixed
 
-- A Fossify source refresh keeps `VERSION`, `.gitattributes`, `.gitleaks.toml`, `.dockerignore` and the `app/src/testDikciz` unit tests, and the build overlay patch now carries the `testDikciz` source set and test dependency. The refresh test fails when the live build file has Dikciz lines the overlay does not carry.
+- A Fossify source refresh keeps `VERSION`, `.gitattributes`, `.gitleaks.toml`, `.dockerignore` and the [`app/src/testDikciz`](https://github.com/psyb0t/dikciz-launcher/tree/main/app/src/testDikciz) unit tests, and the build overlay patch now carries the `testDikciz` source set and test dependency. The refresh test fails when the live build file has Dikciz lines the overlay does not carry.
 
 ### Migration
 
@@ -777,7 +804,7 @@ HTML widget state now lives in page/widget directories instead of the widget JSO
 - `make dikciz-guide-capture` regenerates every screenshot in the user guide.
   It resets the shared emulator to the bundled home, performs each documented
   step on the real device, photographs the result, and writes the images into
-  `docs/images/user-guide/`. A documented step that stops working now fails the
+  [`docs/images/user-guide/`](https://github.com/psyb0t/dikciz-launcher/tree/main/docs/images/user-guide/). A documented step that stops working now fails the
   capture instead of leaving a stale picture in the guide.
 - Page search in the home chrome. The magnifier beside the Dikciz mark opens a
   jump list of every page, each row labelled `Name (address)`. Typing filters

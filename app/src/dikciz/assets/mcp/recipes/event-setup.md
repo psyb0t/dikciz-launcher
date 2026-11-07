@@ -22,7 +22,7 @@ Set the widget record's subscription field:
 [{"event":"example.changed","minimumIntervalMilliseconds":0}]
 ```
 
-Select the widget's page and wait for its rendered document. Dispatch through `dikciz_automation_dispatch`:
+Select the widget's page. Read `widgetGet` until its state has `ready: true` and `renderedText: "Waiting"`; this confirms the rendered bridge is listening. Dispatch through `dikciz_automation_dispatch`:
 
 ```json
 {"sourceWidgetAddress":"1H1V-example-widget","actions":[{"type":"emitEvent","event":"example.start","payload":{}}]}

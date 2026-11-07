@@ -1,3 +1,11 @@
+---
+title: "Live images and speech"
+description: "Stream camera and display images, inspect partial speech recognition and transcribe recorded files with retained status and owner controls."
+permalink: /visual-streams/
+nav_order: 3
+parent: "Phone APIs"
+---
+
 # Live images and speech
 
 Camera/display frames, partial speech and recorded-file transcription use the same commands on HTTP, WebSocket, MCP, HTML and Lua. Streams use start, cursor read, stop and forget operations. A successful start is not a frame or transcript. Read the stream's actual events and terminal state.

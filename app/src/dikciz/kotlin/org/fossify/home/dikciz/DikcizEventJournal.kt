@@ -228,17 +228,17 @@ internal object DikcizEventJournal {
     )
     val DEFINITIONS = listOf(
         DikcizNativeCommands.Definition(TYPE_CONSUMER_READ, "dikciz_event_consumer_read",
-            "Read durable events after a named consumer's last acknowledged cursor. Reading never acknowledges. Reconnects and process restarts retain the epoch and cursor. Inspect historyGap before continuing. Owner only.",
+            "Read durable events after a named consumer's last acknowledged cursor. Reading never acknowledges. Reconnects and process restarts retain the epoch and cursor. Inspect historyGap before continuing. Requires the matching explicit operation grant for scoped remote clients.",
             mapOf("name" to text(80), "limit" to integer(1, 200), "waitMilliseconds" to integer(0, 30000),
                 "eventTypes" to JSONObject().put("type", "array").put("minItems", 1).put("maxItems", MAXIMUM_FILTERS)
                     .put("uniqueItems", true).put("items", text(128))), setOf("name")),
         DikcizNativeCommands.Definition(TYPE_CONSUMER_ACK, "dikciz_event_consumer_ack",
-            "Persist a named consumer cursor after successful handling. Cursor must not move backwards or beyond the last dispatched event. Does not run actions. Owner only.",
+            "Persist a named consumer cursor after successful handling. Cursor must not move backwards or beyond the last dispatched event. Does not run actions. Requires the matching explicit operation grant for scoped remote clients.",
             mapOf("name" to text(80), "cursor" to integer(0, MAXIMUM_CURSOR)), setOf("name", "cursor"), readOnly = false),
         DikcizNativeCommands.Definition(TYPE_CONSUMERS, "dikciz_event_consumers_list",
-            "List durable named event consumer cursors. Owner only.", mapOf("limit" to integer(1, 200), "offset" to integer(0, 1000000))),
+            "List durable named event consumer cursors. Requires the matching explicit operation grant for scoped remote clients.", mapOf("limit" to integer(1, 200), "offset" to integer(0, 1000000))),
         DikcizNativeCommands.Definition(TYPE_CONSUMER_FORGET, "dikciz_event_consumer_forget",
-            "Delete one consumer's acknowledgement. A subsequent read starts at zero and may report an expired history gap. Owner only.",
+            "Delete one consumer's acknowledgement. A subsequent read starts at zero and may report an expired history gap. Requires the matching explicit operation grant for scoped remote clients.",
             mapOf("name" to text(80)), setOf("name"), readOnly = false),
         DikcizNativeCommands.Definition(TYPE_STATUS, "dikciz_event_journal_status",
             "Read durable automation-event replay epoch, cursors, retention and memory limits. Reading does not activate native subscriptions.", emptyMap()),

@@ -1,3 +1,11 @@
+---
+title: "Typed automation actions"
+description: "Find every typed automation action, required fields and policy name for widget updates, events, device controls and phone operations."
+permalink: /typed-actions/
+nav_order: 7
+parent: "Developer manual"
+---
+
 # Typed automation actions
 
 Typed actions are separate from ordinary commands. HTML uses `dikciz.dispatch({actions})`; HTTP/WebSocket use `automationDispatch`; MCP uses `dikciz_automation_dispatch`. Network dispatch requires an existing HTML `sourceWidgetAddress`. Lua returns `{status="...",actions={...}}` from `on_event`. An enabled Lua policy must allow the event capability and each returned action's policy name.
@@ -40,9 +48,11 @@ Replace the address with an actual HTML widget. Pass these arguments to MCP disp
 
 The corresponding Lua policy includes `"actions":["mediaVolume"]`, and its handler returns:
 
+<!-- {% raw %} -->
 ```lua
 return {status="Volume requested",actions={{type="setMediaVolume",levelPercent=35}}}
 ```
+<!-- {% endraw %} -->
 
 Read `deviceState.mediaVolume` and `mediaVolumeMaximum` before and after changes. The percentage is rounded to a device volume step, not a measured sound level. Fixed-volume devices or a rejected read-back return an explicit refusal. Per-player `audioPlayback.volumePercent` is a separate gain control and does not replace the media-stream setting.
 

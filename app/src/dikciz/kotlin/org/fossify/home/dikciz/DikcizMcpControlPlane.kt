@@ -1095,10 +1095,23 @@ internal class DikcizMcpControlPlane(
     ) : IllegalArgumentException(message)
 
     companion object {
-        internal fun toolCatalogue(readOnly: Boolean = false): JSONObject {
+        internal fun toolCatalogue(readOnly: Boolean = false, includePermissions: Boolean = true): JSONObject {
             val tools = JSONArray()
             TOOL_DEFINITIONS.filter { !readOnly || it.readOnly }.forEach { definition -> tools.put(definition.toJson()) }
             DikcizNativeCommands.DEFINITIONS.values.filter { !readOnly || it.readOnly }.forEach { definition -> tools.put(definition.toolDocument()) }
+            for (index in 0 until tools.length()) {
+                val tool = JSONObject(tools.getJSONObject(index).toString())
+                DikcizCommandChoices.apply(tool)
+                tools.put(index, tool)
+            }
+            if (includePermissions) {
+                for (index in 0 until tools.length()) {
+                    val tool = tools.getJSONObject(index)
+                    val command = requireNotNull(TOOL_COMMANDS[tool.getString(KEY_NAME)])
+                    tool.put("_meta", JSONObject().put("dikciz", JSONObject().put("command", command)
+                        .put("operationGrants", DikcizRemoteCapabilities.forCommand(command))))
+                }
+            }
             if (readOnly) {
                 for (index in 0 until tools.length()) {
                     tools.getJSONObject(index).getJSONObject(KEY_INPUT_SCHEMA).getJSONObject(KEY_PROPERTIES)
@@ -1510,7 +1523,7 @@ internal class DikcizMcpControlPlane(
         private val FILE_TOOL_DESCRIPTIONS = mapOf(
             DikcizFileCommands.TYPE_FILE_LIST to "List one directory page in filesystem enumeration order. Follow hasMore with offset plus the returned item count; directory changes can alter enumeration order.",
             DikcizFileCommands.TYPE_FILE_READ to "Read a bounded binary file chunk as base64. Follow nextOffset until eof is true.",
-            DikcizFileCommands.TYPE_FILE_WRITE to "Create or explicitly overwrite a file at offset zero, or append a chunk only when offset equals its current size. Never executes uploaded content.",
+            DikcizFileCommands.TYPE_FILE_WRITE to "Create or explicitly overwrite a file at offset zero, or append a chunk only when offset equals its current size. Writing bytes does not directly execute them; changing watched script, app or configuration files can trigger reload and effects.",
             DikcizFileCommands.TYPE_FILE_MKDIR to "Create a directory wherever Dikciz can write. Optionally create missing parents.",
             DikcizFileCommands.TYPE_APK_INSTALL to "Submit one readable standalone APK, up to 512 MiB, to Android PackageInstaller. Android may require unknown-source access and confirmation. Poll dikciz_apk_install_status for the actual outcome.",
             DikcizFileCommands.TYPE_APK_INSTALL_STATUS to "Read the actual Android outcome for one installation submitted by Dikciz. Submission or pending confirmation is not successful installation.",

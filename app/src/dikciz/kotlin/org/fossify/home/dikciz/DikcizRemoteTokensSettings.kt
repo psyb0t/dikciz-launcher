@@ -15,7 +15,11 @@ import android.widget.TextView
 import android.widget.Spinner
 import android.widget.ArrayAdapter
 import android.text.InputType
+import android.text.Editable
+import android.text.TextWatcher
 import android.text.format.DateUtils
+import android.view.inputmethod.EditorInfo
+import android.view.WindowManager
 import org.fossify.home.dikciz.DikcizAutomationControlPlane.Companion.KEY_ACTION
 import org.fossify.home.dikciz.DikcizRemoteAccessAuth.Companion.KEY_ENABLED
 import org.fossify.home.dikciz.DikcizRemotePolicy.ACTION_CREATE
@@ -179,12 +183,28 @@ internal class DikcizRemoteTokensSettings(
         }
         form.addView(addresses)
         form.addView(TextView(context).apply { text = "Permissions"; textSize = 18f })
+        val filter = EditText(context).apply {
+            hint = "Search permissions"
+            contentDescription = hint
+            setSingleLine(true)
+            imeOptions = EditorInfo.IME_ACTION_SEARCH or EditorInfo.IME_FLAG_NO_EXTRACT_UI
+        }
+        form.addView(filter)
+        var advancedVisible = false
+        val advanced = button("Show command permissions") { }
+        form.addView(advanced)
+        form.addView(TextView(context).apply {
+            text = "Command grants cover the device. Shell, SDK, file writes, code, configuration and credential management can delegate owner authority."
+        })
+        val summary = TextView(context)
+        form.addView(summary)
         val chosen = item?.getJSONArray(KEY_PERMISSIONS)?.let { rows ->
             (0 until rows.length()).map(rows::getString).toSet()
         }.orEmpty()
         val checks = DikcizRemotePolicy.GRANTS.associate { grant ->
             grant.id to CheckBox(context).apply {
-                text = grant.title + "\n" + grant.description
+                text = grant.title + "\n" + grant.id + "\n" + grant.description.substringBefore(" Operation scope")
+                minHeight = (48 * resources.displayMetrics.density).toInt()
                 isChecked = grant.id in chosen
                 form.addView(this)
             }
@@ -197,6 +217,27 @@ internal class DikcizRemoteTokensSettings(
                 } else checks.getValue(DikcizRemotePolicy.OWNER).isChecked = false
             }
         }
+        fun applyFilter() {
+            val query = filter.text.toString().trim()
+            checks.forEach { (id, view) ->
+                val matches = query.isEmpty() || id.contains(query, ignoreCase = true) || view.text.contains(query, ignoreCase = true)
+                val shown = query.isNotEmpty() || advancedVisible || !id.startsWith("command.") || view.isChecked
+                view.visibility = if (matches && shown) View.VISIBLE else View.GONE
+            }
+            summary.text = "${checks.count { it.value.isChecked }} selected. ${checks.count { it.value.visibility == View.VISIBLE }} matching permissions."
+        }
+        advanced.setOnClickListener {
+            advancedVisible = !advancedVisible
+            advanced.text = if (advancedVisible) "Hide command permissions" else "Show command permissions"
+            applyFilter()
+        }
+        filter.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(value: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(value: CharSequence?, start: Int, before: Int, count: Int) { applyFilter() }
+            override fun afterTextChanged(value: Editable?) = Unit
+        })
+        checks.values.forEach { check -> check.setOnClickListener { applyFilter() } }
+        applyFilter()
         val save: () -> Unit = {
             try {
                 val request = JSONObject().put(KEY_ACTION, if (item == null) ACTION_CREATE else ACTION_UPDATE)
@@ -217,12 +258,13 @@ internal class DikcizRemoteTokensSettings(
                 message.text = exception.message ?: "Could not save token"
             }
         }
-        val views = linkedMapOf<String, View>("remote-tokens:name" to name,
+        val views = linkedMapOf<String, View>("remote-tokens:name" to name, "remote-tokens:filter" to filter, "remote-tokens:advanced" to advanced, "remote-tokens:selection" to summary,
             "remote-tokens:expiry" to expiry, "remote-tokens:rate" to rate, "remote-tokens:sms-addresses" to addresses)
         checks.forEach { (id, view) -> views["remote-tokens:grant:$id"] = view }
         val dialog = AlertDialog.Builder(context).setTitle(if (item == null) "Create access token" else "Edit access token")
             .setView(scroll(form)).setPositiveButton(if (item == null) "Create" else "Save", null)
             .setNegativeButton("Cancel") { _, _ -> show() }.create()
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         showDialog(dialog) {
             val saveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             saveButton.setOnClickListener { save() }

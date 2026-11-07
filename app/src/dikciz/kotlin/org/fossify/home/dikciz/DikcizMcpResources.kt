@@ -142,6 +142,7 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
             "guides/chat-events" to "Event-driven conversations",
             "guides/connect" to "Connect to the phone",
             "guides/discovery" to "Discover the running build",
+            "guides/developer-manual" to "Complete language, command and token references",
             "guides/search" to "Offline documentation and collection search",
             "guides/permissions" to "Android permissions",
             "guides/access" to "Android access by feature",

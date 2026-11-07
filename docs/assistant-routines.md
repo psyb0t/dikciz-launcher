@@ -1,3 +1,11 @@
+---
+title: "Assistant routines"
+description: "Run read-only assistant routines for the current screen, device health and phone data, with explicit results and Android access requirements."
+permalink: /assistant-routines/
+nav_order: 5
+parent: "Tutorial"
+---
+
 # Assistant routines
 
 Built-in routines provide repeatable read-only tasks using an existing conversation and saved provider. List them with `assistantRoutines`, inspect exact instructions with `assistantRoutinePreview`, or select **Run a routine** in the chat conversation menu.

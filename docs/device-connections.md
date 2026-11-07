@@ -1,3 +1,11 @@
+---
+title: "Persistent device connections"
+description: "Retain Bluetooth, USB and NFC connection sessions, inspect their lifecycle and use the shared companion commands for peripheral work."
+permalink: /device-connections/
+nav_order: 2
+parent: "Companion"
+---
+
 # Persistent device connections
 
 Use `deviceConnectionOpen`, then `deviceConnectionExchange`, `deviceConnectionRead` and `deviceConnectionClose`. `deviceConnectionsList` pages lifecycle metadata. These shared commands work through HTTP, WebSocket, MCP, HTML and Lua. Every transfer counts as mutating for token and assistant access control.
@@ -22,6 +30,6 @@ A connected-device foreground notification exposes **Stop all**. Actual profiles
 
 ## Vehicle document
 
-<img src="images/companion/vehicle-mocked.png" alt="Vehicle console rendering a deterministic adapter fixture" width="280">
+<img src="{{ "/images/companion/vehicle-mocked.png" | relative_url }}" alt="Vehicle console rendering a deterministic adapter fixture" width="280">
 
 This rendered WebView uses a deterministic mocked ELM adapter response with fragmented reads. It verifies framing, PID conversion, saved state and presentation. It is not a photograph of a connected car or proof of physical adapter compatibility.

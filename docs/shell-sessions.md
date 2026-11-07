@@ -1,3 +1,11 @@
+---
+title: "Shell sessions for every binding"
+description: "Start retained shell sessions, read incremental output, send input, reconnect and stop processes through every supported binding."
+permalink: /shell-sessions/
+nav_order: 11
+parent: "Remote control"
+---
+
 # Shell sessions for every binding
 
 Shell sessions expose incremental output through ordinary HTTP, WebSocket, MCP, HTML and Lua commands. They reuse the same process-group runner as shellStream. They continue across client disconnects and launcher recreation within the same process. App process death ends the session and its retained history.

@@ -374,14 +374,14 @@ internal object DikcizBackups {
     private val PASSWORD = text(1024).put("minLength", 12).put("description", "Backup encryption passphrase. Never log or put it in prompts.")
     private val BOOLEAN = JSONObject().put("type", "boolean").put("default", false)
     val DEFINITIONS = listOf(
-        DikcizNativeCommands.Definition(TYPE_CREATE, "dikciz_backup_create", "Create an AES-GCM encrypted portable home, widget-state, Lua, chat and provider-settings snapshot. Passphrase required. API keys excluded unless explicitly requested. Remote credentials and control ports always remain outside backups. Owner only.",
+        DikcizNativeCommands.Definition(TYPE_CREATE, "dikciz_backup_create", "Create an AES-GCM encrypted portable home, widget-state, Lua, chat and provider-settings snapshot. Passphrase required. API keys excluded unless explicitly requested. Remote credentials and control ports always remain outside backups. Requires the matching explicit operation grant for scoped remote clients.",
             mapOf("passphrase" to PASSWORD, "includeApiKeys" to BOOLEAN), setOf("passphrase"), readOnly = false),
-        DikcizNativeCommands.Definition(TYPE_PREVIEW, "dikciz_backup_preview", "Decrypt and validate an archive into protected staging without replacing current state. Returns counts, previewId and sha256 for explicit restore confirmation. Preview expires after 15 minutes. Owner only.",
+        DikcizNativeCommands.Definition(TYPE_PREVIEW, "dikciz_backup_preview", "Decrypt and validate an archive into protected staging without replacing current state. Returns counts, previewId and sha256 for explicit restore confirmation. Preview expires after 15 minutes. Requires the matching explicit operation grant for scoped remote clients.",
             mapOf("path" to text(4096), "passphrase" to PASSWORD), setOf("path", "passphrase"), readOnly = false),
         DikcizNativeCommands.Definition(TYPE_RESTORE, "dikciz_backup_restore", "Replace home and chat from a validated preview, with rollback recovery. Requires idle assistant, previewId, exact sha256 and confirm=true. Future automation remains disabled unless activateAutomation=true. Remote auth and ports remain.",
             mapOf("previewId" to text(36), "sha256" to text(64), "confirm" to BOOLEAN, "activateAutomation" to BOOLEAN),
             setOf("previewId", "sha256", "confirm"), readOnly = false),
-        DikcizNativeCommands.Definition(TYPE_LIST, "dikciz_backups_list", "List encrypted archive paths and metadata without reading contents. Owner only.",
+        DikcizNativeCommands.Definition(TYPE_LIST, "dikciz_backups_list", "List encrypted archive paths and metadata without reading contents. Requires the matching explicit operation grant for scoped remote clients.",
             mapOf("limit" to JSONObject().put("type", "integer").put("minimum", 1).put("maximum", 200),
                 "offset" to JSONObject().put("type", "integer").put("minimum", 0).put("maximum", 1000000))),
     )

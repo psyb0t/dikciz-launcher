@@ -233,14 +233,14 @@ internal object DikcizImageStreams {
     private val ID_FIELD = mapOf("streamId" to text(36))
     val DEFINITIONS = listOf(
         DikcizNativeCommands.Definition(TYPE_START, "dikciz_image_stream_start",
-            "Start bounded camera JPEG preview or Accessibility display frames with an owner Stop notification. Requires source camera/display and foreground startup. A persistent camera session is reused; display follows Android screenshot limits and secure-window restrictions. Poll imageStreamRead for actual frames/errors. Owner only.",
+            "Start bounded camera JPEG preview or Accessibility display frames with an owner Stop notification. Requires source camera/display and foreground startup. A persistent camera session is reused; display follows Android screenshot limits and secure-window restrictions. Poll imageStreamRead for actual frames/errors. Requires the matching explicit operation grant for scoped remote clients.",
             mapOf("source" to text(16).put("enum", org.json.JSONArray(listOf("camera", "display"))), "cameraId" to text(128),
                 "maxDimension" to integer(320, 1280).put("default", 640), "frameIntervalMilliseconds" to integer(500, 10000).put("default", 1000),
                 "maximumDurationMilliseconds" to integer(1000, 3600000).put("default", 60000),
                 "bufferBytes" to integer(262144, 8388608).put("default", 1048576), "maximumEvents" to integer(1, 64).put("default", 16),
                 "startupTimeoutMilliseconds" to integer(1000, 30000).put("default", 10000)), setOf("source"), readOnly = false),
         DikcizNativeCommands.Definition(TYPE_READ, "dikciz_image_stream_read",
-            "Read complete bounded JPEG frames by exclusive cursor, with replay loss and actual terminal/hardware-cleanup state. No capture is started. Frames stay in process memory for five minutes after completion. Owner only.",
+            "Read complete bounded JPEG frames by exclusive cursor, with replay loss and actual terminal/hardware-cleanup state. No capture is started. Frames stay in process memory for five minutes after completion. Requires the matching explicit operation grant for scoped remote clients.",
             ID_FIELD + mapOf("cursor" to integer(0, 9007199254740991), "limit" to integer(1, 200).put("default", 1), "waitMilliseconds" to integer(0, 30000)),
             setOf("streamId")),
         DikcizNativeCommands.Definition(TYPE_STOP, "dikciz_image_stream_stop", "Stop one live visual stream, close its camera session and read hardwareReleaseConfirmed. Completed frames remain until forgotten or retention expiry.",

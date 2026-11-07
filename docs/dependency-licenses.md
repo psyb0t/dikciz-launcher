@@ -1,3 +1,11 @@
+---
+title: "Image recognition dependencies"
+description: "Review image recognition SDK and model licenses, Google terms, metrics disclosure and the dependencies bundled with Dikciz."
+permalink: /dependency-licenses/
+nav_order: 1
+parent: "Source development"
+---
+
 # Image recognition dependencies
 
 Dikciz source retains its project license. The image-recognition feature additionally bundles Google's ML Kit text-recognition:16.0.1 and barcode-scanning:17.3.0 SDKs, models and their transitive Android dependencies. These are subject to [ML Kit terms and privacy](https://developers.google.com/ml-kit/terms) and incorporated Google API terms. Do not describe the bundled models as GPL source.

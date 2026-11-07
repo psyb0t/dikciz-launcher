@@ -16,7 +16,7 @@ RESOURCE_PREFIX = "dikciz://docs/"
 INDEX_URI = RESOURCE_PREFIX + "index"
 PAGE_SIZE = 8
 SECTION_BYTES = 4096
-SECTION_COUNT = 69
+SECTION_COUNT = 70
 INVALID_PARAMS = -32602
 READ_METHOD = "resources/read"
 LIST_METHOD = "resources/list"
@@ -118,7 +118,7 @@ def test_mcp_resources_walk_all_pages_and_read_each_section(websocket_control):
     uris = {item["uri"] for item in descriptors}
     assert len(uris) == len(descriptors) == SECTION_COUNT
     assert descriptors[0]["uri"] == INDEX_URI
-    assert {RESOURCE_PREFIX + "guides/javascript", RESOURCE_PREFIX + "guides/custom-apps"} <= uris
+    assert {RESOURCE_PREFIX + "guides/javascript", RESOURCE_PREFIX + "guides/custom-apps", RESOURCE_PREFIX + "guides/developer-manual"} <= uris
     for descriptor in descriptors:
         assert descriptor["name"] and descriptor["title"] and descriptor["description"]
         text = read_resource(descriptor["name"])
@@ -246,7 +246,8 @@ def test_mcp_resources_documented_two_event_recipe_runs_on_phone(websocket_contr
         AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=configured)
         direct_tap(wait_for_physical_description_bounds("Resource event recipe"))
         try:
-            wait_for_physical_text_bounds("Waiting")
+            wait_for_widget_state_value(websocket_control, WIDGET_ID, "ready", True)
+            wait_for_widget_state_value(websocket_control, WIDGET_ID, "renderedText", "Waiting")
         except AssertionError:
             try:
                 run_device_operation("screenshot")
@@ -267,7 +268,9 @@ def test_mcp_resources_documented_two_event_recipe_runs_on_phone(websocket_contr
             assert result.get("isError", False) is False, result
             wait_for_automation_script_state(websocket_control, SCRIPT_ID, "running", running)
             wait_for_widget_state_value(websocket_control, WIDGET_ID, "running", running)
-            wait_for_physical_text_bounds(visible)
+            wait_for_widget_state_value(websocket_control, WIDGET_ID, "renderedText", visible)
+            run_device_operation("screenshot")
+            (ARTIFACT_DIRECTORY / ("resource-event-" + visible.lower() + ".png")).write_bytes((ARTIFACT_DIRECTORY / "screenshot.png").read_bytes())
         run_device_operation("screenshot")
         assert (ARTIFACT_DIRECTORY / "screenshot.png").stat().st_size > 0
     finally:

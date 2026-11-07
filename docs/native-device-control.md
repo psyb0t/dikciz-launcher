@@ -1,3 +1,11 @@
+---
+title: "Phone APIs"
+description: "Query Android contacts, calendars, SMS and media, send tracked messages and use direct device APIs without navigating another app."
+permalink: /native-device-control/
+nav_order: 5
+has_children: true
+---
+
 # Direct Android data and control
 
 Use native commands instead of opening Contacts, Messages or Settings and tapping their UI. WebSocket, HTTP, MCP, HTML and enabled Lua use the same validator, executor, permission recovery and result. These operations call Android APIs without root or a shell.

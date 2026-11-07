@@ -9,3 +9,7 @@ Run builds, tests, and device work through this repository's `Makefile`. The fir
 Any public configuration, control-plane, widget, script, theme, or automation change must update its focused documentation in the same change. Use `controlStatus` and `automationStatus` as the live contract for clients and automation.
 
 See the [test layout](tests/README.md) for focused selectors and fixture boundaries, and the [script map](scripts/README.md) for tooling entry points. Documentation-only changes need link, command, and diff checks. Visible behavior changes need the focused compile or live selector that covers them.
+
+## Documentation website
+
+Tutorials, recipes and API guides live in the [documentation site](https://psyb0t.github.io/dikciz-launcher/). Keep page front matter, stable URLs, navigation and descriptions in sync with content. Use relative `.md` links between guides and full GitHub URLs for repository source. Protect Liquid-looking code examples, regenerate recipe pages and offline search, then run `make docs-check`. Use `make docs-preview` to inspect desktop/mobile navigation, screenshots and search. The [site maintenance guide](https://psyb0t.github.io/dikciz-launcher/documentation-site/) owns the complete procedure.

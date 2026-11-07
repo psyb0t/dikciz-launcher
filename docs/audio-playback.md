@@ -1,3 +1,11 @@
+---
+title: "Audio playback sessions"
+description: "Play accessible local audio, inspect retained playback state, pause, resume, seek and select supported output devices."
+permalink: /audio-playback/
+nav_order: 5
+parent: "Phone APIs"
+---
+
 # Audio playback sessions
 
 `audioPlayback` / `dikciz_audio_playback` controls one process-owned Android MediaPlayer session through HTTP, WebSocket, MCP, HTML and Lua. It plays a readable local regular file. Upload files through the file API or use the path returned by speech synthesis or microphone recording. URLs are not accepted.

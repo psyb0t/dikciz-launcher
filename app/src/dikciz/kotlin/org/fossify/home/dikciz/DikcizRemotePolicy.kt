@@ -89,7 +89,7 @@ internal object DikcizRemotePolicy {
     data class Grant(val id: String, val title: String, val description: String, val tools: Set<String>)
     private fun grant(id: String, title: String, description: String, vararg tools: String) =
         Grant(id, title, description, tools.toSet())
-    val GRANTS = listOf(
+    private val BASE_GRANTS = listOf(
         grant(OWNER, "Full owner access", "All operations, including shell, SDK, scripting, configuration, installation and access-token administration."),
         grant(PERMISSION_SMS_READ, "Read SMS", "Read SMS history and sender/message data through the SMS provider."),
         grant(PERMISSION_SMS_SEND, "Send SMS", "Send tracked SMS, read send receipts and select a SIM. Does not grant SMS history access.", "dikciz_sms_send", "dikciz_sms_status", "dikciz_sim_list"),
@@ -123,7 +123,9 @@ internal object DikcizRemotePolicy {
         grant(PERMISSION_USB_READ, "Read USB inventory", "Read attached USB device and interface metadata.", "dikciz_usb_devices"),
         grant(PERMISSION_NFC_READ, "Read NFC tags", "Read NFC status and bounded presented-tag data. No writes or raw transactions.", "dikciz_nfc_status", "dikciz_nfc_read"),
     )
-    val PERMISSION_IDS = GRANTS.map { it.id }.toSet()
+    val GRANTS: List<Grant> by lazy { BASE_GRANTS + DikcizRemoteCapabilities.entries.map { it.grant() } }
+    val PERMISSION_IDS: Set<String> by lazy { GRANTS.map { it.id }.toSet() }
+    private const val MAXIMUM_PERMISSION_COUNT = 4096
     private val BASE_TOOLS = setOf(
         "dikciz_device_info", "dikciz_control_status", "dikciz_native_data_status", "dikciz_remote_auth_status",
         "dikciz_remote_access_info", "dikciz_search_query", "dikciz_search_read", "dikciz_search_collections",
@@ -131,25 +133,33 @@ internal object DikcizRemotePolicy {
     private val CONTACT_RESOURCES = setOf("contacts", "phones", "emails", "rawContacts", "contactData")
     private val CALENDAR_RESOURCES = setOf("calendars", "calendarEvents", "calendarInstances", "calendarReminders")
     private val MEDIA_RESOURCES = setOf("images", "audio", "videos")
+    private val PROVIDER_WRITE_OPERATIONS = listOf("create", "update", "delete")
 
     val DEFINITIONS = listOf(
         DikcizNativeCommands.Definition(TYPE_INFO, "dikciz_remote_access_info",
             "Read the verified caller identity, effective grants, expiresAt, requestsPerMinute and exact smsAddresses restrictions. Restricted SMS reads require filter.address. Local owner bindings need no bearer token. Does not return credentials or verifiers.", emptyMap()),
         DikcizNativeCommands.Definition(TYPE_TOKENS, "dikciz_remote_tokens",
-            "Owner-only remote access-token administration. catalog lists finite permission grants. list returns metadata; create requires name and permissions and returns its generated token once. update requires id and optional name/permissions/enabled/expiry/rate/SMS-address rules; rotate requires id and returns a replacement token once, invalidating the previous secret immediately; revoke requires id. Optional expiresAt is epoch milliseconds (0 means none), requestsPerMinute is 0..10000 (0 means unlimited), and smsAddresses is an exact address allowlist. Restricted SMS reads require filter.address. Authentication must be enabled before creating tokens. Existing tokens, including disabled tokens, prevent disabling or clearing authentication. Local owner bindings and full-owner credentials can administer tokens. Scoped credentials cannot.",
+            "Remote access-token administration. Explicit command/action grants can delegate these operations. Creating/updating/rotating credentials can confer full owner authority. catalog lists finite permission grants. list returns metadata; create requires name and permissions and returns its generated token once. update requires id and optional name/permissions/enabled/expiry/rate/SMS-address rules; rotate requires id and returns a replacement token once, invalidating the previous secret immediately; revoke requires id. Optional expiresAt is epoch milliseconds (0 means none), requestsPerMinute is 0..10000 (0 means unlimited), and smsAddresses is an exact address allowlist. Restricted SMS reads require filter.address. Authentication must be enabled before creating tokens. Existing tokens, including disabled tokens, prevent disabling or clearing authentication. Local owner bindings, full-owner credentials and explicit remoteTokens operation grants can administer tokens.",
             mapOf(
                 KEY_ACTION to text(16).put("enum", JSONArray(listOf(ACTION_CATALOG, ACTION_LIST, ACTION_CREATE, ACTION_UPDATE, ACTION_REVOKE, ACTION_ROTATE))),
                 KEY_ID to text(ID_CHARACTERS).put("pattern", "^[a-f0-9]{16}$"),
                 KEY_NAME to text(MAXIMUM_NAME_CHARACTERS).put("minLength", 1),
-                KEY_PERMISSIONS to JSONObject().put(KEY_TYPE, "array").put("minItems", 1).put("maxItems", PERMISSION_IDS.size)
-                    .put("uniqueItems", true).put("items", text(64).put("enum", JSONArray(PERMISSION_IDS.sorted()))),
+                KEY_PERMISSIONS to JSONObject().put(KEY_TYPE, "array").put("minItems", 1).put("maxItems", MAXIMUM_PERMISSION_COUNT)
+                    .put("uniqueItems", true).put("items", text(256).put("description", "Exact known grant ID from remoteTokens catalog.")),
                 KEY_ENABLED to JSONObject().put(KEY_TYPE, "boolean"),
             ) + DikcizTokenRules.FIELDS, setOf(KEY_ACTION), readOnly = false),
     )
 
-    fun catalogue() = JSONArray(GRANTS.map {
-        JSONObject().put(KEY_ID, it.id).put("title", it.title).put("description", it.description)
-    })
+    fun catalogue() = JSONArray(catalogueDocument.toString())
+
+    private val catalogueDocument by lazy { JSONArray(GRANTS.map { grant ->
+        val access = DikcizRemoteAccess("catalogue", "Grant definition", setOf(grant.id)) { true }
+        val tools = if (grant.id.startsWith("command.")) grant.tools else
+            DikcizMcpControlPlane.TOOL_COMMANDS.filter { (_, type) -> permits(access, type, null) }.keys
+        val expandedBaseline = if (grant.id == SEARCH_READ) setOf("dikciz_search_read", "dikciz_search_query") else emptySet()
+        JSONObject().put(KEY_ID, grant.id).put("title", grant.title).put("description", grant.description)
+            .put("tools", JSONArray((tools - BASE_TOOLS + expandedBaseline).sorted()))
+    }) }
 
     fun validate(request: JSONObject) {
         val action = request.optString(KEY_ACTION)
@@ -188,12 +198,25 @@ internal object DikcizRemotePolicy {
         if (!write && PERMISSION_SMS_READ in access.permissions) add("sms")
         if (!write && PERMISSION_CALLS_READ in access.permissions) add("callLog")
         if (!write && PERMISSION_MEDIA_READ in access.permissions) addAll(MEDIA_RESOURCES)
+        if (write) retainAll(DikcizContentData.RESOURCES.filterValues { it.writable.isNotEmpty() }.keys)
     }
 
     fun permits(access: DikcizRemoteAccess, type: String, request: JSONObject?): Boolean {
+        val operations = if (type == "contentBatch") request?.optJSONArray("operations") else null
+        if (operations != null && operations.length() > 1) {
+            return (0 until operations.length()).all { position ->
+                val single = JSONObject(request.toString()).put("operations", JSONArray().put(operations.get(position)))
+                permitsSingle(access, type, single)
+            }
+        }
+        return permitsSingle(access, type, request)
+    }
+
+    private fun permitsSingle(access: DikcizRemoteAccess, type: String, request: JSONObject?): Boolean {
         if (access.isOwner) return true
         val tool = DikcizMcpControlPlane.toolNameForCommand(type) ?: return false
-        val general = tool in BASE_TOOLS || GRANTS.any { it.id in access.permissions && tool in it.tools }
+        if (DikcizRemoteCapabilities.permits(access, type, request)) return true
+        val general = tool in BASE_TOOLS || BASE_GRANTS.any { it.id in access.permissions && tool in it.tools }
         return when (tool) {
             "dikciz_content_query" -> resources(access, false).let { it.isNotEmpty() && (request == null || request.optString("resource") in it) }
             "dikciz_content_write" -> resources(access, true).let { it.isNotEmpty() && (request == null || request.optString("resource") in it) }
@@ -220,7 +243,9 @@ internal object DikcizRemotePolicy {
             val type = DikcizMcpControlPlane.TOOL_COMMANDS[tool.getString(KEY_NAME)] ?: continue
             if (!permits(access, type, null)) continue
             val properties = tool.getJSONObject("inputSchema").getJSONObject("properties")
-            when (tool.getString(KEY_NAME)) {
+            val explicit = DikcizRemoteCapabilities.permits(access, type, null)
+            if (explicit) DikcizRemoteCapabilities.filterSchema(type, tool.getJSONObject("inputSchema"), access)
+            if (!explicit) when (tool.getString(KEY_NAME)) {
                 "dikciz_content_query" -> properties.getJSONObject("resource").put("enum", JSONArray(resources(access, false).sorted()))
                 "dikciz_content_write" -> properties.getJSONObject("resource").put("enum", JSONArray(resources(access, true).sorted()))
                 "dikciz_content_batch" -> properties.getJSONObject("operations").getJSONObject("items")
@@ -230,13 +255,13 @@ internal object DikcizRemotePolicy {
                 "dikciz_file_manage" -> properties.getJSONObject(KEY_ACTION).put("enum", JSONArray(FILE_ACTIONS.sorted()))
             }
             val name = tool.getString(KEY_NAME)
-            if (name == "dikciz_file_manage" || (name == "dikciz_call_control" && callActions(access) == setOf("state"))) {
+            if (!explicit && (name == "dikciz_file_manage" || (name == "dikciz_call_control" && callActions(access) == setOf("state")))) {
                 tool.getJSONObject("annotations").put("readOnlyHint", true).put("destructiveHint", false)
                 tool.put("description", if (name == "dikciz_file_manage") {
                     "Read file metadata or search accessible files. Only stat and search are permitted by this token. Protected credential paths remain inaccessible."
                 } else "Read current native call state. This token permits action state only. Android permissions still apply.")
             }
-            if (name == "dikciz_sim_list" && PERMISSION_SIM_READ !in access.permissions) {
+            if (name == "dikciz_sim_list" && !mayReadSimNumbers(access)) {
                 tool.put("description", "Read active SIM subscription selection metadata with pagination. This token cannot read own phone numbers or request their permission. READ_PHONE_STATE is required.")
             }
             visible.put(tool)
@@ -251,8 +276,15 @@ internal object DikcizRemotePolicy {
         when (type) {
             "nativeDataStatus" -> {
                 val rows = result.getJSONArray("resources")
-                val readable = resources(access, false)
-                val writable = resources(access, true)
+                val resources = (0 until rows.length()).map { rows.getJSONObject(it).getString("resource") }
+                val readable = resources.filter { permits(access, "contentQuery", JSONObject().put("resource", it)) }.toSet()
+                val writable = resources.filter { resource ->
+                    PROVIDER_WRITE_OPERATIONS.any { operation ->
+                        val write = JSONObject().put("resource", resource).put("operation", operation)
+                        permits(access, "contentWrite", write) ||
+                            permits(access, "contentBatch", JSONObject().put("operations", JSONArray().put(write)))
+                    }
+                }.toSet()
                 result.put("resources", JSONArray((0 until rows.length()).map(rows::getJSONObject).filter {
                     it.getString("resource") in readable || it.getString("resource") in writable
                 }.map {
@@ -274,7 +306,7 @@ internal object DikcizRemotePolicy {
                     permits(access, it, null)
                 }))
             }
-            "simList" -> if (PERMISSION_SIM_READ !in access.permissions) {
+            "simList" -> if (!mayReadSimNumbers(access)) {
                 val rows = result.getJSONArray("items")
                 for (position in 0 until rows.length()) rows.getJSONObject(position)
                     .put("phoneNumber", JSONObject.NULL).put("phoneNumberStatus", "access_denied")
@@ -284,6 +316,9 @@ internal object DikcizRemotePolicy {
         }
         return result
     }
+    fun mayReadSimNumbers(access: DikcizRemoteAccess): Boolean = access.isOwner ||
+        PERMISSION_SIM_READ in access.permissions || DikcizRemoteCapabilities.permits(access, "simList", null)
+
     private fun callActions(access: DikcizRemoteAccess): Set<String> = when {
         PERMISSION_CALLS_CONTROL in access.permissions -> setOf("state", "place", "answer", "end")
         PERMISSION_CALLS_READ in access.permissions -> setOf("state")

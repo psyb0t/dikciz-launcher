@@ -1,0 +1,91 @@
+// The theme sets table text with !important, so these need it too.
+.main-content td,
+.main-content th {
+  padding: 0.6rem 0.9rem;
+  font-size: 0.9412rem !important;
+  line-height: 1.55;
+  vertical-align: top;
+  min-width: 0;
+}
+
+.main-content code {
+  font-size: 0.9em;
+  padding: 0.1em 0.35em;
+  color: #cba6f7;
+}
+
+.main-content td code,
+.main-content th code {
+  font-size: 0.95em;
+}
+
+.main-content pre code,
+.main-content div.highlighter-rouge code {
+  font-size: 0.9412rem;
+  line-height: 1.6;
+  padding: 0;
+  color: inherit;
+}
+
+.main-content tbody tr:nth-child(even) td {
+  background-color: #181825;
+}
+
+.main-content h1 {
+  font-weight: 600;
+}
+
+.main-content h2,
+.main-content h3 {
+  margin-top: 2.2rem;
+}
+
+.main-content h4 {
+  text-transform: none;
+  font-size: 1rem !important;
+  letter-spacing: 0;
+}
+
+.nav-list .nav-list-item .nav-list-link {
+  font-size: 0.9412rem;
+}
+
+.docs-routes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.docs-routes > div {
+  border: 1px solid #45475a;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: #181825;
+}
+
+.main-content .docs-routes h2 {
+  margin-top: 0;
+  font-size: 1.15rem;
+}
+
+.docs-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.docs-gallery img {
+  border: 1px solid #45475a;
+  border-radius: 0.75rem;
+}
+
+.main-content a {
+  overflow-wrap: anywhere;
+}
+
+.main-content img {
+  max-width: 100%;
+  height: auto;
+}

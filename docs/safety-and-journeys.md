@@ -1,3 +1,11 @@
+---
+title: "Safety, places and journeys"
+description: "Configure optional check-ins, SOS, geofences and route recording, including visible countdowns, cancellation, location and SMS delivery limits."
+permalink: /safety-and-journeys/
+nav_order: 1
+parent: "Companion"
+---
+
 # Safety, places and journeys
 
 Open **Settings**, **Safety, journeys and devices** for the SOS app and native Places/Trips screens. SOS is also under **Dikciz**, **Apps**. Its complete HTML/CSS/JavaScript interface, JavaScript backend and state live in `/sdcard/Dikciz/apps/sos/`; its decisions use the same [custom-app platform](custom-apps.md) available to owner-created apps. The same operations are available through HTTP, WebSocket, MCP, HTML and Lua. Discover the installed schemas before sending commands.
@@ -33,7 +41,7 @@ The warning pulses an alarm tone and vibration and uses an installed offline Eng
 
 `sosStatus.warning` reports whether a warning episode is active, the observed presentation, attached unlocked-screen visibility, remaining seconds, requested audio/vibration, alarm volume and speech state. These are execution observations, not proof that a person heard the alert. The same presentation runs for manual triggers, missed check-ins and the grace interval before subsequent configured updates. API/native cancellation stops future sends and warning resources. A message already submitted cannot be recalled. Ordinary geofences and route recording stay quiet and continue when only SOS is cancelled.
 
-<img src="images/companion/sos-warning.png" alt="SOS countdown card with remaining seconds and a large Cancel SOS button" width="360">
+<img src="{{ "/images/companion/sos-warning.png" | relative_url }}" alt="SOS countdown card with remaining seconds and a large Cancel SOS button" width="360">
 
 The warning card above was captured on the isolated emulator before cancellation.
 

@@ -1,3 +1,11 @@
+---
+title: "Agent integrations"
+description: "Connect Claude Code, Codex and other MCP clients to the phone, configure bearer authentication and install the packaged agent instructions."
+permalink: /agent-integrations/
+nav_order: 6
+parent: "Remote control"
+---
+
 # Agent integrations
 
 The Android APK is the MCP server. Each owner supplies a reachable phone endpoint such as `http://phone.example:19002/mcp` and, when enabled, an owner credential or scoped bearer token. There is no shared hosted phone service. The plugin supplies operating instructions; the MCP connection points directly to the installed launcher. Use [private-network setup](automation-control.md#connect-without-usb) first.
@@ -12,7 +20,7 @@ Use `dikciz_search_query` with collection `docs` for relevant operating guides a
 
 ## Codex
 
-The repository skill is available from `.agents/skills/dikciz-launcher/`. The Codex plugin manifest packages those instructions. Add the phone as a separate Streamable HTTP server using the real endpoint:
+The repository skill is available from [`.agents/skills/dikciz-launcher/`](https://github.com/psyb0t/dikciz-launcher/tree/main/.agents/skills/dikciz-launcher/). The Codex plugin manifest packages those instructions. Add the phone as a separate Streamable HTTP server using the real endpoint:
 
 ```bash
 codex mcp add dikciz --url http://phone.example:19002/mcp --bearer-token-env-var DIKCIZ_REMOTE_BEARER_TOKEN
@@ -30,7 +38,7 @@ From a repository checkout, load the local plugin with:
 claude --plugin-dir .agents
 ```
 
-The manifests are packaged under `.agents/`. Marketplace publication requires the corresponding central catalog entries to be released. Do not treat an unlisted plugin as already installable by marketplace name.
+The manifests are packaged under [`.agents/`](https://github.com/psyb0t/dikciz-launcher/tree/main/.agents/). Marketplace publication requires the corresponding central catalog entries to be released. Do not treat an unlisted plugin as already installable by marketplace name.
 
 ## Other MCP clients
 

@@ -1,4 +1,14 @@
+---
+title: "Background JavaScript"
+description: "Write headless JavaScript scripts that handle events without a WebView, persist state and invoke the shared phone executor."
+permalink: /background-javascript/
+nav_order: 4
+parent: "Developer manual"
+---
+
 # Background JavaScript
+
+The [JavaScript API reference](javascript-api.md) defines both WebView helpers and this interpreter's complete context. The [developer manual](developer-manual.md) maps every phone API and token scope.
 
 JavaScript is a second background script language alongside Lua. It runs in an embedded interpreter on the automation worker, without a WebView, DOM or selected home page. Both languages share event subscriptions, repeating alarms, typed actions, state persistence, Android access and run-status logs.
 

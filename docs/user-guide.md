@@ -1,3 +1,11 @@
+---
+title: "Dikciz user guide"
+description: "Navigate the Dikciz home, edit pages and widgets, manage shortcuts and scripts, and recover from common setup problems with illustrated steps."
+permalink: /user-guide/
+nav_order: 1
+parent: "Tutorial"
+---
+
 # Dikciz user guide
 
 This guide starts after you have downloaded and installed a Dikciz APK on your Android phone. It covers using the launcher on the phone. Each screenshot follows the step beside it.
@@ -72,7 +80,7 @@ Open **Dikciz > Apps** for SOS, Voice notes, Agenda, Device status and Travel to
 
 Travel todo is a working reference. Use the checklist normally, or grant location access and explicitly choose **Watch New York**. A matching GPS event checks off the trip even with the UI closed. Read [the full walkthrough](todo-app-tutorial.md) before changing the destination or event. Installation and opening do not start its location watch.
 
-<img src="images/custom-apps/custom-apps.png" alt="Custom apps manager with bundled source-editable apps" width="320">
+<img src="{{ "/images/custom-apps/custom-apps.png" | relative_url }}" alt="Custom apps manager with bundled source-editable apps" width="320">
 
 ## Add apps and widgets
 

@@ -140,10 +140,10 @@ internal class DikcizRemoteAccessAuth(
                 ?: throw DikcizRemoteAccessAuthException(ERROR_AUTH_REQUIRED, MESSAGE_AUTH_REQUIRED))
         }
         if (commandType == DikcizRemotePolicy.TYPE_TOKENS) {
-            requireOwner(authorization, localAllowed = true)
+            requireCapability(authorization, commandType, request, localAllowed = true)
             return@locked manageTokens(request, ACTOR_REMOTE)
         }
-        requireOwner(authorization, localAllowed = false)
+        requireCapability(authorization, commandType, request, localAllowed = false)
         val record = requireValidRecord()
         val enabled = when (commandType) {
             DikcizAutomationControlPlane.TYPE_REMOTE_AUTH_ENABLE -> true
@@ -171,17 +171,11 @@ internal class DikcizRemoteAccessAuth(
         return null
     }
 
-    private fun requireOwner(authorization: String?, localAllowed: Boolean) {
+    private fun requireCapability(authorization: String?, type: String, request: JSONObject, localAllowed: Boolean) {
         if (localAllowed && authorization == null) return
-        val secret = parseBearerPassword(authorization)
+        val access = resolveUnlocked(authorization)
             ?: throw DikcizRemoteAccessAuthException(ERROR_AUTH_REQUIRED, MESSAGE_AUTH_REQUIRED)
-        val record = requireValidRecord()
-        val ownerToken = record.enabled && record.tokens.any {
-            it.enabled && it.rules.isActive() && DikcizRemotePolicy.OWNER in it.permissions && digestMatches(it.digest, secret)
-        }
-        if (!ownerToken && !verifies(record, secret)) {
-            throw DikcizRemoteAccessAuthException(ERROR_AUTH_REQUIRED, MESSAGE_AUTH_REQUIRED)
-        }
+        access.requireCommand(type, request)
     }
 
     fun tokenCommandFromPhone(request: JSONObject): JSONObject = locked(write = true) {
@@ -356,6 +350,9 @@ internal class DikcizRemoteAccessAuth(
             throw DikcizRemoteAccessAuthException(ERROR_RECORD_WRITE, MESSAGE_RECORD_WRITE_FAILED)
         }
         val serialized = record.toJson().toString(JSON_INDENTATION_SPACES)
+        if (serialized.toByteArray(StandardCharsets.UTF_8).size > MAXIMUM_RECORD_BYTES) {
+            throw DikcizRemoteAccessAuthException(ERROR_RECORD_WRITE, "Access-token record exceeds storage capacity")
+        }
         val atomicFile = AtomicFile(recordFile)
         var output: FileOutputStream? = null
         try {
@@ -533,7 +530,7 @@ internal class DikcizRemoteAccessAuth(
         const val LOWERCASE_LETTERS = "abcdefghijklmnopqrstuvwxyz"
         const val MAXIMUM_AUTHORIZATION_CHARACTERS = 256
         const val MAXIMUM_PASSWORD_CHARACTERS = 72
-        const val MAXIMUM_RECORD_BYTES = 65536L
+        const val MAXIMUM_RECORD_BYTES = 8388608L
         const val MESSAGE_AUTH_REQUIRED = "a valid remote bearer credential is required"
         const val MESSAGE_CLEAR_FAILED = "could not clear the remote auth record"
         const val MESSAGE_INVALID_PASSWORD = "password must use 12 to 72 bearer-safe ASCII characters"

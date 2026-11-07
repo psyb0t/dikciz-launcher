@@ -1,5 +1,7 @@
 # Dikciz capabilities
 
+The [developer manual](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/developer-manual.md) links complete [JavaScript](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/javascript-api.md), [Lua](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/lua-api.md) and [token permission](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/token-permissions.md) references. Command input schemas and ordinary type names come from installed discovery.
+
 Use this catalog to choose the right feature. Use the running build's `controlStatus`, `automationStatus` and MCP tool schemas for exact command arguments, input limits, permissions and current availability. A declared Android permission does not imply an implemented action or a granted capability.
 
 ## Launcher and appearance

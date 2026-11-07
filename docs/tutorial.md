@@ -1,3 +1,11 @@
+---
+title: "Tutorial"
+description: "Install Dikciz and follow illustrated exercises for home editing, AI chat, remote commands, event scripts, hardware and Android SDK discovery."
+permalink: /tutorial/
+nav_order: 2
+has_children: true
+---
+
 # Dikciz tutorial
 
 Build a home you can edit, connect an AI that can use the phone, and make HTML widgets, Lua or headless JavaScript scripts and complete custom apps react to events. This walkthrough starts with the signed APK and ends with direct Android SDK discovery. Follow it in order for a new installation, or jump to the part you need.
@@ -34,11 +42,11 @@ A permission is not the same as a role, special access or hardware support. Dikc
 
 **Check:** press Home. Dikciz opens and the starter pages render. Return from an Android permission screen and continue setup without starting the sequence again.
 
-<p><a href="images/user-guide/38-device-access-screen.png"><img src="images/user-guide/38-device-access-screen.png" alt="Full device-access setup, with progress and individual Android access steps." width="280"></a><br>Full device-access setup, with progress and individual Android access steps.</p>
+<p><a href="{{ "/images/user-guide/38-device-access-screen.png" | relative_url }}"><img src="{{ "/images/user-guide/38-device-access-screen.png" | relative_url }}" alt="Full device-access setup, with progress and individual Android access steps." width="280"></a><br>Full device-access setup, with progress and individual Android access steps.</p>
 
-<p><a href="images/tutorial/permission-contacts-review.png"><img src="images/tutorial/permission-contacts-review.png" alt="A remote request asks the owner to review only the missing contacts access." width="280"></a><br>A remote request asks the owner to review only the missing contacts access.</p>
+<p><a href="{{ "/images/tutorial/permission-contacts-review.png" | relative_url }}"><img src="{{ "/images/tutorial/permission-contacts-review.png" | relative_url }}" alt="A remote request asks the owner to review only the missing contacts access." width="280"></a><br>A remote request asks the owner to review only the missing contacts access.</p>
 
-<p><a href="images/tutorial/permission-contacts-android.png"><img src="images/tutorial/permission-contacts-android.png" alt="The owner button opens the actual Android permission prompt. Approval still belongs to the user." width="280"></a><br>The owner button opens the actual Android permission prompt. Approval still belongs to the user.</p>
+<p><a href="{{ "/images/tutorial/permission-contacts-android.png" | relative_url }}"><img src="{{ "/images/tutorial/permission-contacts-android.png" | relative_url }}" alt="The owner button opens the actual Android permission prompt. Approval still belongs to the user." width="280"></a><br>The owner button opens the actual Android permission prompt. Approval still belongs to the user.</p>
 
 ## 2. Explore the starter home
 
@@ -57,13 +65,13 @@ The library includes nineteen complete HTML templates, including Live sensors, B
 
 **Check:** visit all four pages. Try one manual Goblin effect and stop it. Do not enable background rules until you have reviewed their source and triggers.
 
-<p><a href="images/user-guide/01-first-launch.png"><img src="images/user-guide/01-first-launch.png" alt="Home with populated weather, app icons and the native dock." width="280"></a><br>Home with populated weather, app icons and the native dock.</p>
+<p><a href="{{ "/images/user-guide/01-first-launch.png" | relative_url }}"><img src="{{ "/images/user-guide/01-first-launch.png" | relative_url }}" alt="Home with populated weather, app icons and the native dock." width="280"></a><br>Home with populated weather, app icons and the native dock.</p>
 
-<p><a href="images/user-guide/03-insights-page.png"><img src="images/user-guide/03-insights-page.png" alt="Tools with sample calendar entries and a saved emulator voice note." width="280"></a><br>Tools with sample calendar entries and a saved emulator voice note.</p>
+<p><a href="{{ "/images/user-guide/03-insights-page.png" | relative_url }}"><img src="{{ "/images/user-guide/03-insights-page.png" | relative_url }}" alt="Tools with sample calendar entries and a saved emulator voice note." width="280"></a><br>Tools with sample calendar entries and a saved emulator voice note.</p>
 
-<p><a href="images/user-guide/04-device-page.png"><img src="images/user-guide/04-device-page.png" alt="Device with actual battery, memory, storage and CPU measurements." width="280"></a><br>Device with actual battery, memory, storage and CPU measurements.</p>
+<p><a href="{{ "/images/user-guide/04-device-page.png" | relative_url }}"><img src="{{ "/images/user-guide/04-device-page.png" | relative_url }}" alt="Device with actual battery, memory, storage and CPU measurements." width="280"></a><br>Device with actual battery, memory, storage and CPU measurements.</p>
 
-<p><a href="images/user-guide/05-goblin-page.png"><img src="images/user-guide/05-goblin-page.png" alt="Goblin controls for manual speech, finite light effects and alien sounds." width="280"></a><br>Goblin controls for manual speech, finite light effects and alien sounds.</p>
+<p><a href="{{ "/images/user-guide/05-goblin-page.png" | relative_url }}"><img src="{{ "/images/user-guide/05-goblin-page.png" | relative_url }}" alt="Goblin controls for manual speech, finite light effects and alien sounds." width="280"></a><br>Goblin controls for manual speech, finite light effects and alien sounds.</p>
 
 ## 3. Build and customize a page
 
@@ -88,47 +96,47 @@ Add native app shortcuts or Android provider widgets through the same page contr
 <details>
 <summary>Show the page, app and widget walkthrough</summary>
 
-<p><a href="images/user-guide/06-launcher-controls.png"><img src="images/user-guide/06-launcher-controls.png" alt="Launcher controls open the drawer, widgets, page actions and Settings." width="280"></a><br>Launcher controls open the drawer, widgets, page actions and Settings.</p>
+<p><a href="{{ "/images/user-guide/06-launcher-controls.png" | relative_url }}"><img src="{{ "/images/user-guide/06-launcher-controls.png" | relative_url }}" alt="Launcher controls open the drawer, widgets, page actions and Settings." width="280"></a><br>Launcher controls open the drawer, widgets, page actions and Settings.</p>
 
-<p><a href="images/user-guide/05-create-page.png"><img src="images/user-guide/05-create-page.png" alt="Create a spare page before trying layout changes." width="280"></a><br>Create a spare page before trying layout changes.</p>
+<p><a href="{{ "/images/user-guide/05-create-page.png" | relative_url }}"><img src="{{ "/images/user-guide/05-create-page.png" | relative_url }}" alt="Create a spare page before trying layout changes." width="280"></a><br>Create a spare page before trying layout changes.</p>
 
-<p><a href="images/user-guide/20-page-rename.png"><img src="images/user-guide/20-page-rename.png" alt="Give the page a recognizable title." width="280"></a><br>Give the page a recognizable title.</p>
+<p><a href="{{ "/images/user-guide/20-page-rename.png" | relative_url }}"><img src="{{ "/images/user-guide/20-page-rename.png" | relative_url }}" alt="Give the page a recognizable title." width="280"></a><br>Give the page a recognizable title.</p>
 
-<p><a href="images/user-guide/32-page-search-by-name.png"><img src="images/user-guide/32-page-search-by-name.png" alt="Search pages by title or address." width="280"></a><br>Search pages by title or address.</p>
+<p><a href="{{ "/images/user-guide/32-page-search-by-name.png" | relative_url }}"><img src="{{ "/images/user-guide/32-page-search-by-name.png" | relative_url }}" alt="Search pages by title or address." width="280"></a><br>Search pages by title or address.</p>
 
-<p><a href="images/user-guide/19-page-menu.png"><img src="images/user-guide/19-page-menu.png" alt="Page actions include navigation, layout and editing controls." width="280"></a><br>Page actions include navigation, layout and editing controls.</p>
+<p><a href="{{ "/images/user-guide/19-page-menu.png" | relative_url }}"><img src="{{ "/images/user-guide/19-page-menu.png" | relative_url }}" alt="Page actions include navigation, layout and editing controls." width="280"></a><br>Page actions include navigation, layout and editing controls.</p>
 
-<p><a href="images/user-guide/28-grid-settings.png"><img src="images/user-guide/28-grid-settings.png" alt="The global page grid controls columns, rows and spacing." width="280"></a><br>The global page grid controls columns, rows and spacing.</p>
+<p><a href="{{ "/images/user-guide/28-grid-settings.png" | relative_url }}"><img src="{{ "/images/user-guide/28-grid-settings.png" | relative_url }}" alt="The global page grid controls columns, rows and spacing." width="280"></a><br>The global page grid controls columns, rows and spacing.</p>
 
-<p><a href="images/user-guide/07-app-drawer.png"><img src="images/user-guide/07-app-drawer.png" alt="Browse installed apps in the drawer." width="280"></a><br>Browse installed apps in the drawer.</p>
+<p><a href="{{ "/images/user-guide/07-app-drawer.png" | relative_url }}"><img src="{{ "/images/user-guide/07-app-drawer.png" | relative_url }}" alt="Browse installed apps in the drawer." width="280"></a><br>Browse installed apps in the drawer.</p>
 
-<p><a href="images/user-guide/08-app-drawer-search.png"><img src="images/user-guide/08-app-drawer-search.png" alt="Filter the app drawer before choosing an app." width="280"></a><br>Filter the app drawer before choosing an app.</p>
+<p><a href="{{ "/images/user-guide/08-app-drawer-search.png" | relative_url }}"><img src="{{ "/images/user-guide/08-app-drawer-search.png" | relative_url }}" alt="Filter the app drawer before choosing an app." width="280"></a><br>Filter the app drawer before choosing an app.</p>
 
-<p><a href="images/user-guide/09-app-actions.png"><img src="images/user-guide/09-app-actions.png" alt="App actions include launching and adding a native shortcut." width="280"></a><br>App actions include launching and adding a native shortcut.</p>
+<p><a href="{{ "/images/user-guide/09-app-actions.png" | relative_url }}"><img src="{{ "/images/user-guide/09-app-actions.png" | relative_url }}" alt="App actions include launching and adding a native shortcut." width="280"></a><br>App actions include launching and adding a native shortcut.</p>
 
-<p><a href="images/user-guide/10-app-group.png"><img src="images/user-guide/10-app-group.png" alt="A real app group after holding an icon before dragging it onto another." width="280"></a><br>A real app group after holding an icon before dragging it onto another.</p>
+<p><a href="{{ "/images/user-guide/10-app-group.png" | relative_url }}"><img src="{{ "/images/user-guide/10-app-group.png" | relative_url }}" alt="A real app group after holding an icon before dragging it onto another." width="280"></a><br>A real app group after holding an icon before dragging it onto another.</p>
 
-<p><a href="images/user-guide/21-widget-picker.png"><img src="images/user-guide/21-widget-picker.png" alt="Choose the Dikciz library or an Android app widget provider." width="280"></a><br>Choose the Dikciz library or an Android app widget provider.</p>
+<p><a href="{{ "/images/user-guide/21-widget-picker.png" | relative_url }}"><img src="{{ "/images/user-guide/21-widget-picker.png" | relative_url }}" alt="Choose the Dikciz library or an Android app widget provider." width="280"></a><br>Choose the Dikciz library or an Android app widget provider.</p>
 
-<p><a href="images/user-guide/22-html-package-library.png"><img src="images/user-guide/22-html-package-library.png" alt="The HTML library lists complete documents with descriptions." width="280"></a><br>The HTML library lists complete documents with descriptions.</p>
+<p><a href="{{ "/images/user-guide/22-html-package-library.png" | relative_url }}"><img src="{{ "/images/user-guide/22-html-package-library.png" | relative_url }}" alt="The HTML library lists complete documents with descriptions." width="280"></a><br>The HTML library lists complete documents with descriptions.</p>
 
-<p><a href="images/user-guide/23-provider-widgets.png"><img src="images/user-guide/23-provider-widgets.png" alt="Android provider widgets use their native binding flow." width="280"></a><br>Android provider widgets use their native binding flow.</p>
+<p><a href="{{ "/images/user-guide/23-provider-widgets.png" | relative_url }}"><img src="{{ "/images/user-guide/23-provider-widgets.png" | relative_url }}" alt="Android provider widgets use their native binding flow." width="280"></a><br>Android provider widgets use their native binding flow.</p>
 
-<p><a href="images/user-guide/11-widget-actions.png"><img src="images/user-guide/11-widget-actions.png" alt="Long press opens whole-widget editing controls." width="280"></a><br>Long press opens whole-widget editing controls.</p>
+<p><a href="{{ "/images/user-guide/11-widget-actions.png" | relative_url }}"><img src="{{ "/images/user-guide/11-widget-actions.png" | relative_url }}" alt="Long press opens whole-widget editing controls." width="280"></a><br>Long press opens whole-widget editing controls.</p>
 
-<p><a href="images/user-guide/12-move-grid.png"><img src="images/user-guide/12-move-grid.png" alt="Move an item inside the native page grid." width="280"></a><br>Move an item inside the native page grid.</p>
+<p><a href="{{ "/images/user-guide/12-move-grid.png" | relative_url }}"><img src="{{ "/images/user-guide/12-move-grid.png" | relative_url }}" alt="Move an item inside the native page grid." width="280"></a><br>Move an item inside the native page grid.</p>
 
-<p><a href="images/user-guide/13-resize-grid.png"><img src="images/user-guide/13-resize-grid.png" alt="Resize using the grid outline and handles." width="280"></a><br>Resize using the grid outline and handles.</p>
+<p><a href="{{ "/images/user-guide/13-resize-grid.png" | relative_url }}"><img src="{{ "/images/user-guide/13-resize-grid.png" | relative_url }}" alt="Resize using the grid outline and handles." width="280"></a><br>Resize using the grid outline and handles.</p>
 
-<p><a href="images/user-guide/16-widget-editor.png"><img src="images/user-guide/16-widget-editor.png" alt="Edit the complete widget source and state." width="280"></a><br>Edit the complete widget source and state.</p>
+<p><a href="{{ "/images/user-guide/16-widget-editor.png" | relative_url }}"><img src="{{ "/images/user-guide/16-widget-editor.png" | relative_url }}" alt="Edit the complete widget source and state." width="280"></a><br>Edit the complete widget source and state.</p>
 
-<p><a href="images/user-guide/33-html-saved.png"><img src="images/user-guide/33-html-saved.png" alt="A saved source edit rendered by the WebView." width="280"></a><br>A saved source edit rendered by the WebView.</p>
+<p><a href="{{ "/images/user-guide/33-html-saved.png" | relative_url }}"><img src="{{ "/images/user-guide/33-html-saved.png" | relative_url }}" alt="A saved source edit rendered by the WebView." width="280"></a><br>A saved source edit rendered by the WebView.</p>
 
-<p><a href="images/user-guide/17-appearance-editor.png"><img src="images/user-guide/17-appearance-editor.png" alt="Appearance controls include native borders, spacing and inherited styles." width="280"></a><br>Appearance controls include native borders, spacing and inherited styles.</p>
+<p><a href="{{ "/images/user-guide/17-appearance-editor.png" | relative_url }}"><img src="{{ "/images/user-guide/17-appearance-editor.png" | relative_url }}" alt="Appearance controls include native borders, spacing and inherited styles." width="280"></a><br>Appearance controls include native borders, spacing and inherited styles.</p>
 
-<p><a href="images/user-guide/15-widget-delete.png"><img src="images/user-guide/15-widget-delete.png" alt="Removing a widget frees its cells and removes its scoped state." width="280"></a><br>Removing a widget frees its cells and removes its scoped state.</p>
+<p><a href="{{ "/images/user-guide/15-widget-delete.png" | relative_url }}"><img src="{{ "/images/user-guide/15-widget-delete.png" | relative_url }}" alt="Removing a widget frees its cells and removes its scoped state." width="280"></a><br>Removing a widget frees its cells and removes its scoped state.</p>
 
-<p><a href="images/user-guide/24-page-full.png"><img src="images/user-guide/24-page-full.png" alt="A deliberately full page refuses another item." width="280"></a><br>A deliberately full page refuses another item.</p>
+<p><a href="{{ "/images/user-guide/24-page-full.png" | relative_url }}"><img src="{{ "/images/user-guide/24-page-full.png" | relative_url }}" alt="A deliberately full page refuses another item." width="280"></a><br>A deliberately full page refuses another item.</p>
 
 </details>
 
@@ -158,35 +166,35 @@ An event rule can wake a conversation while chat is closed. Configure one only a
 
 ### Chat screens
 
-<p><a href="images/tutorial/chat-conversations.png"><img src="images/tutorial/chat-conversations.png" alt="Switch between independent conversations." width="280"></a><br>Switch between independent conversations.</p>
+<p><a href="{{ "/images/tutorial/chat-conversations.png" | relative_url }}"><img src="{{ "/images/tutorial/chat-conversations.png" | relative_url }}" alt="Switch between independent conversations." width="280"></a><br>Switch between independent conversations.</p>
 
-<p><a href="images/tutorial/chat-event-rules.png"><img src="images/tutorial/chat-event-rules.png" alt="An event rule can wake this conversation for a scoped read-only task." width="280"></a><br>An event rule can wake this conversation for a scoped read-only task.</p>
+<p><a href="{{ "/images/tutorial/chat-event-rules.png" | relative_url }}"><img src="{{ "/images/tutorial/chat-event-rules.png" | relative_url }}" alt="An event rule can wake this conversation for a scoped read-only task." width="280"></a><br>An event rule can wake this conversation for a scoped read-only task.</p>
 
-<p><a href="images/tutorial/chat-phone-tool.png"><img src="images/tutorial/chat-phone-tool.png" alt="The assistant executed a real read-only SDK call through the phone tools." width="280"></a><br>The assistant executed a real read-only SDK call through the phone tools.</p>
+<p><a href="{{ "/images/tutorial/chat-phone-tool.png" | relative_url }}"><img src="{{ "/images/tutorial/chat-phone-tool.png" | relative_url }}" alt="The assistant executed a real read-only SDK call through the phone tools." width="280"></a><br>The assistant executed a real read-only SDK call through the phone tools.</p>
 
-<p><a href="images/tutorial/chat-tool-result.png"><img src="images/tutorial/chat-tool-result.png" alt="Expand a tool result to inspect the actual response instead of trusting only the reply." width="280"></a><br>Expand a tool result to inspect the actual response instead of trusting only the reply.</p>
+<p><a href="{{ "/images/tutorial/chat-tool-result.png" | relative_url }}"><img src="{{ "/images/tutorial/chat-tool-result.png" | relative_url }}" alt="Expand a tool result to inspect the actual response instead of trusting only the reply." width="280"></a><br>Expand a tool result to inspect the actual response instead of trusting only the reply.</p>
 
-<p><a href="images/tutorial/chat-provider-settings.png"><img src="images/tutorial/chat-provider-settings.png" alt="The OpenAI template fills its standard API host and protocol." width="280"></a><br>The OpenAI template fills its standard API host and protocol.</p>
+<p><a href="{{ "/images/tutorial/chat-provider-settings.png" | relative_url }}"><img src="{{ "/images/tutorial/chat-provider-settings.png" | relative_url }}" alt="The OpenAI template fills its standard API host and protocol." width="280"></a><br>The OpenAI template fills its standard API host and protocol.</p>
 
-<p><a href="images/tutorial/chat-provider-templates.png"><img src="images/tutorial/chat-provider-templates.png" alt="Choose OpenAI, Anthropic or Custom before entering connection details." width="280"></a><br>Choose OpenAI, Anthropic or Custom before entering connection details.</p>
+<p><a href="{{ "/images/tutorial/chat-provider-templates.png" | relative_url }}"><img src="{{ "/images/tutorial/chat-provider-templates.png" | relative_url }}" alt="Choose OpenAI, Anthropic or Custom before entering connection details." width="280"></a><br>Choose OpenAI, Anthropic or Custom before entering connection details.</p>
 
-<p><a href="images/tutorial/chat-anthropic-settings.png"><img src="images/tutorial/chat-anthropic-settings.png" alt="The Anthropic template fills the Messages-compatible provider connection." width="280"></a><br>The Anthropic template fills the Messages-compatible provider connection.</p>
+<p><a href="{{ "/images/tutorial/chat-anthropic-settings.png" | relative_url }}"><img src="{{ "/images/tutorial/chat-anthropic-settings.png" | relative_url }}" alt="The Anthropic template fills the Messages-compatible provider connection." width="280"></a><br>The Anthropic template fills the Messages-compatible provider connection.</p>
 
-<p><a href="images/tutorial/chat-custom-settings.png"><img src="images/tutorial/chat-custom-settings.png" alt="Custom enables your own compatible host and protocol. Replace this example URL with your real server." width="280"></a><br>Custom enables your own compatible host and protocol. Replace this example URL with your real server.</p>
+<p><a href="{{ "/images/tutorial/chat-custom-settings.png" | relative_url }}"><img src="{{ "/images/tutorial/chat-custom-settings.png" | relative_url }}" alt="Custom enables your own compatible host and protocol. Replace this example URL with your real server." width="280"></a><br>Custom enables your own compatible host and protocol. Replace this example URL with your real server.</p>
 
-<p><a href="images/tutorial/chat-model-dropdown.png"><img src="images/tutorial/chat-model-dropdown.png" alt="Choose a discovered model from the provider catalogue. Names here are demonstration models." width="280"></a><br>Choose a discovered model from the provider catalogue. Names here are demonstration models.</p>
+<p><a href="{{ "/images/tutorial/chat-model-dropdown.png" | relative_url }}"><img src="{{ "/images/tutorial/chat-model-dropdown.png" | relative_url }}" alt="Choose a discovered model from the provider catalogue. Names here are demonstration models." width="280"></a><br>Choose a discovered model from the provider catalogue. Names here are demonstration models.</p>
 
-<p><a href="images/tutorial/chat-model-settings.png"><img src="images/tutorial/chat-model-settings.png" alt="Set read-only access, total context and the reserved reply/output budget." width="280"></a><br>Set read-only access, total context and the reserved reply/output budget.</p>
+<p><a href="{{ "/images/tutorial/chat-model-settings.png" | relative_url }}"><img src="{{ "/images/tutorial/chat-model-settings.png" | relative_url }}" alt="Set read-only access, total context and the reserved reply/output budget." width="280"></a><br>Set read-only access, total context and the reserved reply/output budget.</p>
 
-<p><a href="images/tutorial/chat-sheet-half.png"><img src="images/tutorial/chat-sheet-half.png" alt="Half-screen chat renders streamed Markdown." width="280"></a><br>Half-screen chat renders streamed Markdown.</p>
+<p><a href="{{ "/images/tutorial/chat-sheet-half.png" | relative_url }}"><img src="{{ "/images/tutorial/chat-sheet-half.png" | relative_url }}" alt="Half-screen chat renders streamed Markdown." width="280"></a><br>Half-screen chat renders streamed Markdown.</p>
 
-<p><a href="images/tutorial/chat-sheet-full.png"><img src="images/tutorial/chat-sheet-full.png" alt="Expand the same conversation for more reading space." width="280"></a><br>Expand the same conversation for more reading space.</p>
+<p><a href="{{ "/images/tutorial/chat-sheet-full.png" | relative_url }}"><img src="{{ "/images/tutorial/chat-sheet-full.png" | relative_url }}" alt="Expand the same conversation for more reading space." width="280"></a><br>Expand the same conversation for more reading space.</p>
 
-<p><a href="images/tutorial/chat-sheet-keyboard.png"><img src="images/tutorial/chat-sheet-keyboard.png" alt="The composer moves above the keyboard and retains its draft." width="280"></a><br>The composer moves above the keyboard and retains its draft.</p>
+<p><a href="{{ "/images/tutorial/chat-sheet-keyboard.png" | relative_url }}"><img src="{{ "/images/tutorial/chat-sheet-keyboard.png" | relative_url }}" alt="The composer moves above the keyboard and retains its draft." width="280"></a><br>The composer moves above the keyboard and retains its draft.</p>
 
-<p><a href="images/tutorial/chat-progress-notification.png"><img src="images/tutorial/chat-progress-notification.png" alt="Background progress offers Stop and a route back to the conversation." width="280"></a><br>Background progress offers Stop and a route back to the conversation.</p>
+<p><a href="{{ "/images/tutorial/chat-progress-notification.png" | relative_url }}"><img src="{{ "/images/tutorial/chat-progress-notification.png" | relative_url }}" alt="Background progress offers Stop and a route back to the conversation." width="280"></a><br>Background progress offers Stop and a route back to the conversation.</p>
 
-<p><a href="images/tutorial/chat-sheet-empty.png"><img src="images/tutorial/chat-sheet-empty.png" alt="The empty state shows how to start a conversation." width="280"></a><br>The empty state shows how to start a conversation.</p>
+<p><a href="{{ "/images/tutorial/chat-sheet-empty.png" | relative_url }}"><img src="{{ "/images/tutorial/chat-sheet-empty.png" | relative_url }}" alt="The empty state shows how to start a conversation." width="280"></a><br>The empty state shows how to start a conversation.</p>
 
 ## 5. Connect without USB
 
@@ -222,15 +230,15 @@ A writable call can opt into owner review with `autoRequestPermissions: true`. F
 
 **Check:** inspect the serving package and version through `deviceInfo`, then read a snapshot over MCP. Both must describe the intended installed instance. Continue with [connection troubleshooting](automation-control.md#connect-without-usb) or [agent setup](agent-integrations.md) if discovery fails.
 
-<p><a href="images/user-guide/31-automation-access.png"><img src="images/user-guide/31-automation-access.png" alt="Automation settings collect device access and control-plane configuration." width="280"></a><br>Automation settings collect device access and control-plane configuration.</p>
+<p><a href="{{ "/images/user-guide/31-automation-access.png" | relative_url }}"><img src="{{ "/images/user-guide/31-automation-access.png" | relative_url }}" alt="Automation settings collect device access and control-plane configuration." width="280"></a><br>Automation settings collect device access and control-plane configuration.</p>
 
-<p><a href="images/user-guide/40-control-ports.png"><img src="images/user-guide/40-control-ports.png" alt="Enter 0.0.0.0 before saving to enable direct IPv4 listening. This capture shows the edit form." width="280"></a><br>Enter 0.0.0.0 before saving to enable direct IPv4 listening. This capture shows the edit form.</p>
+<p><a href="{{ "/images/user-guide/40-control-ports.png" | relative_url }}"><img src="{{ "/images/user-guide/40-control-ports.png" | relative_url }}" alt="Enter 0.0.0.0 before saving to enable direct IPv4 listening. This capture shows the edit form." width="280"></a><br>Enter 0.0.0.0 before saving to enable direct IPv4 listening. This capture shows the edit form.</p>
 
 ## 6. Build an event pipeline
 
 Start with [Build a todo app that reacts to GPS](todo-app-tutorial.md) for the shortest complete app example. **Dikciz > Apps > Travel todo** contains all five editable source files. Its explicit **Watch New York** action creates a native geofence, and its background JavaScript checks off the destination after the matching event. The same list accepts a custom event for another task. The walkthrough covers permissions, source editing, independent copies and stopping monitoring.
 
-<img src="images/custom-apps/todo-watching.png" alt="Travel todo with an opt-in New York rule" width="280"> <img src="images/custom-apps/todo-arrived.png" alt="Persisted task completion after a real emulator GPS event" width="280">
+<img src="{{ "/images/custom-apps/todo-watching.png" | relative_url }}" alt="Travel todo with an opt-in New York rule" width="280"> <img src="{{ "/images/custom-apps/todo-arrived.png" | relative_url }}" alt="Persisted task completion after a real emulator GPS event" width="280">
 
 For separate widgets and background scripts, continue with the Lua example below. [Headless JavaScript](background-javascript.md) is a second standalone script backend with the same policies, events and command access.
 
@@ -251,13 +259,13 @@ After the custom pipeline works, inspect one of the disabled bundled Lua example
 
 **Check:** publish a request, see the result in the widget and inspect the final script status. Leave and return to the page to verify saved state. Disable the test script/subscription when finished. The [event replay guide](event-replay.md) covers cursors, gaps and reconnecting clients.
 
-<p><a href="images/user-guide/25-script-manager.png"><img src="images/user-guide/25-script-manager.png" alt="Review bundled scripts and enable only the ones you want." width="280"></a><br>Review bundled scripts and enable only the ones you want.</p>
+<p><a href="{{ "/images/user-guide/25-script-manager.png" | relative_url }}"><img src="{{ "/images/user-guide/25-script-manager.png" | relative_url }}" alt="Review bundled scripts and enable only the ones you want." width="280"></a><br>Review bundled scripts and enable only the ones you want.</p>
 
-<p><a href="images/user-guide/26-script-editor.png"><img src="images/user-guide/26-script-editor.png" alt="The native Lua editor exposes source, state and the enable switch." width="280"></a><br>The native Lua editor exposes source, state and the enable switch.</p>
+<p><a href="{{ "/images/user-guide/26-script-editor.png" | relative_url }}"><img src="{{ "/images/user-guide/26-script-editor.png" | relative_url }}" alt="The native Lua editor exposes source, state and the enable switch." width="280"></a><br>The native Lua editor exposes source, state and the enable switch.</p>
 
-<p><a href="images/tutorial/event-running.png"><img src="images/tutorial/event-running.png" alt="The packaged two-input recipe after example.start: Lua and HTML report Running." width="280"></a><br>The packaged two-input recipe after example.start: Lua and HTML report Running.</p>
+<p><a href="{{ "/images/tutorial/event-running.png" | relative_url }}"><img src="{{ "/images/tutorial/event-running.png" | relative_url }}" alt="The packaged two-input recipe after example.start: Lua and HTML report Running." width="280"></a><br>The packaged two-input recipe after example.start: Lua and HTML report Running.</p>
 
-<p><a href="images/tutorial/event-stopped.png"><img src="images/tutorial/event-stopped.png" alt="After example.stop, the same pipeline reports Stopped." width="280"></a><br>After example.stop, the same pipeline reports Stopped.</p>
+<p><a href="{{ "/images/tutorial/event-stopped.png" | relative_url }}"><img src="{{ "/images/tutorial/event-stopped.png" | relative_url }}" alt="After example.stop, the same pipeline reports Stopped." width="280"></a><br>After example.stop, the same pipeline reports Stopped.</p>
 
 The two-input screenshots use the [packaged event recipe](mcp-resources.md), which extends the one-button exercise above with separate start/stop inputs.
 
@@ -290,41 +298,41 @@ The inspector below displays real command results, with a visible preview notice
 <details>
 <summary>Show sensor, camera, audio, provider and connectivity results</summary>
 
-<p><a href="images/tutorial/api-sensors.png"><img src="images/tutorial/api-sensors.png" alt="Actual bounded sensor readings, including timestamps and availability." width="280"></a><br>Actual bounded sensor readings, including timestamps and availability.</p>
+<p><a href="{{ "/images/tutorial/api-sensors.png" | relative_url }}"><img src="{{ "/images/tutorial/api-sensors.png" | relative_url }}" alt="Actual bounded sensor readings, including timestamps and availability." width="280"></a><br>Actual bounded sensor readings, including timestamps and availability.</p>
 
-<p><a href="images/tutorial/api-location.png"><img src="images/tutorial/api-location.png" alt="A location result with the configured emulator fix and freshness." width="280"></a><br>A location result with the configured emulator fix and freshness.</p>
+<p><a href="{{ "/images/tutorial/api-location.png" | relative_url }}"><img src="{{ "/images/tutorial/api-location.png" | relative_url }}" alt="A location result with the configured emulator fix and freshness." width="280"></a><br>A location result with the configured emulator fix and freshness.</p>
 
-<p><a href="images/tutorial/camera-photo.png"><img src="images/tutorial/camera-photo.png" alt="A JPEG captured through the Android camera and shown in a widget. The scene belongs to the emulator camera." width="280"></a><br>A JPEG captured through the Android camera and shown in a widget. The scene belongs to the emulator camera.</p>
+<p><a href="{{ "/images/tutorial/camera-photo.png" | relative_url }}"><img src="{{ "/images/tutorial/camera-photo.png" | relative_url }}" alt="A JPEG captured through the Android camera and shown in a widget. The scene belongs to the emulator camera." width="280"></a><br>A JPEG captured through the Android camera and shown in a widget. The scene belongs to the emulator camera.</p>
 
-<p><a href="images/tutorial/api-camera.png"><img src="images/tutorial/api-camera.png" alt="The camera inventory returned by Android." width="280"></a><br>The camera inventory returned by Android.</p>
+<p><a href="{{ "/images/tutorial/api-camera.png" | relative_url }}"><img src="{{ "/images/tutorial/api-camera.png" | relative_url }}" alt="The camera inventory returned by Android." width="280"></a><br>The camera inventory returned by Android.</p>
 
-<p><a href="images/tutorial/api-video.png"><img src="images/tutorial/api-video.png" alt="Finalized bounded video metadata, rather than an accepted-start claim." width="280"></a><br>Finalized bounded video metadata, rather than an accepted-start claim.</p>
+<p><a href="{{ "/images/tutorial/api-video.png" | relative_url }}"><img src="{{ "/images/tutorial/api-video.png" | relative_url }}" alt="Finalized bounded video metadata, rather than an accepted-start claim." width="280"></a><br>Finalized bounded video metadata, rather than an accepted-start claim.</p>
 
-<p><a href="images/tutorial/api-microphone.png"><img src="images/tutorial/api-microphone.png" alt="A completed short emulator microphone recording." width="280"></a><br>A completed short emulator microphone recording.</p>
+<p><a href="{{ "/images/tutorial/api-microphone.png" | relative_url }}"><img src="{{ "/images/tutorial/api-microphone.png" | relative_url }}" alt="A completed short emulator microphone recording." width="280"></a><br>A completed short emulator microphone recording.</p>
 
-<p><a href="images/tutorial/api-audio.png"><img src="images/tutorial/api-audio.png" alt="Audio input/output devices exposed by Android." width="280"></a><br>Audio input/output devices exposed by Android.</p>
+<p><a href="{{ "/images/tutorial/api-audio.png" | relative_url }}"><img src="{{ "/images/tutorial/api-audio.png" | relative_url }}" alt="Audio input/output devices exposed by Android." width="280"></a><br>Audio input/output devices exposed by Android.</p>
 
-<p><a href="images/tutorial/api-voices.png"><img src="images/tutorial/api-voices.png" alt="Speech voices reported by the installed engine." width="280"></a><br>Speech voices reported by the installed engine.</p>
+<p><a href="{{ "/images/tutorial/api-voices.png" | relative_url }}"><img src="{{ "/images/tutorial/api-voices.png" | relative_url }}" alt="Speech voices reported by the installed engine." width="280"></a><br>Speech voices reported by the installed engine.</p>
 
-<p><a href="images/tutorial/api-speech-recognition.png"><img src="images/tutorial/api-speech-recognition.png" alt="Recognition availability and listening state." width="280"></a><br>Recognition availability and listening state.</p>
+<p><a href="{{ "/images/tutorial/api-speech-recognition.png" | relative_url }}"><img src="{{ "/images/tutorial/api-speech-recognition.png" | relative_url }}" alt="Recognition availability and listening state." width="280"></a><br>Recognition availability and listening state.</p>
 
-<p><a href="images/tutorial/api-contacts.png"><img src="images/tutorial/api-contacts.png" alt="Direct provider query against a synthetic emulator contact." width="280"></a><br>Direct provider query against a synthetic emulator contact.</p>
+<p><a href="{{ "/images/tutorial/api-contacts.png" | relative_url }}"><img src="{{ "/images/tutorial/api-contacts.png" | relative_url }}" alt="Direct provider query against a synthetic emulator contact." width="280"></a><br>Direct provider query against a synthetic emulator contact.</p>
 
-<p><a href="images/tutorial/api-calendar.png"><img src="images/tutorial/api-calendar.png" alt="Direct calendar occurrences from the emulator fixture." width="280"></a><br>Direct calendar occurrences from the emulator fixture.</p>
+<p><a href="{{ "/images/tutorial/api-calendar.png" | relative_url }}"><img src="{{ "/images/tutorial/api-calendar.png" | relative_url }}" alt="Direct calendar occurrences from the emulator fixture." width="280"></a><br>Direct calendar occurrences from the emulator fixture.</p>
 
-<p><a href="images/tutorial/api-providers.png"><img src="images/tutorial/api-providers.png" alt="Provider discovery describes supported resources and access." width="280"></a><br>Provider discovery describes supported resources and access.</p>
+<p><a href="{{ "/images/tutorial/api-providers.png" | relative_url }}"><img src="{{ "/images/tutorial/api-providers.png" | relative_url }}" alt="Provider discovery describes supported resources and access." width="280"></a><br>Provider discovery describes supported resources and access.</p>
 
-<p><a href="images/tutorial/api-notifications.png"><img src="images/tutorial/api-notifications.png" alt="A bounded query of Android notifications." width="280"></a><br>A bounded query of Android notifications.</p>
+<p><a href="{{ "/images/tutorial/api-notifications.png" | relative_url }}"><img src="{{ "/images/tutorial/api-notifications.png" | relative_url }}" alt="A bounded query of Android notifications." width="280"></a><br>A bounded query of Android notifications.</p>
 
-<p><a href="images/tutorial/api-bluetooth.png"><img src="images/tutorial/api-bluetooth.png" alt="Bluetooth inventory and its actual availability on the emulator." width="280"></a><br>Bluetooth inventory and its actual availability on the emulator.</p>
+<p><a href="{{ "/images/tutorial/api-bluetooth.png" | relative_url }}"><img src="{{ "/images/tutorial/api-bluetooth.png" | relative_url }}" alt="Bluetooth inventory and its actual availability on the emulator." width="280"></a><br>Bluetooth inventory and its actual availability on the emulator.</p>
 
-<p><a href="images/tutorial/api-wifi.png"><img src="images/tutorial/api-wifi.png" alt="Wi-Fi scan-cache state, including freshness and availability." width="280"></a><br>Wi-Fi scan-cache state, including freshness and availability.</p>
+<p><a href="{{ "/images/tutorial/api-wifi.png" | relative_url }}"><img src="{{ "/images/tutorial/api-wifi.png" | relative_url }}" alt="Wi-Fi scan-cache state, including freshness and availability." width="280"></a><br>Wi-Fi scan-cache state, including freshness and availability.</p>
 
-<p><a href="images/tutorial/api-sim.png"><img src="images/tutorial/api-sim.png" alt="SIM metadata on this emulator. An empty inventory does not demonstrate a physical SIM or number lookup." width="280"></a><br>SIM metadata on this emulator. An empty inventory does not demonstrate a physical SIM or number lookup.</p>
+<p><a href="{{ "/images/tutorial/api-sim.png" | relative_url }}"><img src="{{ "/images/tutorial/api-sim.png" | relative_url }}" alt="SIM metadata on this emulator. An empty inventory does not demonstrate a physical SIM or number lookup." width="280"></a><br>SIM metadata on this emulator. An empty inventory does not demonstrate a physical SIM or number lookup.</p>
 
-<p><a href="images/tutorial/api-usb.png"><img src="images/tutorial/api-usb.png" alt="USB-host inventory. No attached peripheral means no demonstrated transfer." width="280"></a><br>USB-host inventory. No attached peripheral means no demonstrated transfer.</p>
+<p><a href="{{ "/images/tutorial/api-usb.png" | relative_url }}"><img src="{{ "/images/tutorial/api-usb.png" | relative_url }}" alt="USB-host inventory. No attached peripheral means no demonstrated transfer." width="280"></a><br>USB-host inventory. No attached peripheral means no demonstrated transfer.</p>
 
-<p><a href="images/tutorial/api-nfc.png"><img src="images/tutorial/api-nfc.png" alt="Actual NFC status. An unavailable emulator adapter is not a successful tag transaction." width="280"></a><br>Actual NFC status. An unavailable emulator adapter is not a successful tag transaction.</p>
+<p><a href="{{ "/images/tutorial/api-nfc.png" | relative_url }}"><img src="{{ "/images/tutorial/api-nfc.png" | relative_url }}" alt="Actual NFC status. An unavailable emulator adapter is not a successful tag transaction." width="280"></a><br>Actual NFC status. An unavailable emulator adapter is not a successful tag transaction.</p>
 
 </details>
 
@@ -340,13 +348,13 @@ For work that outlives one request, use a durable command job and retain its ide
 
 **Check:** download the test file and compare its contents. For an intentional command test, inspect the exit status, not just transport success. See [files, APKs and shell](files-and-apks.md), [shell sessions](shell-sessions.md), [jobs](command-jobs.md) and [update recovery](remote-device-control.md#recover-after-an-apk-update).
 
-<p><a href="images/tutorial/api-files.png"><img src="images/tutorial/api-files.png" alt="Directory entries returned by the shared file API." width="280"></a><br>Directory entries returned by the shared file API.</p>
+<p><a href="{{ "/images/tutorial/api-files.png" | relative_url }}"><img src="{{ "/images/tutorial/api-files.png" | relative_url }}" alt="Directory entries returned by the shared file API." width="280"></a><br>Directory entries returned by the shared file API.</p>
 
-<p><a href="images/tutorial/api-shell.png"><img src="images/tutorial/api-shell.png" alt="An unprivileged shell command with its real output and exit status." width="280"></a><br>An unprivileged shell command with its real output and exit status.</p>
+<p><a href="{{ "/images/tutorial/api-shell.png" | relative_url }}"><img src="{{ "/images/tutorial/api-shell.png" | relative_url }}" alt="An unprivileged shell command with its real output and exit status." width="280"></a><br>An unprivileged shell command with its real output and exit status.</p>
 
-<p><a href="images/tutorial/api-jobs.png"><img src="images/tutorial/api-jobs.png" alt="A harmless durable job completed and retained its result." width="280"></a><br>A harmless durable job completed and retained its result.</p>
+<p><a href="{{ "/images/tutorial/api-jobs.png" | relative_url }}"><img src="{{ "/images/tutorial/api-jobs.png" | relative_url }}" alt="A harmless durable job completed and retained its result." width="280"></a><br>A harmless durable job completed and retained its result.</p>
 
-<p><a href="images/tutorial/api-event-journal.png"><img src="images/tutorial/api-event-journal.png" alt="Event-journal retention and replay status." width="280"></a><br>Event-journal retention and replay status.</p>
+<p><a href="{{ "/images/tutorial/api-event-journal.png" | relative_url }}"><img src="{{ "/images/tutorial/api-event-journal.png" | relative_url }}" alt="Event-journal retention and replay status." width="280"></a><br>Event-journal retention and replay status.</p>
 
 ## 9. Discover public Android SDK calls
 
@@ -367,7 +375,7 @@ Property `4` is Android `BATTERY_PROPERTY_CAPACITY`. Compare its returned value 
 
 **Check:** distinguish a method returning from a downstream Android operation completing. Catalogue presence proves neither hardware availability nor platform privilege. Read the [SDK guide](android-sdk.md) before constructors, callbacks, mutable methods or handle cleanup.
 
-<p><a href="images/tutorial/api-sdk.png"><img src="images/tutorial/api-sdk.png" alt="The exact BatteryManager overload returned through androidApiRead." width="280"></a><br>The exact BatteryManager overload returned through androidApiRead.</p>
+<p><a href="{{ "/images/tutorial/api-sdk.png" | relative_url }}"><img src="{{ "/images/tutorial/api-sdk.png" | relative_url }}" alt="The exact BatteryManager overload returned through androidApiRead." width="280"></a><br>The exact BatteryManager overload returned through androidApiRead.</p>
 
 ## 10. Check results and recover
 
@@ -395,13 +403,13 @@ For a specific failure, use the [documentation index](index.md), [command schema
 
 ### Settings and recovery screens
 
-<p><a href="images/user-guide/27-settings.png"><img src="images/user-guide/27-settings.png" alt="Launcher settings collect layout, scripts, appearance and automation." width="280"></a><br>Launcher settings collect layout, scripts, appearance and automation.</p>
+<p><a href="{{ "/images/user-guide/27-settings.png" | relative_url }}"><img src="{{ "/images/user-guide/27-settings.png" | relative_url }}" alt="Launcher settings collect layout, scripts, appearance and automation." width="280"></a><br>Launcher settings collect layout, scripts, appearance and automation.</p>
 
-<p><a href="images/user-guide/29-themes.png"><img src="images/user-guide/29-themes.png" alt="Choose or customize the home theme." width="280"></a><br>Choose or customize the home theme.</p>
+<p><a href="{{ "/images/user-guide/29-themes.png" | relative_url }}"><img src="{{ "/images/user-guide/29-themes.png" | relative_url }}" alt="Choose or customize the home theme." width="280"></a><br>Choose or customize the home theme.</p>
 
-<p><a href="images/user-guide/39-logging-settings.png"><img src="images/user-guide/39-logging-settings.png" alt="Configure log detail and retention without changing source." width="280"></a><br>Configure log detail and retention without changing source.</p>
+<p><a href="{{ "/images/user-guide/39-logging-settings.png" | relative_url }}"><img src="{{ "/images/user-guide/39-logging-settings.png" | relative_url }}" alt="Configure log detail and retention without changing source." width="280"></a><br>Configure log detail and retention without changing source.</p>
 
-<p><a href="images/user-guide/30-safe-mode.png"><img src="images/user-guide/30-safe-mode.png" alt="Safe mode offers a recovery path for a broken home." width="280"></a><br>Safe mode offers a recovery path for a broken home.</p>
+<p><a href="{{ "/images/user-guide/30-safe-mode.png" | relative_url }}"><img src="{{ "/images/user-guide/30-safe-mode.png" | relative_url }}" alt="Safe mode offers a recovery path for a broken home." width="280"></a><br>Safe mode offers a recovery path for a broken home.</p>
 
 ## Complete template gallery
 
@@ -410,41 +418,41 @@ These captures show the bundled documents as separate WebViews. The starter abov
 <details>
 <summary>Show the captured HTML templates</summary>
 
-<p><a href="images/tutorial/template-agenda.png"><img src="images/tutorial/template-agenda.png" alt="Agenda" width="280"></a><br>Agenda</p>
+<p><a href="{{ "/images/tutorial/template-agenda.png" | relative_url }}"><img src="{{ "/images/tutorial/template-agenda.png" | relative_url }}" alt="Agenda" width="280"></a><br>Agenda</p>
 
-<p><a href="images/tutorial/template-app-launcher.png"><img src="images/tutorial/template-app-launcher.png" alt="Android app settings" width="280"></a><br>Android app settings</p>
+<p><a href="{{ "/images/tutorial/template-app-launcher.png" | relative_url }}"><img src="{{ "/images/tutorial/template-app-launcher.png" | relative_url }}" alt="Android app settings" width="280"></a><br>Android app settings</p>
 
-<p><a href="images/tutorial/template-brightness.png"><img src="images/tutorial/template-brightness.png" alt="Android display settings" width="280"></a><br>Android display settings</p>
+<p><a href="{{ "/images/tutorial/template-brightness.png" | relative_url }}"><img src="{{ "/images/tutorial/template-brightness.png" | relative_url }}" alt="Android display settings" width="280"></a><br>Android display settings</p>
 
-<p><a href="images/tutorial/template-command-deck.png"><img src="images/tutorial/template-command-deck.png" alt="Clock and search" width="280"></a><br>Clock and search</p>
+<p><a href="{{ "/images/tutorial/template-command-deck.png" | relative_url }}"><img src="{{ "/images/tutorial/template-command-deck.png" | relative_url }}" alt="Clock and search" width="280"></a><br>Clock and search</p>
 
-<p><a href="images/tutorial/template-device-status.png"><img src="images/tutorial/template-device-status.png" alt="Device status" width="280"></a><br>Device status</p>
+<p><a href="{{ "/images/tutorial/template-device-status.png" | relative_url }}"><img src="{{ "/images/tutorial/template-device-status.png" | relative_url }}" alt="Device status" width="280"></a><br>Device status</p>
 
-<p><a href="images/user-guide/05-goblin-page.png"><img src="images/user-guide/05-goblin-page.png" alt="Goblin control" width="280"></a><br>Goblin control</p>
+<p><a href="{{ "/images/user-guide/05-goblin-page.png" | relative_url }}"><img src="{{ "/images/user-guide/05-goblin-page.png" | relative_url }}" alt="Goblin control" width="280"></a><br>Goblin control</p>
 
-<p><a href="images/tutorial/template-home-dashboard.png"><img src="images/tutorial/template-home-dashboard.png" alt="Home dashboard" width="280"></a><br>Home dashboard</p>
+<p><a href="{{ "/images/tutorial/template-home-dashboard.png" | relative_url }}"><img src="{{ "/images/tutorial/template-home-dashboard.png" | relative_url }}" alt="Home dashboard" width="280"></a><br>Home dashboard</p>
 
-<p><a href="images/tutorial/template-lock-screen.png"><img src="images/tutorial/template-lock-screen.png" alt="Lock screen" width="280"></a><br>Lock screen</p>
+<p><a href="{{ "/images/tutorial/template-lock-screen.png" | relative_url }}"><img src="{{ "/images/tutorial/template-lock-screen.png" | relative_url }}" alt="Lock screen" width="280"></a><br>Lock screen</p>
 
-<p><a href="images/tutorial/template-markets-news.png"><img src="images/tutorial/template-markets-news.png" alt="BTC and economic news" width="280"></a><br>BTC and economic news. The quote fetched successfully; GDELT returned HTTP 429 for news.</p>
+<p><a href="{{ "/images/tutorial/template-markets-news.png" | relative_url }}"><img src="{{ "/images/tutorial/template-markets-news.png" | relative_url }}" alt="BTC and economic news" width="280"></a><br>BTC and economic news. The quote fetched successfully; GDELT returned HTTP 429 for news.</p>
 
-<p><a href="images/tutorial/template-most-used-apps.png"><img src="images/tutorial/template-most-used-apps.png" alt="Most used apps" width="280"></a><br>Most used apps</p>
+<p><a href="{{ "/images/tutorial/template-most-used-apps.png" | relative_url }}"><img src="{{ "/images/tutorial/template-most-used-apps.png" | relative_url }}" alt="Most used apps" width="280"></a><br>Most used apps</p>
 
-<p><a href="images/tutorial/template-notifications.png"><img src="images/tutorial/template-notifications.png" alt="Post a notification" width="280"></a><br>Post a notification</p>
+<p><a href="{{ "/images/tutorial/template-notifications.png" | relative_url }}"><img src="{{ "/images/tutorial/template-notifications.png" | relative_url }}" alt="Post a notification" width="280"></a><br>Post a notification</p>
 
-<p><a href="images/tutorial/template-quick-apps.png"><img src="images/tutorial/template-quick-apps.png" alt="Find an app" width="280"></a><br>Find an app</p>
+<p><a href="{{ "/images/tutorial/template-quick-apps.png" | relative_url }}"><img src="{{ "/images/tutorial/template-quick-apps.png" | relative_url }}" alt="Find an app" width="280"></a><br>Find an app</p>
 
-<p><a href="images/tutorial/template-quick-note.png"><img src="images/tutorial/template-quick-note.png" alt="Quick note" width="280"></a><br>Quick note</p>
+<p><a href="{{ "/images/tutorial/template-quick-note.png" | relative_url }}"><img src="{{ "/images/tutorial/template-quick-note.png" | relative_url }}" alt="Quick note" width="280"></a><br>Quick note</p>
 
-<p><a href="images/tutorial/template-sensors-dashboard.png"><img src="images/tutorial/template-sensors-dashboard.png" alt="Live sensors" width="280"></a><br>Live sensors</p>
+<p><a href="{{ "/images/tutorial/template-sensors-dashboard.png" | relative_url }}"><img src="{{ "/images/tutorial/template-sensors-dashboard.png" | relative_url }}" alt="Live sensors" width="280"></a><br>Live sensors</p>
 
-<p><a href="images/tutorial/template-system-dashboard.png"><img src="images/tutorial/template-system-dashboard.png" alt="System dashboard" width="280"></a><br>System dashboard</p>
+<p><a href="{{ "/images/tutorial/template-system-dashboard.png" | relative_url }}"><img src="{{ "/images/tutorial/template-system-dashboard.png" | relative_url }}" alt="System dashboard" width="280"></a><br>System dashboard</p>
 
-<p><a href="images/tutorial/template-system-status.png"><img src="images/tutorial/template-system-status.png" alt="Dikciz diagnostics" width="280"></a><br>Dikciz diagnostics</p>
+<p><a href="{{ "/images/tutorial/template-system-status.png" | relative_url }}"><img src="{{ "/images/tutorial/template-system-status.png" | relative_url }}" alt="Dikciz diagnostics" width="280"></a><br>Dikciz diagnostics</p>
 
-<p><a href="images/tutorial/template-time-weather.png"><img src="images/tutorial/template-time-weather.png" alt="Time and weather" width="280"></a><br>Time and weather</p>
+<p><a href="{{ "/images/tutorial/template-time-weather.png" | relative_url }}"><img src="{{ "/images/tutorial/template-time-weather.png" | relative_url }}" alt="Time and weather" width="280"></a><br>Time and weather</p>
 
-<p><a href="images/tutorial/template-voice-notes.png"><img src="images/tutorial/template-voice-notes.png" alt="Voice notes" width="280"></a><br>Voice notes</p>
+<p><a href="{{ "/images/tutorial/template-voice-notes.png" | relative_url }}"><img src="{{ "/images/tutorial/template-voice-notes.png" | relative_url }}" alt="Voice notes" width="280"></a><br>Voice notes</p>
 
 The optional [Vehicle console](device-connections.md#vehicle-document) adds a paired-adapter dashboard. Its documented capture uses an explicit deterministic adapter fixture.
 

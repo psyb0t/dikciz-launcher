@@ -1,3 +1,11 @@
+---
+title: "Custom apps"
+description: "Build editable HTML, CSS and JavaScript apps with Lua or JavaScript backends, independent state, events, native timers and urgent alerts."
+permalink: /custom-apps/
+nav_order: 3
+parent: "Developer manual"
+---
+
 # Custom apps
 
 Open **Dikciz**, **Apps** to open, create, edit, enable, disable, export or remove a complete app. Each app combines its own HTML/CSS/JavaScript interface with a Lua or headless JavaScript backend and persistent state. Closing its WebView leaves subscribed events and scheduled backend work available through the native host.
@@ -93,6 +101,6 @@ The modal's cancellation button invokes the app's declared cancel event, then cl
 
 HTTP, WebSocket and MCP expose the same nine commands: `customAppsList`, `customAppRead`, `customAppInstall`, `customAppControl`, `customAppEvent`, `customAppState`, `customAppSchedule`, `customAppAlert` and `customAppRuntime`. Discover exact fields in the [command reference](command-reference.md). Install/import requires `confirm: true` and starts a new app enabled. Replacing preserves its running or stopped state. Start needs no confirmation; removal retains its destructive-action confirmation. Archives use `.dikciz-app.zip`, exactly five manifest/source entries, no directory entries, no traversal and a 2 MiB compressed-file ceiling. Each source is bounded to 256 KiB; state to 128 KiB and depth 16. At most 64 apps are installed.
 
-These APIs require full owner remote authority. Scoped read grants do not gain execution access. Read-only chat sees only list, read and runtime; the trusted executor rejects hidden mutations even when called directly. Read-only SOS preview also passes its read-only restriction into app command execution and rejects returned actions. Listing or reading records does not invoke source code. `customAppControl: open` reports a request, while `customAppRead.uiVisible` and `snapshot` report observed presentation.
+These APIs accept full owner authority or explicit command/action grants. Existing named read grants do not gain execution access. App installation, enabling and event invocation can execute code with Dikciz Android access; those grants are not a code sandbox. See the [complete grant table](token-permissions.md). Read-only chat sees only list, read and runtime; the trusted executor rejects hidden mutations even when called directly. Read-only SOS preview also passes its read-only restriction into app command execution and rejects returned actions. Listing or reading records does not invoke source code. `customAppControl: open` reports a request, while `customAppRead.uiVisible` and `snapshot` report observed presentation.
 
 The legacy `sosPlanSave`, `sosPreview`, `sosControl` and `sosStatus` commands delegate to the bundled SOS app. Existing saved plans migrate once into its public state. Active pre-migration runs become `needs_review`, with no automatic outgoing messages. See [SOS setup and outcomes](safety-and-journeys.md).

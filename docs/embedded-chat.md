@@ -1,3 +1,11 @@
+---
+title: "On-device Dikciz assistant"
+description: "Configure AI providers and models, context and output budgets, streaming conversations, read-only tools, event rules and background notifications."
+permalink: /embedded-chat/
+nav_order: 4
+parent: "Tutorial"
+---
+
 # On-device Dikciz assistant
 
 Tap the cheese beside the launcher controls to open chat. It starts at half height; the resize button expands it to the available screen. Closing the panel leaves a running turn active. Hidden replies and subscribed events add an unread badge; reply notifications reopen the conversation. Android notification access controls whether those notifications appear.
@@ -156,7 +164,7 @@ The private Android Lab suite serves fake OpenAI/Anthropic model discovery and S
 make dikciz-test DIKCIZ_TEST_SELECTOR=test_chat_agent
 ```
 
-See the [source architecture](../app/src/dikciz/README.md) and [test guide](../tests/README.md) for the pinned build and lab workflow.
+See the [source architecture](https://github.com/psyb0t/dikciz-launcher/blob/main/app/src/dikciz/README.md) and [test guide](https://github.com/psyb0t/dikciz-launcher/blob/main/tests/README.md) for the pinned build and lab workflow.
 
 ## Companion workflows
 

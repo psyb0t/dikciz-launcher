@@ -1,3 +1,11 @@
+---
+title: "Files, APK installation and shell commands"
+description: "Browse and transfer accessible phone files, install APKs and run shell commands through the shared APIs with explicit permissions and results."
+permalink: /files-and-apks/
+nav_order: 10
+parent: "Remote control"
+---
+
 # Files, APK installation and shell commands
 
 Dikciz exposes filesystem commands through WebSocket, MCP and plain HTTP. They use Android permissions granted to Dikciz and accept absolute filesystem paths, including shared storage and the app sandbox. They cover paths outside `/sdcard/Dikciz/`. Android still controls access to protected locations.
