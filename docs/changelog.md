@@ -7,7 +7,7 @@ nav_order: 10
 
 # Changelog
 
-## Unreleased
+## [0.31.3] - 2026-11-07
 
 ### Documentation
 
@@ -23,9 +23,14 @@ nav_order: 10
 
 ### Fixed
 
+- Close documentation search safely when focus leaves the page or moves to a non-focusable element.
 - Retain caller grants and read-only authority for queued commands, scope job records and idempotency to their caller, and reject unauthorized nested work.
 - Make semantic scrolling reach native dialog fields and make semantic taps focus text editors across every command binding.
 - Declare finite choices in older command schemas so discovery and permission definitions agree. Exclude read-only provider resources from write discovery.
+
+### Migration for scoped jobs
+
+Existing named feature grants remain valid. Older command-job records without a caller tag belong to the local owner and are hidden from scoped tokens. Named credentials now have separate idempotency namespaces. Inspect older submissions with owner access before retrying them after an upgrade.
 
 ## [0.31.2] - 2026-11-07
 

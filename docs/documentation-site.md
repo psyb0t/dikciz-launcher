@@ -40,6 +40,8 @@ The build uses the same digest-pinned Jekyll image as GitHub Pages. `docs-check`
 
 Open the home page, a long API reference and the illustrated tutorials. Check desktop and narrow screens, the mobile menu, wide tables and code blocks. Wait for the search index to load, then search for a specific command and follow a result. Inspect image loading and browser errors. The website checks also run through `make lint` in CI.
 
+The pinned theme assumes search always transfers focus to another element. The [search focus guard](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/_includes/head_custom.html) handles a null focus destination before the theme listener runs, so leaving search closes the overlay without a browser error. Keep this guard while using the affected theme version.
+
 ## Generated content
 
 `make docs-recipes` renders the short packaged MCP recipes as website pages and translates resource links into browser links. Their editable source remains the [packaged recipe directory](https://github.com/psyb0t/dikciz-launcher/tree/main/app/src/dikciz/assets/mcp/recipes). `make docs-recipes-check` rejects stale copies. Regenerate the [offline search corpus](search.md) after documentation changes with `make dikciz-search-docs`.

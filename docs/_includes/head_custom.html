@@ -1,0 +1,19 @@
+<script>
+  /* The pinned theme dereferences null on blur. Block comments survive HTML compression. */
+  document.addEventListener(
+    "focusout",
+    (event) => {
+      const target = event.target;
+      if (
+        event.relatedTarget !== null ||
+        !(target instanceof Element) ||
+        (target.id !== "search-input" && !target.closest("#search-results"))
+      ) {
+        return;
+      }
+      document.documentElement.classList.remove("search-active");
+      event.stopPropagation();
+    },
+    true,
+  );
+</script>
