@@ -7,7 +7,7 @@ seo:
   type: WebSite
 ---
 
-# Dikciz documentation
+# Dikciz Launcher documentation
 
 Your phone is programmable. Start with an editable Android home, build complete HTML/CSS/JavaScript apps, run Lua or JavaScript in the background, and connect your own AI to the same phone tools.
 

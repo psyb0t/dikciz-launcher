@@ -3,7 +3,7 @@ layout: null
 permalink: /llms.txt
 sitemap: false
 ---
-# Dikciz documentation
+# Dikciz Launcher documentation
 
 > Programmable Android launcher and HTML/CSS/JavaScript app runtime with Lua and headless JavaScript backends, AI chat, and shared MCP, HTTP and WebSocket phone APIs.
 
