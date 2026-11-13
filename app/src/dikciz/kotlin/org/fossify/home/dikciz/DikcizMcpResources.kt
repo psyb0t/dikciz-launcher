@@ -135,6 +135,7 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
             "guides/apk-sets" to "APK sets and cancellation",
 
             "guides/chat" to "On-device assistant",
+            "guides/assistant-library" to "Owner skills, agents and rules",
             "guides/chat-tools" to "Assistant tool contracts and access",
             "guides/android-sdk" to "Public Android SDK contracts and execution",
             "guides/sim" to "SIM subscriptions and own phone numbers",

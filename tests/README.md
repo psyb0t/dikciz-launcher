@@ -146,3 +146,9 @@ Run `make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_background_javascri
 ## Complete grant and manual contracts
 
 `make dikciz-permission-docs-test` checks command/grant rendering and malformed discovery. `make dikciz-search-docs-test` requires the JavaScript, Lua, command and token manuals in the packaged corpus. After a debug build, `make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_granular_tokens` checks complete discovery, exact action/resource scopes, additive batches, every operation's validation, deferred caller authority, retained-job ownership, larger grant records, generated-manual equality and the rendered searchable picker. `test_remote_tokens`, `test_command_jobs` and `test_chat_read_only` remain separate regression selectors.
+
+## Assistant library and app recovery
+
+Build the current debug APK, then run `make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_assistant_platform`. These scenarios cover SD-card skill/rule discovery and provider-visible instructions, named-agent access and cancellation, app source/state/data/runtime backup, archive validation, old-format preservation, coordinated restore checkpoints and update/process/offline-idle recovery. Mock model endpoints keep ordinary tests independent of paid credentials. Backup confirmation captures portrait, landscape and enlarged-text evidence.
+
+`make dikciz-test-reboot` builds the debug APK and runs a separate two-phase drill across an actual private-emulator reboot. The outer lab runner survives the forwarding container's restart and checks boot identity, JSON state, binary data and pending-timer review without repeating effects. It restores the starter even on failure. The test does not operate a physical phone.

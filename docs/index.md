@@ -9,6 +9,8 @@ seo:
 
 # Dikciz Launcher documentation
 
+Give the built-in assistant [SD-card skills, named agents and rules](assistant-library.md), and preserve their files together with complete app state through [encrypted backups](backups.md).
+
 Your phone is programmable. Start with an editable Android home, build complete HTML/CSS/JavaScript apps, run Lua or JavaScript in the background, and connect your own AI to the same phone tools.
 
 <div class="docs-routes">

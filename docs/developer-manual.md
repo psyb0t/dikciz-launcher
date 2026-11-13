@@ -32,6 +32,7 @@ The browser API is `window.dikciz` and `window.selfWidget`. A headless backend u
 | [Configuration schema](dikciz-configuration.md) | Home/page/widget/script files, policies, subscriptions, validation, persistence and reload. |
 | [Android access](android-access.md) | Runtime grants, special access, foreground requirements, roles and platform limits. |
 | [Public Android SDK](android-sdk.md) | Class/overload discovery, typed values, handles, callbacks and read-only execution. |
+| [Assistant library](assistant-library.md) | SD-card skills, named agents, owner rules, on-demand instructions and inherited access restrictions. |
 | [MCP resources](mcp-resources.md) | Short packaged guides and searchable manual sections for agents. |
 
 Schemas from the installed build are authoritative. A new APK can add commands that an older build does not expose. Unknown commands/fields and unsupported enum values are errors. Treat optional defaults as defined by each schema, rather than inventing arguments from a similar API.

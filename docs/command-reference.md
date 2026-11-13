@@ -10,7 +10,7 @@ parent: "Remote control"
 
 <!-- Regenerate with make dikciz-command-docs from captured tools/list discovery. -->
 
-This reference contains 215 discovered MCP tools and their complete input schemas. Discovery from the installed build is authoritative. Transport-independent procedures, Android permissions and results are described in the [automation guide](automation-control.md), [documentation index](index.md) and focused task guides. MCP tools use the same ordinary commands as HTTP, WebSocket, HTML and Lua. The [developer manual](developer-manual.md) defines runtimes, results and the task-guide index. [JavaScript](javascript-api.md), [Lua](lua-api.md), [typed actions](typed-actions.md) and [token permissions](token-permissions.md) provide the language and authorization contracts.
+This reference contains 216 discovered MCP tools and their complete input schemas. Discovery from the installed build is authoritative. Transport-independent procedures, Android permissions and results are described in the [automation guide](automation-control.md), [documentation index](index.md) and focused task guides. MCP tools use the same ordinary commands as HTTP, WebSocket, HTML and Lua. The [developer manual](developer-manual.md) defines runtimes, results and the task-guide index. [JavaScript](javascript-api.md), [Lua](lua-api.md), [typed actions](typed-actions.md) and [token permissions](token-permissions.md) provide the language and authorization contracts.
 
 Schemas include nested fields, required values, defaults and bounds. autoRequestPermissions requests owner review; it never grants access or retries the operation. Inspect returned state and errors before continuing.
 
@@ -36,6 +36,7 @@ Schemas include nested fields, required values, defaults and bounds. autoRequest
 | [`appAction`](#dikciz_app_action) | [`dikciz_app_action`](#dikciz_app_action) |
 | [`appCatalogue`](#dikciz_app_catalogue) | [`dikciz_app_catalogue`](#dikciz_app_catalogue) |
 | [`appIcon`](#dikciz_app_icon) | [`dikciz_app_icon`](#dikciz_app_icon) |
+| [`assistantLibrary`](#dikciz_assistant_library) | [`dikciz_assistant_library`](#dikciz_assistant_library) |
 | [`assistantRoutinePreview`](#dikciz_assistant_routine_preview) | [`dikciz_assistant_routine_preview`](#dikciz_assistant_routine_preview) |
 | [`assistantRoutineRun`](#dikciz_assistant_routine_run) | [`dikciz_assistant_routine_run`](#dikciz_assistant_routine_run) |
 | [`assistantRoutineSubscribe`](#dikciz_assistant_routine_subscribe) | [`dikciz_assistant_routine_subscribe`](#dikciz_assistant_routine_subscribe) |
@@ -1112,6 +1113,50 @@ WebView invocation: `await dikciz.command("appIcon", fields)`. Headless JavaScri
 }
 ```
 
+## dikciz_assistant_library
+
+Discover owner-authored skills, named agents and rules under /sdcard/Dikciz/assistant. list returns metadata; read returns exact UTF-8 instructions or supporting skill files using a relative path. Instructions reload between chat rounds and cannot raise tool permissions. Supports portable SKILL.md front matter and Markdown agents/rules, including .agents, .claude and .hermes skill directories.
+
+Ordinary command: `assistantLibrary`. [Token scope definitions](token-permissions.md#assistantlibrary). [Result envelope and task guides](developer-manual.md#result-contract).
+
+WebView invocation: `await dikciz.command("assistantLibrary", fields)`. Headless JavaScript: `context.request(Object.assign({}, fields, {type: "assistantLibrary"}))`. Lua: set `request.type = "assistantLibrary"`, then call `context.request(request)`. `fields`/`request` must contain the required parameters below. WebView `command` unwraps `result`; backend requests return the complete response envelope. [JavaScript methods](javascript-api.md) and [Lua types and errors](lua-api.md).
+
+| Parameter | Required | Type | Default | Definition and bounds |
+| --- | --- | --- | --- | --- |
+| `action` | Yes | `string` | `Not declared` | See the complete schema below. {"enum": ["list", "read"]} |
+| `autoRequestPermissions` | No | `boolean` | `false` | Ask the owner to grant missing Android access. Never grants access or retries automatically. |
+| `path` | No | `string` | `Not declared` | See the complete schema below. {"maxLength": 1024} |
+
+
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": [
+        "list",
+        "read"
+      ]
+    },
+    "path": {
+      "type": "string",
+      "maxLength": 1024
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "action"
+  ],
+  "additionalProperties": false
+}
+```
+
 ## dikciz_assistant_routine_preview
 
 Read the exact instructions and access mode of a built-in routine without invoking a provider.
@@ -2131,7 +2176,7 @@ WebView invocation: `await dikciz.command("automationTrigger", fields)`. Headles
 
 ## dikciz_backup_create
 
-Create an AES-GCM encrypted portable home, widget-state, Lua, chat and provider-settings snapshot. Passphrase required. API keys excluded unless explicitly requested. Remote credentials and control ports always remain outside backups. Requires the matching explicit operation grant for scoped remote clients.
+Create an AES-GCM encrypted portable home, widget-state, Lua, custom-app files/state/runtime, assistant skills/rules/agents, chat and provider-settings snapshot. Passphrase required. API keys excluded unless explicitly requested. Remote credentials and control ports always remain outside backups. Requires the matching explicit operation grant for scoped remote clients.
 
 Ordinary command: `backupCreate`. [Token scope definitions](token-permissions.md#backupcreate). [Result envelope and task guides](developer-manual.md#result-contract).
 
@@ -2218,7 +2263,7 @@ WebView invocation: `await dikciz.command("backupPreview", fields)`. Headless Ja
 
 ## dikciz_backup_restore
 
-Replace home and chat from a validated preview, with rollback recovery. Requires idle assistant, previewId, exact sha256 and confirm=true. Future automation remains disabled unless activateAutomation=true. Remote auth and ports remain.
+Replace home and chat from a validated preview, with rollback recovery. Requires idle assistant, previewId, exact sha256 and confirm=true. Future automation remains disabled unless activateAutomation=true. Imported pending or claimed app timers always require review; active alerts and native sessions are not resumed. Remote auth and ports remain.
 
 Ordinary command: `backupRestore`. [Token scope definitions](token-permissions.md#backuprestore). [Result envelope and task guides](developer-manual.md#result-contract).
 
@@ -2966,7 +3011,7 @@ WebView invocation: `await dikciz.command("cameraVideoRecord", fields)`. Headles
 
 ## dikciz_chat
 
-Manage the on-device Dikciz assistant. Actions: status, profiles, profileSave, models, create, list, read, rename, settings, configure, delete, send, task, stop, subscribe, show, hide, fullscreen. A send is queued, not proof of completion. Poll read/status. Profile reads never return API keys. Save a connection without a model, discover its models, then configure each conversation with independent model and token settings. settings reads effective values and modelLimits. Selecting a known model fills context defaults and clamps the reply reserve; explicit token fields win. models exposes known context/output/input ceilings and limitsSource, using provider metadata before the bundled catalog. Unknown models keep manual budgets. configure patches settings and optionally changes profileId. Changing providers retains read-only access and resets other overrides. settings.readOnly defaults to false; true hides mutating tools and blocks their execution and permission prompts. subscribe replaces the conversation's event rules; each rule has id, subscription (canonical automation event subscription) and instructions. show/hide/fullscreen control the chat panel independently of the agent. task starts widget creation (task:widget, text required) or a read-only screen explanation (task:explainScreen, optional text), with conversationId and requestKey. Screen tasks hide chat, capture the display and reopen chat. Read the chat MCP guide for fields and examples.
+Manage the on-device Dikciz assistant. Actions: status, profiles, profileSave, models, create, list, read, rename, settings, configure, delete, send, task, stop, subscribe, show, hide, fullscreen. A send is queued, not proof of completion. Poll read/status. Profile reads never return API keys. Save a connection without a model, discover its models, then configure each conversation with independent model and token settings. settings reads effective values and modelLimits. Selecting a known model fills context defaults and clamps the reply reserve; explicit token fields win. models exposes known context/output/input ceilings and limitsSource, using provider metadata before the bundled catalog. Unknown models keep manual budgets. configure patches settings and optionally changes profileId. Changing providers retains read-only access and resets other overrides. settings.agent selects an installed named agent from assistantLibrary and reloads its instructions and narrowed tool access each turn. settings.readOnly defaults to false; true hides mutating tools and blocks their execution and permission prompts. subscribe replaces the conversation's event rules; each rule has id, subscription (canonical automation event subscription) and instructions. show/hide/fullscreen control the chat panel independently of the agent. task starts widget creation (task:widget, text required) or a read-only screen explanation (task:explainScreen, optional text), with conversationId and requestKey. Screen tasks hide chat, capture the display and reopen chat. Read the chat MCP guide for fields and examples.
 
 Ordinary command: `chatControl`. [Token scope definitions](token-permissions.md#chatcontrol). [Result envelope and task guides](developer-manual.md#result-contract).
 

@@ -41,8 +41,9 @@ internal class DikcizLuaRuntime {
         return try {
             val setupBudget = LuaExecutionBudget(MAXIMUM_SETUP_DURATION_NANOS)
             var activeBudget = setupBudget
-            val commandHost = executeCommand?.let { execute ->
-                { request: String -> activeBudget.runHostRequest { execute(request) } }
+            val host = executeCommand?.let(::LuaHostBridge)
+            val commandHost = host?.let { bridge ->
+                { request: String -> activeBudget.runHostRequest { bridge.request(request) } }
             }
             val executionGlobals = createExecutionGlobals(
                 script,
@@ -52,6 +53,7 @@ internal class DikcizLuaRuntime {
                 androidAccess,
                 commandHost,
             )
+            host?.globals = executionGlobals
             setupBudget.throwIfExceeded()
             val setHook = takeInstructionHook(executionGlobals)
             val chunk = createCompilerGlobals().load(
@@ -60,7 +62,7 @@ internal class DikcizLuaRuntime {
                 executionGlobals,
             )
             setupBudget.throwIfExceeded()
-            resumeWithLimits(executionGlobals, setHook, chunk, LuaValue.NIL, setupBudget)
+            resumeWithLimits(executionGlobals, setHook, chunk, LuaValue.NIL, setupBudget, host)
             setupBudget.throwIfExceeded()
             val handler = executionGlobals.get(EVENT_HANDLER_GLOBAL_NAME)
             if (handler.isnil()) {
@@ -77,6 +79,7 @@ internal class DikcizLuaRuntime {
                 handler,
                 eventToLuaTable(event),
                 executionBudget,
+                host,
             )
             executionBudget.throwIfExceeded()
             val parsedResult = parseEventResult(result, limits)
@@ -319,6 +322,7 @@ internal class DikcizLuaRuntime {
         chunk: LuaValue,
         argument: LuaValue,
         executionBudget: LuaExecutionBudget,
+        host: LuaHostBridge?,
     ): LuaValue {
         val thread = LuaThread(globals, chunk)
         val instructionLimitHook = InstructionLimitHook(executionBudget)
@@ -332,13 +336,48 @@ internal class DikcizLuaRuntime {
                 ),
             ),
         )
-        val result = thread.resume(argument)
+        var result = thread.resume(argument)
+        while (host?.executePending() == true) {
+            result = thread.resume(LuaValue.NIL)
+        }
         executionBudget.limitFailure?.let { failure -> throw failure }
         instructionLimitHook.limitFailure?.let { failure -> throw failure }
         if (!result.arg1().toboolean()) {
             throw LuaError(result.arg(SECOND_RESULT_INDEX).tojstring())
         }
         return result.arg(SECOND_RESULT_INDEX)
+    }
+
+    // LuaJ coroutines use worker threads. Execute host requests on the owning caller
+    // so app locks and operation identity remain valid across the coroutine handoff.
+    private class LuaHostBridge(private val execute: (String) -> String) {
+        lateinit var globals: Globals
+        @Volatile private var pending: Request? = null
+
+        private class Request(val document: String) {
+            var response: String? = null
+            var failure: Exception? = null
+        }
+
+        fun request(document: String): String {
+            val request = Request(document)
+            pending = request
+            globals.yield(LuaValue.NIL)
+            request.failure?.let { throw it }
+            return requireNotNull(request.response)
+        }
+
+        fun executePending(): Boolean {
+            val request = pending ?: return false
+            pending = null
+            try {
+                request.response = execute(request.document)
+            } catch (exception: Exception) {
+                // Forward the original failure to Lua's existing error boundary.
+                request.failure = exception
+            }
+            return true
+        }
     }
 
     private fun luaErrorDiagnostic(exception: LuaError): String {

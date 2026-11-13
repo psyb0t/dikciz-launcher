@@ -24,6 +24,8 @@ Both listeners default to device loopback. Set their listen address and ports th
 
 `chatControl` and MCP `dikciz_chat` manage the same provider connections, per-conversation model/token settings, queue, event rules and panel used by the native cheese button. Sends report queue state; poll the transcript and actual tool outcomes. The agent discovers and invokes existing MCP handlers in process. The shared `task` action offers widget creation on the current page and read-only screen explanation with automatic chat dismissal and display capture. See [chat setup, actions and context budgets](embedded-chat.md).
 
+`assistantLibrary`, MCP `dikciz_assistant_library`, lists skill/agent/rule metadata or reads a relative file under `/sdcard/Dikciz/assistant/`. It shares the executor across ordinary bindings and requires the corresponding read grant for remote tokens. The built-in `phone_library` and `phone_agent` tools support on-demand instructions and restricted delegation. See [skills, agents and rules](assistant-library.md).
+
 ## Companion workflows
 
 The [GPS todo example](todo-app-tutorial.md) demonstrates the same customAppEvent/state calls and native geofence events through a complete editable app.

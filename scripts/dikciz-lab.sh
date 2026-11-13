@@ -116,6 +116,27 @@ dikciz_test() {
     fi
 }
 
+dikciz_reboot_test() {
+    trap 'restore_dikciz_after_test "$?"' EXIT
+    trap 'restore_dikciz_after_test 130' INT
+    trap 'restore_dikciz_after_test 143' TERM
+    prepare_dikciz_test_device
+    compose exec --no-TTY --env DIKCIZ_TEST_IN_FORWARD=true --env ANDROID_LAB_INSTANCE=shared \
+        forward python3 /work/scripts/test-dikciz-reboot.py prepare
+    if DEVICE_COMMAND=reboot run_device_operation device-shell; then
+        log INFO "Android accepted the private-emulator reboot request"
+    else
+        log WARN "ADB disconnected during reboot request; requiring a changed boot identity before accepting recovery"
+    fi
+    run_device_operation device-info
+    run_device_operation home-start
+    forward
+    wait_for_dikciz_control_planes
+    compose exec --no-TTY --env DIKCIZ_TEST_IN_FORWARD=true --env ANDROID_LAB_INSTANCE=shared \
+        forward python3 /work/scripts/test-dikciz-reboot.py verify
+    log INFO "Dikciz real reboot recovery passed without replaying pending effects"
+}
+
 restore_dikciz_after_test() {
     local exit_code="$1"
     trap - EXIT INT TERM
@@ -240,6 +261,7 @@ android_lab_extension_command() {
     automation-smoke) automation_smoke ;;
     mcp-smoke) mcp_smoke ;;
     dikciz-test) dikciz_test ;;
+    dikciz-test-reboot) dikciz_reboot_test ;;
     dikciz-reset) reset_dikciz ;;
     *)
         log ERROR "unsupported Dikciz lab command=$1"

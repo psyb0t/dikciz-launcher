@@ -14,6 +14,8 @@ The Android APK is the MCP server. Each owner supplies a reachable phone endpoin
 
 Dikciz also has its own [on-device chat](embedded-chat.md). Add an OpenAI-compatible or Anthropic-compatible provider connection in the cheese panel, choose its API models per conversation, and configure token budgets or read-only access under Model settings. That agent discovers the existing local MCP tools and documentation directly; external MCP clients still connect as described below. Its profiles, conversations, event rules and visibility use the shared `dikciz_chat` tool.
 
+Install the launcher's own [skills, named agents and rules](assistant-library.md) under `/sdcard/Dikciz/assistant/`. Portable Markdown conventions are supported; copying files does not install an external harness or its hooks. The on-device `phone_library` and `phone_agent` tools read instructions and delegate with inherited access.
+
 ## Find procedures and tool contracts
 
 Use `dikciz_search_query` with collection `docs` for relevant operating guides and recipes, then read the exact returned documentation URI. Collection `tools` returns ranked installed schemas directly. Reuse current contracts while the build and access context remain unchanged. The embedded assistant exposes `phone_search` and uses the same engine for `phone_tools`. Search is local and requires no embedding model. See [offline search](search.md) for separate owner collections, aliases, spelling correction and access rules.

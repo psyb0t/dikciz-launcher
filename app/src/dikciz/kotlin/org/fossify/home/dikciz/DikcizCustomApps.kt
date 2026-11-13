@@ -64,6 +64,95 @@ internal object DikcizCustomApps {
         it.get(INSTALL_KIND, app.id)?.optBoolean("enabled", true) ?: true
     }
 
+    private val BACKUP_KINDS = setOf(INSTALL_KIND, TIMER_KIND, RUN_KIND, ALERT_KIND)
+    private const val MAXIMUM_BACKUP_RECORDS = 8192
+    private const val MAXIMUM_BACKUP_BYTES = 4194304
+
+    fun requireBackupCaller() {
+        if (Thread.holdsLock(this)) DikcizNativeCommands.failure("backup_busy", "Run backups outside custom-app callbacks")
+    }
+
+    @Synchronized fun <T> withBackupLock(action: () -> T): T {
+        if (activeCalls.isNotEmpty()) DikcizNativeCommands.failure("backup_busy", "Wait for active custom-app handlers before backing up or restoring")
+        return action()
+    }
+
+    fun exportBackup(context: Context): JSONArray = database(context).use { it.snapshotKinds(BACKUP_KINDS) }
+
+    fun validateBackup(rows: JSONArray): JSONArray {
+        if (rows.length() > MAXIMUM_BACKUP_RECORDS || rows.toString().toByteArray(Charsets.UTF_8).size > MAXIMUM_BACKUP_BYTES) {
+            DikcizNativeCommands.invalid("Custom-app runtime backup is too large")
+        }
+        val identities = mutableSetOf<Pair<String, String>>()
+        repeat(rows.length()) { index ->
+            val row = rows.getJSONObject(index)
+            if (row.keys().asSequence().toSet() != setOf("kind", "id", "document") || row.opt("kind") !is String ||
+                row.opt("id") !is String || row.opt("document") !is JSONObject) DikcizNativeCommands.invalid("Invalid custom-app backup record")
+            val kind = row.getString("kind")
+            val id = row.getString("id")
+            if (kind !in BACKUP_KINDS || id.isBlank() || id.length > 256 || id.any(Char::isISOControl) || !identities.add(kind to id)) {
+                DikcizNativeCommands.invalid("Invalid or duplicate custom-app runtime identity")
+            }
+            val document = row.getJSONObject("document")
+            if (kind == INSTALL_KIND && (document.has("enabled") && document.opt("enabled") !is Boolean ||
+                document.has("removed") && document.opt("removed") !is Boolean)) DikcizNativeCommands.invalid("Invalid app installation state")
+            if (kind in setOf(INSTALL_KIND, RUN_KIND) && !DikcizCustomAppCommands.ID_PATTERN.matches(id)) {
+                DikcizNativeCommands.invalid("Invalid app runtime identity")
+            }
+            if (kind == INSTALL_KIND && (document.opt("enabled") !is Boolean ||
+                document.has("appId") && document.optString("appId") != id ||
+                document.optBoolean("removed") && document.optString("appId") != id)) {
+                DikcizNativeCommands.invalid("Invalid app installation identity")
+            }
+            if (kind == ALERT_KIND && (id != "current" || !DikcizCustomAppCommands.ID_PATTERN.matches(document.optString("appId")))) {
+                DikcizNativeCommands.invalid("Invalid app alert identity")
+            }
+            if (kind == TIMER_KIND) {
+                if (!DikcizCustomAppCommands.ID_PATTERN.matches(document.optString("appId")) ||
+                    !DikcizCustomAppCommands.ID_PATTERN.matches(document.optString("timerId")) ||
+                    id != document.optString("appId") + ":" + document.optString("timerId") || document.optString("id") != id ||
+                    document.optString("state") !in setOf(PENDING, CLAIMED, "cancelled", "completed", "needs_review") ||
+                    document.opt("payload") !is JSONObject || !DikcizCustomAppCommands.EVENT_PATTERN.matches(document.optString("event")) ||
+                    !Regex("[a-f0-9-]{36}").matches(document.optString("generation"))) {
+                    DikcizNativeCommands.invalid("Invalid app timer state")
+                }
+                DikcizNativeCommands.strictInteger(document.opt("boot"), -1, Int.MAX_VALUE.toLong())
+                for (field in listOf("deadlineAt", "deadlineElapsed")) DikcizNativeCommands.strictInteger(document.opt(field), 0, Long.MAX_VALUE)
+            }
+        }
+        return JSONArray(rows.toString())
+    }
+
+    fun restoreBackup(context: Context, input: JSONArray, activate: Boolean, rollback: Boolean = false) {
+        val rows = validateBackup(input)
+        if (!rollback) {
+            val installs = mutableSetOf<String>()
+            repeat(rows.length()) { index ->
+                val row = rows.getJSONObject(index)
+                val document = row.getJSONObject("document")
+                when (row.getString("kind")) {
+                    INSTALL_KIND -> {
+                        installs.add(row.getString("id"))
+                        if (!activate) document.put("enabled", false)
+                    }
+                    TIMER_KIND -> if (document.optString("state") in setOf(PENDING, CLAIMED)) {
+                        document.put("state", "needs_review").put("reason", "backup_restored")
+                    }
+                }
+            }
+            for (id in DikcizCustomAppStore(context).ids()) {
+                if (id !in installs) rows.put(JSONObject().put("kind", INSTALL_KIND).put("id", id)
+                    .put("document", JSONObject().put("enabled", activate)))
+            }
+        }
+        closeAlert(context, null)
+        // Imported windows and native resources cannot be resumed from another process or device.
+        val safe = if (rollback) rows else JSONArray((0 until rows.length()).map(rows::getJSONObject).filter { it.getString("kind") != ALERT_KIND })
+        database(context).use { it.replaceKinds(BACKUP_KINDS, safe) }
+    }
+
+    @Synchronized fun refreshAfterBackup(context: Context) { refreshSubscriptions(context) }
+
     @Synchronized fun ensureBundled(context: Context) {
         val store = DikcizCustomAppStore(context)
         val removed = database(context).use { it.all(INSTALL_KIND).filter { value -> value.optBoolean("removed") }.map { value -> value.getString("appId") }.toSet() }

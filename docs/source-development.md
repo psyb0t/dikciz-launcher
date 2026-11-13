@@ -23,6 +23,15 @@ Open `http://127.0.0.1:61326/vnc.html?autoconnect=true&resize=scale` for the pri
 
 `make help` lists every operation. `make status` inspects the stack. `make stop` stops the private lab and preserves its disk. Tool containers use up to ten CPUs; set `ANDROID_LAB_TOOL_CPU_LIMIT` and `ANDROID_LAB_GRADLE_MAX_WORKERS` for a smaller budget.
 
+## Recovery drills
+
+```bash
+make dikciz-test-existing-apk DIKCIZ_TEST_SELECTOR=test_assistant_platform
+make dikciz-test-reboot
+```
+
+Build the debug APK first when using `dikciz-test-existing-apk`. The first selector covers app backup/restore, library instructions, agent access/cancellation, updates, process interruption, disconnected Wi-Fi and idle/battery restrictions. The reboot target builds the current debug APK and verifies persisted files/state and non-replay of pending app timers across an actual Android guest reboot. Its outer Docker runner reconnects forwarding after boot; running this drill inside the forwarding container would terminate its own test process. Both targets reset the private emulator and restore its starter afterward. They never select a physical device. Logs, screenshots and the two-phase reboot record stay in the lab artifacts directory.
+
 ## Source boundaries
 
 The [product source map](https://github.com/psyb0t/dikciz-launcher/blob/main/app/src/dikciz/README.md) describes configuration, rendering, scripts, custom apps, Android data and the shared control executor. Dikciz source stays in its additive source sets. The [Fossify integration map](https://github.com/psyb0t/dikciz-launcher/blob/main/.fossify/README.md) describes the replaceable upstream base and checked overlays.

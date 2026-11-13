@@ -196,6 +196,14 @@ An event rule can wake a conversation while chat is closed. Configure one only a
 
 <p><a href="{{ "/images/tutorial/chat-sheet-empty.png" | relative_url }}"><img src="{{ "/images/tutorial/chat-sheet-empty.png" | relative_url }}" alt="The empty state shows how to start a conversation." width="280"></a><br>The empty state shows how to start a conversation.</p>
 
+### Install skills, rules and a specialist agent
+
+Create `/sdcard/Dikciz/assistant/AGENTS.md` for short owner instructions. Add `skills/inspect-device/SKILL.md` using the [assistant library guide](assistant-library.md), then ask chat for `$inspect-device`. Its next turn loads the skill body; supporting references stay available on demand.
+
+Add `agents/device-reader.md` using the guide's read-only example and ask chat to delegate a device-health check to `device-reader`. Inspect its child conversation transcript. It inherits the parent's access restrictions. Edit a rule and send another turn to use its current instructions.
+
+**Check:** call `assistantLibrary` with `action: "list"` and read a returned relative path. Catalog entries report metadata and a content revision. The guide documents Codex, Claude Code and Hermes directory conventions, fields and limits.
+
 ## 5. Connect without USB
 
 Use a reachable private network or Tailscale connection between the controlling computer and phone. Run the client on that computer. Its `127.0.0.1` refers to itself, not the phone.
@@ -460,7 +468,7 @@ The optional [Vehicle console](device-connections.md#vehicle-document) adds a pa
 
 ## Inspect activity and preserve a setup
 
-Use Settings, Activity & resources to inspect callers, failures and resource measurements. Pause a script, HTML widget or chat event rule there. Create an encrypted backup, preview its counts and confirm the exact archive before replacing home and chat history. See [the guide](backups.md).
+Use Settings, Activity & resources to inspect callers, failures and resource measurements. Pause a script, HTML widget or chat event rule there. Create an encrypted backup, preview its counts and confirm the exact archive before replacing home, apps, assistant instructions and chat history. Imported pending or claimed app timers require review and explicit re-arming. See [the guide](backups.md).
 
 ## Companion workflows
 

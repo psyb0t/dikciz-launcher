@@ -5,6 +5,8 @@ import org.json.JSONObject
 
 internal object DikcizChatSettings {
     const val KEY_READ_ONLY = "readOnly"
+    const val KEY_TOOL_ALLOWLIST = "toolAllowlist"
+    const val KEY_TOOL_DENYLIST = "toolDenylist"
     const val DEFAULT_CONTEXT = 131072
     const val DEFAULT_OUTPUT = 4096
     const val DEFAULT_SUMMARY_OUTPUT = 2048
@@ -21,9 +23,18 @@ Only perform owner-requested actions and configured event rules. Manage durable 
     fun validate(document: JSONObject, requireModel: Boolean = false): JSONObject {
         val allowed = setOf("id", "name", "protocol", "baseUrl", "apiKey", "model", "contextTokens", "maxOutputTokens",
             "compaction", "summaryOutputTokens", "summaryModel", "reasoning", "thinkingTokens", "maximumRounds",
-            "timeoutMilliseconds", "safetyMarginTokens", "systemPrompt", "outputTokenField", KEY_READ_ONLY)
+            "timeoutMilliseconds", "safetyMarginTokens", "systemPrompt", "outputTokenField", KEY_READ_ONLY, "agent", KEY_TOOL_ALLOWLIST, KEY_TOOL_DENYLIST)
         if (document.keys().asSequence().any { it !in allowed }) invalid("Unknown provider profile field")
         val result = JSONObject(document.toString())
+        for (field in listOf(KEY_TOOL_ALLOWLIST, KEY_TOOL_DENYLIST)) {
+            if (!result.has(field)) continue
+            val tools = result.optJSONArray(field) ?: invalid("$field must be an array")
+            if (tools.length() > 512) invalid("Too many agent tool restrictions")
+            repeat(tools.length()) { index ->
+                if (tools.opt(index) !is String || !Regex("dikciz_[a-z0-9_]+").matches(tools.getString(index))) invalid("Use exact Dikciz MCP tool names")
+            }
+        }
+        if (result.has("agent") && (result.opt("agent") !is String || !Regex("[a-z0-9]+(?:-[a-z0-9]+)*").matches(result.getString("agent")) || result.getString("agent").length > 64)) invalid("Invalid named agent")
         if (!result.has(KEY_READ_ONLY)) result.put(KEY_READ_ONLY, false)
         if (result.opt(KEY_READ_ONLY) !is Boolean) invalid("Invalid readOnly")
         for (field in listOf("id", "protocol", "compaction", "reasoning", "outputTokenField")) {
@@ -74,7 +85,7 @@ Only perform owner-requested actions and configured event rules. Manage durable 
     val CONVERSATION_FIELDS = setOf(
         "model", "contextTokens", "maxOutputTokens", "compaction", "summaryOutputTokens", "summaryModel",
         "reasoning", "thinkingTokens", "maximumRounds", "timeoutMilliseconds", "safetyMarginTokens",
-        "systemPrompt", "outputTokenField", KEY_READ_ONLY,
+        "systemPrompt", "outputTokenField", KEY_READ_ONLY, "agent", KEY_TOOL_ALLOWLIST, KEY_TOOL_DENYLIST,
     )
 
     fun resolve(provider: JSONObject, overrides: JSONObject, requireModel: Boolean = false): JSONObject {

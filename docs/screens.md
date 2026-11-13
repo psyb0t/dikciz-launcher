@@ -224,7 +224,7 @@ Open Settings, Activity & resources. Choose the activity filter to inspect compl
 
 ## Backups and recovery
 
-Open Settings, Backup and restore. Enter a passphrase of at least 12 characters, choose whether encrypted provider keys should be included, and create the archive. Preserve both archive and passphrase. To restore, choose the archive, enter its passphrase and preview it. Inspect the counts before confirming replacement. Cancel leaves the current setup intact. Scripts and event rules remain disabled unless explicitly activated. Custom app data and remote credentials are excluded; see [backup scope](backups.md).
+Open Settings, Backup and restore. Enter a passphrase of at least 12 characters, choose whether encrypted provider keys should be included, and create the archive. Preserve both archive and passphrase. To restore, choose the archive, enter its passphrase and preview it. Inspect the counts before confirming replacement. Cancel leaves the current setup intact. Scripts, apps and event rules remain disabled unless explicitly activated. App source/state/files/runtime and assistant instructions are included; imported pending or claimed timers require review. Remote credentials and listener settings are excluded; see [backup scope](backups.md).
 
 <details>
 <summary>View the screens</summary>

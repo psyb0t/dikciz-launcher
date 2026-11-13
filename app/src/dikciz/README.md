@@ -108,11 +108,15 @@ Remote restart runs only after its successful response is flushed, then recreate
 
 DikcizOperations owns the private metadata history, token quota counters and resource inventory. DikcizOperationsActivity provides activity filtering and resource pause confirmations. DikcizUiCommands sends native feature actions through the shared executor; DikcizUiStyle owns native dialog colors, fields and touch targets.
 
-DikcizAutomationRules compiles and simulates generated Lua; DikcizAutomationRuleEditor creates and reopens its saved definitions. DikcizBackups validates encrypted archives, protects plaintext staging from file APIs, coordinates public-file rollback with the chat SQLite commit marker, and recovers before Home or background automation loads configuration. DikcizBackupSettings supplies preview and confirmation. See [operations](../../../docs/operations.md) and [backups](../../../docs/backups.md).
+DikcizAutomationRules compiles and simulates generated Lua; DikcizAutomationRuleEditor creates and reopens its saved definitions. DikcizBackups validates encrypted archives, protects plaintext staging from file APIs, coordinates public-file and custom-app runtime rollback with the chat SQLite commit marker, and recovers before Home or background automation loads configuration. DikcizBackupSettings supplies preview and confirmation. See [operations](../../../docs/operations.md) and [backups](../../../docs/backups.md).
 
 DikcizCameraPreview reuses a Camera2 capture session. DikcizImageStreams and DikcizImageCaptureService own bounded JPEG replay and foreground owner Stop. DikcizSpeechStreams replays recognition partial/final callbacks; DikcizFileTranscription uploads an explicit saved recording with the chosen provider credential. See [live images and speech](../../../docs/visual-streams.md).
 
 DikcizJavaScriptRuntime supplies the headless JavaScript interpreter alongside DikcizLuaRuntime. The automation dispatcher selects by script language, then shares result validation, policy checks, owner commands, state and logging. DikcizScriptExecutionLimits holds their common budgets. Rhino is interpreter-only with safe globals and blocked Java class access. See [background JavaScript](../../../docs/background-javascript.md).
+
+## Assistant instruction library
+
+DikcizAssistantLibrary reads bounded owner Markdown from the shared `assistant/` directory. It discovers portable skills, rules and named agents, rejects linked paths and unsupported executable harness settings, and exposes metadata/content reads through the shared executor. DikcizChatAgent injects current owner rules and skill metadata, loads full instructions on demand, and runs delegated agents in isolated persistent conversations. Children share cancellation and inherit trusted read-only/tool restrictions; saved restrictions survive reopening their conversation. See [skills, agents and rules](../../../docs/assistant-library.md) for supported files and settings.
 
 ## Public programming contracts
 

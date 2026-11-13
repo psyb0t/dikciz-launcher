@@ -15,12 +15,45 @@ import org.json.JSONObject
 
 internal class DikcizChatAgent(
     private val store: DikcizChatStore,
-    private val mcp: (String, JSONObject) -> JSONObject,
+    private val binding: (String, JSONObject, Boolean) -> JSONObject,
     private val changed: () -> Unit,
     private val logger: DikcizLogger,
     private val captureTaskScreen: suspend () -> JSONObject,
     private val progress: (String) -> Unit,
+    private val library: DikcizAssistantLibrary,
+    private val depth: Int = 0,
+    private val agentInstructions: String = "",
+    private val allowedTools: Set<String>? = null,
+    private val deniedTools: Set<String> = emptySet(),
 ) {
+    private var forceReadOnly = false
+
+    private fun permitted(name: String): Boolean = name !in deniedTools && (allowedTools == null || name in allowedTools)
+
+    private fun mcp(method: String, params: JSONObject): JSONObject {
+        val publicDiscovery = params.optString("name") == "dikciz_search_query" &&
+            params.optJSONObject("arguments")?.optString("collection", DikcizSearch.COLLECTION_DOCS) in
+            setOf(DikcizSearch.COLLECTION_DOCS, DikcizSearch.COLLECTION_TOOLS)
+        if (method == "tools/call" && !permitted(params.getString("name")) && !publicDiscovery) {
+            return toolError("agent_tool_denied", "This named agent cannot call that tool")
+        }
+        if (currentConversationID.isNotEmpty()) forceReadOnly = forceReadOnly || store.effectiveProfile(currentConversationID).getBoolean(DikcizChatSettings.KEY_READ_ONLY)
+        val result = binding(method, params, forceReadOnly)
+        if (method == "tools/list" && result.has("tools")) {
+            val tools = result.getJSONArray("tools")
+            result.put("tools", JSONArray((0 until tools.length()).map(tools::getJSONObject).filter { permitted(it.getString("name")) }))
+        }
+        if (method == "tools/call" && params.optString("name") == "dikciz_search_query" && params.optJSONObject("arguments")?.optString("collection") == "tools") {
+            val content = result.optJSONObject("structuredContent")
+            val items = content?.optJSONArray("items")
+            if (items != null) {
+                content.put("items", JSONArray((0 until items.length()).map(items::getJSONObject).filter { permitted(it.getJSONObject("tool").getString("name")) }))
+                result.put("content", JSONArray().put(JSONObject().put("type", "text").put("text", content.toString())))
+            }
+        }
+        return result
+    }
+
     private val toolCatalogueRevision by lazy {
         MessageDigest.getInstance("SHA-256")
             .digest(DikcizMcpControlPlane.toolCatalogue(false).toString().toByteArray(Charsets.UTF_8))
@@ -28,10 +61,13 @@ internal class DikcizChatAgent(
     }
 
     suspend fun run(queued: JSONObject, profile: JSONObject) {
+        forceReadOnly = profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY)
         val conversationID = queued.getString("conversation_id")
+        currentConversationID = conversationID
         val turnID = queued.getString("turn_id")
         val block = JSONArray(queued.getString("blocks")).getJSONObject(0)
         val task = block.optJSONObject(DikcizChatTasks.KEY_TASK)
+        forceReadOnly = forceReadOnly || DikcizChatTasks.requiresReadOnly(task)
         val parts = mutableListOf<MessagePart.RequestPart>(MessagePart.Text(block.getString("text")))
         if (task?.optString(DikcizChatTasks.KEY_KIND) == DikcizChatTasks.WIDGET) {
             parts.add(MessagePart.Text("Task target data: $task"))
@@ -47,7 +83,7 @@ internal class DikcizChatAgent(
                 currentCoroutineContext().ensureActive()
                 val access = accessContext(profile, task, conversationID)
                 val system = Message.System(DikcizChatSettings.SYSTEM_PROMPT + "\n" + profile.optString("systemPrompt") +
-                    "\n" + DikcizChatTasks.instructions(task) + "\nCurrent launcher access context:\n" + access, RequestMetaInfo.Empty)
+                    "\n" + DikcizChatTasks.instructions(task) + "\n" + library.prompt(block.getString("text")) + "\n" + agentInstructions + "\nCurrent launcher access context:\n" + access, RequestMetaInfo.Empty)
                 val context = context(conversationID, queued.getLong("id"), system, current, profile)
                 val blocks = JSONArray()
                 val blockIndices = mutableMapOf<Pair<String, Int?>, Int>()
@@ -87,7 +123,8 @@ internal class DikcizChatAgent(
                     val toolBlocks = JSONArray().put(JSONObject().put("kind", "toolResult").put("name", call.tool).put("text", "Executing"))
                     val resultRow = store.append(conversationID, turnID, "tool", "executing", "", toolBlocks)
                     val rawResult = try {
-                        DikcizOperations.withActor("chat:" + conversationID) { invoke(call) }
+                        if (call.tool == "phone_agent") delegate(DikcizChatToolArguments.forExecution(call))
+                        else DikcizOperations.withActor("chat:" + conversationID) { invoke(call) }
                     } catch (exception: DikcizAutomationRequestException) {
                         JSONObject().put("isError", true).put("code", exception.code).put("message", exception.message)
                     } catch (exception: DikcizMcpResourceException) {
@@ -198,11 +235,70 @@ internal class DikcizChatAgent(
             )
             "phone_call" -> mcp("tools/call", JSONObject().put("name", arguments.getString("name"))
                 .put("arguments", DikcizChatToolArguments.parse(arguments.getString("arguments_json"))))
+            "phone_library" -> {
+                val result = mcp("tools/call", JSONObject().put("name", "dikciz_assistant_library").put("arguments", arguments))
+                if (result.optBoolean("isError")) result else result.getJSONObject("structuredContent")
+            }
             "phone_resources" -> mcp("resources/list", JSONObject().apply { arguments.optString("cursor").takeIf(String::isNotEmpty)?.let { put("cursor", it) } })
             "phone_resource" -> mcp("resources/read", JSONObject().put("uri", arguments.getString("uri")))
             else -> JSONObject().put("isError", true).put("code", "unknown_tool").put("message", "Discover a supported phone tool first")
         }
     }
+
+    private suspend fun delegate(arguments: JSONObject): JSONObject {
+        if (depth >= MAXIMUM_AGENT_DEPTH) return toolError("agent_depth_exceeded", "Named agents cannot delegate beyond two levels")
+        val entry = library.agent(arguments.getString("name"))
+        val prompt = arguments.getString("prompt")
+        if (prompt.isBlank() || prompt.length > MAXIMUM_AGENT_PROMPT) DikcizNativeCommands.invalid("Agent prompt must contain 1 to 32768 characters")
+        val parent = store.conversation(currentConversationID)
+        val profile = store.effectiveProfile(currentConversationID, requireModel = true)
+        profile.put(DikcizChatSettings.KEY_READ_ONLY, forceReadOnly || profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY) || entry.metadata["readOnly"] == "true")
+        entry.metadata["model"]?.takeIf { it != "inherit" }?.let { profile.put("model", it) }
+        for (field in listOf("contextTokens", "maxOutputTokens", "maximumRounds", "timeoutMilliseconds")) {
+            entry.metadata[field]?.let { value -> profile.put(field, value.toIntOrNull() ?: DikcizNativeCommands.invalid("Invalid named agent $field")) }
+        }
+        entry.metadata["reasoning"]?.let { profile.put("reasoning", it) }
+        profile.put("agent", entry.name)
+        allowedTools?.let { profile.put(DikcizChatSettings.KEY_TOOL_ALLOWLIST, JSONArray(it.sorted())) }
+        if (deniedTools.isNotEmpty()) profile.put(DikcizChatSettings.KEY_TOOL_DENYLIST, JSONArray(deniedTools.sorted()))
+        DikcizChatSettings.validate(profile, requireModel = true)
+        progress("Running agent " + entry.name)
+        val child = store.createConversation(parent.getString("profile_id"), "Agent: " + entry.name,
+            DikcizChatSettings.execution(profile))
+        val id = child.getString("id")
+        val queued = store.enqueue(id, prompt, java.util.UUID.randomUUID().toString(), "agent")
+        val message = store.messages(id).first { it.getLong("id") == queued.getLong("id") }
+        // The parent owns the serial queue while this child executes in the same cancellable coroutine.
+        store.updateMessage(message.getLong("id"), "running")
+        changed()
+        val selectedTools = entry.metadata["tools"]?.let(DikcizAssistantLibrary::list)
+        val allow = when {
+            allowedTools == null -> selectedTools
+            selectedTools == null -> allowedTools
+            else -> allowedTools.intersect(selectedTools)
+        }
+        val deny = deniedTools + entry.metadata["disallowedTools"]?.let(DikcizAssistantLibrary::list).orEmpty()
+        try {
+            kotlinx.coroutines.withTimeout(profile.getLong("timeoutMilliseconds")) {
+            DikcizChatAgent(store, { method, params, readOnly ->
+                val previous = forceReadOnly
+                forceReadOnly = previous || readOnly
+                try { mcp(method, params) } finally { forceReadOnly = previous }
+            }, changed, logger, captureTaskScreen, progress, library, depth + 1,
+                "Named agent ${entry.name}:\n${entry.body}", allow, deny).run(message, profile)
+            }
+        } catch (exception: Exception) {
+            store.interruptTurn(message.getString("turn_id"), "interrupted")
+            changed()
+            throw exception
+        }
+        val messages = store.displayMessages(id)
+        val last = messages.lastOrNull { it.optString("role") == "assistant" }
+        return JSONObject().put("conversationId", id).put("agent", entry.name).put("state", "complete")
+            .put("response", last?.optString("blocks")?.let(::JSONArray) ?: JSONArray())
+    }
+
+    private var currentConversationID = ""
 
     private fun search(query: String, collection: String, offset: Int, limit: Int): JSONObject {
         val result = mcp("tools/call", JSONObject().put("name", "dikciz_search_query").put("arguments",
@@ -383,6 +479,8 @@ internal class DikcizChatAgent(
     }
 
     private companion object {
+        const val MAXIMUM_AGENT_DEPTH = 2
+        const val MAXIMUM_AGENT_PROMPT = 32768
         val TOOL_NAME = Regex("[a-z][a-z0-9_]{0,79}")
         val ACTIVE_STATES = setOf("queued", "running", "executing")
         const val UNCERTAIN_TOOL_MESSAGE = "Execution was interrupted before its result was recorded. The action may have completed. Inspect actual state before retrying; never automatically repeat a side effect."

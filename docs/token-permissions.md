@@ -79,6 +79,7 @@ Basic device/control/authentication status, self access information and packaged
 | [appAction](#appaction) | [dikciz_app_action](command-reference.md#dikciz_app_action) |
 | [appCatalogue](#appcatalogue) | [dikciz_app_catalogue](command-reference.md#dikciz_app_catalogue) |
 | [appIcon](#appicon) | [dikciz_app_icon](command-reference.md#dikciz_app_icon) |
+| [assistantLibrary](#assistantlibrary) | [dikciz_assistant_library](command-reference.md#dikciz_assistant_library) |
 | [assistantRoutinePreview](#assistantroutinepreview) | [dikciz_assistant_routine_preview](command-reference.md#dikciz_assistant_routine_preview) |
 | [assistantRoutineRun](#assistantroutinerun) | [dikciz_assistant_routine_run](command-reference.md#dikciz_assistant_routine_run) |
 | [assistantRoutineSubscribe](#assistantroutinesubscribe) | [dikciz_assistant_routine_subscribe](command-reference.md#dikciz_assistant_routine_subscribe) |
@@ -470,6 +471,18 @@ MCP: [`dikciz_app_icon`](command-reference.md#dikciz_app_icon). The linked refer
 | --- | --- | --- |
 | `command.appIcon` | All accepted arguments | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
 
+## assistantLibrary
+
+Discover owner-authored skills, named agents and rules under /sdcard/Dikciz/assistant. list returns metadata; read returns exact UTF-8 instructions or supporting skill files using a relative path. Instructions reload between chat rounds and cannot raise tool permissions. Supports portable SKILL.md front matter and Markdown agents/rules, including .agents, .claude and .hermes skill directories.
+
+MCP: [`dikciz_assistant_library`](command-reference.md#dikciz_assistant_library). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
+
+| Grant | Exact selectors | Definition |
+| --- | --- | --- |
+| `command.assistantLibrary` | All accepted arguments | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+| `command.assistantLibrary.action.list` | action=list | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+| `command.assistantLibrary.action.read` | action=read | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+
 ## assistantRoutinePreview
 
 Read the exact instructions and access mode of a built-in routine without invoking a provider.
@@ -619,7 +632,7 @@ MCP: [`dikciz_automation_trigger`](command-reference.md#dikciz_automation_trigge
 
 ## backupCreate
 
-Create an AES-GCM encrypted portable home, widget-state, Lua, chat and provider-settings snapshot. Passphrase required. API keys excluded unless explicitly requested. Remote credentials and control ports always remain outside backups. Requires the matching explicit operation grant for scoped remote clients.
+Create an AES-GCM encrypted portable home, widget-state, Lua, custom-app files/state/runtime, assistant skills/rules/agents, chat and provider-settings snapshot. Passphrase required. API keys excluded unless explicitly requested. Remote credentials and control ports always remain outside backups. Requires the matching explicit operation grant for scoped remote clients.
 
 MCP: [`dikciz_backup_create`](command-reference.md#dikciz_backup_create). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
 
@@ -639,7 +652,7 @@ MCP: [`dikciz_backup_preview`](command-reference.md#dikciz_backup_preview). The 
 
 ## backupRestore
 
-Replace home and chat from a validated preview, with rollback recovery. Requires idle assistant, previewId, exact sha256 and confirm=true. Future automation remains disabled unless activateAutomation=true. Remote auth and ports remain.
+Replace home and chat from a validated preview, with rollback recovery. Requires idle assistant, previewId, exact sha256 and confirm=true. Future automation remains disabled unless activateAutomation=true. Imported pending or claimed app timers always require review; active alerts and native sessions are not resumed. Remote auth and ports remain.
 
 MCP: [`dikciz_backup_restore`](command-reference.md#dikciz_backup_restore). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
 
@@ -784,7 +797,7 @@ MCP: [`dikciz_camera_video_record`](command-reference.md#dikciz_camera_video_rec
 
 ## chatControl
 
-Manage the on-device Dikciz assistant. Actions: status, profiles, profileSave, models, create, list, read, rename, settings, configure, delete, send, task, stop, subscribe, show, hide, fullscreen. A send is queued, not proof of completion. Poll read/status. Profile reads never return API keys. Save a connection without a model, discover its models, then configure each conversation with independent model and token settings. settings reads effective values and modelLimits. Selecting a known model fills context defaults and clamps the reply reserve; explicit token fields win. models exposes known context/output/input ceilings and limitsSource, using provider metadata before the bundled catalog. Unknown models keep manual budgets. configure patches settings and optionally changes profileId. Changing providers retains read-only access and resets other overrides. settings.readOnly defaults to false; true hides mutating tools and blocks their execution and permission prompts. subscribe replaces the conversation's event rules; each rule has id, subscription (canonical automation event subscription) and instructions. show/hide/fullscreen control the chat panel independently of the agent. task starts widget creation (task:widget, text required) or a read-only screen explanation (task:explainScreen, optional text), with conversationId and requestKey. Screen tasks hide chat, capture the display and reopen chat. Read the chat MCP guide for fields and examples.
+Manage the on-device Dikciz assistant. Actions: status, profiles, profileSave, models, create, list, read, rename, settings, configure, delete, send, task, stop, subscribe, show, hide, fullscreen. A send is queued, not proof of completion. Poll read/status. Profile reads never return API keys. Save a connection without a model, discover its models, then configure each conversation with independent model and token settings. settings reads effective values and modelLimits. Selecting a known model fills context defaults and clamps the reply reserve; explicit token fields win. models exposes known context/output/input ceilings and limitsSource, using provider metadata before the bundled catalog. Unknown models keep manual budgets. configure patches settings and optionally changes profileId. Changing providers retains read-only access and resets other overrides. settings.agent selects an installed named agent from assistantLibrary and reloads its instructions and narrowed tool access each turn. settings.readOnly defaults to false; true hides mutating tools and blocks their execution and permission prompts. subscribe replaces the conversation's event rules; each rule has id, subscription (canonical automation event subscription) and instructions. show/hide/fullscreen control the chat panel independently of the agent. task starts widget creation (task:widget, text required) or a read-only screen explanation (task:explainScreen, optional text), with conversationId and requestKey. Screen tasks hide chat, capture the display and reopen chat. Read the chat MCP guide for fields and examples.
 
 MCP: [`dikciz_chat`](command-reference.md#dikciz_chat). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
 

@@ -329,15 +329,30 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
         logger.info("chat_turn_started", mapOf("turn_id" to turnID))
         try {
             val profile = store.effectiveProfile(id, requireModel = true)
+            val library = DikcizAssistantLibrary(context)
+            val agent = profile.optString("agent").takeIf(String::isNotBlank)?.let(library::agent)
+            if (agent != null) {
+                profile.put(DikcizChatSettings.KEY_READ_ONLY, profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY) || agent.metadata["readOnly"] == "true")
+            }
+            val inheritedTools = profile.optJSONArray(DikcizChatSettings.KEY_TOOL_ALLOWLIST)?.strings()?.toSet()
+            val agentTools = agent?.metadata?.get("tools")?.let(DikcizAssistantLibrary::list)
+            val allowedTools = when {
+                inheritedTools == null -> agentTools
+                agentTools == null -> inheritedTools
+                else -> inheritedTools.intersect(agentTools)
+            }
+            val deniedTools = profile.optJSONArray(DikcizChatSettings.KEY_TOOL_DENYLIST)?.strings()?.toSet().orEmpty() +
+                agent?.metadata?.get("disallowedTools")?.let(DikcizAssistantLibrary::list).orEmpty()
             credential = profile.optString("apiKey")
             val screenTask = JSONArray(queued.getString("blocks")).getJSONObject(0)
                 .optJSONObject(DikcizChatTasks.KEY_TASK).let(DikcizChatTasks::requiresReadOnly)
             val readOnly = screenTask || profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY)
             withTimeout(profile.getLong("timeoutMilliseconds")) {
-                DikcizChatAgent(store, { method, params ->
-                    val currentReadOnly = readOnly || store.effectiveProfile(id).getBoolean(DikcizChatSettings.KEY_READ_ONLY)
+                DikcizChatAgent(store, { method, params, requestedReadOnly ->
+                    val currentReadOnly = readOnly || requestedReadOnly || store.effectiveProfile(id).getBoolean(DikcizChatSettings.KEY_READ_ONLY)
                     ownerMcp?.invoke(method, params, currentReadOnly) ?: DikcizNativeCommands.failure("chat_mcp_unavailable", "Open Dikciz Home to reconnect its local MCP tools")
-                }, ::changed, logger, ::captureTaskScreen, ::reportActivity).run(queued, profile)
+                }, ::changed, logger, ::captureTaskScreen, ::reportActivity, library,
+                    agentInstructions = agent?.body.orEmpty(), allowedTools = allowedTools, deniedTools = deniedTools).run(queued, profile)
             }
         } catch (exception: TimeoutCancellationException) {
             store.interruptTurn(turnID, "failed")

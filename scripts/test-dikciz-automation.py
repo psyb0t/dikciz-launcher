@@ -728,6 +728,7 @@ NATIVE_COMMAND_FIELDS.update({key: value[1] for key, value in COMPANION_COMMANDS
 NATIVE_READ_COMMANDS.update(key for key, value in COMPANION_COMMANDS.items() if value[2])
 
 CUSTOM_APP_COMMANDS = {
+    "assistantLibrary": ("dikciz_assistant_library", ("action", "path"), True),
     "customAppsList": ("dikciz_custom_apps_list", ("offset", "limit"), True),
     "customAppRead": ("dikciz_custom_app_read", ("appId",), True),
     "customAppInstall": ("dikciz_custom_app_install", ("manifest", "html", "css", "javascript", "backgroundSource", "confirm"), False),

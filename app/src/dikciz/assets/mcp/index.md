@@ -24,6 +24,7 @@ Search with dikciz_search_query; read relevant URIs. [Search](dikciz://docs/guid
 - [Logs](dikciz://docs/guides/logging): diagnosis and retention.
 - [Security](dikciz://docs/guides/security): access boundaries and credentials.
 - [SIM numbers](dikciz://docs/guides/sim): numbers and access.
+- [Assistant library](dikciz://docs/guides/assistant-library): owner skills, agents and rules.
 - [Chat contracts](dikciz://docs/guides/chat-tools): parameters and access.
 - [Native data](dikciz://docs/guides/native-data): contacts, SMS and calendars.
 - [Hardware](dikciz://docs/guides/hardware): sensors and media.

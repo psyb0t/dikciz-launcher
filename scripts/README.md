@@ -39,3 +39,7 @@ The [Travel todo tutorial](../docs/todo-app-tutorial.md) uses the packaged app d
 generate-dikciz-vision-fixtures.py runs through make dikciz-vision-fixtures and writes deterministic text/QR PNGs. Its optional QR source fetch verifies a pinned source hash before import. Ordinary live tests use the committed PNGs.
 
 generate-dikciz-split-fixture.py runs through make dikciz-split-fixture after building the configurable provider. The pinned Android Lab aapt2, zipalign and apksigner create a base/config-split pair with a dedicated emulator-only test key. The generated APKs and key stay in ignored build state. They are never release artifacts.
+
+## Reboot recovery
+
+`make dikciz-test-reboot` builds the debug APK and uses the repository's Android Lab extension to run a real private-emulator reboot drill. `test-dikciz-reboot.py` prepares app state, a binary file and a pending timer, then verifies them after reconnection. The outer lab runner survives the forwarding container restart and restores the starter on exit. Run the target rather than calling its internal phases directly.

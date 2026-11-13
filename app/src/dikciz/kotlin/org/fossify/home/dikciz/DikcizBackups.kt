@@ -28,6 +28,7 @@ internal object DikcizBackups {
     private const val MAXIMUM_ARCHIVE_BYTES = 67108864
     private const val MAXIMUM_DATA_BYTES = 33554432L
     private const val MAXIMUM_FILES = 4096
+    private const val MAXIMUM_PATH_BYTES = 2048
     private const val PREVIEW_LIFETIME = 900000L
     private const val SALT_BYTES = 16
     private const val IV_BYTES = 12
@@ -36,9 +37,11 @@ internal object DikcizBackups {
     private const val KDF_ITERATIONS = 600000
     private val MAGIC = "DIKCIZB1".toByteArray(Charsets.US_ASCII)
     private val RANDOM = SecureRandom()
-    private val ROOTS = setOf("pages", "scripts", "widget-library", "themes", "fonts", "wallpapers", "automation")
+    private val LEGACY_ROOTS = setOf("pages", "scripts", "widget-library", "themes", "fonts", "wallpapers", "automation")
+    private val ROOTS = LEGACY_ROOTS + setOf("apps", "assistant")
     private val ROOT_FILES = setOf("config.json", ".bundled-starter")
     private val restoreOwner = ThreadLocal<Boolean>()
+    private val backupLock = Any()
     private val ID = Regex("[a-f0-9-]{36}")
     @Volatile private var protectedRoot: File? = null
 
@@ -56,8 +59,14 @@ internal object DikcizBackups {
     fun isProtected(file: File): Boolean = protectedRoot?.let { file.canonicalFile.toPath().startsWith(it.toPath()) } == true
     fun containsProtected(file: File): Boolean = protectedRoot?.let { it.toPath().startsWith(file.canonicalFile.toPath()) } == true
 
-    @Synchronized
     fun recover(context: Context) {
+        // Ordinary UI reloads must not wait on a handler that needs the main thread.
+        if (!File(context.filesDir, WORK_DIRECTORY + "/restore.json").exists()) return
+        DikcizCustomApps.requireBackupCaller()
+        synchronized(backupLock) { DikcizCustomApps.withBackupLock { recoverLocked(context) } }
+    }
+
+    private fun recoverLocked(context: Context) {
         try {
             recoverPending(context)
         } catch (exception: java.io.IOException) {
@@ -80,7 +89,8 @@ internal object DikcizBackups {
             DikcizNativeCommands.failure("backup_recovery_failed", "Restore recovery record is unreadable")
         }
         val id = record.optString("id")
-        if (record.keys().asSequence().toSet() != setOf("id") || !ID.matches(id)) DikcizNativeCommands.failure("backup_recovery_failed", "Invalid restore recovery record")
+        if (record.keys().asSequence().toSet() !in setOf(setOf("id"), setOf("id", "version")) || record.has("version") && record.opt("version") != 2 || !ID.matches(id)) DikcizNativeCommands.failure("backup_recovery_failed", "Invalid restore recovery record")
+        val roots = if (record.optInt("version", 1) == 2) ROOTS else LEGACY_ROOTS
         val chat = DikcizChatRuntime.get(context).store
         if (chat.committedRestoreID() != id) {
             val previous = File(work, "rollback/" + id)
@@ -88,7 +98,13 @@ internal object DikcizBackups {
                 DikcizNativeCommands.failure("backup_recovery_failed", "Restore rollback data is missing or incomplete")
             }
             HomeConfigStore(context).withConfigurationLock {
-                replacePublic(context, previous)
+                if (record.optInt("version", 1) == 2) {
+                    val runtimeFile = File(previous, "app-runtime.json")
+                    if (!runtimeFile.isFile) DikcizNativeCommands.failure("backup_recovery_failed", "App runtime rollback data is missing")
+                    val appRuntime = DikcizCustomApps.validateBackup(JSONArray(runtimeFile.readText()))
+                    replacePublic(context, previous, roots)
+                    DikcizCustomApps.restoreBackup(context, appRuntime, activate = false, rollback = true)
+                } else replacePublic(context, previous, roots)
                 AtomicFile(checkpoint).delete()
             }
         } else {
@@ -97,8 +113,13 @@ internal object DikcizBackups {
         File(work, "rollback/" + id).deleteRecursively()
     }
 
-    @Synchronized
     fun execute(context: Context, type: String, request: JSONObject): JSONObject {
+        if (type == TYPE_LIST) return executeLocked(context, type, request)
+        DikcizCustomApps.requireBackupCaller()
+        return synchronized(backupLock) { executeLocked(context, type, request) }
+    }
+
+    private fun executeLocked(context: Context, type: String, request: JSONObject): JSONObject {
         work(context)
         if (type == TYPE_LIST) {
             val directory = File(root(context), ARCHIVE_DIRECTORY)
@@ -125,12 +146,13 @@ internal object DikcizBackups {
 
     private fun create(context: Context, request: JSONObject, passphrase: CharArray): JSONObject {
         val config = HomeConfigStore(context)
-        val snapshot = config.withConfigurationLock {
+        val snapshot = DikcizCustomApps.withBackupLock { config.withConfigurationLock {
             val files = snapshotFiles(root(context))
-            JSONObject().put("version", 1).put("createdAt", System.currentTimeMillis())
+            JSONObject().put("version", 2).put("appRuntime", DikcizCustomApps.exportBackup(context)).put("createdAt", System.currentTimeMillis())
                 .put("configuration", config.readConfigurationDocument()).put("files", files)
                 .put("chat", DikcizChatRuntime.get(context).store.exportBackup(request.optBoolean("includeApiKeys", false)))
                 .put("includesApiKeys", request.optBoolean("includeApiKeys", false))
+        }
         }
         val plain = snapshot.toString().toByteArray(Charsets.UTF_8)
         if (plain.size > MAXIMUM_ARCHIVE_BYTES - HEADER_ALLOWANCE) DikcizNativeCommands.failure("backup_too_large", "Backup exceeds 64 MiB encoded capacity")
@@ -156,6 +178,7 @@ internal object DikcizBackups {
             if (top !in ROOTS && path !in ROOT_FILES) continue
             requireOrdinary(file, source)
             if (!file.isFile) continue
+            validatePath(path, ROOTS)
             bytes += file.length()
             if (bytes > MAXIMUM_DATA_BYTES || rows.length() >= MAXIMUM_FILES) {
                 DikcizNativeCommands.failure("backup_too_large", "Backup data exceeds 32 MiB or 4096 files")
@@ -176,8 +199,9 @@ internal object DikcizBackups {
             DikcizNativeCommands.failure("backup_decryption_failed", "Wrong passphrase or damaged backup")
         }
         val snapshot = try { JSONObject(plain.toString(Charsets.UTF_8)) } finally { plain.fill(0) }
-        if (snapshot.keys().asSequence().toSet() != setOf("version", "createdAt", "configuration", "files", "chat", "includesApiKeys") ||
-            snapshot.opt("version") != 1 || snapshot.opt("includesApiKeys") !is Boolean) {
+        val version = snapshot.opt("version")
+        val expected = setOf("version", "createdAt", "configuration", "files", "chat", "includesApiKeys") + if (version == 2) setOf("appRuntime") else emptySet()
+        if (snapshot.keys().asSequence().toSet() != expected || version !in setOf(1, 2) || snapshot.opt("includesApiKeys") !is Boolean) {
             DikcizNativeCommands.invalid("Unsupported backup format")
         }
         val id = UUID.randomUUID().toString()
@@ -202,7 +226,7 @@ internal object DikcizBackups {
                 val entry = files.getJSONObject(index)
                 if (entry.keys().asSequence().toSet() != setOf("path", "sha256", "data")) DikcizNativeCommands.invalid("Invalid file manifest")
                 val path = entry.getString("path")
-                validatePath(path)
+                validatePath(path, if (version == 2) ROOTS else LEGACY_ROOTS)
                 if (!paths.add(path)) DikcizNativeCommands.invalid("Duplicate backup path")
                 val data = Base64.decode(entry.getString("data"), Base64.DEFAULT)
                 total += data.size
@@ -221,15 +245,22 @@ internal object DikcizBackups {
             }
             val chat = DikcizChatRuntime.get(context).store.validateBackup(snapshot.getJSONObject("chat"))
             atomicWrite(File(stage, "chat.json"), chat.toString().toByteArray(Charsets.UTF_8))
+            val appStore = DikcizCustomAppStore(context, public)
+            if (version == 2) {
+                for (appId in appStore.ids()) appStore.read(appId)
+                val appRuntime = DikcizCustomApps.validateBackup(snapshot.getJSONArray("appRuntime"))
+                atomicWrite(File(stage, "app-runtime.json"), appRuntime.toString().toByteArray(Charsets.UTF_8))
+            }
             val checksum = digest(bytes)
             val metadata = JSONObject().put("id", id).put("sha256", checksum).put("createdAt", System.currentTimeMillis())
                 .put("files", files.length()).put("bytes", total).put("pages", configuration.pages.size)
                 .put("widgets", configuration.pages.sumOf { it.widgets.size }).put("scripts", configuration.scripts.size)
                 .put("conversations", chat.getJSONArray("conversations").length()).put("profiles", chat.getJSONArray("profiles").length())
-                .put("includesApiKeys", snapshot.getBoolean("includesApiKeys"))
+                .put("includesApiKeys", snapshot.getBoolean("includesApiKeys")).put("version", version)
+                .put("customApps", appStore.ids().size).put("assistantFiles", paths.count { it.startsWith("assistant/") })
             atomicWrite(File(stage, "preview.json"), metadata.toString().toByteArray(Charsets.UTF_8))
             return metadata.put("previewId", id).put("state", "ready_for_confirmation")
-                .put("message", "Restore replaces this home and chat history. Remote authentication and listener settings remain. Automation stays disabled unless activateAutomation=true.")
+                .put("message", "Restore replaces home and chat, plus apps and assistant files in format 2. Older archives preserve those directories. Remote authentication and listener settings remain. Automation stays disabled unless activateAutomation=true. Imported pending app timers always require review.")
         } catch (exception: Exception) {
             stage.deleteRecursively()
             throw exception
@@ -251,12 +282,15 @@ internal object DikcizBackups {
         val runtime = DikcizChatRuntime.get(context)
         if (runtime.busy()) DikcizNativeCommands.failure("backup_busy", "Stop active assistant turns before restoring")
         val store = HomeConfigStore(context)
-        return runtime.withIdleState { store.withConfigurationLock {
+        return DikcizCustomApps.withBackupLock { runtime.withIdleState { store.withConfigurationLock {
             val rollback = File(work(context), "rollback/" + id)
             if (!rollback.mkdirs()) DikcizNativeCommands.failure("backup_storage_failed", "Cannot prepare restore rollback")
-            copyPublic(root(context), rollback)
+            val roots = if (metadata.optInt("version", 1) == 2) ROOTS else LEGACY_ROOTS
+            copyPublic(root(context), rollback, roots)
+            if (metadata.optInt("version", 1) == 2) atomicWrite(File(rollback, "app-runtime.json"),
+                DikcizCustomApps.exportBackup(context).toString().toByteArray(Charsets.UTF_8))
             val checkpoint = File(work(context), "restore.json")
-            atomicWrite(checkpoint, JSONObject().put("id", id).toString().toByteArray(Charsets.UTF_8))
+            atomicWrite(checkpoint, JSONObject().put("id", id).apply { if (metadata.optInt("version", 1) == 2) put("version", 2) }.toString().toByteArray(Charsets.UTF_8))
             try {
                 val stagedStore = HomeConfigStore(context, File(stage, "root"))
                 val configuration = stagedStore.loadOrCreate()
@@ -264,26 +298,29 @@ internal object DikcizBackups {
                     stagedStore.save(configuration.copy(scripts = configuration.scripts.map { it.copy(enabled = false) }))
                 }
                 withRestoreOwner {
-                    replacePublic(context, File(stage, "root/Dikciz"))
+                    replacePublic(context, File(stage, "root/Dikciz"), roots)
+                    if (metadata.optInt("version", 1) == 2) DikcizCustomApps.restoreBackup(context,
+                        JSONArray(File(stage, "app-runtime.json").readText()), request.optBoolean("activateAutomation", false))
                     store.loadOrCreate()
                     runtime.store.restoreBackup(JSONObject(File(stage, "chat.json").readText()), id, request.optBoolean("activateAutomation", false))
                     runtime.refreshAfterRestore()
                 }
                 AtomicFile(checkpoint).delete()
+                DikcizCustomApps.refreshAfterBackup(context)
                 rollback.deleteRecursively()
                 stage.deleteRecursively()
                 JSONObject().put("state", "restored").put("sha256", metadata.getString("sha256"))
                     .put("automationActivated", request.optBoolean("activateAutomation", false))
             } catch (exception: Exception) {
-                recover(context)
+                recoverLocked(context)
                 throw exception
             }
-        } }
+        } } }
     }
 
-    private fun replacePublic(context: Context, source: File) {
+    private fun replacePublic(context: Context, source: File, roots: Set<String> = ROOTS) {
         val destination = root(context)
-        for (name in ROOTS + ROOT_FILES) {
+        for (name in roots + ROOT_FILES) {
             val old = File(destination, name)
             if (old.exists()) {
                 requireOrdinary(old, destination)
@@ -291,12 +328,12 @@ internal object DikcizBackups {
                 if (!old.deleteRecursively()) DikcizNativeCommands.failure("backup_restore_failed", "Could not replace previous home data")
             }
         }
-        copyPublic(source, destination)
+        copyPublic(source, destination, roots)
     }
 
-    private fun copyPublic(source: File, destination: File) {
+    private fun copyPublic(source: File, destination: File, roots: Set<String> = ROOTS) {
         if (!destination.isDirectory && !destination.mkdirs()) DikcizNativeCommands.failure("backup_storage_failed", "Cannot prepare restore destination")
-        for (name in ROOTS + ROOT_FILES) {
+        for (name in roots + ROOT_FILES) {
             val input = File(source, name)
             if (!input.exists()) continue
             input.walkTopDown().forEach { requireOrdinary(it, source) }
@@ -314,10 +351,10 @@ internal object DikcizBackups {
         }
     }
 
-    private fun validatePath(path: String) {
+    private fun validatePath(path: String, roots: Set<String>) {
         val parts = path.split('/')
-        if (path.length > 512 || parts.any { it.isEmpty() || it == "." || it == ".." || it.any(Char::isISOControl) } ||
-            '\\' in path || (path !in ROOT_FILES && parts.first() !in ROOTS)) DikcizNativeCommands.invalid("Unsafe backup path")
+        if (path.toByteArray(Charsets.UTF_8).size > MAXIMUM_PATH_BYTES || parts.any { it.isEmpty() || it == "." || it == ".." || it.any(Char::isISOControl) } ||
+            '\\' in path || (path !in ROOT_FILES && parts.first() !in roots)) DikcizNativeCommands.invalid("Unsafe backup path")
     }
 
     private fun readBounded(input: InputStream): ByteArray {
@@ -374,11 +411,11 @@ internal object DikcizBackups {
     private val PASSWORD = text(1024).put("minLength", 12).put("description", "Backup encryption passphrase. Never log or put it in prompts.")
     private val BOOLEAN = JSONObject().put("type", "boolean").put("default", false)
     val DEFINITIONS = listOf(
-        DikcizNativeCommands.Definition(TYPE_CREATE, "dikciz_backup_create", "Create an AES-GCM encrypted portable home, widget-state, Lua, chat and provider-settings snapshot. Passphrase required. API keys excluded unless explicitly requested. Remote credentials and control ports always remain outside backups. Requires the matching explicit operation grant for scoped remote clients.",
+        DikcizNativeCommands.Definition(TYPE_CREATE, "dikciz_backup_create", "Create an AES-GCM encrypted portable home, widget-state, Lua, custom-app files/state/runtime, assistant skills/rules/agents, chat and provider-settings snapshot. Passphrase required. API keys excluded unless explicitly requested. Remote credentials and control ports always remain outside backups. Requires the matching explicit operation grant for scoped remote clients.",
             mapOf("passphrase" to PASSWORD, "includeApiKeys" to BOOLEAN), setOf("passphrase"), readOnly = false),
         DikcizNativeCommands.Definition(TYPE_PREVIEW, "dikciz_backup_preview", "Decrypt and validate an archive into protected staging without replacing current state. Returns counts, previewId and sha256 for explicit restore confirmation. Preview expires after 15 minutes. Requires the matching explicit operation grant for scoped remote clients.",
             mapOf("path" to text(4096), "passphrase" to PASSWORD), setOf("path", "passphrase"), readOnly = false),
-        DikcizNativeCommands.Definition(TYPE_RESTORE, "dikciz_backup_restore", "Replace home and chat from a validated preview, with rollback recovery. Requires idle assistant, previewId, exact sha256 and confirm=true. Future automation remains disabled unless activateAutomation=true. Remote auth and ports remain.",
+        DikcizNativeCommands.Definition(TYPE_RESTORE, "dikciz_backup_restore", "Replace home and chat from a validated preview, with rollback recovery. Requires idle assistant, previewId, exact sha256 and confirm=true. Future automation remains disabled unless activateAutomation=true. Imported pending or claimed app timers always require review; active alerts and native sessions are not resumed. Remote auth and ports remain.",
             mapOf("previewId" to text(36), "sha256" to text(64), "confirm" to BOOLEAN, "activateAutomation" to BOOLEAN),
             setOf("previewId", "sha256", "confirm"), readOnly = false),
         DikcizNativeCommands.Definition(TYPE_LIST, "dikciz_backups_list", "List encrypted archive paths and metadata without reading contents. Requires the matching explicit operation grant for scoped remote clients.",

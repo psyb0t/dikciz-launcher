@@ -1,10 +1,12 @@
 # Assistant tool contracts and access
 
-The embedded assistant has five compact wrappers. Their provider schemas define parameter types:
+The embedded assistant has seven compact wrappers. Their provider schemas define parameter types:
 
 - `phone_tools`: required string `query`, optional decimal string `offset`. Empty query lists tools; nonempty queries rank tasks and identifiers with aliases and typo correction. Follow `hasMore`/`nextOffset` only when needed.
 - `phone_search`: required string `query`, optional string `collection` (default `docs`) and decimal strings `limit`/`offset`. Returns ranked excerpts, exact IDs and URIs. Collection `tools` returns current permitted schemas.
 - `phone_call`: required string `name` and string `arguments_json`. Discover the exact native name first. The string contains a strict JSON object matching the native `inputSchema`, including all required fields, types, enums and nested objects. Send `"{}"` for a no-argument tool.
+- `phone_library`: string action list or read; read also needs relative path. Discovers owner skills/agents/rules and reads instructions on demand.
+- `phone_agent`: required strings name and prompt. Delegates to an installed named agent with isolated history, inherited access, cancellation/timeout and a two-level limit. Read [assistant library](dikciz://docs/guides/assistant-library).
 - `phone_resources`: optional string `cursor` from the preceding resource page. No arguments means `{}`.
 - `phone_resource`: required string `uri`, copied from search or resource discovery.
 

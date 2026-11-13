@@ -79,6 +79,7 @@ internal class DikcizNativeData(
                 in DikcizOperations.TYPES -> DikcizOperations.execute(command.type, command.request)
                 in DikcizSearch.TYPES -> DikcizSearch.get(context, logger).execute(command)
                 in DikcizAndroidSdkCommands.TYPES -> androidSdk.execute(command)
+                DikcizAssistantLibrary.TYPE -> DikcizAssistantLibrary(context).execute(command.request)
                 DikcizChatCommands.TYPE -> {
                     DikcizChatCommands.validate(command.request)
                     DikcizChatRuntime.get(context).execute(command.request)

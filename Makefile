@@ -592,6 +592,17 @@ dikciz-test-existing-apk: emulator-ready ## Reset the shared phone and test the 
 		DIKCIZ_TEST_SELECTOR="$(DIKCIZ_TEST_SELECTOR)" \
 		$(DEV_RUN_DIND) android-lab dikciz-test
 
+.PHONY: dikciz-test-reboot
+dikciz-test-reboot: ANDROID_LAB_INSTANCE := shared
+dikciz-test-reboot: ANDROID_LAB_FORWARD_HOST_PORT := 19101
+dikciz-test-reboot: ANDROID_LAB_MCP_HOST_PORT := 19102
+dikciz-test-reboot: ANDROID_LAB_VNC_HOST_PORT := 61326
+dikciz-test-reboot: APK := $(DIKCIZ_DEBUG_APK)
+dikciz-test-reboot: PACKAGE_NAME := eu.psyb0t.dikciz.launcher.debug
+dikciz-test-reboot: emulator-ready ## Build and verify app state, files and timer safety across a real private-emulator reboot
+	@$(MAKE) --no-print-directory gradle GRADLE_TASK=:app:assembleDikcizDebug
+	@$(DEV_RUN_DIND) android-lab dikciz-test-reboot
+
 dikciz-test-interrupt: ANDROID_LAB_INSTANCE := shared
 dikciz-test-interrupt: ANDROID_LAB_FORWARD_HOST_PORT := 19101
 dikciz-test-interrupt: ANDROID_LAB_MCP_HOST_PORT := 19102

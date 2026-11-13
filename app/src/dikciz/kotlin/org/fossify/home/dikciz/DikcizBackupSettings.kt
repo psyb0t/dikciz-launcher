@@ -25,7 +25,7 @@ internal class DikcizBackupSettings(
         val form = column()
         val views = linkedMapOf<String, View>()
         form.addView(TextView(context).apply {
-            text = "Encrypted backups include your home, widget files, scripts, conversations and provider settings. Keep the passphrase safe. Remote credentials and control ports stay on this device."
+            text = "Encrypted backups include your home, widget files, scripts, custom apps and their state/files, assistant instructions, conversations and provider settings. Keep the passphrase safe. Remote credentials and control ports stay on this device."
         })
         val password = EditText(context).apply {
             hint = "Backup passphrase, at least 12 characters"; contentDescription = hint
@@ -89,18 +89,21 @@ internal class DikcizBackupSettings(
 
     private fun confirm(preview: JSONObject) {
         val form = column()
-        form.addView(TextView(context).apply {
+        val summary = TextView(context).apply {
             text = "${preview.getInt("pages")} pages · ${preview.getInt("widgets")} widgets\n" +
                 "${preview.getInt("scripts")} scripts · ${preview.getInt("conversations")} conversations\n" +
-                "${preview.getInt("profiles")} provider profiles\n\n" +
-                "This replaces your current home and chat history. Control listener addresses and remote credentials stay unchanged. Active assistant work must be stopped first."
-        })
-        val activate = CheckBox(context).apply { text = "Activate restored scripts and chat event rules"; isChecked = false }
+                "${preview.getInt("profiles")} provider profiles\n" +
+                "${preview.optInt("customApps")} custom apps, ${preview.optInt("assistantFiles")} assistant files\n\n" +
+                (if (preview.optInt("version", 1) >= 2) "This replaces your home, apps, assistant files and chat history. " else "This replaces your home and chat history; existing apps and assistant files are preserved. ") +
+                "Control listener addresses and remote credentials stay unchanged. Stop active assistant work first. Restored pending app timers always require review and explicit rearming."
+        }
+        form.addView(summary)
+        val activate = CheckBox(context).apply { text = "Activate restored scripts, apps and chat event rules"; isChecked = false }
         form.addView(activate)
         val status = TextView(context).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }
         form.addView(status)
         val dialog = AlertDialog.Builder(context).setTitle("Restore this backup?")
-            .setView(form).setPositiveButton("Restore", null).setNegativeButton("Cancel", null).create()
+            .setView(ScrollView(context).apply { addView(form) }).setPositiveButton("Restore", null).setNegativeButton("Cancel", null).create()
         showDialog(dialog) {
             val button = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             button.setOnClickListener {
@@ -114,7 +117,7 @@ internal class DikcizBackupSettings(
                     if (error == null) { button.visibility = View.GONE; dialog.getButton(AlertDialog.BUTTON_NEGATIVE).text = "Done" }
                 }
             }
-            mapOf("backups:confirm" to button, "backups:activate" to activate, "backups:restore-status" to status)
+            mapOf("backups:summary" to summary, "backups:confirm" to button, "backups:activate" to activate, "backups:restore-status" to status)
         }
     }
 

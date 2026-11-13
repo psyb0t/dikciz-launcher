@@ -32,9 +32,9 @@ internal data class DikcizCustomApp(
 internal fun JSONArray.strings(): List<String> = (0 until length()).map { getString(it) }
 
 /** Public, bounded files with transactional bundle replacement and exact archive entries. */
-internal class DikcizCustomAppStore(private val context: Context) {
+internal class DikcizCustomAppStore(private val context: Context, private val publicRoot: File? = null) {
     private val root: File get() {
-        val candidate = File(HomeConfigStore(context).configurationFile.parentFile!!.canonicalFile, "apps")
+        val candidate = File((publicRoot ?: HomeConfigStore(context).configurationFile.parentFile!!).canonicalFile, "apps")
         if (candidate.canonicalFile != candidate.absoluteFile) DikcizNativeCommands.invalid("App root cannot be a symlink")
         return candidate
     }

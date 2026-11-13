@@ -7,6 +7,19 @@ nav_order: 10
 
 # Changelog
 
+## [0.31.4] - 2026-11-13
+
+- Include custom-app source, state, recordings/files and private installation/timer/run records in encrypted backups, with coordinated restore rollback. Older archives preserve app and assistant directories.
+- Restore pending or claimed app timers for review without replaying effects. Apps remain disabled unless activation is explicit.
+- Load owner skills, named agents and rules from shared storage. Add on-demand skill reads and isolated agent delegation with inherited access, cancellation and bounded depth.
+- Add recovery scenarios for updates, process interruption, network loss and battery restrictions, plus `make dikciz-test-reboot` for a real emulator reboot.
+- Run Lua native-command callbacks on the owning executor thread, preventing custom-app lockups while retaining operation identity and access checks.
+- Preserve temporary read-only restrictions in saved child conversations and prevent restricted agents from using documentation discovery to search owner collections.
+- Validate UTF-8 path lengths consistently during backup creation and preview. Format-1 archives remain readable; format-2 app/assistant archives require this version or newer to restore.
+- Add assistant-library and recovery manuals, updated tutorials, complete command/token references and current backup screenshots.
+- Add shared contributor guidance in `AGENTS.md` with relative Claude compatibility links.
+- Use the Dikciz Launcher title throughout the documentation site and load the shared visitor tracker on every page.
+
 ## [0.31.3] - 2026-11-07
 
 ### Documentation

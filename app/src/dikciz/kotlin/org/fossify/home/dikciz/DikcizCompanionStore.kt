@@ -37,6 +37,31 @@ internal class DikcizCompanionStore(context: Context) : SQLiteOpenHelper(context
             db.setTransactionSuccessful()
         } finally { db.endTransaction() }
     }
+    fun snapshotKinds(kinds: Set<String>): org.json.JSONArray {
+        val rows = org.json.JSONArray()
+        for (kind in kinds.sorted()) {
+            readableDatabase.rawQuery("SELECT id,document FROM objects WHERE kind=? ORDER BY id", arrayOf(kind)).use { cursor ->
+                while (cursor.moveToNext()) rows.put(JSONObject().put("kind", kind).put("id", cursor.getString(0))
+                    .put("document", JSONObject(cursor.getString(1))))
+            }
+        }
+        return rows
+    }
+
+    fun replaceKinds(kinds: Set<String>, rows: org.json.JSONArray) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            kinds.forEach { kind -> db.delete("objects", "kind=?", arrayOf(kind)) }
+            repeat(rows.length()) { index ->
+                val row = rows.getJSONObject(index)
+                require(row.getString("kind") in kinds)
+                put(row.getString("kind"), row.getString("id"), row.getJSONObject("document"))
+            }
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+    }
+
     fun addPoint(trip: String, sequence: Int, value: JSONObject, summary: JSONObject) {
         val db = writableDatabase
         db.beginTransaction()
