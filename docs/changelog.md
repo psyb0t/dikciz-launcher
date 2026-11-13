@@ -7,6 +7,11 @@ nav_order: 10
 
 # Changelog
 
+## [0.31.5] - 2026-11-13
+
+- Correct the operating skill's custom-app access guidance: scoped tokens can use explicitly granted custom-app operations, subject to the same executor checks and Android access.
+- Include the source-set ownership guide for contributors working on Dikciz overlays and the Fossify base.
+
 ## [0.31.4] - 2026-11-13
 
 - Include custom-app source, state, recordings/files and private installation/timer/run records in encrypted backups, with coordinated restore rollback. Older archives preserve app and assistant directories.
