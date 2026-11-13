@@ -272,6 +272,7 @@ internal object DikcizCustomApps {
     private fun invoke(context: Context, app: DikcizCustomApp, name: String, payload: JSONObject, readOnly: Boolean = false, stopping: Boolean = false): JSONObject {
         requireEnabled(context, app)
         if (!activeCalls.add(app.id)) DikcizNativeCommands.failure("custom_app_reentrant", "An app cannot invoke itself during a running handler")
+        val span = DikcizAutomationDebugger.begin("app", app.id, DikcizAutomationDebugger.revision(app.source), trigger = name)
         val revision = cancellations.computeIfAbsent(app.id) { AtomicLong() }.get() - if (stopping) 1 else 0
         try {
             val configuration = HomeConfigStore(context).loadOrCreate()
@@ -325,7 +326,10 @@ internal object DikcizCustomApps {
                     DikcizNativeCommands.failure("custom_app_execution_failed", "App handler failed: " + run.getString("status"))
                 }
             }
-        } finally { activeCalls.remove(app.id) }
+        } catch (exception: Exception) {
+            DikcizAutomationDebugger.mark("failed", (exception as? DikcizAutomationRequestException)?.code ?: exception.javaClass.simpleName)
+            throw exception
+        } finally { activeCalls.remove(app.id); DikcizAutomationDebugger.finish(span) }
     }
 
     @Synchronized fun scopedCommand(context: Context, id: String, incoming: JSONObject, readOnly: Boolean = false, cancellationRevision: Long? = null): DikcizLocalCommands.Reply {

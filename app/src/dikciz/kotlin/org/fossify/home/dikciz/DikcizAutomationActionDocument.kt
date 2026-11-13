@@ -5,6 +5,26 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal object DikcizAutomationActionDocument {
+    fun type(action: DikcizLuaAutomationAction): String = when (action) {
+        is DikcizLuaAutomationAction.SelectPage -> ACTION_SELECT_PAGE
+        is DikcizLuaAutomationAction.PatchWidget -> ACTION_PATCH_WIDGET
+        is DikcizLuaAutomationAction.PatchState -> ACTION_PATCH_STATE
+        is DikcizLuaAutomationAction.PatchDom -> ACTION_PATCH_DOM
+        is DikcizLuaAutomationAction.LaunchApp -> ACTION_LAUNCH_APP
+        is DikcizLuaAutomationAction.AppAction -> ACTION_APP_ACTION
+        is DikcizLuaAutomationAction.PostNotification -> ACTION_POST_NOTIFICATION
+        is DikcizLuaAutomationAction.SendSms -> ACTION_SEND_SMS
+        is DikcizLuaAutomationAction.ExplicitIntent -> ACTION_EXPLICIT_INTENT
+        is DikcizLuaAutomationAction.MediaControl -> ACTION_MEDIA_CONTROL
+        is DikcizLuaAutomationAction.SetMediaVolume -> ACTION_SET_MEDIA_VOLUME
+        is DikcizLuaAutomationAction.NotificationControl -> ACTION_NOTIFICATION_CONTROL
+        is DikcizLuaAutomationAction.EmitEvent -> ACTION_EMIT_EVENT
+        is DikcizLuaAutomationAction.AccessibilityAction -> ACTION_ACCESSIBILITY_ACTION
+        is DikcizLuaAutomationAction.AccessibilityGesture -> ACTION_ACCESSIBILITY_GESTURE
+        is DikcizLuaAutomationAction.AccessibilityGlobalAction -> ACTION_ACCESSIBILITY_GLOBAL_ACTION
+        DikcizLuaAutomationAction.LockDevice -> ACTION_LOCK_DEVICE
+    }
+
     fun parse(
         actions: JSONArray,
         sourceWidgetAddress: String,

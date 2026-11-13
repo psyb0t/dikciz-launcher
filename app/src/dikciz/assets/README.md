@@ -8,6 +8,7 @@ These assets provide the starter home and authoring libraries packaged with the 
 | `config.json` | Complete starter document that `HomeConfigStore` expands into root, page, widget, script and automation files. |
 | `web/page-api.js` | Native bridge API injected into HTML widget documents. |
 | `chat-model-limits.json` | Exact-ID token limits with source links for chat discovery and automatic model settings. Provider metadata takes precedence. |
+| `assistant/skills/` | Immutable built-in guides for writing skills, agents and rules and debugging automations. Owner instructions remain under `/sdcard/Dikciz/assistant/`. |
 | `mcp/` | Small documentation resources served from an exact catalog, beginning with [the task index](mcp/index.md). These remain packaged assets rather than editable runtime copies. |
 | `widget-library/` | Complete packages that the picker adds as new HTML widgets with their own native grid placement. |
 | `apps/` | Complete SOS, Voice notes, Agenda, Device status and Travel todo apps with manifest, HTML/CSS/JS and Lua/JS backend. Runtime copies and app-local state live under `/sdcard/Dikciz/apps/`; see [custom apps](../../../../docs/custom-apps.md). |

@@ -376,3 +376,13 @@ Open Settings, Manage scripts. Choose New Lua script or New JavaScript script, e
 <p><a href="{{ "/images/screens/script-import-confirm.png" | relative_url }}"><img src="{{ "/images/screens/script-import-confirm.png" | relative_url }}" alt="Review an archive before importing" width="280"></a><br>Review an archive before importing.</p>
 
 </details>
+
+
+## Assistant instructions and automation debugger
+
+Open **Dikciz > Skills, agents & rules** to create or edit instructions. Open **Dikciz > Automation debugger** to browse retained history, inspect a causal trace or simulate a current handler without phone effects. The [instruction walkthrough](assistant-library.md#manage-instructions-on-the-phone) and [debugger walkthrough](automation-debugger.md) explain the screens and access boundaries.
+
+<div class="docs-gallery">
+<figure><img width="280" src="{{ "/images/automation-workbench/library.png" | relative_url }}" alt="Skills, agents and rules manager with owner examples and built-in authoring guides"><figcaption>Assistant instruction manager.</figcaption></figure>
+<figure><img width="280" src="{{ "/images/automation-workbench/trace.png" | relative_url }}" alt="Example device inspection trace linking an event, app and native command"><figcaption>Automation trace.</figcaption></figure>
+</div>

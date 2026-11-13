@@ -19,6 +19,16 @@ internal enum class DikcizLauncherControlAction(
         R.string.dikciz_launcher_control_apps,
         R.drawable.dikciz_icon_route_app_drawer,
     ),
+    AutomationDebugger(
+        "automation-debugger",
+        R.string.dikciz_launcher_control_debugger,
+        R.drawable.dikciz_icon_route_settings,
+    ),
+    AssistantLibrary(
+        "assistant-library",
+        R.string.dikciz_launcher_control_library,
+        R.drawable.dikciz_icon_route_settings,
+    ),
     AppDrawer(
         "app-drawer",
         R.string.dikciz_launcher_control_app_drawer,

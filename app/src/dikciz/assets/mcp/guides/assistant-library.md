@@ -9,3 +9,6 @@ agents/NAME.md has name, description, optional readOnly, tools, disallowedTools 
 Portable directories within assistant: .agents/skills, .claude/skills, .hermes/skills, .agents/agents, .claude/agents, .agents/rules and .claude/rules. Scalar, quoted and indented block/list front matter is supported; complex harness configurations are not. Duplicate identities, malformed metadata, executable hooks, permission modes, MCP definitions, YAML tags/anchors, symlinks and escaped paths reject clearly. Path scopes guide the model; use read-only mode/token grants for enforced boundaries.
 
 Bounds: 512 files, 128 entries, 12 directory levels, 64 KiB per file, 512 KiB instruction data and 128 KiB injected owner instructions/catalog. Context-budget checks still apply. Keep secrets out. Install files through authorized file writes. Encrypted backups include the entire assistant directory. Read the full assistant-library guide through documentation search for examples and compatibility limits.
+
+
+For native editing and revision-checked writes, read [instruction management](dikciz://docs/guides/assistant-manager).

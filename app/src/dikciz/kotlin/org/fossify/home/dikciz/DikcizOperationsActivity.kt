@@ -12,6 +12,7 @@ import android.os.Looper
 import android.text.format.DateUtils
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -32,11 +33,17 @@ internal class DikcizOperationsActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
     private var resourcesTab = false
+    private var mode = "activity"
+    private var historyOffset = 0
+    private var historyKind = "event"
+    private lateinit var tools: DikcizOperationsTools
+    private lateinit var sectionButton: Button
     private var failuresOnly = false
     private var filterMode = 0
     private lateinit var filterButton: Button
     private lateinit var activityTab: Button
     private lateinit var resourceTab: Button
+    private lateinit var activityTabs: LinearLayout
     private var previousActivity = ""
     private var refreshing = false
     private var visible = false
@@ -50,25 +57,46 @@ internal class DikcizOperationsActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        mode = savedInstanceState?.getString("mode") ?: intent.getStringExtra("section") ?: "activity"
+        historyOffset = savedInstanceState?.getInt("historyOffset") ?: 0
+        historyKind = savedInstanceState?.getString("historyKind") ?: "event"
         resourcesTab = savedInstanceState?.getBoolean("resources") ?: false
         failuresOnly = savedInstanceState?.getBoolean("failures") ?: false
         filterMode = savedInstanceState?.getInt("filter") ?: 0
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val root = column().apply { setPadding(dp(20), dp(12), dp(20), 0); setBackgroundColor(BACKGROUND) }
         val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        header.addView(label("Activity & resources", 24, TEXT, true), LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(label("Dikciz tools", 24, TEXT, true), LinearLayout.LayoutParams(0, -2, 1f))
         header.addView(button("Close") { finish() }.also { views["operations:close"] = it })
         root.addView(header)
-        root.addView(label("See what ran. Find what is still running.", 14, MUTED))
+        sectionButton = button("Choose section") {
+            AlertDialog.Builder(this).setTitle("Dikciz tools")
+                .setItems(arrayOf("Automation debugger", "Skills, agents & rules", "Command activity", "Resources")) { _, selected ->
+                    mode = listOf("history", "library", "activity", "resources")[selected]
+                    resourcesTab = mode == "resources"; historyOffset = 0; updateTabs(); refresh(true)
+                }.setNegativeButton("Cancel", null).show().also(::showModal)
+        }
+        views["operations:section"] = sectionButton
+        root.addView(sectionButton)
         val tabs = LinearLayout(this).apply { setPadding(0, dp(12), 0, dp(12)) }
-        activityTab = button("Activity") { resourcesTab = false; updateTabs(); refresh(true) }
-        resourceTab = button("Resources") { resourcesTab = true; updateTabs(); refresh(true) }
+        activityTab = button("Activity") { mode = "activity"; resourcesTab = false; updateTabs(); refresh(true) }
+        resourceTab = button("Resources") { mode = "resources"; resourcesTab = true; updateTabs(); refresh(true) }
         tabs.addView(activityTab, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(4) })
         tabs.addView(resourceTab, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(4) })
         views["operations:activity"] = activityTab
         views["operations:resources"] = resourceTab
+        activityTabs = tabs
+        tabs.visibility = if (mode in setOf("activity", "resources")) View.VISIBLE else View.GONE
         root.addView(tabs)
         filterButton = button(FILTERS[filterMode] + " ▾") {
+            if (mode == "history") {
+                AlertDialog.Builder(this).setTitle("Show history")
+                    .setItems(arrayOf("All records", "Events", "Scripts", "Apps", "Commands", "Assistant turns", "Returned actions")) { _, selected ->
+                        historyKind = listOf("", "event", "script", "app", "command", "chat", "action")[selected]
+                        historyOffset = 0; updateTabs(); refresh(true)
+                    }.setNegativeButton("Cancel", null).show().also(::showModal)
+                return@button
+            }
             AlertDialog.Builder(this).setTitle("Show activity")
                 .setSingleChoiceItems(FILTERS.toTypedArray(), filterMode) { dialog, selected ->
                     filterMode = selected
@@ -86,6 +114,8 @@ internal class DikcizOperationsActivity : Activity() {
         content = column()
         scroll = ScrollView(this).apply { isFillViewport = true; addView(content); contentDescription = "Activity history" }
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        tools = DikcizOperationsTools(this, content, status, views, worker, handler, ::showModal) { refresh(true) }
+        tools.restore(savedInstanceState)
         setContentView(root)
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -96,45 +126,65 @@ internal class DikcizOperationsActivity : Activity() {
 
     override fun onResume() { super.onResume(); foreground = WeakReference(this); visible = true; handler.post(tick) }
     override fun onPause() { foreground = null; visible = false; handler.removeCallbacks(tick); super.onPause() }
-    override fun onDestroy() { worker.shutdown(); super.onDestroy() }
+    override fun onDestroy() { modal?.dismiss(); handler.removeCallbacksAndMessages(null); worker.shutdown(); super.onDestroy() }
     override fun onSaveInstanceState(out: Bundle) {
+        tools.save(out)
+        out.putString("mode", mode); out.putInt("historyOffset", historyOffset); out.putString("historyKind", historyKind)
         out.putBoolean("resources", resourcesTab); out.putBoolean("failures", failuresOnly); out.putInt("filter", filterMode)
         super.onSaveInstanceState(out)
     }
 
     private fun refresh(force: Boolean = false) {
-        if (refreshing || isFinishing || (!force && ::scroll.isInitialized && scroll.scrollY > 0)) return
+        if (refreshing || isFinishing || isDestroyed || (!force && modal?.isShowing == true) || (!force && ::scroll.isInitialized && scroll.scrollY > 0)) return
         refreshing = true
-        val showingResources = resourcesTab
+        val showingMode = mode
+        val showingResources = mode == "resources"
         val selectedFilter = filterMode
         worker.execute {
             try {
                 val request = JSONObject()
-                if (!showingResources) {
+                if (showingMode == "library") request.put("action", "inspect")
+                if (showingMode == "history") {
+                    request.put("limit", HISTORY_PAGE_SIZE).put("offset", historyOffset)
+                    if (historyKind.isNotBlank()) request.put("kind", historyKind)
+                }
+                if (showingMode == "activity") {
                     request.put("limit", PAGE_SIZE)
                     if (selectedFilter == 0) request.put("mutatingOnly", true)
                     if (selectedFilter == 2) request.put("outcome", "problem")
                     if (selectedFilter == 3) request.put("outcome", "running")
                 }
                 val result = DikcizUiCommands.execute("settings:operations",
-                    if (showingResources) DikcizOperations.TYPE_RESOURCES else DikcizOperations.TYPE_READ, request,
+                    when (showingMode) {
+                        "library" -> DikcizAssistantLibrary.TYPE
+                        "history" -> DikcizAutomationDebugger.TYPE_HISTORY
+                        "resources" -> DikcizOperations.TYPE_RESOURCES
+                        else -> DikcizOperations.TYPE_READ
+                    }, request,
                 )
                 handler.post {
                     refreshing = false
-                    if (!visible || showingResources != resourcesTab || selectedFilter != filterMode) return@post
+                    if (!visible || showingMode != mode || selectedFilter != filterMode) return@post
                     val fingerprint = result.toString() + (System.currentTimeMillis() / DateUtils.MINUTE_IN_MILLIS)
                     if (!showingResources && !force && fingerprint == previousActivity) return@post
                     previousActivity = fingerprint
                     val y = scroll.scrollY
-                    views.keys.filter { it.startsWith("operations:row:") || it.startsWith("operations:label:") }.forEach(views::remove)
+                    views.keys.filter { it.startsWith("operations:row:") || it.startsWith("operations:label:") || it.startsWith("operations:library:") || it.startsWith("operations:history:") }.forEach(views::remove)
                     labelSequence = 0
                     content.removeAllViews()
-                    if (showingResources) renderResources(result) else renderActivity(result)
+                    when (showingMode) {
+                        "library" -> tools.renderLibrary(result)
+                        "history" -> tools.renderHistory(result,
+                            { historyOffset += HISTORY_PAGE_SIZE; scroll.scrollTo(0, 0); refresh(true) },
+                            { historyOffset = (historyOffset - HISTORY_PAGE_SIZE).coerceAtLeast(0); scroll.scrollTo(0, 0); refresh(true) })
+                        "resources" -> renderResources(result)
+                        else -> renderActivity(result)
+                    }
                     scroll.post { scroll.scrollTo(0, y) }
                 }
             } catch (exception: Exception) {
                 android.util.Log.e("DikcizOperations", "Activity view refresh failed", exception)
-                handler.post { refreshing = false; status.text = "Could not load activity. Tap Activity or Resources to retry." }
+                handler.post { refreshing = false; status.text = exception.message ?: "Could not load this section. Choose it again to retry." }
             }
         }
     }
@@ -283,7 +333,15 @@ internal class DikcizOperationsActivity : Activity() {
     private fun updateTabs() {
         DikcizUiStyle.button(activityTab, !resourcesTab)
         DikcizUiStyle.button(resourceTab, resourcesTab)
-        filterButton.visibility = if (resourcesTab) View.GONE else View.VISIBLE
+        activityTabs.visibility = if (mode in setOf("activity", "resources")) View.VISIBLE else View.GONE
+        sectionButton.text = when (mode) {
+            "library" -> "Skills, agents & rules ▾"
+            "history" -> "Automation debugger ▾"
+            "resources" -> "Resources ▾"
+            else -> "Command activity ▾"
+        }
+        filterButton.text = if (mode == "history") (if (historyKind == "event") "Events" else historyKind.ifBlank { "All records" }.replaceFirstChar(Char::uppercase)) + " ▾" else FILTERS[filterMode] + " ▾"
+        filterButton.visibility = if (mode in setOf("resources", "library")) View.GONE else View.VISIBLE
     }
 
     private fun friendlyActor(value: String): String = when {
@@ -310,17 +368,31 @@ internal class DikcizOperationsActivity : Activity() {
         for ((name, buttonId) in mapOf("confirm" to AlertDialog.BUTTON_POSITIVE, "cancel" to AlertDialog.BUTTON_NEGATIVE)) {
             dialog.getButton(buttonId)?.takeIf { it.visibility == View.VISIBLE }?.let { result["operations:dialog:" + name] = it }
         }
+        views.filterKeys { (it.startsWith("operations:editor:") || it.startsWith("operations:trace:")) }.forEach { (key, view) -> if (view.isAttachedToWindow) result[key] = view }
+        dialog.findViewById<TextView>(android.R.id.message)?.let { result["operations:dialog:message"] = it }
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.takeIf { it.visibility == View.VISIBLE }?.let { result["operations:dialog:neutral"] = it }
         dialog.listView?.let { list ->
-            for (index in 0 until list.childCount) result["operations:filter:" + index] = list.getChildAt(index).apply {
-                setOnClickListener { list.performItemClick(this, index, list.adapter.getItemId(index)) }
+            for (index in 0 until list.childCount) {
+                val position = list.firstVisiblePosition + index
+                result["operations:filter:" + position] = list.getChildAt(index).apply {
+                    setOnClickListener { list.performItemClick(this, position, list.adapter.getItemId(position)) }
+                }
             }
         }
         return result
     }
     fun foregroundDialog(): AlertDialog? = modal?.takeIf { it.isShowing }
-    fun scrollState(): JSONObject = JSONObject().put("y", scroll.scrollY)
-        .put("range", content.height).put("extent", scroll.height)
-    fun scrollBy(delta: Int) { scroll.scrollBy(0, delta) }
+    private fun dialogScroll(view: View?): ScrollView? {
+        if (view is ScrollView && view.isShown) return view
+        if (view is ViewGroup) for (index in 0 until view.childCount) dialogScroll(view.getChildAt(index))?.let { return it }
+        return null
+    }
+    private fun activeScroll(): ScrollView = dialogScroll(foregroundDialog()?.window?.decorView) ?: scroll
+    fun scrollState(): JSONObject {
+        val target = activeScroll()
+        return JSONObject().put("y", target.scrollY).put("range", target.getChildAt(0)?.height ?: 0).put("extent", target.height)
+    }
+    fun scrollBy(delta: Int) { activeScroll().scrollBy(0, delta) }
     fun scrollTo(view: View) { view.requestRectangleOnScreen(Rect(0, 0, view.width, view.height), true) }
 
     companion object {
@@ -329,6 +401,7 @@ internal class DikcizOperationsActivity : Activity() {
         private val FILTERS = listOf("Actions", "All activity", "Problems", "Running")
         const val REFRESH_MILLISECONDS = 3000L
         const val PAGE_SIZE = 100
+        private const val HISTORY_PAGE_SIZE = 30
         const val MEBIBYTE = 1048576L
         const val KIBIBYTE = 1024L
         const val BACKGROUND = 0xFF111310.toInt()

@@ -1,6 +1,8 @@
 package org.fossify.home.dikciz
 
 import android.content.Context
+import android.util.AtomicFile
+import java.security.MessageDigest
 import java.io.File
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
@@ -10,28 +12,31 @@ import org.json.JSONObject
 /** Owner-authored instructions stay on shared storage and are reloaded between model rounds. */
 internal class DikcizAssistantLibrary(private val context: Context) {
     data class Entry(val kind: String, val path: String, val name: String, val description: String, val body: String, val metadata: Map<String, String>) {
-        fun summary(): JSONObject = JSONObject().put("kind", kind).put("path", path).put("name", name).put("description", description)
+        fun summary(): JSONObject = JSONObject().put("id", revision(path.removeSuffix(DISABLED_SUFFIX))).put("kind", kind).put("path", path).put("name", name).put("description", description)
             .put("sha256", java.security.MessageDigest.getInstance("SHA-256")
                 .digest((metadata.toSortedMap().toString() + "\n" + body).toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) })
     }
 
     private val root: File get() = File(HomeConfigStore(context).configurationFile.parentFile!!.canonicalFile, DIRECTORY)
 
-    fun execute(request: JSONObject): JSONObject = when (request.getString("action")) {
-        "list" -> JSONObject().put("root", root.absolutePath).put("entries", JSONArray(entries().map(Entry::summary)))
+    fun execute(request: JSONObject): JSONObject = synchronized(LOCK) { when (request.getString("action")) {
+        "list" -> JSONObject().put("root", root.absolutePath).put("entries", JSONArray(entries().map(Entry::summary))).put("builtins", JSONArray(builtins().map(Entry::summary)))
+        "inspect" -> inspect()
         "read" -> {
             val path = request.optString("path")
             if (path.isBlank()) DikcizNativeCommands.invalid("path is required for assistant library read")
-            JSONObject().put("path", path).put("text", read(path))
+            val text = read(path)
+            JSONObject().put("path", path).put("text", text).put("revision", revision(text))
         }
-        else -> DikcizNativeCommands.invalid("Choose list or read")
-    }
+        else -> DikcizNativeCommands.invalid("Choose list, inspect or read")
+    } }
 
-    fun agent(name: String): Entry = entries().firstOrNull { it.kind == AGENT && it.name == name }
-        ?: DikcizNativeCommands.failure("assistant_agent_missing", "No named agent is installed with that name")
+    fun agent(name: String): Entry = synchronized(LOCK) { entries().firstOrNull { it.kind == AGENT && it.name == name }
+        ?: DikcizNativeCommands.failure("assistant_agent_missing", "No named agent is installed with that name") }
 
     fun prompt(userText: String): String {
-        val entries = entries()
+        return synchronized(LOCK) {
+        val entries = entries() + builtins()
         if (entries.isEmpty()) return ""
         val instructions = entries.filter { it.kind == RULE }.map { "Owner instruction file: ${it.path}\nScope metadata: ${it.metadata}\n${it.body}" }
         val selected = entries.filter { it.kind == SKILL && Regex("(?<![A-Za-z0-9_-])\\$" + Regex.escape(it.name) + "(?![A-Za-z0-9_-])").containsMatchIn(userText) }
@@ -41,7 +46,8 @@ internal class DikcizAssistantLibrary(private val context: Context) {
         ) + instructions + selected.map { "Explicitly requested skill: ${it.path}\n${it.body}" }
         val value = sections.joinToString("\n\n")
         if (value.toByteArray(Charsets.UTF_8).size > MAXIMUM_PROMPT_BYTES) DikcizNativeCommands.failure("assistant_library_too_large", "Owner instructions exceed the prompt budget. Split instructions into on-demand skills.")
-        return value
+        value
+        }
     }
 
     private fun entries(): List<Entry> {
@@ -64,26 +70,35 @@ internal class DikcizAssistantLibrary(private val context: Context) {
             val kind = kind(path) ?: continue
             bytes += file.length()
             if (bytes > MAXIMUM_LIBRARY_BYTES) DikcizNativeCommands.failure("assistant_library_too_large", "Assistant metadata exceeds its byte budget")
-            val (metadata, body) = header(read(path))
-            if (body.isBlank()) DikcizNativeCommands.invalid("Assistant instruction body must not be empty: $path")
-            if (metadata.keys.any { it in UNSUPPORTED_FIELDS }) DikcizNativeCommands.invalid("Unsupported executable harness setting in $path")
-            val name = if (kind == RULE) path else metadata["name"].orEmpty()
-            val description = metadata["description"].orEmpty()
-            if (kind != RULE && (!NAME.matches(name) || name.length > 64 || description.isBlank() || description.length > MAXIMUM_DESCRIPTION)) {
-                DikcizNativeCommands.invalid("Assistant skills and agents require a valid name and description: $path")
-            }
-            if (kind == SKILL && name != file.parentFile!!.name) DikcizNativeCommands.invalid("Skill name must match its directory: $path")
-            if (kind == AGENT) {
-                for (field in listOf("readOnly")) if (metadata[field] != null && metadata[field] !in setOf("true", "false")) DikcizNativeCommands.invalid("Invalid agent $field")
-                for (field in listOf("tools", "disallowedTools")) metadata[field]?.let { list(it).forEach { tool ->
-                    if (!TOOL.matches(tool)) DikcizNativeCommands.invalid("Agent tool restrictions require exact Dikciz MCP tool names")
-                } }
-            }
+            val entry = parse(path, read(path))
+            val name = entry.name
             if (entries.any { it.kind == kind && it.name == name }) DikcizNativeCommands.invalid("Duplicate assistant library identity: $name")
-            entries.add(Entry(kind, path, name, description, body, metadata))
+            entries.add(entry)
             if (entries.size > MAXIMUM_ENTRIES) DikcizNativeCommands.failure("assistant_library_too_large", "Assistant library has too many entries")
         }
         return entries.sortedWith(compareBy(Entry::kind, Entry::path))
+    }
+
+    private fun parse(path: String, text: String): Entry {
+        val kind = kind(path) ?: DikcizNativeCommands.invalid("Use a supported rule, skill or agent path")
+        if (text.toByteArray(Charsets.UTF_8).size > MAXIMUM_FILE_BYTES) DikcizNativeCommands.failure("assistant_library_too_large", "Assistant file exceeds 64 KiB")
+        val (metadata, body) = header(text)
+        if (body.isBlank()) DikcizNativeCommands.invalid("Assistant instruction body must not be empty: $path")
+        if (metadata.keys.any { it in UNSUPPORTED_FIELDS }) DikcizNativeCommands.invalid("Unsupported executable harness setting in $path")
+        val name = if (kind == RULE) path else metadata["name"].orEmpty()
+        val description = metadata["description"].orEmpty()
+        if (name in BUILTIN_NAMES) DikcizNativeCommands.invalid("Bundled guide names are reserved; choose a different owner name")
+        if (kind != RULE && (!NAME.matches(name) || name.length > 64 || description.isBlank() || description.length > MAXIMUM_DESCRIPTION)) {
+            DikcizNativeCommands.invalid("Assistant skills and agents require a valid name and description: $path")
+        }
+        if (kind == SKILL && name != path.substringBeforeLast('/').substringAfterLast('/')) DikcizNativeCommands.invalid("Skill name must match its directory: $path")
+        if (kind == AGENT) {
+            for (field in listOf("readOnly")) if (metadata[field] != null && metadata[field] !in setOf("true", "false")) DikcizNativeCommands.invalid("Invalid agent $field")
+            for (field in listOf("tools", "disallowedTools")) metadata[field]?.let { list(it).forEach { tool ->
+                if (!TOOL.matches(tool)) DikcizNativeCommands.invalid("Agent tool restrictions require exact Dikciz MCP tool names")
+            } }
+        }
+        return Entry(kind, path, name, description, body, metadata)
     }
 
     private fun kind(path: String): String? {
@@ -94,8 +109,13 @@ internal class DikcizAssistantLibrary(private val context: Context) {
     }
 
     private fun read(path: String): String {
+        if (path.startsWith(BUILTIN_PREFIX)) {
+            val name = path.removePrefix(BUILTIN_PREFIX)
+            if (name !in BUILTIN_NAMES.map { "$it/SKILL.md" }) DikcizNativeCommands.invalid("Unknown bundled instruction")
+            return context.assets.open("assistant/skills/$name").bufferedReader(Charsets.UTF_8).use { it.readText() }
+        }
         requireStorageAccess()
-        if (path.length > MAXIMUM_PATH || path.split('/').any { it.isBlank() || it in setOf(".", "..") || it.any(Char::isISOControl) } || '\\' in path) {
+        if (path.length > MAXIMUM_PATH || path.split('/').size > MAXIMUM_DEPTH + 1 || path.split('/').any { it.isBlank() || it in setOf(".", "..") || it.any(Char::isISOControl) } || '\\' in path) {
             DikcizNativeCommands.invalid("Use a relative assistant library path without dot segments")
         }
         ordinary(root)
@@ -116,6 +136,138 @@ internal class DikcizAssistantLibrary(private val context: Context) {
         if (bytes.size > MAXIMUM_FILE_BYTES) DikcizNativeCommands.failure("assistant_library_too_large", "Assistant file exceeds 64 KiB")
         return try { StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).decode(java.nio.ByteBuffer.wrap(bytes)).toString() }
         catch (exception: java.nio.charset.CharacterCodingException) { DikcizNativeCommands.invalid("Assistant files must be UTF-8 text") }
+    }
+
+
+    private fun fileRevision(file: File): String {
+        if (!file.isFile || file.length() > MAXIMUM_RECOVERY_BYTES) DikcizNativeCommands.failure("assistant_library_too_large", "File cannot be recovered in the manager. Use the file tools to repair it first")
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(8192)
+            var readBytes = 0
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                readBytes += count
+                if (readBytes > MAXIMUM_RECOVERY_BYTES) DikcizNativeCommands.failure("assistant_library_too_large", "File exceeds the recovery budget")
+                digest.update(buffer, 0, count)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    private fun builtins(): List<Entry> = BUILTIN_NAMES.map { name ->
+        val path = BUILTIN_PREFIX + name + "/SKILL.md"
+        val (metadata, body) = header(read(path))
+        Entry(SKILL, path, name, metadata.getValue("description"), body, metadata)
+    }
+
+    private fun file(path: String): File {
+        requireStorageAccess()
+        if (path.length > MAXIMUM_PATH || path.split('/').size > MAXIMUM_DEPTH + 1 || path.split('/').any { it.isBlank() || it in setOf(".", "..") || it.any(Char::isISOControl) } || '\\' in path || path.startsWith(BUILTIN_PREFIX)) {
+            DikcizNativeCommands.invalid("Use a relative owner assistant path without dot segments")
+        }
+        ordinary(root)
+        var target = root
+        for (part in path.split('/')) { target = File(target, part); ordinary(target) }
+        return target
+    }
+
+    private fun inspect(): JSONObject {
+        requireStorageAccess()
+        val rows = JSONArray()
+        if (root.exists()) {
+            ordinary(root)
+            var count = 0
+            root.walkTopDown().maxDepth(MAXIMUM_DEPTH + 1).forEach { target ->
+                ordinary(target)
+                if (!target.isFile) return@forEach
+                if (++count > MAXIMUM_FILES) DikcizNativeCommands.failure("assistant_library_too_large", "Assistant library has too many files")
+                val path = target.relativeTo(root).invariantSeparatorsPath
+                val canonical = path.removeSuffix(DISABLED_SUFFIX)
+                if (kind(canonical) == null) return@forEach
+                val row = JSONObject().put("id", revision(canonical)).put("path", path).put("kind", kind(canonical)).put("enabled", path == canonical).put("bundled", false)
+                try {
+                    val text = read(path)
+                    val summary = parse(canonical, text).summary()
+                    summary.keys().forEach { key -> row.put(key, summary.get(key)) }
+                    row.put("path", path).put("revision", revision(text)).put("valid", true)
+                } catch (exception: DikcizAutomationRequestException) {
+                    if (target.length() <= MAXIMUM_RECOVERY_BYTES) row.put("revision", fileRevision(target))
+                    row.put("name", target.name).put("valid", false).put("error", exception.code).put("message", exception.message)
+                }
+                rows.put(row)
+            }
+        }
+        builtins().forEach { rows.put(it.summary().put("enabled", true).put("valid", true).put("bundled", true)) }
+        return JSONObject().put("root", root.absolutePath).put("entries", rows)
+    }
+
+    fun validate(request: JSONObject): JSONObject = synchronized(LOCK) {
+        val path = request.getString("path")
+        file(path)
+        val entry = parse(path.removeSuffix(DISABLED_SUFFIX), request.getString("text"))
+        JSONObject().put("valid", true).put("entry", entry.summary())
+    }
+
+    fun manage(request: JSONObject): JSONObject = synchronized(LOCK) {
+        val path = request.getString("path")
+        val target = file(path)
+        if (kind(path.removeSuffix(DISABLED_SUFFIX)) == null) DikcizNativeCommands.invalid("Only instruction files can be managed")
+        val current = if (target.exists()) fileRevision(target) else ""
+        if (request.getString("expectedRevision") != current) DikcizNativeCommands.failure("assistant_revision_conflict", "The file changed. Read it again before editing")
+        if (request.getString("action") == "save" && request.opt("text") !is String) DikcizNativeCommands.invalid("save requires text")
+        if (request.getString("action") == "setEnabled" && request.opt("enabled") !is Boolean) DikcizNativeCommands.invalid("setEnabled requires enabled")
+        when (request.getString("action")) {
+            "save" -> {
+                val text = request.getString("text")
+                val candidate = parse(path.removeSuffix(DISABLED_SUFFIX), text)
+                val rows = inspect().getJSONArray("entries")
+                var bytes = text.toByteArray(Charsets.UTF_8).size.toLong()
+                var count = 1
+                for (index in 0 until rows.length()) {
+                    val row = rows.getJSONObject(index)
+                    if (row.optBoolean("bundled") || row.getString("path") == path) continue
+                    bytes += file(row.getString("path")).length()
+                    count++
+                    if (!path.endsWith(DISABLED_SUFFIX) && row.optBoolean("enabled") && row.optBoolean("valid") && row.getString("kind") == candidate.kind && row.getString("name") == candidate.name) {
+                        DikcizNativeCommands.invalid("Duplicate assistant library identity")
+                    }
+                }
+                if (bytes > MAXIMUM_LIBRARY_BYTES || count > MAXIMUM_ENTRIES) DikcizNativeCommands.failure("assistant_library_too_large", "Assistant library capacity exceeded")
+                if (!target.parentFile!!.isDirectory && !target.parentFile!!.mkdirs()) throw java.io.IOException("Cannot create assistant directory")
+                ordinary(target.parentFile!!)
+                val atomic = AtomicFile(target)
+                val output = atomic.startWrite()
+                try { output.write(text.toByteArray(Charsets.UTF_8)); atomic.finishWrite(output) }
+                catch (exception: Exception) { atomic.failWrite(output); throw exception }
+                JSONObject().put("path", path).put("revision", revision(text)).put("state", "saved")
+            }
+            "setEnabled" -> {
+                if (!target.exists()) DikcizNativeCommands.failure("assistant_file_missing", "Assistant library file does not exist")
+                val enabled = request.getBoolean("enabled")
+                val next = path.removeSuffix(DISABLED_SUFFIX) + if (enabled) "" else DISABLED_SUFFIX
+                if (next == path) return@synchronized JSONObject().put("path", path).put("state", "unchanged").put("revision", current)
+                if (enabled) {
+                    val entry = parse(next, read(path))
+                    val rows = inspect().getJSONArray("entries")
+                    for (index in 0 until rows.length()) {
+                        val row = rows.getJSONObject(index)
+                        if (!row.optBoolean("bundled") && row.optBoolean("enabled") && row.optBoolean("valid") && row.optString("kind") == entry.kind && row.optString("name") == entry.name) DikcizNativeCommands.invalid("Duplicate assistant library identity")
+                    }
+                }
+                val destination = file(next)
+                if (destination.exists()) DikcizNativeCommands.failure("assistant_revision_conflict", "The destination already exists")
+                if (!target.renameTo(destination)) throw java.io.IOException("Cannot change instruction enabled state")
+                JSONObject().put("path", next).put("enabled", enabled).put("revision", current)
+            }
+            "delete" -> {
+                if (!target.exists()) DikcizNativeCommands.failure("assistant_file_missing", "Assistant library file does not exist")
+                if (!target.delete()) throw java.io.IOException("Cannot delete assistant instruction")
+                JSONObject().put("path", path).put("state", "deleted").put("supportingFilesPreserved", true)
+            }
+            else -> DikcizNativeCommands.invalid("Choose save, setEnabled or delete")
+        }
     }
 
     private fun requireStorageAccess() {
@@ -165,11 +317,19 @@ internal class DikcizAssistantLibrary(private val context: Context) {
 
     companion object {
         const val TYPE = "assistantLibrary"
+        const val TYPE_MANAGE = "assistantLibraryManage"
+        const val TYPE_VALIDATE = "assistantLibraryValidate"
+        private val LOCK = Any()
+        private const val DISABLED_SUFFIX = ".disabled"
+        private const val BUILTIN_PREFIX = "@builtin/"
+        private val BUILTIN_NAMES = listOf("dikciz-write-skill", "dikciz-write-agent", "dikciz-write-rule", "dikciz-debug-automation")
+        private fun revision(text: String): String = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
         const val DIRECTORY = "assistant"
         const val AGENT = "agent"
         private const val SKILL = "skill"
         private const val RULE = "rule"
         private const val MAXIMUM_PATH = 1024
+        private const val MAXIMUM_RECOVERY_BYTES = 1048576
         private const val MAXIMUM_FILE_BYTES = 65536
         private const val MAXIMUM_LIBRARY_BYTES = 524288L
         private const val MAXIMUM_PROMPT_BYTES = 131072
@@ -191,7 +351,18 @@ internal class DikcizAssistantLibrary(private val context: Context) {
 
         val DEFINITION = DikcizNativeCommands.Definition(TYPE, "dikciz_assistant_library",
             "Discover owner-authored skills, named agents and rules under /sdcard/Dikciz/assistant. list returns metadata; read returns exact UTF-8 instructions or supporting skill files using a relative path. Instructions reload between chat rounds and cannot raise tool permissions. Supports portable SKILL.md front matter and Markdown agents/rules, including .agents, .claude and .hermes skill directories.",
-            mapOf("action" to JSONObject().put("type", "string").put("enum", JSONArray(listOf("list", "read"))),
+            mapOf("action" to JSONObject().put("type", "string").put("enum", JSONArray(listOf("list", "inspect", "read"))),
                 "path" to JSONObject().put("type", "string").put("maxLength", MAXIMUM_PATH)), setOf("action"))
+        val DEFINITIONS = listOf(DEFINITION,
+            DikcizNativeCommands.Definition(TYPE_VALIDATE, "dikciz_assistant_library_validate",
+                "Validate a candidate UTF-8 skill, agent or rule without saving it. Supply a relative assistant path and full text. Validation does not grant permission or run instructions.",
+                mapOf("path" to JSONObject().put("type", "string").put("maxLength", MAXIMUM_PATH), "text" to JSONObject().put("type", "string").put("maxLength", MAXIMUM_FILE_BYTES)), setOf("path", "text")),
+            DikcizNativeCommands.Definition(TYPE_MANAGE, "dikciz_assistant_library_manage",
+                "Atomically save, enable, disable or delete one assistant instruction. Requires expectedRevision from assistantLibrary read; empty string means create only. save requires text; setEnabled requires enabled. Disabling renames to .disabled. Delete preserves support files. Bundled instructions are immutable; copy to an owner path to customize. Rule and skill catalogs reload between model rounds; named agents reload on their next turn. Instructions cannot elevate permissions.",
+                mapOf("action" to JSONObject().put("type", "string").put("enum", JSONArray(listOf("save", "setEnabled", "delete"))),
+                    "path" to JSONObject().put("type", "string").put("maxLength", MAXIMUM_PATH),
+                    "text" to JSONObject().put("type", "string").put("maxLength", MAXIMUM_FILE_BYTES),
+                    "expectedRevision" to JSONObject().put("type", "string").put("maxLength", 64),
+                    "enabled" to JSONObject().put("type", "boolean")), setOf("action", "path", "expectedRevision"), readOnly = false))
     }
 }

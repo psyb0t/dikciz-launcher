@@ -38,7 +38,8 @@ internal object DikcizAutomationEventBus {
     fun enqueue(context: Context, event: DikcizAutomationEvent) {
         val applicationContext = context.applicationContext
         if (event.type != DikcizAutomationEventType.Sensor) {
-            executor.execute { dispatch(applicationContext, event) }
+            val parent = DikcizAutomationDebugger.capture()
+            executor.execute { DikcizAutomationDebugger.withParent(parent) { dispatch(applicationContext, event) } }
             return
         }
         enqueueSensorEvent(applicationContext, event)
@@ -224,12 +225,14 @@ internal object DikcizAutomationEventBus {
         context: Context,
         event: DikcizAutomationEvent,
     ) {
-        DikcizEventJournal.append(event)
-        DikcizChatRuntime.get(context).onEvent(event)
-        runtime(context).dispatch(event)
-        DikcizCustomApps.onEvent(context, event)
-        eventListeners[context.packageName]?.invoke(event)
-        remoteEventListeners[context.packageName]?.invoke(event)
+        val reference = DikcizEventJournal.append(event)
+        DikcizAutomationDebugger.dispatch(reference, event.name) {
+            DikcizChatRuntime.get(context).onEvent(event)
+            runtime(context).dispatch(event)
+            DikcizCustomApps.onEvent(context, event)
+            eventListeners[context.packageName]?.invoke(event)
+            remoteEventListeners[context.packageName]?.invoke(event)
+        }
     }
 
     // Sensor callbacks can arrive faster than a script's state write. Keep the
@@ -392,6 +395,8 @@ internal class DikcizAutomationRuntime(
         // A missing or disabled policy grants nothing, the same rule actions follow.
         val deliveryPolicy = policy?.takeIf(DikcizAutomationPolicy::enabled)
         if (deliveryPolicy == null || !DikcizAutomationEventAccess.allowsDelivery(deliveryPolicy, event)) {
+            val rejected = DikcizAutomationDebugger.begin("script", script.id, DikcizAutomationDebugger.revision(script.source), trigger = event.name)
+            DikcizAutomationDebugger.finish(rejected, "rejected", REASON_CAPABILITY_DENIED)
             logDeliveryRejected(script.id, policy?.id, event.name, REASON_CAPABILITY_DENIED, null)
             return configuration
         }
@@ -399,6 +404,8 @@ internal class DikcizAutomationRuntime(
         var actionConfiguration = configuration
         val accessibilitySnapshot = accessibilitySnapshot(event)
         matchingSubscriptions.forEach { _ ->
+            val span = DikcizAutomationDebugger.begin("script", script.id, DikcizAutomationDebugger.revision(script.source), trigger = event.name)
+            try {
             val commandReplies = mutableListOf<DikcizLocalCommands.Reply>()
             val executeScript = if (script.language == DikcizScriptLanguage.JavaScript) javascriptRuntime::executeEvent else luaRuntime::executeEvent
             val result = executeScript(
@@ -502,6 +509,10 @@ internal class DikcizAutomationRuntime(
             } finally {
                 commandReplies.forEach(DikcizLocalCommands.Reply::delivered)
             }
+            } catch (exception: Exception) {
+                DikcizAutomationDebugger.mark("failed", exception.javaClass.simpleName)
+                throw exception
+            } finally { DikcizAutomationDebugger.finish(span) }
         }
         return actionConfiguration
     }
@@ -659,6 +670,8 @@ internal class DikcizAutomationRuntime(
     ): AutomationActionExecution {
         val capability = actionCapability(action)
         if (policy == null || capability !in policy.actions) {
+            val rejected = DikcizAutomationDebugger.begin("action", capability.persistedValue)
+            DikcizAutomationDebugger.finish(rejected, "rejected", REASON_CAPABILITY_DENIED)
             logAction(scriptID, policy?.id, event.name, capability, REASON_CAPABILITY_DENIED)
             return AutomationActionExecution(configuration, REASON_CAPABILITY_DENIED)
         }
@@ -673,6 +686,8 @@ internal class DikcizAutomationRuntime(
         action: DikcizLuaAutomationAction,
     ): AutomationActionExecution {
         val capability = actionCapability(action)
+        val span = DikcizAutomationDebugger.begin("action", capability.persistedValue)
+        try {
         val execution = when (action) {
             is DikcizLuaAutomationAction.SelectPage -> selectPage(configuration, action.pageID)
             is DikcizLuaAutomationAction.PatchWidget -> patchWidget(
@@ -707,7 +722,12 @@ internal class DikcizAutomationRuntime(
                 failureReason = execution.outcome,
             )
         }
+        DikcizAutomationDebugger.mark(if (execution.outcome in SUCCESSFUL_ACTION_OUTCOMES) "completed" else "rejected", execution.outcome)
         return execution
+        } catch (exception: Exception) {
+            DikcizAutomationDebugger.mark("failed", exception.javaClass.simpleName)
+            throw exception
+        } finally { DikcizAutomationDebugger.finish(span) }
     }
 
     private fun actionCapability(action: DikcizLuaAutomationAction): DikcizAutomationActionCapability {
@@ -1313,6 +1333,7 @@ internal class DikcizAutomationRuntime(
         status: String,
         limits: DikcizLimits,
     ) {
+        DikcizAutomationDebugger.mark(outcome.persistedValue, status.takeIf { outcome != DikcizLuaScriptRunOutcome.Completed })
         try {
             homeConfigStore.writeLuaScriptRunStatus(
                 script.id,

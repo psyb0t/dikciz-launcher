@@ -10,7 +10,7 @@ parent: "Remote control"
 
 <!-- Regenerate with make dikciz-command-docs from captured tools/list discovery. -->
 
-This reference contains 216 discovered MCP tools and their complete input schemas. Discovery from the installed build is authoritative. Transport-independent procedures, Android permissions and results are described in the [automation guide](automation-control.md), [documentation index](index.md) and focused task guides. MCP tools use the same ordinary commands as HTTP, WebSocket, HTML and Lua. The [developer manual](developer-manual.md) defines runtimes, results and the task-guide index. [JavaScript](javascript-api.md), [Lua](lua-api.md), [typed actions](typed-actions.md) and [token permissions](token-permissions.md) provide the language and authorization contracts.
+This reference contains 221 discovered MCP tools and their complete input schemas. Discovery from the installed build is authoritative. Transport-independent procedures, Android permissions and results are described in the [automation guide](automation-control.md), [documentation index](index.md) and focused task guides. MCP tools use the same ordinary commands as HTTP, WebSocket, HTML and Lua. The [developer manual](developer-manual.md) defines runtimes, results and the task-guide index. [JavaScript](javascript-api.md), [Lua](lua-api.md), [typed actions](typed-actions.md) and [token permissions](token-permissions.md) provide the language and authorization contracts.
 
 Schemas include nested fields, required values, defaults and bounds. autoRequestPermissions requests owner review; it never grants access or retries the operation. Inspect returned state and errors before continuing.
 
@@ -37,6 +37,8 @@ Schemas include nested fields, required values, defaults and bounds. autoRequest
 | [`appCatalogue`](#dikciz_app_catalogue) | [`dikciz_app_catalogue`](#dikciz_app_catalogue) |
 | [`appIcon`](#dikciz_app_icon) | [`dikciz_app_icon`](#dikciz_app_icon) |
 | [`assistantLibrary`](#dikciz_assistant_library) | [`dikciz_assistant_library`](#dikciz_assistant_library) |
+| [`assistantLibraryManage`](#dikciz_assistant_library_manage) | [`dikciz_assistant_library_manage`](#dikciz_assistant_library_manage) |
+| [`assistantLibraryValidate`](#dikciz_assistant_library_validate) | [`dikciz_assistant_library_validate`](#dikciz_assistant_library_validate) |
 | [`assistantRoutinePreview`](#dikciz_assistant_routine_preview) | [`dikciz_assistant_routine_preview`](#dikciz_assistant_routine_preview) |
 | [`assistantRoutineRun`](#dikciz_assistant_routine_run) | [`dikciz_assistant_routine_run`](#dikciz_assistant_routine_run) |
 | [`assistantRoutineSubscribe`](#dikciz_assistant_routine_subscribe) | [`dikciz_assistant_routine_subscribe`](#dikciz_assistant_routine_subscribe) |
@@ -44,11 +46,14 @@ Schemas include nested fields, required values, defaults and bounds. autoRequest
 | [`audioDevices`](#dikciz_audio_devices) | [`dikciz_audio_devices`](#dikciz_audio_devices) |
 | [`audioPlayback`](#dikciz_audio_playback) | [`dikciz_audio_playback`](#dikciz_audio_playback) |
 | [`automationDispatch`](#dikciz_automation_dispatch) | [`dikciz_automation_dispatch`](#dikciz_automation_dispatch) |
+| [`automationHistory`](#dikciz_automation_history) | [`dikciz_automation_history`](#dikciz_automation_history) |
+| [`automationHistoryEvent`](#dikciz_automation_history_event) | [`dikciz_automation_history_event`](#dikciz_automation_history_event) |
 | [`automationRuleDelete`](#dikciz_automation_rule_delete) | [`dikciz_automation_rule_delete`](#dikciz_automation_rule_delete) |
 | [`automationRulePreview`](#dikciz_automation_rule_preview) | [`dikciz_automation_rule_preview`](#dikciz_automation_rule_preview) |
 | [`automationRuleSave`](#dikciz_automation_rule_save) | [`dikciz_automation_rule_save`](#dikciz_automation_rule_save) |
 | [`automationRulesList`](#dikciz_automation_rules_list) | [`dikciz_automation_rules_list`](#dikciz_automation_rules_list) |
 | [`automationServiceSync`](#dikciz_automation_service_sync) | [`dikciz_automation_service_sync`](#dikciz_automation_service_sync) |
+| [`automationSimulate`](#dikciz_automation_simulate) | [`dikciz_automation_simulate`](#dikciz_automation_simulate) |
 | [`automationStatus`](#dikciz_automation_status) | [`dikciz_automation_status`](#dikciz_automation_status) |
 | [`automationTrigger`](#dikciz_automation_trigger) | [`dikciz_automation_trigger`](#dikciz_automation_trigger) |
 | [`backupCreate`](#dikciz_backup_create) | [`dikciz_backup_create`](#dikciz_backup_create) |
@@ -1123,7 +1128,7 @@ WebView invocation: `await dikciz.command("assistantLibrary", fields)`. Headless
 
 | Parameter | Required | Type | Default | Definition and bounds |
 | --- | --- | --- | --- | --- |
-| `action` | Yes | `string` | `Not declared` | See the complete schema below. {"enum": ["list", "read"]} |
+| `action` | Yes | `string` | `Not declared` | See the complete schema below. {"enum": ["list", "inspect", "read"]} |
 | `autoRequestPermissions` | No | `boolean` | `false` | Ask the owner to grant missing Android access. Never grants access or retries automatically. |
 | `path` | No | `string` | `Not declared` | See the complete schema below. {"maxLength": 1024} |
 
@@ -1137,6 +1142,7 @@ WebView invocation: `await dikciz.command("assistantLibrary", fields)`. Headless
       "type": "string",
       "enum": [
         "list",
+        "inspect",
         "read"
       ]
     },
@@ -1152,6 +1158,109 @@ WebView invocation: `await dikciz.command("assistantLibrary", fields)`. Headless
   },
   "required": [
     "action"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_assistant_library_manage
+
+Atomically save, enable, disable or delete one assistant instruction. Requires expectedRevision from assistantLibrary read; empty string means create only. save requires text; setEnabled requires enabled. Disabling renames to .disabled. Delete preserves support files. Bundled instructions are immutable; copy to an owner path to customize. Rule and skill catalogs reload between model rounds; named agents reload on their next turn. Instructions cannot elevate permissions.
+
+Ordinary command: `assistantLibraryManage`. [Token scope definitions](token-permissions.md#assistantlibrarymanage). [Result envelope and task guides](developer-manual.md#result-contract).
+
+WebView invocation: `await dikciz.command("assistantLibraryManage", fields)`. Headless JavaScript: `context.request(Object.assign({}, fields, {type: "assistantLibraryManage"}))`. Lua: set `request.type = "assistantLibraryManage"`, then call `context.request(request)`. `fields`/`request` must contain the required parameters below. WebView `command` unwraps `result`; backend requests return the complete response envelope. [JavaScript methods](javascript-api.md) and [Lua types and errors](lua-api.md).
+
+| Parameter | Required | Type | Default | Definition and bounds |
+| --- | --- | --- | --- | --- |
+| `action` | Yes | `string` | `Not declared` | See the complete schema below. {"enum": ["save", "setEnabled", "delete"]} |
+| `autoRequestPermissions` | No | `boolean` | `false` | Ask the owner to grant missing Android access. Never grants access or retries automatically. |
+| `enabled` | No | `boolean` | `Not declared` | See the complete schema below. |
+| `expectedRevision` | Yes | `string` | `Not declared` | See the complete schema below. {"maxLength": 64} |
+| `path` | Yes | `string` | `Not declared` | See the complete schema below. {"maxLength": 1024} |
+| `text` | No | `string` | `Not declared` | See the complete schema below. {"maxLength": 65536} |
+
+
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": [
+        "save",
+        "setEnabled",
+        "delete"
+      ]
+    },
+    "path": {
+      "type": "string",
+      "maxLength": 1024
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 65536
+    },
+    "expectedRevision": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "action",
+    "path",
+    "expectedRevision"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_assistant_library_validate
+
+Validate a candidate UTF-8 skill, agent or rule without saving it. Supply a relative assistant path and full text. Validation does not grant permission or run instructions.
+
+Ordinary command: `assistantLibraryValidate`. [Token scope definitions](token-permissions.md#assistantlibraryvalidate). [Result envelope and task guides](developer-manual.md#result-contract).
+
+WebView invocation: `await dikciz.command("assistantLibraryValidate", fields)`. Headless JavaScript: `context.request(Object.assign({}, fields, {type: "assistantLibraryValidate"}))`. Lua: set `request.type = "assistantLibraryValidate"`, then call `context.request(request)`. `fields`/`request` must contain the required parameters below. WebView `command` unwraps `result`; backend requests return the complete response envelope. [JavaScript methods](javascript-api.md) and [Lua types and errors](lua-api.md).
+
+| Parameter | Required | Type | Default | Definition and bounds |
+| --- | --- | --- | --- | --- |
+| `autoRequestPermissions` | No | `boolean` | `false` | Ask the owner to grant missing Android access. Never grants access or retries automatically. |
+| `path` | Yes | `string` | `Not declared` | See the complete schema below. {"maxLength": 1024} |
+| `text` | Yes | `string` | `Not declared` | See the complete schema below. {"maxLength": 65536} |
+
+
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "maxLength": 1024
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 65536
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "path",
+    "text"
   ],
   "additionalProperties": false
 }
@@ -1499,6 +1608,108 @@ WebView invocation: `await dikciz.command("automationDispatch", fields)`. Headle
     "sourceWidgetAddress",
     "actions"
   ]
+}
+```
+
+## dikciz_automation_history
+
+Browse persistent causal automation metadata with seven-day/20000-record retention. Exact optional kind/name/outcome/traceId/recordId filters; newest first, limit/offset pagination. Links event to handler and command via traceId and parentId. No request arguments or payloads. Payload retention is separate. History starts at installation; it is not an audit of every Android action.
+
+Ordinary command: `automationHistory`. [Token scope definitions](token-permissions.md#automationhistory). [Result envelope and task guides](developer-manual.md#result-contract).
+
+WebView invocation: `await dikciz.command("automationHistory", fields)`. Headless JavaScript: `context.request(Object.assign({}, fields, {type: "automationHistory"}))`. Lua: set `request.type = "automationHistory"`, then call `context.request(request)`. `fields`/`request` must contain the required parameters below. WebView `command` unwraps `result`; backend requests return the complete response envelope. [JavaScript methods](javascript-api.md) and [Lua types and errors](lua-api.md).
+
+| Parameter | Required | Type | Default | Definition and bounds |
+| --- | --- | --- | --- | --- |
+| `autoRequestPermissions` | No | `boolean` | `false` | Ask the owner to grant missing Android access. Never grants access or retries automatically. |
+| `kind` | No | `string` | `Not declared` | See the complete schema below. {"maxLength": 160} |
+| `limit` | No | `integer` | `Not declared` | See the complete schema below. {"minimum": 1, "maximum": 200} |
+| `name` | No | `string` | `Not declared` | See the complete schema below. {"maxLength": 160} |
+| `offset` | No | `integer` | `Not declared` | See the complete schema below. {"minimum": 0, "maximum": 1000000} |
+| `outcome` | No | `string` | `Not declared` | See the complete schema below. {"maxLength": 160} |
+| `recordId` | No | `string` | `Not declared` | See the complete schema below. {"maxLength": 36} |
+| `traceId` | No | `string` | `Not declared` | See the complete schema below. {"maxLength": 36} |
+
+
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "kind": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "outcome": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "traceId": {
+      "type": "string",
+      "maxLength": 36
+    },
+    "recordId": {
+      "type": "string",
+      "maxLength": 36
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## dikciz_automation_history_event
+
+Read a retained event payload by automationHistory event recordId. This grant discloses all event sources; current Android source permissions are rechecked. Expired, omitted or restarted journal payloads fail explicitly.
+
+Ordinary command: `automationHistoryEvent`. [Token scope definitions](token-permissions.md#automationhistoryevent). [Result envelope and task guides](developer-manual.md#result-contract).
+
+WebView invocation: `await dikciz.command("automationHistoryEvent", fields)`. Headless JavaScript: `context.request(Object.assign({}, fields, {type: "automationHistoryEvent"}))`. Lua: set `request.type = "automationHistoryEvent"`, then call `context.request(request)`. `fields`/`request` must contain the required parameters below. WebView `command` unwraps `result`; backend requests return the complete response envelope. [JavaScript methods](javascript-api.md) and [Lua types and errors](lua-api.md).
+
+| Parameter | Required | Type | Default | Definition and bounds |
+| --- | --- | --- | --- | --- |
+| `autoRequestPermissions` | No | `boolean` | `false` | Ask the owner to grant missing Android access. Never grants access or retries automatically. |
+| `recordId` | Yes | `string` | `Not declared` | See the complete schema below. {"maxLength": 36} |
+
+
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "recordId": {
+      "type": "string",
+      "maxLength": 36
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "recordId"
+  ],
+  "additionalProperties": false
 }
 ```
 
@@ -2105,6 +2316,115 @@ WebView invocation: `await dikciz.command("automationServiceSync", fields)`. Hea
       "default": false
     }
   },
+  "additionalProperties": false
+}
+```
+
+## dikciz_automation_simulate
+
+Simulate current Lua/JavaScript source, scriptId or appId against event {type,payload,source?,timestampMilliseconds?,coalescingKey?} or recorded event recordId. Exactly one source target required. Never executes intercepted commands or returned actions and never saves state. Optional ordered replies [{type,result}] supply fake command results. Returns captured commands, action kinds, sourceRevision and outcome. A sample is untrusted data; replay uses current source, not historical source. This grant can read recorded event payloads from all sources subject to current Android permissions.
+
+Ordinary command: `automationSimulate`. [Token scope definitions](token-permissions.md#automationsimulate). [Result envelope and task guides](developer-manual.md#result-contract).
+
+WebView invocation: `await dikciz.command("automationSimulate", fields)`. Headless JavaScript: `context.request(Object.assign({}, fields, {type: "automationSimulate"}))`. Lua: set `request.type = "automationSimulate"`, then call `context.request(request)`. `fields`/`request` must contain the required parameters below. WebView `command` unwraps `result`; backend requests return the complete response envelope. [JavaScript methods](javascript-api.md) and [Lua types and errors](lua-api.md).
+
+| Parameter | Required | Type | Default | Definition and bounds |
+| --- | --- | --- | --- | --- |
+| `appId` | No | `string` | `Not declared` | See the complete schema below. {"maxLength": 160} |
+| `autoRequestPermissions` | No | `boolean` | `false` | Ask the owner to grant missing Android access. Never grants access or retries automatically. |
+| `event` | No | `object` | `Not declared` | See the complete schema below. |
+| `language` | No | `string` | `Not declared` | See the complete schema below. {"enum": ["lua", "javascript"]} |
+| `recordId` | No | `string` | `Not declared` | See the complete schema below. {"maxLength": 36} |
+| `replies` | No | `array` | `Not declared` | See the complete schema below. {"maxItems": 100} |
+| `scriptId` | No | `string` | `Not declared` | See the complete schema below. {"maxLength": 160} |
+| `source` | No | `string` | `Not declared` | See the complete schema below. {"maxLength": 65536} |
+
+
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "string",
+      "maxLength": 65536
+    },
+    "language": {
+      "type": "string",
+      "enum": [
+        "lua",
+        "javascript"
+      ]
+    },
+    "scriptId": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "appId": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "recordId": {
+      "type": "string",
+      "maxLength": 36
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "coalescingKey": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "payload": {
+          "type": "object"
+        },
+        "timestampMilliseconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "replies": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "result"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [],
   "additionalProperties": false
 }
 ```

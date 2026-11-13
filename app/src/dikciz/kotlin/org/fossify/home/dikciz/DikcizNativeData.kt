@@ -76,10 +76,13 @@ internal class DikcizNativeData(
                 DikcizFileTranscription.TYPE -> DikcizFileTranscription.execute(context, command.request)
                 in DikcizBackups.TYPES -> DikcizBackups.execute(context, command.type, command.request)
                 in DikcizAutomationRules.TYPES -> DikcizAutomationRules.execute(context, command.type, command.request)
+                in DikcizAutomationDebugger.TYPES -> DikcizAutomationDebugger.execute(context, command.type, command.request)
                 in DikcizOperations.TYPES -> DikcizOperations.execute(command.type, command.request)
                 in DikcizSearch.TYPES -> DikcizSearch.get(context, logger).execute(command)
                 in DikcizAndroidSdkCommands.TYPES -> androidSdk.execute(command)
                 DikcizAssistantLibrary.TYPE -> DikcizAssistantLibrary(context).execute(command.request)
+                DikcizAssistantLibrary.TYPE_MANAGE -> DikcizAssistantLibrary(context).manage(command.request)
+                DikcizAssistantLibrary.TYPE_VALIDATE -> DikcizAssistantLibrary(context).validate(command.request)
                 DikcizChatCommands.TYPE -> {
                     DikcizChatCommands.validate(command.request)
                     DikcizChatRuntime.get(context).execute(command.request)

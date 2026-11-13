@@ -81,7 +81,7 @@ internal object DikcizEventJournal {
             document, firstSequence())
     }
 
-    fun append(event: DikcizAutomationEvent) {
+    fun append(event: DikcizAutomationEvent): JSONObject {
         val document = event.toDocument().toString()
         val bytes = document.toByteArray(Charsets.UTF_8).size
         synchronized(lock) {
@@ -104,6 +104,7 @@ internal object DikcizEventJournal {
             prune(persistChanges = false)
             persist(entry.takeIf { it.sequence >= firstSequence() })
             lock.notifyAll()
+            return JSONObject().put("journalId", journalId).put("sequence", sequence)
         }
     }
 
@@ -196,6 +197,19 @@ internal object DikcizEventJournal {
             rows.put(JSONObject().put("sequence", entry.sequence).put("event", JSONObject(entry.serialized)))
         }
         return response.put("events", rows)
+    }
+
+    fun replay(context: Context, expectedJournal: String, sequence: Long): JSONObject {
+        val entry = synchronized(lock) {
+            prune()
+            if (expectedJournal != journalId) DikcizNativeCommands.failure("event_journal_restarted", "Recorded event belongs to a different journal")
+            entries.firstOrNull { it.sequence == sequence }
+                ?: DikcizNativeCommands.failure("event_payload_expired", "This event payload is no longer retained")
+        }
+        if (entry.omitted) DikcizNativeCommands.failure("event_payload_omitted", "The original event exceeded the journal byte limit")
+        DikcizEventReplayAccess(context, DikcizLogger("DikcizReplay", HomeConfigStore(context).logDirectory))
+            .require(entry.type, entry.precision, entry.sensorType)
+        return JSONObject(entry.serialized)
     }
 
     private fun matches(entry: Entry, filter: Set<String>): Boolean =

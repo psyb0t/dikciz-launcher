@@ -69,3 +69,6 @@ Use the operation's focused guide above for its result fields and terminal state
 Remote scopes authorize commands and finite action/resource choices. They do not grant Android permissions. Code installation, shell, generic SDK calls, arbitrary intents and credential administration can delegate broad authority; selecting a narrow operation name does not sandbox the code or object it controls. Full definitions are in the token table.
 
 Local HTML, Lua and JavaScript bindings use the owner authority already granted to Dikciz. A custom app is not a separately isolated Android package. Keep secrets out of shared state, screenshots and reusable app source. Use the existing protected provider/authentication storage for credentials. A token's scope cannot undo effects already submitted to Android.
+
+
+Open **Dikciz > Skills, agents & rules** to edit and validate assistant instructions. The bundled guides teach self-authoring through revision-checked tools. Use **Dikciz > Automation debugger** for paged event, handler and command traces, retained payloads and effect-free Lua/JavaScript simulation. Read [instruction management](assistant-library.md#manage-instructions-on-the-phone) and [the debugger guide](automation-debugger.md).

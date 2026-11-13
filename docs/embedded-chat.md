@@ -169,3 +169,6 @@ See the [source architecture](https://github.com/psyb0t/dikciz-launcher/blob/mai
 ## Companion workflows
 
 See [the focused companion guide](assistant-routines.md) for the new shared commands, native screens, required access and actual outcome states.
+
+
+Open **Dikciz > Skills, agents & rules** to edit and validate assistant instructions. The bundled guides teach self-authoring through revision-checked tools. Use **Dikciz > Automation debugger** for paged event, handler and command traces, retained payloads and effect-free Lua/JavaScript simulation. Read [instruction management](assistant-library.md#manage-instructions-on-the-phone) and [the debugger guide](automation-debugger.md).

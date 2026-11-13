@@ -473,3 +473,6 @@ Use Settings, Activity & resources to inspect callers, failures and resource mea
 ## Companion workflows
 
 See [the focused companion guide](companion.md) for safety, geofences, routes, peripherals, health and Wi-Fi, including grants and actual outcome states. SOS is an editable custom app. [Custom apps](custom-apps.md) explains complete UI/backend bundles, durable timers, dimmed urgent modals and source-only exports. [Travel todo](todo-app-tutorial.md) is the small working reference for that platform.
+
+
+Open **Dikciz > Skills, agents & rules** to edit and validate assistant instructions. The bundled guides teach self-authoring through revision-checked tools. Use **Dikciz > Automation debugger** for paged event, handler and command traces, retained payloads and effect-free Lua/JavaScript simulation. Read [instruction management](assistant-library.md#manage-instructions-on-the-phone) and [the debugger guide](automation-debugger.md).

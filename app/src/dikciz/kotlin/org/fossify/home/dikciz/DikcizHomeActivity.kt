@@ -6472,6 +6472,8 @@ class DikcizHomeActivity : Activity() {
         when (action) {
             DikcizLauncherControlAction.AppDrawer -> openAppDrawer(DRAWER_SOURCE_CONTROL)
             DikcizLauncherControlAction.DikcizApps -> startActivity(Intent(this, DikcizCustomAppActivity::class.java))
+            DikcizLauncherControlAction.AutomationDebugger -> startActivity(Intent(this, DikcizOperationsActivity::class.java).putExtra("section", "history"))
+            DikcizLauncherControlAction.AssistantLibrary -> startActivity(Intent(this, DikcizOperationsActivity::class.java).putExtra("section", "library"))
             DikcizLauncherControlAction.AddToPage -> showWidgetPicker(page, page.widgets.size)
             DikcizLauncherControlAction.ManagePage -> showPageMenu(page)
             DikcizLauncherControlAction.DikcizSettings -> showSettingsDialog()

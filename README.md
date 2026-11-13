@@ -149,6 +149,8 @@ Direct commands cover sensors, location/geocoding, JPEG capture, microphone reco
 
 ## Activity, recovery and backups
 
+Open **Dikciz > Automation debugger** to browse persistent event, handler and command traces and simulate current Lua/JavaScript without phone effects. **Dikciz > Skills, agents & rules** manages owner instructions. Four built-in authoring/debugging guides let the assistant create and validate its own skills, agents and rules through shared tools. Read the [debugger guide](https://psyb0t.github.io/dikciz-launcher/automation-debugger/) and [instruction manager](https://psyb0t.github.io/dikciz-launcher/assistant-library/#manage-instructions-on-the-phone).
+
 Open **Settings**, **Activity & resources** for command history, caller identity, outcomes and measured process resource use. Pause scripts, HTML widgets, chat event rules or live captures from there. Metadata excludes command arguments and results. The [operations guide](https://psyb0t.github.io/dikciz-launcher/operations/) covers measurement limits, cancellation and the visual rule editor.
 
 [Encrypted backups](https://psyb0t.github.io/dikciz-launcher/backups/) preserve home assets, widget state, scripts, custom-app source/state/files/runtime, assistant skills/agents/rules, conversations and provider settings, with optional API keys. Preview before replacing data; remote authentication and listener settings stay on the destination. [Live images and speech](https://psyb0t.github.io/dikciz-launcher/visual-streams/) adds camera/display JPEG streams, provider partial transcripts and recorded-file transcription. Event history and acknowledged consumer cursors persist across restarts.

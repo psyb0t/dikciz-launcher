@@ -8,7 +8,7 @@ parent: Developer manual
 
 # Assistant skills, agents and rules
 
-Keep assistant instructions in `/sdcard/Dikciz/assistant/`. Edit them with a file manager or the shared file commands. No APK rebuild or remote token is needed for the built-in assistant. Chat reads the current library between model rounds; named agent instructions and restrictions are selected when an agent starts a turn.
+Keep assistant instructions in `/sdcard/Dikciz/assistant/`. Open **Dikciz > Skills, agents & rules** to manage them, or edit them with a file manager and the shared file commands. No APK rebuild or remote token is needed for the built-in assistant. Chat reads the current library between model rounds; named agent instructions and restrictions are selected when an agent starts a turn.
 
 ```text
 assistant/
@@ -105,8 +105,54 @@ Front matter supports scalar fields, quoted strings, indented literal/folded tex
 
 ## Discovery, limits and backups
 
-`assistantLibrary` is exposed as `dikciz_assistant_library` on MCP and shares the native executor across HTTP, WebSocket, Lua and JavaScript. `action:list` returns the root and bounded entry metadata. `action:read` requires a relative `path`. The built-in `phone_library` wrapper offers the same reads. Remote clients need the installed library read grant; it does not imply file writes or chat control. Discover the current contract and grant IDs from the phone.
+`assistantLibrary` is exposed as `dikciz_assistant_library` on MCP and shares the native executor across HTTP, WebSocket, Lua and JavaScript. `action:list` returns the root and bounded entry metadata. `action:read` requires a relative `path`. Entry `id` values are stable SHA-256 hashes of their instruction paths without the `.disabled` suffix; they do not change when the content or enabled state changes. The built-in `phone_library` wrapper offers the same reads. Remote clients need the installed library read grant; it does not imply file writes or chat control. Discover the current contract and grant IDs from the phone.
 
 The library allows 512 files, 128 instruction entries, 12 directory levels, 64 KiB per text file, 512 KiB of instruction metadata/body data, and 128 KiB of injected owner instructions/catalog data. Exceeding a budget fails explicitly. The model's own input budget must also fit the selected instructions. Paths cannot escape the assistant root, include dot segments or follow symlinks. Put credentials in the provider connection settings, never in these files.
 
 [Encrypted backups](backups.md) include this entire assistant directory alongside custom-app source, state and files. Preview before a restore: replacing executable instructions can change future assistant behavior. Older archives preserve assistant files because their format did not include them.
+
+
+## Manage instructions on the phone
+
+<div class="docs-gallery">
+<figure><img width="280" src="{{ "/images/automation-workbench/library.png" | relative_url }}" alt="Instruction manager with an inspection skill, read-only device agent and persistent rule"><figcaption>Owner instructions and built-in authoring guides.</figcaption></figure>
+<figure><img width="280" src="{{ "/images/automation-workbench/editor.png" | relative_url }}" alt="Complete Markdown skill editor with its name, description, validation and save controls"><figcaption>Edit and validate the complete instruction.</figcaption></figure>
+</div>
+
+The manager lists skills, agents and rules with enabled, disabled, invalid and built-in states. Tap an owner item to edit the complete Markdown file. **New instruction** offers the three kinds. **Validate** checks the instruction format without saving; provider compatibility and agent token budgets are checked when an agent starts its turn. **Save** validates and atomically replaces the file. Errors keep the text in place. Rotation preserves an open draft. The item's **More** menu holds enable/disable and confirmed deletion. Deleting the instruction preserves its supporting files. Disabling adds `.disabled` to its filename, excluding it from subsequent model rounds. Re-enabling validates it and rejects duplicate identities.
+
+**Built-in guides** explain how the assistant can write its own skills, rules and agents, plus how to debug automations. Their discovery metadata is always present; their short bodies load on demand. Read them using `phone_library` and a returned `@builtin/.../SKILL.md` path. They live in the APK, separate from owner files; copy a guide to a differently named owner skill to customize it. These four names are reserved for bundled guides. If an older owner skill or agent uses one, rename it and update its front matter before using chat.
+
+| Guide | Purpose |
+| --- | --- |
+| `dikciz-write-skill` | Select a narrow trigger, write a procedure and optional references, validate and verify its installation. |
+| `dikciz-write-agent` | Write a named prompt, exact tool restrictions and read-only settings, then test isolated delegation. |
+| `dikciz-write-rule` | Place persistent owner preferences in the right scope without duplicating existing instructions. |
+| `dikciz-debug-automation` | Follow causal history, inspect retained events and simulate a current handler. |
+
+The bundled guides cannot grant access. The assistant still needs writable access to save instructions. Read-only mode hides the management tool and immediately rejects a forged call. Remote tokens use separate inspect/read/validate/manage operation grants from installed discovery.
+
+## Author through the shared API
+
+`assistantLibrary` action `inspect` returns repairable validation errors, disabled files and built-in guides. Action `list` retains enabled owner entries and adds a separate `builtins` array. Action `read` returns exact text and a raw UTF-8 `revision` hash. This hash is the compare-and-save revision, distinct from an entry's metadata/body discovery `sha256`.
+
+1. Discover the current `assistantLibraryValidate` and `assistantLibraryManage` schemas.
+2. Read an existing path and retain its `revision`. For a new file, use an empty revision.
+3. Validate the relative `path` and complete `text` with `assistantLibraryValidate`.
+4. Save with the same path/text and `expectedRevision`. A stale revision returns `assistant_revision_conflict`; reread and reconcile changes.
+5. Read the saved file and verify its discovery entry. Support files can be written with the ordinary file tools inside the skill directory.
+
+Example HTTP/WebSocket create request for a persistent rule:
+
+```json
+{
+  "type": "assistantLibraryManage",
+  "requestId": "example-author-rule",
+  "action": "save",
+  "path": "rules/precise-results.md",
+  "expectedRevision": "",
+  "text": "# Precise results\n\nReport observed results. Explain missing measurements.\n"
+}
+```
+
+`action:setEnabled` requires `enabled`; `action:delete` removes one instruction file. Both require the current path and revision. Atomic replacement prevents partial writes by this tool; ordinary external file managers can still edit shared storage, so always reread on a conflict. Invalid drafts never replace the saved instruction. Inspection supplies raw revisions for corrupt files up to 1 MiB so they can be disabled or deleted; larger damaged files need the ordinary file tools first. Built-in paths cannot be written. See [the debugger](automation-debugger.md) to test Lua or JavaScript before requesting live effects.

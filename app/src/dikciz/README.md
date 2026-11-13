@@ -106,6 +106,8 @@ Remote restart runs only after its successful response is flushed, then recreate
 
 ## Operational state
 
+DikcizAutomationDebugger records causal event/handler/action/command metadata in a bounded SQLite history. Captured execution scopes cross the event executor and assistant coroutine queue; payload reads reuse the event journal's current source-access checks. Simulation reuses Lua/Rhino with an intercepting command callback and never applies returned actions. DikcizOperationsTools hosts the native library editor and trace browser inside the existing semantic Operations activity. See [automation debugger](../../../docs/automation-debugger.md).
+
 DikcizOperations owns the private metadata history, token quota counters and resource inventory. DikcizOperationsActivity provides activity filtering and resource pause confirmations. DikcizUiCommands sends native feature actions through the shared executor; DikcizUiStyle owns native dialog colors, fields and touch targets.
 
 DikcizAutomationRules compiles and simulates generated Lua; DikcizAutomationRuleEditor creates and reopens its saved definitions. DikcizBackups validates encrypted archives, protects plaintext staging from file APIs, coordinates public-file and custom-app runtime rollback with the chat SQLite commit marker, and recovers before Home or background automation loads configuration. DikcizBackupSettings supplies preview and confirmation. See [operations](../../../docs/operations.md) and [backups](../../../docs/backups.md).
@@ -115,6 +117,8 @@ DikcizCameraPreview reuses a Camera2 capture session. DikcizImageStreams and Dik
 DikcizJavaScriptRuntime supplies the headless JavaScript interpreter alongside DikcizLuaRuntime. The automation dispatcher selects by script language, then shares result validation, policy checks, owner commands, state and logging. DikcizScriptExecutionLimits holds their common budgets. Rhino is interpreter-only with safe globals and blocked Java class access. See [background JavaScript](../../../docs/background-javascript.md).
 
 ## Assistant instruction library
+
+The library manager validates candidates, atomically saves complete instructions and checks raw-file revisions before mutations. Disabled files end in .disabled. Bundled authoring/debugging guides live under assets/assistant/skills and remain immutable APK content, separate from owner entries. They load on demand through the same library reader. Invalid owner files remain discoverable for repair; they never silently become prompt instructions.
 
 DikcizAssistantLibrary reads bounded owner Markdown from the shared `assistant/` directory. It discovers portable skills, rules and named agents, rejects linked paths and unsupported executable harness settings, and exposes metadata/content reads through the shared executor. DikcizChatAgent injects current owner rules and skill metadata, loads full instructions on demand, and runs delegated agents in isolated persistent conversations. Children share cancellation and inherit trusted read-only/tool restrictions; saved restrictions survive reopening their conversation. See [skills, agents and rules](../../../docs/assistant-library.md) for supported files and settings.
 

@@ -9,6 +9,8 @@ seo:
 
 # Dikciz Launcher documentation
 
+Use the [automation debugger](automation-debugger.md) to inspect retained traces and simulate handlers, and the [instruction manager](assistant-library.md#manage-instructions-on-the-phone) to author skills, agents and rules.
+
 Give the built-in assistant [SD-card skills, named agents and rules](assistant-library.md), and preserve their files together with complete app state through [encrypted backups](backups.md).
 
 Your phone is programmable. Start with an editable Android home, build complete HTML/CSS/JavaScript apps, run Lua or JavaScript in the background, and connect your own AI to the same phone tools.

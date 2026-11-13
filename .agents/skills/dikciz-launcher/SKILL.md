@@ -74,6 +74,8 @@ Use `dikciz_sim_list` for own SIM numbers before opening Settings. Each subscrip
 
 ## Owner assistant library
 
+Use **Dikciz > Skills, agents & rules** for the manager. Discover assistantLibraryValidate and assistantLibraryManage for validated revision-checked saves. Read an existing file first; an empty expectedRevision means create only. Bundled @builtin guides teach skill, agent and rule authoring. Read-only and scoped restrictions remain enforced. For event-to-handler-to-command history and intercepted simulation, fetch dikciz://docs/guides/automation-debugger. Simulation never performs captured effects or saves state.
+
 Owner skills, agents and rules live in /sdcard/Dikciz/assistant. Read [assistant library](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/assistant-library.md) or dikciz://docs/guides/assistant-library before installing them. assistantLibrary lists metadata and reads relative files through the shared executor. SKILL.md supports progressive disclosure and explicit $skill-name. Markdown agents run isolated conversations with inherited access, cancellation and timeout. settings.agent selects a named agent. Rules and skill catalogs reload between rounds. Harness-specific hooks and privilege settings are not portable. Instructions never grant Android access or bypass read-only/token restrictions.
 
 ## Offline documentation and reusable search

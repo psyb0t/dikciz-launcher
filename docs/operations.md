@@ -10,6 +10,10 @@ has_children: true
 
 Open **Dikciz settings**, **Activity & resources** to inspect command outcomes and measured resource use. The activity view shows caller identity, command, request ID, duration and status. It records metadata without command arguments, SMS bodies, screenshots, shell text, provider responses or credentials.
 
+## Automation debugger
+
+Open **Dikciz > Automation debugger** for paged event, handler and command traces, payload inspection and simulation. **Dikciz > Skills, agents & rules** opens the instruction manager. The section selector also reaches command activity and resources. Read [the debugger guide](automation-debugger.md) for retention, causal IDs, recorded events and intercepted Lua/JavaScript execution.
+
 ## Activity history
 
 The [screen walkthrough](screens.md#activity-resources-and-rules) shows activity filters, resource measurements, pause confirmation and the visual rule editor. Filters change the displayed history; pausing a resource requires its separate confirmation.

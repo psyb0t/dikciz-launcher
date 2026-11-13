@@ -20,6 +20,12 @@ Ordinary MCP, WebSocket, HTTP, HTML and enabled Lua command calls share validati
 
 Both listeners default to device loopback. Set their listen address and ports through `control/ports.json` or Settings as described in [Control ports](dikciz-configuration.md#control-ports). Use ADB forwarding with loopback binding, or configure a network address for direct private-network access without USB. `make forward` creates generic host-loopback forwards on `19001` and `19002`. `make dikciz-run` owns its separate `19101` and `19102` forwards.
 
+## Automation history and instruction authoring
+
+Open **Dikciz > Automation debugger** for retained SQLite execution history, causal traces and intercepted Lua/JavaScript simulation. `automationHistory`, `automationHistoryEvent` and `automationSimulate` share the executor across MCP, HTTP, WebSocket and script bindings. History semantic row IDs use persistent record IDs, so a refresh does not redirect a tap to a different record. See the [debugger guide](automation-debugger.md) for scope, retention, payload access and simulation limits.
+
+Open **Dikciz > Skills, agents & rules** to manage owner instructions. `assistantLibrary` lists, reads or inspects the library; `assistantLibraryValidate` checks a draft; `assistantLibraryManage` performs revision-checked changes. Built-in authoring guides load on demand. Instruction semantic IDs derive from their paths and remain stable when content or enabled state changes. Read-only discovery hides management and the executor rejects forced writes. See [assistant authoring](assistant-library.md#author-through-the-shared-api).
+
 ## On-device assistant
 
 `chatControl` and MCP `dikciz_chat` manage the same provider connections, per-conversation model/token settings, queue, event rules and panel used by the native cheese button. Sends report queue state; poll the transcript and actual tool outcomes. The agent discovers and invokes existing MCP handlers in process. The shared `task` action offers widget creation on the current page and read-only screen explanation with automatic chat dismissal and display capture. See [chat setup, actions and context budgets](embedded-chat.md).

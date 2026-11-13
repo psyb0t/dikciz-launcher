@@ -135,6 +135,7 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
             "guides/apk-sets" to "APK sets and cancellation",
 
             "guides/chat" to "On-device assistant",
+            "guides/assistant-manager" to "Author and manage assistant instructions",
             "guides/assistant-library" to "Owner skills, agents and rules",
             "guides/chat-tools" to "Assistant tool contracts and access",
             "guides/android-sdk" to "Public Android SDK contracts and execution",
@@ -161,6 +162,7 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
             "guides/event-replay" to "Replay automation events",
             "guides/backups" to "Encrypted backup and restore",
             "guides/visual-streams" to "Live images and speech",
+            "guides/automation-debugger" to "Trace and simulate automations",
             "guides/operations" to "Activity, resources and recovery",
             "guides/video" to "Camera video recording",
             "guides/ussd" to "Native USSD requests",

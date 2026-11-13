@@ -7,6 +7,16 @@ nav_order: 10
 
 # Changelog
 
+## [0.32.0] - 2026-11-13
+
+- Add an automation debugger with paged SQLite event, handler, command and assistant-turn traces. Inspect retained event payloads and follow parent/trace IDs across executions.
+- Simulate current Lua or background JavaScript against sample or retained events. Command callbacks and returned actions are captured without executing phone effects or saving state.
+- Add Skills, agents & rules to the Dikciz menu, with complete Markdown editing, draft validation, revision-checked atomic saves, enable/disable and confirmed deletion that preserves supporting files.
+- Bundle four on-demand authoring and debugging guides so the assistant can create and verify its own skills, named agents and rules through shared tools. Management remains hidden and blocked in read-only mode.
+- Keep history and instruction row identities stable during refresh, preserve editor drafts across rotation, and support foreground dialog scrolling and long-trace pagination.
+- Update illustrated tutorials, native menu screenshots, command/token references, packaged MCP resources and offline search.
+- Migration: the guide names `dikciz-write-skill`, `dikciz-write-agent`, `dikciz-write-rule` and `dikciz-debug-automation` are now reserved. Rename an owner skill or agent using one of these names before using chat. History starts with this version; metadata retention is seven days or 20,000 completed records, while event payload retention is separate.
+
 ## [0.31.5] - 2026-11-13
 
 - Correct the operating skill's custom-app access guidance: scoped tokens can use explicitly granted custom-app operations, subject to the same executor checks and Android access.

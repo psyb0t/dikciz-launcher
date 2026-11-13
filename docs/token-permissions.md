@@ -80,6 +80,8 @@ Basic device/control/authentication status, self access information and packaged
 | [appCatalogue](#appcatalogue) | [dikciz_app_catalogue](command-reference.md#dikciz_app_catalogue) |
 | [appIcon](#appicon) | [dikciz_app_icon](command-reference.md#dikciz_app_icon) |
 | [assistantLibrary](#assistantlibrary) | [dikciz_assistant_library](command-reference.md#dikciz_assistant_library) |
+| [assistantLibraryManage](#assistantlibrarymanage) | [dikciz_assistant_library_manage](command-reference.md#dikciz_assistant_library_manage) |
+| [assistantLibraryValidate](#assistantlibraryvalidate) | [dikciz_assistant_library_validate](command-reference.md#dikciz_assistant_library_validate) |
 | [assistantRoutinePreview](#assistantroutinepreview) | [dikciz_assistant_routine_preview](command-reference.md#dikciz_assistant_routine_preview) |
 | [assistantRoutineRun](#assistantroutinerun) | [dikciz_assistant_routine_run](command-reference.md#dikciz_assistant_routine_run) |
 | [assistantRoutineSubscribe](#assistantroutinesubscribe) | [dikciz_assistant_routine_subscribe](command-reference.md#dikciz_assistant_routine_subscribe) |
@@ -87,11 +89,14 @@ Basic device/control/authentication status, self access information and packaged
 | [audioDevices](#audiodevices) | [dikciz_audio_devices](command-reference.md#dikciz_audio_devices) |
 | [audioPlayback](#audioplayback) | [dikciz_audio_playback](command-reference.md#dikciz_audio_playback) |
 | [automationDispatch](#automationdispatch) | [dikciz_automation_dispatch](command-reference.md#dikciz_automation_dispatch) |
+| [automationHistory](#automationhistory) | [dikciz_automation_history](command-reference.md#dikciz_automation_history) |
+| [automationHistoryEvent](#automationhistoryevent) | [dikciz_automation_history_event](command-reference.md#dikciz_automation_history_event) |
 | [automationRuleDelete](#automationruledelete) | [dikciz_automation_rule_delete](command-reference.md#dikciz_automation_rule_delete) |
 | [automationRulePreview](#automationrulepreview) | [dikciz_automation_rule_preview](command-reference.md#dikciz_automation_rule_preview) |
 | [automationRuleSave](#automationrulesave) | [dikciz_automation_rule_save](command-reference.md#dikciz_automation_rule_save) |
 | [automationRulesList](#automationruleslist) | [dikciz_automation_rules_list](command-reference.md#dikciz_automation_rules_list) |
 | [automationServiceSync](#automationservicesync) | [dikciz_automation_service_sync](command-reference.md#dikciz_automation_service_sync) |
+| [automationSimulate](#automationsimulate) | [dikciz_automation_simulate](command-reference.md#dikciz_automation_simulate) |
 | [automationStatus](#automationstatus) | [dikciz_automation_status](command-reference.md#dikciz_automation_status) |
 | [automationTrigger](#automationtrigger) | [dikciz_automation_trigger](command-reference.md#dikciz_automation_trigger) |
 | [backupCreate](#backupcreate) | [dikciz_backup_create](command-reference.md#dikciz_backup_create) |
@@ -481,7 +486,31 @@ MCP: [`dikciz_assistant_library`](command-reference.md#dikciz_assistant_library)
 | --- | --- | --- |
 | `command.assistantLibrary` | All accepted arguments | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
 | `command.assistantLibrary.action.list` | action=list | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+| `command.assistantLibrary.action.inspect` | action=inspect | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
 | `command.assistantLibrary.action.read` | action=read | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+
+## assistantLibraryManage
+
+Atomically save, enable, disable or delete one assistant instruction. Requires expectedRevision from assistantLibrary read; empty string means create only. save requires text; setEnabled requires enabled. Disabling renames to .disabled. Delete preserves support files. Bundled instructions are immutable; copy to an owner path to customize. Rule and skill catalogs reload between model rounds; named agents reload on their next turn. Instructions cannot elevate permissions.
+
+MCP: [`dikciz_assistant_library_manage`](command-reference.md#dikciz_assistant_library_manage). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
+
+| Grant | Exact selectors | Definition |
+| --- | --- | --- |
+| `command.assistantLibraryManage` | All accepted arguments | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+| `command.assistantLibraryManage.action.save` | action=save | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+| `command.assistantLibraryManage.action.setEnabled` | action=setEnabled | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+| `command.assistantLibraryManage.action.delete` | action=delete | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+
+## assistantLibraryValidate
+
+Validate a candidate UTF-8 skill, agent or rule without saving it. Supply a relative assistant path and full text. Validation does not grant permission or run instructions.
+
+MCP: [`dikciz_assistant_library_validate`](command-reference.md#dikciz_assistant_library_validate). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
+
+| Grant | Exact selectors | Definition |
+| --- | --- | --- |
+| `command.assistantLibraryValidate` | All accepted arguments | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
 
 ## assistantRoutinePreview
 
@@ -560,6 +589,26 @@ MCP: [`dikciz_automation_dispatch`](command-reference.md#dikciz_automation_dispa
 | --- | --- | --- |
 | `command.automationDispatch` | All accepted arguments | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
 
+## automationHistory
+
+Browse persistent causal automation metadata with seven-day/20000-record retention. Exact optional kind/name/outcome/traceId/recordId filters; newest first, limit/offset pagination. Links event to handler and command via traceId and parentId. No request arguments or payloads. Payload retention is separate. History starts at installation; it is not an audit of every Android action.
+
+MCP: [`dikciz_automation_history`](command-reference.md#dikciz_automation_history). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
+
+| Grant | Exact selectors | Definition |
+| --- | --- | --- |
+| `command.automationHistory` | All accepted arguments | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+
+## automationHistoryEvent
+
+Read a retained event payload by automationHistory event recordId. This grant discloses all event sources; current Android source permissions are rechecked. Expired, omitted or restarted journal payloads fail explicitly.
+
+MCP: [`dikciz_automation_history_event`](command-reference.md#dikciz_automation_history_event). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
+
+| Grant | Exact selectors | Definition |
+| --- | --- | --- |
+| `command.automationHistoryEvent` | All accepted arguments | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+
 ## automationRuleDelete
 
 Delete one saved visual rule, its Lua script and owned subscription. In-flight work may finish. Requires the matching explicit operation grant for scoped remote clients.
@@ -609,6 +658,18 @@ MCP: [`dikciz_automation_service_sync`](command-reference.md#dikciz_automation_s
 | Grant | Exact selectors | Definition |
 | --- | --- | --- |
 | `command.automationServiceSync` | All accepted arguments | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+
+## automationSimulate
+
+Simulate current Lua/JavaScript source, scriptId or appId against event {type,payload,source?,timestampMilliseconds?,coalescingKey?} or recorded event recordId. Exactly one source target required. Never executes intercepted commands or returned actions and never saves state. Optional ordered replies [{type,result}] supply fake command results. Returns captured commands, action kinds, sourceRevision and outcome. A sample is untrusted data; replay uses current source, not historical source. This grant can read recorded event payloads from all sources subject to current Android permissions.
+
+MCP: [`dikciz_automation_simulate`](command-reference.md#dikciz_automation_simulate). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
+
+| Grant | Exact selectors | Definition |
+| --- | --- | --- |
+| `command.automationSimulate` | All accepted arguments | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+| `command.automationSimulate.language.lua` | language=lua | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+| `command.automationSimulate.language.javascript` | language=javascript | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
 
 ## automationStatus
 

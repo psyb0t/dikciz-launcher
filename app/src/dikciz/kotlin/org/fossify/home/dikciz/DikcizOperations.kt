@@ -36,6 +36,7 @@ internal object DikcizOperations {
         application = context.applicationContext as android.app.Application
         store = Store(context.applicationContext)
         metrics = DikcizSystemMetrics(context.applicationContext)
+        DikcizAutomationDebugger.attach(context)
         database().execSQL("UPDATE activity SET outcome = 'interrupted', outcome_known = 0 WHERE outcome = 'running'")
     }
 
@@ -52,7 +53,7 @@ internal object DikcizOperations {
         if (store == null) return action()
         val type = request.optString("type")
         if ((type !in DikcizAutomationControlPlane.COMMAND_KEYS && type !in setOf(DikcizShellStreams.TYPE_START, DikcizShellStreams.TYPE_STOP)) ||
-            type in setOf(TYPE_READ, TYPE_RESOURCES)) return action()
+            type in setOf(TYPE_READ, TYPE_RESOURCES, DikcizAutomationDebugger.TYPE_HISTORY, DikcizAutomationDebugger.TYPE_EVENT)) return action()
         val id = UUID.randomUUID().toString()
         val source = access?.id ?: actor.get() ?: if (remote) "remote-owner" else "local-owner"
         val started = SystemClock.elapsedRealtime()
@@ -66,6 +67,7 @@ internal object DikcizOperations {
                 put("duration", 0); put("cpu", 0); put("outcome", "running"); put("outcome_known", 0)
             })
         }
+        val span = DikcizAutomationDebugger.begin("command", type)
         running[id] = Thread.currentThread()
         var outcome = "failed"
         var code: String? = null
@@ -92,6 +94,7 @@ internal object DikcizOperations {
                 }, "id = ?", arrayOf(id))
                 running.remove(id)
             }
+            DikcizAutomationDebugger.finish(span, outcome, code)
         }
     }
 

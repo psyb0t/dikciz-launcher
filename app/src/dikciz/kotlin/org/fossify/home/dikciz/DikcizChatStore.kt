@@ -203,7 +203,7 @@ internal class DikcizChatStore(private val context: Context) : SQLiteOpenHelper(
             return it
         }
         val turnID = UUID.randomUUID().toString()
-        val rowID = append(id, turnID, "user", "queued", "", JSONArray().put(JSONObject().put("kind", "text").put("text", text).put("source", source).apply { task?.let { put(DikcizChatTasks.KEY_TASK, it) } }), key)
+        val rowID = append(id, turnID, "user", "queued", "", JSONArray().put(JSONObject().put("kind", "text").put("text", text).put("source", source).apply { DikcizAutomationDebugger.parent()?.let { put("automationParentId", it) }; task?.let { put(DikcizChatTasks.KEY_TASK, it) } }), key)
         return JSONObject().put("id", rowID).put("turn_id", turnID).put("state", "queued")
     }
 

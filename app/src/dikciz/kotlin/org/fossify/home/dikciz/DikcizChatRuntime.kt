@@ -321,6 +321,14 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
     }
 
     private suspend fun runTurn(queued: JSONObject) {
+        val parent = JSONArray(queued.getString("blocks")).getJSONObject(0).optString("automationParentId").takeIf(String::isNotBlank)
+        DikcizAutomationDebugger.turn(parent, queued.getString("conversation_id")) {
+            runTurnBody(queued)
+            store.messages(queued.getString("conversation_id")).firstOrNull { it.getLong("id") == queued.getLong("id") }?.optString("state") ?: "unknown"
+        }
+    }
+
+    private suspend fun runTurnBody(queued: JSONObject) {
         DikcizAutomationEventBus.lastAcceptedConfiguration(context)?.let { logger.configure(it.logging) }
         val id = queued.getString("conversation_id")
         val turnID = queued.getString("turn_id")
