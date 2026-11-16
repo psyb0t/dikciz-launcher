@@ -206,7 +206,7 @@ The Dikciz mark beside the horizontal page rail opens the launcher controls, and
 
 Android owns the confirmation for app info and uninstall. Force stop requests root and reports `root_unavailable` when `su` is unavailable or denied. It never falls back to the ordinary Dikciz app shell.
 
-Adding an app places an `app` tile in the first free grid cell, row-major from the top left. A page with no free cell rejects the request with `page_full` and adds nothing. The placed tile is left selected so its move and resize controls work straight away. A tap anywhere on the tile launches the activity, and a drag from anywhere on it moves the tile to another free rectangle. A widget that owns its own content, an HTML document, an Android provider view, or the script dashboard, is dragged from its top `24Dp` instead, because its body needs the touches for itself.
+Adding an app places an `app` tile in the first free grid cell, row-major from the top left. A page with no free cell rejects the request with `page_full` and adds nothing. New shortcuts and widgets finish insertion without an editing outline. Long press an item to choose Move or Resize; the selection outline appears during that explicit edit. A tap anywhere on the tile launches the activity. Hold the tile still for one second before dragging it to another free rectangle. A widget that owns its own content, an HTML document, an Android provider view, or the script dashboard, is dragged from its top `24Dp` instead, because its body needs the touches for itself.
 
 An app tile draws its icon as the largest square the cell allows, measured against the narrower side, with the icon and its label centred in the cell as a pair. Resizing the tile resizes the icon with it.
 

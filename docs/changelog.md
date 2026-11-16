@@ -7,6 +7,10 @@ nav_order: 10
 
 # Changelog
 
+## [0.32.1] - 2026-11-16
+
+- Fix a selection outline that remained on newly added widgets until they were moved.
+
 ## [0.32.0] - 2026-11-13
 
 - Add an automation debugger with paged SQLite event, handler, command and assistant-turn traces. Inspect retained event payloads and follow parent/trace IDs across executions.

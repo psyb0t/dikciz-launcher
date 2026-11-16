@@ -120,6 +120,8 @@ If the page has no free grid rectangle, Dikciz shows a refusal. It does not plac
 
 ### Move, resize, group, lock, or remove an item
 
+Newly added items return to normal interaction without an editing outline. Choose Move or Resize from their edit actions when you want to change their placement.
+
 Hold a native app shortcut or app group still for one second, then drag it to move. A swipe before that deadline cancels the move. Hold and release to open edit actions. Long press a native widget, or the top move handle of an HTML widget, for **Move**, **Resize**, **Edit**, **Appearance**, **Fit content**, **Lock**, and **Delete**. The available actions depend on the item type. HTML widgets keep the top 24Dp for moving, while their content keeps normal taps and scrolling. Long press anywhere in the HTML content or background for the same whole-widget controls.
 
 ![Widget action sheet](images/user-guide/11-widget-actions.png)

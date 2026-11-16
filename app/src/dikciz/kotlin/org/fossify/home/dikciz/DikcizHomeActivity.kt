@@ -10488,8 +10488,8 @@ class DikcizHomeActivity : Activity() {
      *
      * The requested span is placed at the first free row-major rectangle. A page with no
      * free cell left rejects the insertion with [DikcizGridFailure.PageFull] and writes
-     * nothing. The placed item is left selected so its move and resize controls work
-     * straight away.
+     * nothing. Successful insertion returns to normal interaction; Move and Resize
+     * remain available through the item's edit actions.
      */
     private fun insertWidget(pageID: String, insertionIndex: Int, widget: HomeWidget): Boolean {
         val configuration = homeConfiguration ?: return false
@@ -10540,9 +10540,6 @@ class DikcizHomeActivity : Activity() {
                 FIELD_WIDGET_ID to placedWidget.id,
             ),
         )
-        if (placedWidget !is AppHomeWidget) {
-            selectInsertedWidget(pageID, placedWidget.id)
-        }
         return true
     }
 
@@ -10581,33 +10578,6 @@ class DikcizHomeActivity : Activity() {
             DikcizGridFailure.PageFull -> R.string.dikciz_grid_page_full
             DikcizGridFailure.GridCollision -> R.string.dikciz_grid_collision
             DikcizGridFailure.GridBounds -> R.string.dikciz_grid_bounds
-        }
-    }
-
-    /**
-     * Leaves a freshly placed item selected. A fixed page never scrolls, so the item is
-     * already on screen; selecting it is what makes its controls reachable immediately.
-     */
-    private fun selectInsertedWidget(pageID: String, widgetID: String) {
-        if (homeConfiguration?.selectedPageID != pageID) {
-            return
-        }
-        widgetContainer.post {
-            if (homeConfiguration?.selectedPageID != pageID) {
-                return@post
-            }
-            val widget = homeConfiguration?.selectedPage()?.findWidget(widgetID) ?: return@post
-            val widgetView = automationViews[widgetSemanticID(widgetID)] as? DikcizWidgetFrameLayout
-                ?: return@post
-            if (selectedPageOrWidgetIsLocked(widgetID)) {
-                return@post
-            }
-            // Outline only. Entering resize mode here would disable the move gesture zone,
-            // and the new item must accept both move and resize straight away.
-            widgetView.resizeOverlay = createWidgetResizeOverlay(
-                widget = widget,
-                resizeHandles = emptySet(),
-            )
         }
     }
 
