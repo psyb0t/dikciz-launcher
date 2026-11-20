@@ -162,12 +162,17 @@ internal class DikcizHtmlWidgetView(
     }
 
     private fun htmlDiagnosticFields(reason: String): Map<String, Any> {
-        return mapOf(
-            FIELD_REASON to reason,
-            FIELD_SCRIPT_ID to widget.id,
-            FIELD_SCRIPT_KIND to SCRIPT_KIND_HTML,
-            FIELD_WIDGET_ID to widget.id,
-        )
+        val appID = widgetContext.opt("appId") as? String
+        return if (appID == null) {
+            mapOf(
+                FIELD_REASON to reason,
+                FIELD_SCRIPT_ID to widget.id,
+                FIELD_SCRIPT_KIND to SCRIPT_KIND_HTML,
+                FIELD_WIDGET_ID to widget.id,
+            )
+        } else {
+            mapOf(FIELD_REASON to reason, "app_id" to appID)
+        }
     }
 
     private fun loadWidget() {

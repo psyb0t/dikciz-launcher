@@ -51,7 +51,7 @@ internal open class DikcizCustomAppActivity : androidx.activity.ComponentActivit
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
-        logger = DikcizLogger("DikcizAppScreen", HomeConfigStore(this).logDirectory)
+        logger = DikcizCustomApps.logger(applicationContext)
         commands = DikcizNativeData(applicationContext, logger)
         selected = state?.getString("appId") ?: intent.getStringExtra("appId")
         WindowCompat.setDecorFitsSystemWindows(window, false)

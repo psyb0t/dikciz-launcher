@@ -57,7 +57,43 @@ internal object DikcizCustomApps {
             finally { resuming.set(false) }
         }
     }
-    private fun logger(context: Context) = DikcizLogger("DikcizApps", HomeConfigStore(context).logDirectory)
+    private const val APP_LOG = "customAppLog"
+    private const val MAXIMUM_APP_LOG_FIELD_LENGTH = 256
+    private val appLogEventPattern = Regex("^[a-z][a-z0-9_]{0,63}$")
+    private val appLoggers = ConcurrentHashMap<java.io.File, DikcizLogger>()
+
+    fun logger(context: Context): DikcizLogger {
+        val directory = HomeConfigStore(context).logDirectory
+        val logger = appLoggers.computeIfAbsent(directory) { DikcizLogger("DikcizApps", it) }
+        DikcizAutomationEventBus.lastAcceptedConfiguration(context)?.let { logger.configure(it.logging) }
+        return logger
+    }
+
+    private fun writeAppLog(context: Context, id: String, request: JSONObject): JSONObject {
+        val allowed = setOf("type", "requestId", "level", "event", "incidentId", "outcome", "detail")
+        if (request.keys().asSequence().any { it !in allowed }) DikcizNativeCommands.invalid("Unknown app log field")
+        val event = request.opt("event") as? String
+        if (event == null || !appLogEventPattern.matches(event)) DikcizNativeCommands.invalid("Invalid app log event")
+        val fields = mutableMapOf<String, Any>("app_id" to id)
+        listOf("incidentId" to "incident_id", "outcome" to "outcome", "detail" to "diagnostic").forEach { (input, output) ->
+            if (request.has(input)) {
+                val value = request.opt(input) as? String
+                if (value == null || value.length > MAXIMUM_APP_LOG_FIELD_LENGTH || value.any(Char::isISOControl)) {
+                    DikcizNativeCommands.invalid("Invalid app log field")
+                }
+                if (value.isNotEmpty()) fields[output] = value
+            }
+        }
+        val log = logger(context)
+        when (request.opt("level")) {
+            "debug" -> log.debug(event, fields)
+            "info" -> log.info(event, fields)
+            "warn" -> log.warn(event, fields)
+            "error" -> log.error(event, fields)
+            else -> DikcizNativeCommands.invalid("Invalid app log level")
+        }
+        return JSONObject().put("state", "handled")
+    }
     private fun database(context: Context) = DikcizCompanionStore(context)
     fun boot(context: Context) = Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1)
     private fun isEnabled(context: Context, app: DikcizCustomApp): Boolean = database(context).use {
@@ -146,6 +182,7 @@ internal object DikcizCustomApps {
             }
         }
         closeAlert(context, null)
+        DikcizCustomAppMotion.stop()
         // Imported windows and native resources cannot be resumed from another process or device.
         val safe = if (rollback) rows else JSONArray((0 until rows.length()).map(rows::getJSONObject).filter { it.getString("kind") != ALERT_KIND })
         database(context).use { it.replaceKinds(BACKUP_KINDS, safe) }
@@ -193,7 +230,7 @@ internal object DikcizCustomApps {
             if (!request.optBoolean("confirm")) DikcizNativeCommands.invalid("Installing an app requires confirm=true")
             val app = if (type == DikcizCustomAppCommands.INSTALL) store.fromRequest(request) else store.import(request.getString("path"))
             parseSubscriptions(context, app.manifest, HomeConfigStore(context).loadOrCreate().limits)
-            if (pending(context, app.id) || alert(context)?.optString("appId") == app.id) DikcizNativeCommands.failure("custom_app_active", "Disable app timers and alerts before replacing its bundle")
+            if (pending(context, app.id) || alert(context)?.optString("appId") == app.id || DikcizCustomAppMotion.owner() == app.id) DikcizNativeCommands.failure("custom_app_active", "Disable app timers and alerts before replacing its bundle")
             val enabled = isEnabled(context, app)
             store.write(app)
             database(context).use { it.put(INSTALL_KIND, app.id, JSONObject().put("enabled", enabled)) }
@@ -216,6 +253,7 @@ internal object DikcizCustomApps {
                         try { invoke(context, app, "app.stopped", JSONObject().put("reason", "owner_disabled"), stopping = true) }
                         catch (exception: Exception) { logger(context).warn("custom_app_stop_handler_failed", mapOf("app_id" to id, "error_class" to exception.javaClass.simpleName)) }
                     }
+                    DikcizCustomAppMotion.stop(id)
                     cancelTimers(context, id, "owner_disabled")
                     closeAlert(context, id)
                     database(context).use { it.put(INSTALL_KIND, id, JSONObject().put("enabled", false).put("appId", id).put("removed", request.getString("action") == "remove")) }
@@ -240,14 +278,25 @@ internal object DikcizCustomApps {
                 }
                 else -> DikcizNativeCommands.invalid()
             }
-            DikcizCustomAppCommands.EVENT -> invoke(context, app, request.getString("event"), request.optJSONObject("payload") ?: JSONObject())
+            DikcizCustomAppCommands.EVENT -> {
+                val event = request.getString("event")
+                if (event == DikcizCustomAppMotion.HIT || event == DikcizCustomAppMotion.STOPPED) {
+                    DikcizNativeCommands.invalid("Motion events are emitted by the device sensor")
+                }
+                invoke(context, app, event, request.optJSONObject("payload") ?: JSONObject())
+            }
             DikcizCustomAppCommands.STATE -> {
                 if (request.getString("action") == "replace") {
                     store.saveState(id, request.getJSONObject("state")); changed(context, id)
                 }
                 JSONObject().put("state", store.read(id).state)
             }
-            DikcizCustomAppCommands.SCHEDULE -> schedule(context, app, request)
+            DikcizCustomAppCommands.SCHEDULE -> {
+                if (request.optString("event") in setOf(DikcizCustomAppMotion.HIT, DikcizCustomAppMotion.STOPPED)) {
+                    DikcizNativeCommands.invalid("Motion events are emitted by the device sensor")
+                }
+                schedule(context, app, request)
+            }
             DikcizCustomAppCommands.ALERT -> showAlert(context, app, request)
             else -> DikcizNativeCommands.invalid()
         }
@@ -257,6 +306,7 @@ internal object DikcizCustomApps {
         .put("html", app.html).put("css", app.css).put("javascript", app.javascript).put("backgroundSource", app.source).put("state", app.state)
         .put("directory", DikcizCustomAppStore(context).directory(app.id).absolutePath)
         .put("uiVisible", DikcizCustomAppActivity.current()?.appId() == app.id)
+        .put("motion", DikcizCustomAppMotion.status(app.id))
         .put("run", database(context).use { it.get(RUN_KIND, app.id) } ?: JSONObject.NULL)
         .put("timers", JSONArray(timers(context).filter { it.optString("appId") == app.id }))
         .put("alert", DikcizSosWarning.status().takeIf { it.optString("appId") == app.id }
@@ -316,7 +366,11 @@ internal object DikcizCustomApps {
                     database(context).use { it.put(RUN_KIND, app.id, run) }
                     replies.forEach { it.delivered() }
                     if (!readOnly) changed(context, app.id)
-                    logger(context).info("custom_app_event_completed", mapOf("app_id" to app.id, "event_type" to name))
+                    val fields = mapOf("app_id" to app.id, "event_type" to name)
+                    when (name) {
+                        "sensor", "location" -> logger(context).debug("custom_app_event_completed", fields)
+                        else -> logger(context).info("custom_app_event_completed", fields)
+                    }
                     return JSONObject(run.toString()).put("result", result.result ?: JSONObject()).put("state", state)
                 }
                 else -> {
@@ -340,7 +394,8 @@ internal object DikcizCustomApps {
             val app = DikcizCustomAppStore(context).read(id)
             requireEnabled(context, app)
             val type = request.getString("type")
-            val cleanup = type == DikcizJourneys.FENCE_DELETE || type == DikcizCustomAppCommands.STATE || type == DikcizCustomAppCommands.ALERT && request.optString("action") == "close" ||
+            val cleanup = type == DikcizCustomAppMotion.COMMAND && request.optString("action") == "stop" ||
+                type == DikcizJourneys.FENCE_DELETE || type == DikcizCustomAppCommands.STATE || type == DikcizCustomAppCommands.ALERT && request.optString("action") == "close" ||
                 type == DikcizCustomAppCommands.SCHEDULE && request.optString("action") in setOf("cancel", "cancelAll") ||
                 type == DikcizMicrophoneSession.TYPE && request.optString("action") in setOf("stop", "cancel")
             fun checkCancellation() {
@@ -353,6 +408,14 @@ internal object DikcizCustomApps {
             if (readOnly && (incoming.optBoolean(DikcizPermissionRequests.KEY_AUTO_REQUEST) ||
                     type !in DikcizNativeCommands.READ_ONLY_TYPES && type !in DikcizFileCommands.READ_ONLY_TYPES)) {
                 DikcizNativeCommands.failure("native_read_only", "Read-only app queries cannot execute mutating commands")
+            }
+            if (type == DikcizCustomAppMotion.COMMAND) {
+                val result = DikcizCustomAppMotion.command(context, id, request)
+                return DikcizLocalCommands.Reply(JSONObject().put("type", "result").put("requestId", requestId).put("result", result), type) {}
+            }
+            if (type == APP_LOG) {
+                val result = writeAppLog(context, id, request)
+                return DikcizLocalCommands.Reply(JSONObject().put("type", "result").put("requestId", requestId).put("result", result), type) {}
             }
             if (type == "automationDispatch" && !request.has("sourceWidgetAddress")) {
                 val actions = request.optJSONArray("actions") ?: DikcizNativeCommands.invalid("actions must be an array")
@@ -516,6 +579,8 @@ internal object DikcizCustomApps {
     @Synchronized fun pausePending(context: Context) {
         val ids = timers(context).filter { it.optString("state") == PENDING }.map { it.getString("appId") }.toMutableSet()
         alert(context)?.let { ids.add(it.getString("appId")) }
+        DikcizCustomAppMotion.owner()?.let(ids::add)
+        DikcizCustomAppMotion.stop()
         for (id in ids) {
             try { invoke(context, DikcizCustomAppStore(context).read(id), "app.stopped", JSONObject().put("reason", "owner_paused"), stopping = true) }
             catch (exception: Exception) { logger(context).warn("custom_app_pause_handler_failed", mapOf("app_id" to id, "error_class" to exception.javaClass.simpleName)) }
@@ -526,7 +591,24 @@ internal object DikcizCustomApps {
         refreshSubscriptions(context)
     }
 
+    @Synchronized fun deliverMotion(context: Context, id: String, event: String, payload: JSONObject) {
+        try {
+            val app = DikcizCustomAppStore(context).read(id)
+            if (!isEnabled(context, app)) return
+            logger(context).info("custom_app_motion_event", mapOf("app_id" to id, "event_type" to event,
+                "outcome" to payload.optString("reason", "threshold_crossed"),
+                "delivery_age_milliseconds" to payload.optLong("deliveryAgeMilliseconds"),
+                "handler_age_milliseconds" to payload.optLong("sampledAtMilliseconds").takeIf { it > 0L }
+                    ?.let { (System.currentTimeMillis() - it).coerceAtLeast(0L) }.let { it ?: 0L }))
+            invoke(context, app, event, payload)
+        } catch (exception: Exception) {
+            logger(context).error("custom_app_motion_failed", mapOf("app_id" to id, "event_type" to event,
+                "error_class" to exception.javaClass.simpleName))
+        }
+    }
+
     @Synchronized fun onEvent(context: Context, event: DikcizAutomationEvent) {
+        if (event.name == DikcizCustomAppMotion.HIT || event.name == DikcizCustomAppMotion.STOPPED) return
         val matches = appSubscriptions.filter { it.subscription.matches(event) }
         if (matches.isEmpty()) return
         val store = DikcizCustomAppStore(context)

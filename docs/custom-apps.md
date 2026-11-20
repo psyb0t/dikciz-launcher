@@ -87,6 +87,16 @@ For a complete working reference, read [Travel todo](todo-app-tutorial.md) and i
 
 Tap an app's name to open it. Its **More actions** overflow contains editing, start/stop, export and removal. The native manager's **Edit bundle** exposes the complete manifest, HTML, CSS, UI JavaScript and backend source. Choose a file above the editor; switching files and rotating the screen preserve unsaved edits. Back asks before discarding changes. Failed saves keep the editor open; failed imports retain the archive path for correction and retry. State can be edited with `customAppState` or the public file. Saving preserves the app's running or stopped state. New apps start enabled. **Start app** and **Disable and stop** control execution without a permission dialog. Opening a stopped app starts it. The native manager is a separate activity, reachable again after Android permission screens take the foreground. Hiding or closing its interface sends `app.ui.hidden` to its backend. Voice notes uses that event to stop its recorder and preserve a pending save for reopening; other apps decide their own hidden behavior.
 
+## App logs
+
+Inside an app, call `customAppLog` with `{level, event, incidentId?, outcome?, detail?}`. The launcher adds the current app's stable ID as `app_id`. Logs use Dikciz's shared level, redaction, disk budget and retention. The default retention is seven days. The shared Logs viewer and `scriptLogs` return the app ID with record kind `app`. Use one short event name and diagnostic codes. Keep contact information, message bodies and credentials out of diagnostics.
+
+## Motion monitoring
+
+An app can use `customAppMotion` with `action: "start"`, `monitorId`, `thresholdG` and `durationMilliseconds` to start a one-shot linear-acceleration monitor. It requests 5 ms samples without batching on a dedicated thread, keeps up to two seconds of recent readings in memory, and evaluates the threshold on every delivered sample. Set `thresholdG` from 1 to 12 and `durationMilliseconds` from 1,000 to 7,200,000. The sampling interval is an Android hint. The monitor holds bounded CPU wake time only when the device lacks a wake-up sensor. It releases the sensor and power lease on a hit, stop, expiry, or stalled feed.
+
+The monitor emits `app.motion.hit` with `monitorId`, `values` (three axes in m/s²), `sampledAtMilliseconds` (Unix time) and `deliveryAgeMilliseconds`. `app.motion.stopped` sends `monitorId` and a `reason` of `expired` or `sensor_feed_stalled`. Those two events come from the host. Query `action: "status"` for the latest sample age, observed sample rate and recent peak. The same status is in `motion` on `customAppRead`. Use `action: "stop"` to release the monitor. Only one app can monitor at a time.
+
 ## Timers and alerts
 
 `customAppSchedule` schedules a one-shot event with `action: schedule`, `timerId`, `event`, `delayMilliseconds` and optional object `payload`. Delay ranges from 1000 through 604800000 ms. `cancel` selects a timer ID; `cancelAll` selects the app. The host persists timers and owns native wake-up alarms and a visible foreground service. At most 64 timers may be pending across apps; completed history is bounded to 256 records.

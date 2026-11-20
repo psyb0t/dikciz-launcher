@@ -7,6 +7,12 @@ nav_order: 10
 
 # Changelog
 
+## [0.33.0] - 2026-11-20
+
+- Add a native linear acceleration monitor for custom apps. It requests readings every 5 ms, retains up to two seconds of readings and reports the first threshold crossing. Apps can inspect the observed sample rate and detect a stalled feed.
+- Keep the strongest linear acceleration reading and its timestamp when pending events are combined. The existing `values` field still carries the latest reading.
+- Route custom-app diagnostics and WebView console messages to the shared Dikciz logs with the app identifier, using the configured log level and retention.
+
 ## [0.32.1] - 2026-11-16
 
 - Fix a selection outline that remained on newly added widgets until they were moved.

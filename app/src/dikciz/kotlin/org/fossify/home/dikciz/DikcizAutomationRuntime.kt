@@ -9,6 +9,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.hardware.Sensor
 import android.media.AudioManager
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
@@ -193,7 +194,8 @@ internal object DikcizAutomationEventBus {
     ) {
         val key = PendingSensorEventKey(context.packageName, event.coalescingKey)
         synchronized(sensorQueueLock) {
-            pendingSensorEvents[key] = event
+            val previous = pendingSensorEvents[key]
+            pendingSensorEvents[key] = if (previous == null) event else preserveAccelerationPeak(previous, event)
             if (!queuedSensorEvents.add(key)) {
                 return
             }
@@ -235,13 +237,47 @@ internal object DikcizAutomationEventBus {
         }
     }
 
-    // Sensor callbacks can arrive faster than a script's state write. Keep the
-    // newest sample per source so that work cannot starve location or controls.
+    // Preserve short impacts while the worker is busy and keep values as the latest sample.
+    private fun preserveAccelerationPeak(
+        previous: DikcizAutomationEvent,
+        current: DikcizAutomationEvent,
+    ): DikcizAutomationEvent {
+        if (current.payload.optInt(DikcizAutomationEventPayload.SENSOR_TYPE) != Sensor.TYPE_LINEAR_ACCELERATION) {
+            return current
+        }
+        val previousValues = previous.payload.optJSONArray(PEAK_VALUES) ?: previous.payload.optJSONArray(SENSOR_VALUES)
+        val currentValues = current.payload.optJSONArray(SENSOR_VALUES)
+        if (accelerationMagnitudeSquared(previousValues) <= accelerationMagnitudeSquared(currentValues)) {
+            return current
+        }
+        val previousTimestamp = previous.payload.optLong(PEAK_TIMESTAMP, previous.timestampMilliseconds)
+        return current.copy(
+            payload = JSONObject(current.payload.toString())
+                .put(PEAK_VALUES, previousValues)
+                .put(PEAK_TIMESTAMP, previousTimestamp),
+        )
+    }
+
+    private fun accelerationMagnitudeSquared(values: org.json.JSONArray?): Double {
+        if (values == null || values.length() < ACCELERATION_AXES) return -1.0
+        var magnitude = 0.0
+        for (axis in 0 until ACCELERATION_AXES) {
+            val value = values.optDouble(axis)
+            if (!value.isFinite()) return -1.0
+            magnitude += value * value
+        }
+        return magnitude
+    }
+
     private data class PendingSensorEventKey(
         val packageName: String,
         val coalescingKey: String,
     )
 
+    private const val ACCELERATION_AXES = 3
+    private const val SENSOR_VALUES = "values"
+    private const val PEAK_VALUES = "peakValues"
+    private const val PEAK_TIMESTAMP = "peakTimestampMilliseconds"
     private const val AUTOMATION_EVENT_THREAD_NAME = "dikciz-automation-events"
     private const val SOURCE_MANUAL_TRIGGER = "manual_trigger"
     private const val SOURCE_WIDGET_CHANGED = "home_widget"

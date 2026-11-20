@@ -187,15 +187,16 @@ internal class DikcizLogger(
         val timestamp = value.safeString(FIELD_TIMESTAMP, MAXIMUM_TIMESTAMP_CHARACTERS) ?: return null
         val level = value.safeString(FIELD_LEVEL, MAXIMUM_LEVEL_CHARACTERS) ?: return null
         val event = value.safeString(FIELD_EVENT, MAXIMUM_EVENT_CHARACTERS) ?: return null
+        val appID = value.safeString("app_id", MAXIMUM_SCRIPT_ID_CHARACTERS)
         val scriptID = value.safeString(FIELD_SCRIPT_ID, MAXIMUM_SCRIPT_ID_CHARACTERS)
-            ?: value.safeString(FIELD_COMPONENT, MAXIMUM_SCRIPT_ID_CHARACTERS)
+            ?: appID ?: value.safeString(FIELD_COMPONENT, MAXIMUM_SCRIPT_ID_CHARACTERS)
             ?: return null
         return DikcizScriptLogRecord(
             timestamp = timestamp,
             level = level,
             event = event,
             scriptID = scriptID,
-            scriptKind = value.safeString(FIELD_SCRIPT_KIND, MAXIMUM_FIELD_VALUE_CHARACTERS),
+            scriptKind = value.safeString(FIELD_SCRIPT_KIND, MAXIMUM_FIELD_VALUE_CHARACTERS) ?: appID?.let { "app" },
             policyID = value.safeString(FIELD_POLICY_ID, MAXIMUM_FIELD_VALUE_CHARACTERS),
             eventType = value.safeString(FIELD_EVENT_TYPE, MAXIMUM_FIELD_VALUE_CHARACTERS),
             actionType = value.safeString(FIELD_ACTION_TYPE, MAXIMUM_FIELD_VALUE_CHARACTERS)
