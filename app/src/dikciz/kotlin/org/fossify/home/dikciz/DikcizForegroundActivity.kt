@@ -9,7 +9,7 @@ import java.lang.ref.WeakReference
 
 internal object DikcizForegroundActivity : Application.ActivityLifecycleCallbacks {
     private var attached=false
-    private var resumed=WeakReference<Activity>(null)
+    @Volatile private var resumed=WeakReference<Activity>(null)
     @Synchronized fun attach(application: Application) {
         if (attached) return
         application.registerActivityLifecycleCallbacks(this)

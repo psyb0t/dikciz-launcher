@@ -87,6 +87,8 @@ Success responses contain `type = "result"`, `requestId` and `result`. Launcher 
 
 Use `autoRequestPermissions = true` in an ordinary command to request an owner-reviewed Android permission handoff. It neither grants access nor retries the command. A background notification is not a completed grant. Request again only after the owner grants access and the relevant command's retry behavior permits it.
 
+For raw hardware capture, use `sensorStreamStart`, `sensorStreamStatus`, `sensorStreamRead` and `sensorStreamStop` through the standard command binding. Keep the cursor per reader. In a custom-app backend, opt into `app.sensor.samples` and `app.sensor.stopped` for native batch delivery. See [raw sensor sessions](native-device-control.md#raw-sensor-sessions).
+
 ## Returned actions
 
 <!-- {% raw %} -->

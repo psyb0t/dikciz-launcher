@@ -40,6 +40,8 @@ internal object DikcizOperations {
         database().execSQL("UPDATE activity SET outcome = 'interrupted', outcome_known = 0 WHERE outcome = 'running'")
     }
 
+    fun currentActor(): String? = actor.get()
+
     fun <T> withDefaultActor(value: String, action: () -> T): T =
         if (actor.get() == null) withActor(value, action) else action()
 

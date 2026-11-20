@@ -18,12 +18,12 @@ ALARM_INTERVAL_MILLISECONDS = 60000
 def trigger_and_wait_result(connection, outcome):
     path = f"/sdcard/Dikciz/scripts/{AUTOMATION_LIVE_SCRIPT_ID}/run-status.json"
     command = f"if test -f {path}; then cat {path}; else echo '{{}}'; fi"
-    before = json.loads(device_command(command)).get("lastRunAt", 0)
+    before = json.loads(device_command(command)).get("lastRunAt", "")
     AUTOMATION.request(connection, "automationTrigger", scriptId=AUTOMATION_LIVE_SCRIPT_ID)
     deadline = time.monotonic() + RESULT_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
         result = json.loads(device_command(command))
-        if result.get("lastRunAt", 0) > before and result.get("outcome") == outcome:
+        if result.get("lastRunAt", "") > before and result.get("outcome") == outcome:
             return result
         time.sleep(RESULT_POLL_SECONDS)
     raise AssertionError(f"Fresh {outcome} outcome missing: {result}")

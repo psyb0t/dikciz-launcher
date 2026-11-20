@@ -123,6 +123,8 @@ Custom app WebViews receive the same bridge object, with an app-local command ho
 
 App-local native results can omit the launcher's `revision`; consumers must not require that optional metadata. `command()` still unwraps `result` and `request()` still returns the envelope. See [app lifecycle, timers and alerts](custom-apps.md).
 
+For raw hardware capture, use `sensorStreamStart`, `sensorStreamStatus`, `sensorStreamRead` and `sensorStreamStop` through the standard command binding. Keep the cursor per reader. In a custom-app backend, opt into `app.sensor.samples` and `app.sensor.stopped` for native batch delivery. See [raw sensor sessions](native-device-control.md#raw-sensor-sessions).
+
 ## Events
 
 | API/event | Payload | Behavior |

@@ -226,6 +226,10 @@ Basic device/control/authentication status, self access information and packaged
 | [searchRead](#searchread) | [dikciz_search_read](command-reference.md#dikciz_search_read) |
 | [selectPage](#selectpage) | [dikciz_select_page](command-reference.md#dikciz_select_page) |
 | [sensorReadings](#sensorreadings) | [dikciz_sensor_readings](command-reference.md#dikciz_sensor_readings) |
+| [sensorStreamRead](#sensorstreamread) | [dikciz_sensor_stream_read](command-reference.md#dikciz_sensor_stream_read) |
+| [sensorStreamStart](#sensorstreamstart) | [dikciz_sensor_stream_start](command-reference.md#dikciz_sensor_stream_start) |
+| [sensorStreamStatus](#sensorstreamstatus) | [dikciz_sensor_stream_status](command-reference.md#dikciz_sensor_stream_status) |
+| [sensorStreamStop](#sensorstreamstop) | [dikciz_sensor_stream_stop](command-reference.md#dikciz_sensor_stream_stop) |
 | [setText](#settext) | [dikciz_set_text](command-reference.md#dikciz_set_text) |
 | [shell](#shell) | [dikciz_shell](command-reference.md#dikciz_shell) |
 | [shellSessionForget](#shellsessionforget) | [dikciz_shell_session_forget](command-reference.md#dikciz_shell_session_forget) |
@@ -2223,6 +2227,46 @@ MCP: [`dikciz_sensor_readings`](command-reference.md#dikciz_sensor_readings). Th
 | Grant | Exact selectors | Definition |
 | --- | --- | --- |
 | `command.sensorReadings` | All accepted arguments | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+
+## sensorStreamRead
+
+Read raw ordered samples after a sequence cursor. Pass nextSequence to continue. lostSamples reports samples evicted before this read. Reads leave other cursors unchanged.
+
+MCP: [`dikciz_sensor_stream_read`](command-reference.md#dikciz_sensor_stream_read). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
+
+| Grant | Exact selectors | Definition |
+| --- | --- | --- |
+| `command.sensorStreamRead` | All accepted arguments | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+
+## sensorStreamStart
+
+Start a caller-owned raw Android sensor session. Discover sensorId with sensorReadings. Sampling period is a request. Background capture explicitly starts a foreground service.
+
+MCP: [`dikciz_sensor_stream_start`](command-reference.md#dikciz_sensor_stream_start). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
+
+| Grant | Exact selectors | Definition |
+| --- | --- | --- |
+| `command.sensorStreamStart` | All accepted arguments | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+
+## sensorStreamStatus
+
+Read a sensor session's observed rate, newest sample age, retained and evicted counts, deadline and terminal reason.
+
+MCP: [`dikciz_sensor_stream_status`](command-reference.md#dikciz_sensor_stream_status). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
+
+| Grant | Exact selectors | Definition |
+| --- | --- | --- |
+| `command.sensorStreamStatus` | All accepted arguments | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+
+## sensorStreamStop
+
+Release the Android listener and any wake lease for a caller-owned sensor session.
+
+MCP: [`dikciz_sensor_stream_stop`](command-reference.md#dikciz_sensor_stream_stop). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
+
+| Grant | Exact selectors | Definition |
+| --- | --- | --- |
+| `command.sensorStreamStop` | All accepted arguments | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
 
 ## setText
 

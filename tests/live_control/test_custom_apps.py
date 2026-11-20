@@ -226,6 +226,30 @@ def test_custom_apps_archive_round_trip_excludes_state_and_rejects_traversal(app
     assert native_call("http", COMMAND_READ, {"appId": identifier})["state"] == {}
 
 
+def test_custom_apps_bundled_impact_response(websocket_control):
+    identity = {"appId": "impact-response"}
+    installed = native_call("http", COMMAND_READ, identity)
+    assert installed["enabled"] and installed["state"] == {} and not installed["uiVisible"]
+    assert installed["timers"] == [] and not installed["alert"]["active"]
+    open_app_manager(websocket_control)
+    tap(websocket_control, "custom-app:impact-response:open")
+    try:
+        assert wait_app_visible(websocket_control)["appId"] == identity["appId"]
+        wait_for_physical_text_bounds("Disarmed")
+        run_device_operation("screenshot")
+        shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png",
+                        ARTIFACT_DIRECTORY / "custom-app-impact-response.png")
+        preview = native_call("http", COMMAND_EVENT, {**identity, "event": "impact.preview"})
+        assert preview["status"] == "Preview only"
+        assert "Phone linear acceleration" in preview["result"]["message"]
+        native_call("http", COMMAND_EVENT, {**identity, "event": "impact.arm", "payload": {"confirm": True}},
+                    error="impact_invalid")
+        after = native_call("http", COMMAND_READ, identity)
+        assert after["state"] == {} and after["timers"] == [] and not after["alert"]["active"]
+    finally:
+        restore_system_home()
+
+
 @pytest.mark.parametrize("identifier", ["sos", "voice-notes", "agenda", "device-status", "travel-todo"])
 def test_custom_apps_bundled_screens_and_editor(websocket_control, identifier):
     restore_system_home()

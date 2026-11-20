@@ -379,6 +379,8 @@ internal class DikcizHtmlWidgetView(
             return
         }
         isReleased = true
+        val address = widgetContext.optString("address")
+        if (address.isNotEmpty()) DikcizSensorStreams.stopOwner("html:" + address)
         generation++
         releaseCommandBridge()
         webView.stopLoading()

@@ -90,6 +90,7 @@ internal class DikcizAutomationControlPlane(
                 Thread(runnable, THREAD_NAME_PREFIX + UUID.randomUUID()).apply { isDaemon = true }
             }
             workerPool?.execute(::acceptClients)
+            DikcizSensorStreams.attachSocket(this)
             logger.info(
                 EVENT_CONTROL_PLANE_STARTED,
                 mapOf(FIELD_BIND_ADDRESS to listenAddress, FIELD_PORT to port),
@@ -114,6 +115,7 @@ internal class DikcizAutomationControlPlane(
         if (!isRunning.compareAndSet(true, false)) {
             return
         }
+        DikcizSensorStreams.detachSocket(this)
         shellStreams.close()
         serverSocket?.close()
         serverSocket = null
@@ -142,6 +144,28 @@ internal class DikcizAutomationControlPlane(
                 logger.warn(EVENT_CLIENT_BACKPRESSURE, mapOf(FIELD_CLIENT_ID to client.id))
             }
         }
+    }
+
+    fun publishSensorStream(accessId: String, event: String, page: JSONObject): Boolean {
+        val request = JSONObject().put("sessionId", page.getString("sessionId"))
+        val authorized = clients.filter { client ->
+            val access = client.access ?: return@filter false
+            if (access.id != accessId) return@filter false
+            try {
+                access.requireCommand(DikcizSensorStreams.READ, request)
+                true
+            } catch (_: DikcizAutomationRequestException) {
+                false
+            }
+        }
+        if (authorized.isEmpty()) return false
+        val message = JSONObject().put(KEY_TYPE, TYPE_EVENT).put(KEY_EVENT, event)
+            .put(KEY_REVISION, revision.incrementAndGet()).put(KEY_FIELDS, page).toString()
+        var accepted = false
+        for (client in authorized) {
+            if (client.sendText(message)) accepted = true
+        }
+        return accepted
     }
 
     private fun acceptClients() {

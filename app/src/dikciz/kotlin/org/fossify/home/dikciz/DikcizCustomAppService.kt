@@ -55,7 +55,7 @@ internal class DikcizCustomAppService : Service(), LocationListener {
                     }
                     val pending = DikcizCustomApps.timers(applicationContext).filter { it.optString("state") == "pending" }
                     deadline = pending.minOfOrNull { it.getLong("deadlineElapsed") } ?: 0
-                    alive = pending.isNotEmpty() || alert != null
+                    alive = pending.isNotEmpty() || alert != null || DikcizSensorStreams.usesBackgroundService()
                 } catch (exception: Exception) {
                     logger.error("custom_app_service_failed", mapOf("error_class" to exception.javaClass.simpleName))
                 }
@@ -160,8 +160,10 @@ internal class DikcizCustomAppService : Service(), LocationListener {
     private fun notification(): Notification {
         val open = PendingIntent.getActivity(this, NOTIFICATION_ID, Intent(this, DikcizCustomAppActivity::class.java), FLAGS)
         val stop = PendingIntent.getService(this, NOTIFICATION_ID, Intent(this, javaClass).setAction(ACTION_STOP), FLAGS)
+        val detail = if (DikcizSensorStreams.usesBackgroundService()) "Background sensor capture is active."
+            else "Scheduled background work. Tap to inspect apps."
         return Notification.Builder(this, CHANNEL).setSmallIcon(android.R.drawable.ic_popup_sync)
-            .setContentTitle("Dikciz apps running").setContentText("Scheduled background work. Tap to inspect apps.")
+            .setContentTitle("Dikciz background work").setContentText(detail)
             .setOngoing(true).setOnlyAlertOnce(true).setContentIntent(open)
             .addAction(Notification.Action.Builder(null, "Pause apps", stop).build()).build()
     }
@@ -186,6 +188,7 @@ internal class DikcizCustomAppService : Service(), LocationListener {
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onDestroy() {
         running = false
+        DikcizSensorStreams.stopBackground("foreground_unavailable")
         handler.removeCallbacksAndMessages(null)
         warning.close()
         getSystemService(NotificationManager::class.java).cancel(DikcizSosWarning.NOTIFICATION_ID)

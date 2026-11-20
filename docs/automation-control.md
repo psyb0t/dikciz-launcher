@@ -476,6 +476,8 @@ HTML uses `await dikciz.command("appIcon", {component: app.component})`, then se
 
 Hardware sensor snapshots, current location, camera capture, microphone recording and speech are shared native commands across network, HTML and Lua bindings. See [hardware commands](native-device-control.md#sensors-camera-microphone-and-speech) for schemas, capture paths and Android restrictions.
 
+Use [raw sensor sessions](native-device-control.md#raw-sensor-sessions) for ordered device readings, per-caller cursors, optional WebSocket batches and loss reporting.
+
 Live linear acceleration events carry the latest sample and, when pending samples were coalesced, the strongest earlier sample and its timestamp. See [event replay](event-replay.md#access-and-delivery) for the payload fields and delivery limits.
 
 HTML receives `dikciz-visibility` with `{visible}` when its native page or window visibility changes. `selfWidget.visible` exposes the current value. Use this for foreground work because neighboring pages can be preloaded before selection.

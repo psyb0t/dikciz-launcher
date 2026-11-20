@@ -1,0 +1,66 @@
+<main>
+  <header>
+    <p class="eyebrow">MOTION SAFETY</p>
+    <h1>Impact response</h1>
+    <p id="status" role="status">Loading settings…</p>
+  </header>
+  <section id="incident" hidden>
+    <h2>Latest incident</h2>
+    <p id="report"></p>
+    <ul id="outcomes"></ul>
+    <button id="close" type="button">Close alert and stop repeats</button>
+    <button id="receipt" type="button">Refresh SMS status</button>
+  </section>
+  <section>
+    <h2>Emergency contact</h2>
+    <label for="lookup">Find a contact by name</label>
+    <div class="row">
+      <input id="lookup" type="search" maxlength="80" autocomplete="off">
+      <button id="find" type="button">Find</button>
+    </div>
+    <div id="choices"></div>
+    <form id="settings">
+      <fieldset id="options">
+        <label for="address">Recipient number, including country code</label>
+        <input id="address" type="tel" maxlength="24" placeholder="+1 …" required>
+        <label for="threshold">Linear acceleration threshold in g</label>
+        <input id="threshold" type="number" min="1" max="12" step="0.1" value="4" required>
+        <label for="armHours">Arming duration (hours)</label>
+        <input id="armHours" type="number" inputmode="decimal" min="0.01" max="168" step="any" value="2" required>
+        <label for="sim">SMS SIM</label>
+        <select id="sim"><option value="">Android default</option></select>
+        <button id="load-sims" type="button">List available SIMs</button>
+        <label class="check"><input id="braking" type="checkbox"> Detect hard braking using GPS and phone motion</label>
+        <label class="check"><input id="speed" type="checkbox" checked> Include recent GPS speed when available</label>
+        <label class="check"><input id="call" type="checkbox"> Place a short call to the recipient (about 2 seconds)</label>
+        <label class="check"><input id="photos" type="checkbox"> Save front and rear photos</label>
+        <label class="check"><input id="whatsapp" type="checkbox"> Automatically send saved photos via WhatsApp</label>
+        <div id="whatsapp-options" hidden>
+          <p>Uses the recipient number above. WhatsApp needs an awake, unlocked phone and Dikciz cross-app accessibility. SMS sends first.</p>
+          <label for="whatsappName">Exact WhatsApp chat name</label>
+          <input id="whatsappName" type="text" maxlength="120" autocomplete="off">
+          <label for="storageName">Phone storage name in the Android file picker</label>
+          <input id="storageName" type="text" maxlength="120" autocomplete="off">
+        </div>
+        <button type="submit">Save settings</button>
+      </fieldset>
+    </form>
+  </section>
+  <section>
+    <h2>Monitoring</h2>
+    <p>Arming watches for one incident for the saved duration. A 20-second cancellation window comes before SMS or optional actions. Phone motion alone cannot confirm a crash.</p>
+    <p id="monitor-status" role="status"></p>
+    <button id="arm" type="button" disabled>Arm for 2 hours</button>
+    <button id="preview" type="button">Preview message</button>
+    <details>
+      <summary>Review Android access</summary>
+      <button data-access="sms" type="button">SMS</button>
+      <button data-access="notifications" type="button">Notifications</button>
+      <button data-access="locationForeground" type="button">GPS speed</button>
+      <button data-access="cameraAndMicrophone" type="button">Camera access</button>
+      <button data-access="accessibility" type="button">Cross-app accessibility</button>
+      <button data-access="telephony" type="button">Calls</button>
+    </details>
+    <p id="preview-result" role="status"></p>
+  </section>
+</main>

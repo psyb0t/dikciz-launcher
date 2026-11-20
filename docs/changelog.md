@@ -7,6 +7,12 @@ nav_order: 10
 
 # Changelog
 
+## [0.34.0] - 2026-11-20
+
+- Bundle Impact Response under Dikciz > Apps. It opens disarmed and keeps existing installed copies and settings.
+- Add raw sensor sessions across HTTP, MCP, WebSocket, HTML, Lua and JavaScript. Callers can read ordered samples at their own pace, inspect the observed rate and detect dropped samples. Custom apps and WebSocket clients can also receive batches from their own sessions.
+- Add standalone guides and install links for all six bundled apps.
+
 ## [0.33.0] - 2026-11-20
 
 - Add a native linear acceleration monitor for custom apps. It requests readings every 5 ms, retains up to two seconds of readings and reports the first threshold crossing. Apps can inspect the observed sample rate and detect a stalled feed.

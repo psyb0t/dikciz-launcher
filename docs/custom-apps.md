@@ -4,6 +4,7 @@ description: "Build editable HTML, CSS and JavaScript apps with Lua or JavaScrip
 permalink: /custom-apps/
 nav_order: 3
 parent: "Developer manual"
+has_children: true
 ---
 
 # Custom apps
@@ -18,11 +19,12 @@ These are apps inside Dikciz. Android does not install a separate APK or grant t
 
 | App | Behavior |
 | --- | --- |
-| Travel todo | Editable checklist with an opt-in GPS arrival rule and a custom-event input. Follow the [complete tutorial](todo-app-tutorial.md). |
-| SOS check-ins | Editable contact plans, preview, explicit arming, cancellation countdown, tracked SMS and periodic location updates. All workflow decisions live in `apps/sos/main.js`; the UI lives beside it. |
-| Voice notes | Record, save and replay local audio. Recording begins on a tap and stops when the app is hidden. Saved files belong to this app. |
-| Agenda and alarms | Upcoming calendar entries, next Android alarm and links to Android calendar/alarm apps. Calendar access is optional and requested explicitly. |
-| Device status | Live battery, memory, storage, process CPU history and Android-exposed per-core data. Restricted system counters remain explicit. |
+| [Impact response](app-impact-response.md) | Opt-in motion warning, countdown and emergency-contact SMS, with optional GPS, calls and photos. The app owns detection using raw sensor batches. |
+| [Travel todo](app-travel-todo.md) | Editable checklist with an opt-in GPS arrival rule and a custom-event input. Follow the [complete tutorial](todo-app-tutorial.md). |
+| [SOS and check-ins](app-sos-check-ins.md) | Editable contact plans, preview, explicit arming, cancellation countdown, tracked SMS and periodic location updates. All workflow decisions live in `apps/sos/main.js`; the UI lives beside it. |
+| [Voice notes](app-voice-notes.md) | Record, save and replay local audio. Recording begins on a tap and stops when the app is hidden. Saved files belong to this app. |
+| [Agenda and alarms](app-agenda.md) | Upcoming calendar entries, next Android alarm and links to Android calendar/alarm apps. Calendar access is optional and requested explicitly. |
+| [Device status](app-device-status.md) | Live battery, memory, storage, process CPU history and Android-exposed per-core data. Restricted system counters remain explicit. |
 
 Bundled source installs only when absent. Updates preserve customized bundles. Removing a bundled app records that choice, so reopening Home does not silently reinstall it. Voice notes, Agenda and Device status reuse the complete widget documents as independent apps; their UI polling stops when hidden. SOS uses its backend for deadlines and outgoing effects. Geofences, route capture and the visual automation editor remain native features.
 
@@ -90,6 +92,10 @@ Tap an app's name to open it. Its **More actions** overflow contains editing, st
 ## App logs
 
 Inside an app, call `customAppLog` with `{level, event, incidentId?, outcome?, detail?}`. The launcher adds the current app's stable ID as `app_id`. Logs use Dikciz's shared level, redaction, disk budget and retention. The default retention is seven days. The shared Logs viewer and `scriptLogs` return the app ID with record kind `app`. Use one short event name and diagnostic codes. Keep contact information, message bodies and credentials out of diagnostics.
+
+## Raw sensor batches
+
+For app-defined detection, start a raw session with `sensorStreamStart` and set `deliveryIntervalMilliseconds`. The backend receives `app.sensor.samples` with the page of raw readings and `app.sensor.stopped` with the terminal state and any remaining readings. Only the owning app receives these events. Keep a session ID in app state, check it before acting on an event, and call `sensorStreamStop` on disarm. Handle `lostSamples`, `discardedSamples` and terminal failures before treating the feed as continuous. Apps decide whether a reading qualifies and what action to take. [Impact Response](app-impact-response.md#read-or-edit-the-detector) is a complete example that starts capture on arm, checks each reading, and disarms on loss. See [raw sensor sessions](native-device-control.md#raw-sensor-sessions) for fields and limits.
 
 ## Motion monitoring
 

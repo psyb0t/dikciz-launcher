@@ -27,3 +27,7 @@ Capture returns state:saved, path, mimeType and bytes after writing actual media
 `dikciz_speech_speak` requires text (at most 2000 characters) and accepts timeoutMilliseconds (default 30000). It speaks through the configured Android engine and returns state:spoken after completion, or an explicit failure. Device output is not call-stream injection.
 
 `dikciz_call_audio` accepts action status, record or speak. Status reports captureSupported:false and injectionSupported:false on this ordinary app installation. Record and speak return call_audio_unsupported. Android cellular call audio needs privileged system integration. Microphone permission does not grant it. Existing callControl places, answers or ends calls subject to Android access.
+
+## Raw sensor sessions
+
+Choose an ID from sensorReadings. Start with dikciz_sensor_stream_start. It takes the ID, optional sampling period, history capacity, lease duration and explicit background capture. Read ordered samples with dikciz_sensor_stream_read; keep nextSequence and retry from the last consumed cursor. Check lostSamples and discardedSamples before relying on continuity. Status gives the observed rate and terminal state. Stop the caller's session with dikciz_sensor_stream_stop when finished. Custom apps may opt into owner-only raw batches and choose their own detection rules.

@@ -1,0 +1,23 @@
+:root { color-scheme: dark; font: 16px/1.5 system-ui, sans-serif; background: #101416; color: #edf5f2; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 38rem; margin: auto; padding: 1rem; }
+header { padding: 1rem 0; }
+h1 { font-size: 2rem; line-height: 1.15; margin: .25rem 0; }
+h2 { font-size: 1.15rem; margin: 0 0 .75rem; }
+p { margin: .5rem 0; }
+section { padding: 1rem; background: #192124; border: 1px solid #344449; border-radius: .875rem; margin-bottom: .875rem; }
+.eyebrow { color: #86dcc1; font-weight: 700; letter-spacing: .1em; }
+fieldset { border: 0; padding: 0; min-width: 0; margin: 0; }
+label { display: block; margin-top: .7rem; }
+.row, .check { display: flex; align-items: center; gap: .65rem; }
+.check { min-height: 48px; }
+button, input, select { font: inherit; border: 1px solid #60767b; border-radius: .5rem; padding: .5rem .75rem; min-height: 48px; }
+input:not([type=checkbox]) { width: 100%; min-width: 0; background: #101416; }
+input[type=checkbox] { width: 1.3rem; }
+button { background: #28383d; color: inherit; font-weight: 650; margin-top: .45rem; }
+#arm, button[type=submit] { background: #9ce7cf; color: #0d2420; }
+button:disabled { opacity: .55; }
+button:focus-visible, input:focus-visible { outline: 2px solid #b2f6df; outline-offset: 2px; }
+#outcomes { padding-left: 1.25rem; overflow-wrap: anywhere; }
+button[hidden], section[hidden] { display: none; }

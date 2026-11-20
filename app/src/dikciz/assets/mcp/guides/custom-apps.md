@@ -1,6 +1,6 @@
 # Custom apps
 
-Owner apps live in /sdcard/Dikciz/apps/<id> with app.json, ui.html, ui.css, ui.js, main.js or main.lua, state.json and files/. Dikciz > Apps manages complete bundles. Bundled SOS, Voice notes, Agenda, Device status and Travel todo use the same platform. See recipes/travel-todo for a GPS checklist. SOS decisions are editable JS; native code hosts Android commands, timers and urgent windows.
+Owner apps live in /sdcard/Dikciz/apps/<id> with app.json, ui.html, ui.css, ui.js, main.js or main.lua, state.json and files/. Dikciz > Apps manages complete bundles. Bundled Impact Response, SOS, Voice notes, Agenda, Device status and Travel todo use the same platform. Impact Response starts raw acceleration capture only when armed. Its backend owns threshold checks, cancellation and effects. Preview is read-only. See recipes/travel-todo for a GPS checklist. SOS decisions are editable JS; native code hosts Android commands, timers and urgent windows.
 
 Discover customAppsList, customAppRead, customAppInstall, customAppControl, customAppEvent, customAppState, customAppSchedule, customAppAlert and customAppRuntime. MCP uses dikciz_custom_apps_list and dikciz_custom_app_* names. Scoped clients need explicit operation grants. Read-only agents see list/read/runtime; writes remain blocked.
 

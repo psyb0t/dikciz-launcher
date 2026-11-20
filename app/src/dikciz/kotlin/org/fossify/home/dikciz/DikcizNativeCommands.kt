@@ -108,6 +108,7 @@ internal object DikcizNativeCommands {
                     .put("openWorldHint", !readOnly))
         }
     }
+    private val SENSOR_SESSION_ID = mapOf("sessionId" to string("ID returned by sensorStreamStart. The session belongs to the caller.", 36))
     private val SPEECH_FIELDS = mapOf(KEY_TEXT to string("Text spoken by the phone.", 2000), "timeoutMilliseconds" to integer(1, 120_000, 30_000), "language" to string("BCP-47 language; defaults to engine selection.", 64), "voiceName" to string("Exact name from speechVoices. Voice selection takes precedence over language.", 256), "ratePercent" to integer(25, 400, 100), "pitchPercent" to integer(25, 400, 100))
     val DEFINITIONS = listOf(
         Definition(TYPE_STATUS, "dikciz_native_data_status", "Discover direct Android data resources, columns, operations and permission state. No UI automation or root.", emptyMap()),
@@ -129,6 +130,25 @@ internal object DikcizNativeCommands {
         Definition(TYPE_LOCATION, "dikciz_location_get", "Read a recent permitted location or wait for a bounded new fix. Returns age, accuracy and source. timeoutMilliseconds=0 reads cache only; unavailable is explicit.", mapOf("maxAgeMilliseconds" to integer(0, Int.MAX_VALUE, 300_000), "timeoutMilliseconds" to integer(0, 120_000, 10_000))),
         Definition(TYPE_SENSOR_READINGS, "dikciz_sensor_readings", "Read a bounded sample window for all hardware sensors, including multiple sensors of one type. sensorId comes from this inventory. Follow hasMore. Each sensor reports actual values, accuracy, timestamp or an explicit unavailable reason. Registrations stop when the request ends.",
             PAGE_FIELDS + mapOf("sensorId" to integer(0, Int.MAX_VALUE), "timeoutMilliseconds" to integer(1, 5000, 1000))),
+        Definition(DikcizSensorStreams.START, "dikciz_sensor_stream_start", "Start a caller-owned raw Android sensor session. Discover sensorId with sensorReadings. Sampling period is a request. Background capture explicitly starts a foreground service.",
+            mapOf(
+                "sensorId" to integer(0, Int.MAX_VALUE),
+                "samplingPeriodMicroseconds" to integer(0, DikcizSensorStreams.MAX_PERIOD_US, DikcizSensorStreams.DEFAULT_PERIOD_US),
+                "batchLatencyMilliseconds" to integer(0, DikcizSensorStreams.MAX_BATCH_MS, 0),
+                "historyMilliseconds" to integer(1, DikcizSensorStreams.MAX_HISTORY_MS, DikcizSensorStreams.DEFAULT_HISTORY_MS),
+                "capacity" to integer(1, DikcizSensorStreams.MAX_CAPACITY, DikcizSensorStreams.DEFAULT_CAPACITY),
+                "durationMilliseconds" to integer(DikcizSensorStreams.MIN_DURATION_MS, DikcizSensorStreams.MAX_DURATION_MS, DikcizSensorStreams.DEFAULT_DURATION_MS),
+                "background" to JSONObject().put("type", "boolean").put("default", false),
+                "deliveryIntervalMilliseconds" to integer(DikcizSensorStreams.MIN_DELIVERY_MS, DikcizSensorStreams.MAX_DELIVERY_MS)
+                    .put("description", "Optional live batches for the calling custom app or the owning token's WebSocket connections. Remote delivery also requires sensorStreamRead."),
+            ), setOf("sensorId"), readOnly = false),
+        Definition(DikcizSensorStreams.STATUS, "dikciz_sensor_stream_status", "Read a sensor session's observed rate, newest sample age, retained and evicted counts, deadline and terminal reason.",
+            SENSOR_SESSION_ID, setOf("sessionId")),
+        Definition(DikcizSensorStreams.READ, "dikciz_sensor_stream_read", "Read raw ordered samples after a sequence cursor. Pass nextSequence to continue. lostSamples reports samples evicted before this read. Reads leave other cursors unchanged.",
+            SENSOR_SESSION_ID + mapOf("afterSequence" to integer(0, Int.MAX_VALUE, 0), "limit" to integer(1, DikcizSensorStreams.MAX_PAGE, DikcizSensorStreams.DEFAULT_PAGE)),
+            setOf("sessionId")),
+        Definition(DikcizSensorStreams.STOP, "dikciz_sensor_stream_stop", "Release the Android listener and any wake lease for a caller-owned sensor session.",
+            SENSOR_SESSION_ID, setOf("sessionId"), readOnly = false),
         Definition(TYPE_CAMERAS, "dikciz_camera_list", "List Android camera IDs and lens directions without starting capture.", emptyMap()),
         Definition(TYPE_CAMERA_CAPTURE, "dikciz_camera_capture", "Capture a JPEG with optional quality, orientation, sensor crop zoom, exposure compensation and autofocus controls. Returns written image path and completed Android frame metadata. Read cameraCapabilities first. Android camera access and foreground restrictions apply.",
             mapOf(

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "id": "impact-response",
+  "title": "Impact response",
+  "description": "Configurable motion alert with a cancellation countdown, SMS and optional calls, photos and WhatsApp delivery.",
+  "language": "javascript",
+  "events": [],
+  "eventSubscriptions": [
+    {
+      "event": "location",
+      "minimumIntervalMilliseconds": 2000,
+      "locationPrecision": "precise"
+    }
+  ]
+}

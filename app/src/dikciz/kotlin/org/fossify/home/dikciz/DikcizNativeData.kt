@@ -120,6 +120,7 @@ internal class DikcizNativeData(
                     context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Dikciz", command.request.getString(DikcizNativeCommands.KEY_TEXT)))
                     JSONObject().put("state", "written")
                 }
+                in DikcizSensorStreams.TYPES -> DikcizSensorStreams.execute(context, command)
                 DikcizNativeCommands.TYPE_SENSOR_READINGS -> sensorReadings.read(command.request)
                 DikcizNativeCommands.TYPE_CAMERAS -> mediaCapture.cameras()
                 DikcizUssdControl.TYPE -> DikcizUssdControl.execute(context, command.request)

@@ -337,6 +337,10 @@ internal class DikcizAutomationRuntime(
 
     fun acceptConfiguration(configuration: HomeConfiguration) {
         lastAcceptedConfiguration = configuration
+        DikcizSensorStreams.stopMissingOwners(
+            LOCAL_COMMAND_OWNER_PREFIX,
+            configuration.scripts.asSequence().filter { it.enabled }.map { it.id }.toSet(),
+        )
         logger.configure(configuration.logging)
         reconcileDeliverySchedules(configuration)
     }

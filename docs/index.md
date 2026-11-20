@@ -42,7 +42,8 @@ Use the [tutorial](tutorial.md) for installation and first steps, or choose a ta
 | Configure the on-device assistant and event-driven conversations | [Embedded chat](embedded-chat.md) |
 | Browse every bundled page, HTML template and Lua example | [Starter home](starter-home.md) |
 | Build a checklist that checks a task after GPS arrival | [Travel todo tutorial and source](todo-app-tutorial.md) |
-| Create complete UI/backend apps with state, timers and alerts | [Custom apps](custom-apps.md) |
+| Use phone motion to trigger a warning and a contact SMS | [Impact Response for Android](app-impact-response.md) |
+| Explore the six included Android apps or build a new one | [Bundled app directory](custom-apps.md#bundled-apps) |
 | Edit files, themes, grid, widget state, libraries, policies, logging and listeners | [Configuration](dikciz-configuration.md) |
 | Look up every typed action, its fields and Lua policy name | [Typed actions](typed-actions.md) |
 | Check Android grants, foreground requirements and privilege boundaries | [Android access](android-access.md) |

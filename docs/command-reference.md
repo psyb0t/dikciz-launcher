@@ -10,7 +10,7 @@ parent: "Remote control"
 
 <!-- Regenerate with make dikciz-command-docs from captured tools/list discovery. -->
 
-This reference contains 221 discovered MCP tools and their complete input schemas. Discovery from the installed build is authoritative. Transport-independent procedures, Android permissions and results are described in the [automation guide](automation-control.md), [documentation index](index.md) and focused task guides. MCP tools use the same ordinary commands as HTTP, WebSocket, HTML and Lua. The [developer manual](developer-manual.md) defines runtimes, results and the task-guide index. [JavaScript](javascript-api.md), [Lua](lua-api.md), [typed actions](typed-actions.md) and [token permissions](token-permissions.md) provide the language and authorization contracts.
+This reference contains 225 discovered MCP tools and their complete input schemas. Discovery from the installed build is authoritative. Transport-independent procedures, Android permissions and results are described in the [automation guide](automation-control.md), [documentation index](index.md) and focused task guides. MCP tools use the same ordinary commands as HTTP, WebSocket, HTML and Lua. The [developer manual](developer-manual.md) defines runtimes, results and the task-guide index. [JavaScript](javascript-api.md), [Lua](lua-api.md), [typed actions](typed-actions.md) and [token permissions](token-permissions.md) provide the language and authorization contracts.
 
 Schemas include nested fields, required values, defaults and bounds. autoRequestPermissions requests owner review; it never grants access or retries the operation. Inspect returned state and errors before continuing.
 
@@ -183,6 +183,10 @@ Schemas include nested fields, required values, defaults and bounds. autoRequest
 | [`searchRead`](#dikciz_search_read) | [`dikciz_search_read`](#dikciz_search_read) |
 | [`selectPage`](#dikciz_select_page) | [`dikciz_select_page`](#dikciz_select_page) |
 | [`sensorReadings`](#dikciz_sensor_readings) | [`dikciz_sensor_readings`](#dikciz_sensor_readings) |
+| [`sensorStreamRead`](#dikciz_sensor_stream_read) | [`dikciz_sensor_stream_read`](#dikciz_sensor_stream_read) |
+| [`sensorStreamStart`](#dikciz_sensor_stream_start) | [`dikciz_sensor_stream_start`](#dikciz_sensor_stream_start) |
+| [`sensorStreamStatus`](#dikciz_sensor_stream_status) | [`dikciz_sensor_stream_status`](#dikciz_sensor_stream_status) |
+| [`sensorStreamStop`](#dikciz_sensor_stream_stop) | [`dikciz_sensor_stream_stop`](#dikciz_sensor_stream_stop) |
 | [`setText`](#dikciz_set_text) | [`dikciz_set_text`](#dikciz_set_text) |
 | [`shell`](#dikciz_shell) | [`dikciz_shell`](#dikciz_shell) |
 | [`shellSessionForget`](#dikciz_shell_session_forget) | [`dikciz_shell_session_forget`](#dikciz_shell_session_forget) |
@@ -9085,6 +9089,215 @@ WebView invocation: `await dikciz.command("sensorReadings", fields)`. Headless J
     }
   },
   "required": [],
+  "additionalProperties": false
+}
+```
+
+## dikciz_sensor_stream_read
+
+Read raw ordered samples after a sequence cursor. Pass nextSequence to continue. lostSamples reports samples evicted before this read. Reads leave other cursors unchanged.
+
+Ordinary command: `sensorStreamRead`. [Token scope definitions](token-permissions.md#sensorstreamread). [Result envelope and task guides](developer-manual.md#result-contract).
+
+WebView invocation: `await dikciz.command("sensorStreamRead", fields)`. Headless JavaScript: `context.request(Object.assign({}, fields, {type: "sensorStreamRead"}))`. Lua: set `request.type = "sensorStreamRead"`, then call `context.request(request)`. `fields`/`request` must contain the required parameters below. WebView `command` unwraps `result`; backend requests return the complete response envelope. [JavaScript methods](javascript-api.md) and [Lua types and errors](lua-api.md).
+
+| Parameter | Required | Type | Default | Definition and bounds |
+| --- | --- | --- | --- | --- |
+| `afterSequence` | No | `integer` | `0` | See the complete schema below. {"minimum": 0, "maximum": 2147483647} |
+| `autoRequestPermissions` | No | `boolean` | `false` | Ask the owner to grant missing Android access. Never grants access or retries automatically. |
+| `limit` | No | `integer` | `64` | See the complete schema below. {"minimum": 1, "maximum": 128} |
+| `sessionId` | Yes | `string` | `Not declared` | ID returned by sensorStreamStart. The session belongs to the caller. {"maxLength": 36} |
+
+
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "description": "ID returned by sensorStreamStart. The session belongs to the caller.",
+      "maxLength": 36
+    },
+    "afterSequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647,
+      "default": 0
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 128,
+      "default": 64
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "sessionId"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_sensor_stream_start
+
+Start a caller-owned raw Android sensor session. Discover sensorId with sensorReadings. Sampling period is a request. Background capture explicitly starts a foreground service.
+
+Ordinary command: `sensorStreamStart`. [Token scope definitions](token-permissions.md#sensorstreamstart). [Result envelope and task guides](developer-manual.md#result-contract).
+
+WebView invocation: `await dikciz.command("sensorStreamStart", fields)`. Headless JavaScript: `context.request(Object.assign({}, fields, {type: "sensorStreamStart"}))`. Lua: set `request.type = "sensorStreamStart"`, then call `context.request(request)`. `fields`/`request` must contain the required parameters below. WebView `command` unwraps `result`; backend requests return the complete response envelope. [JavaScript methods](javascript-api.md) and [Lua types and errors](lua-api.md).
+
+| Parameter | Required | Type | Default | Definition and bounds |
+| --- | --- | --- | --- | --- |
+| `autoRequestPermissions` | No | `boolean` | `false` | Ask the owner to grant missing Android access. Never grants access or retries automatically. |
+| `background` | No | `boolean` | `false` | See the complete schema below. |
+| `batchLatencyMilliseconds` | No | `integer` | `0` | See the complete schema below. {"minimum": 0, "maximum": 10000} |
+| `capacity` | No | `integer` | `400` | See the complete schema below. {"minimum": 1, "maximum": 4096} |
+| `deliveryIntervalMilliseconds` | No | `integer` | `Not declared` | Optional live batches for the calling custom app or the owning token's WebSocket connections. Remote delivery also requires sensorStreamRead. {"minimum": 50, "maximum": 5000} |
+| `durationMilliseconds` | No | `integer` | `60000` | See the complete schema below. {"minimum": 1000, "maximum": 7200000} |
+| `historyMilliseconds` | No | `integer` | `2000` | See the complete schema below. {"minimum": 1, "maximum": 60000} |
+| `samplingPeriodMicroseconds` | No | `integer` | `20000` | See the complete schema below. {"minimum": 0, "maximum": 10000000} |
+| `sensorId` | Yes | `integer` | `Not declared` | See the complete schema below. {"minimum": 0, "maximum": 2147483647} |
+
+
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "sensorId": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "samplingPeriodMicroseconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000000,
+      "default": 20000
+    },
+    "batchLatencyMilliseconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000,
+      "default": 0
+    },
+    "historyMilliseconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60000,
+      "default": 2000
+    },
+    "capacity": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4096,
+      "default": 400
+    },
+    "durationMilliseconds": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 7200000,
+      "default": 60000
+    },
+    "background": {
+      "type": "boolean",
+      "default": false
+    },
+    "deliveryIntervalMilliseconds": {
+      "type": "integer",
+      "minimum": 50,
+      "maximum": 5000,
+      "description": "Optional live batches for the calling custom app or the owning token's WebSocket connections. Remote delivery also requires sensorStreamRead."
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "sensorId"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_sensor_stream_status
+
+Read a sensor session's observed rate, newest sample age, retained and evicted counts, deadline and terminal reason.
+
+Ordinary command: `sensorStreamStatus`. [Token scope definitions](token-permissions.md#sensorstreamstatus). [Result envelope and task guides](developer-manual.md#result-contract).
+
+WebView invocation: `await dikciz.command("sensorStreamStatus", fields)`. Headless JavaScript: `context.request(Object.assign({}, fields, {type: "sensorStreamStatus"}))`. Lua: set `request.type = "sensorStreamStatus"`, then call `context.request(request)`. `fields`/`request` must contain the required parameters below. WebView `command` unwraps `result`; backend requests return the complete response envelope. [JavaScript methods](javascript-api.md) and [Lua types and errors](lua-api.md).
+
+| Parameter | Required | Type | Default | Definition and bounds |
+| --- | --- | --- | --- | --- |
+| `autoRequestPermissions` | No | `boolean` | `false` | Ask the owner to grant missing Android access. Never grants access or retries automatically. |
+| `sessionId` | Yes | `string` | `Not declared` | ID returned by sensorStreamStart. The session belongs to the caller. {"maxLength": 36} |
+
+
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "description": "ID returned by sensorStreamStart. The session belongs to the caller.",
+      "maxLength": 36
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "sessionId"
+  ],
+  "additionalProperties": false
+}
+```
+
+## dikciz_sensor_stream_stop
+
+Release the Android listener and any wake lease for a caller-owned sensor session.
+
+Ordinary command: `sensorStreamStop`. [Token scope definitions](token-permissions.md#sensorstreamstop). [Result envelope and task guides](developer-manual.md#result-contract).
+
+WebView invocation: `await dikciz.command("sensorStreamStop", fields)`. Headless JavaScript: `context.request(Object.assign({}, fields, {type: "sensorStreamStop"}))`. Lua: set `request.type = "sensorStreamStop"`, then call `context.request(request)`. `fields`/`request` must contain the required parameters below. WebView `command` unwraps `result`; backend requests return the complete response envelope. [JavaScript methods](javascript-api.md) and [Lua types and errors](lua-api.md).
+
+| Parameter | Required | Type | Default | Definition and bounds |
+| --- | --- | --- | --- | --- |
+| `autoRequestPermissions` | No | `boolean` | `false` | Ask the owner to grant missing Android access. Never grants access or retries automatically. |
+| `sessionId` | Yes | `string` | `Not declared` | ID returned by sensorStreamStart. The session belongs to the caller. {"maxLength": 36} |
+
+
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "description": "ID returned by sensorStreamStart. The session belongs to the caller.",
+      "maxLength": 36
+    },
+    "autoRequestPermissions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ask the owner to grant missing Android access. Never grants access or retries automatically."
+    }
+  },
+  "required": [
+    "sessionId"
+  ],
   "additionalProperties": false
 }
 ```

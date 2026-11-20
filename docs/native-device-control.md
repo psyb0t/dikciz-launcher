@@ -147,6 +147,45 @@ Malformed fields, columns, types, ranges, authorities and references return `val
 
 Arbitrary third-party databases, account management and privileged system settings are not implemented by these commands. Permission declarations are not a promise that every possible feature exists. Discover the running build's commands.
 
+## Raw sensor sessions
+
+Use `sensorReadings` to choose a sensor ID. IDs index the current inventory. Rescan after a dynamic sensor is disconnected or the device restarts. `sensorStreamStart` takes a sensor ID and starts a bounded session without applying thresholds or classifying the readings. It returns the session ID and current status. Use `sensorStreamStatus`, `sensorStreamRead` and `sensorStreamStop` with that ID.
+
+| Start field | Default and range |
+| --- | --- |
+| `samplingPeriodMicroseconds` | 20,000. Use 0 for the fastest Android-supported rate, or up to 10,000,000. Android treats the requested period as a hint. |
+| `batchLatencyMilliseconds` | 0, or up to 10,000. One-shot triggers require 0. Larger values may delay delivery and reduce power use. |
+| `historyMilliseconds` | 2,000, from 1 through 60,000. |
+| `capacity` | 400 readings, from 1 through 4,096. Readings are retained while inside both bounds. |
+| `durationMilliseconds` | 60,000, from 1,000 through 7,200,000 per session. |
+| `background` | False. Foreground capture ends when Dikciz loses the foreground. True requests a visible foreground service and holds a bounded CPU wake lease when the selected sensor needs it. Android can reject background starts or restrict available signals. |
+| `deliveryIntervalMilliseconds` | Omit for cursor reads. Specify 50 through 5,000 to request app or owner-scoped WebSocket batches. |
+
+Read with `afterSequence: 0` to start, then pass the returned `nextSequence` on the next read. `limit` accepts 1 through 128 and defaults to 64. `hasMore` means there are more readings already buffered. Each sample has a sequence, accuracy, Android values in the sensor's units, and an elapsed-realtime nanosecond timestamp encoded as a decimal string to preserve its precision. The cursor belongs to the reader. Other readers can read the same sample with their own cursor.
+
+`lostSamples` counts accepted readings evicted before the requested cursor could read them. `discardedSamples` counts readings the host could not retain, such as a sample larger than the session's per-sample budget. These counts describe loss visible to Dikciz. Android may deliver at a different rate than requested. Status includes the requested period, observed frequency, reading age, retained and evicted counts, and terminal state such as `expired`, `sensor_feed_stalled`, `foreground_lost` or `sensor_removed`. Silence is valid on change-driven and trigger sensors. A one-shot session ends with `triggered` after its first reading.
+
+HTTP, WebSocket, MCP, HTML, Lua and JavaScript use the same cursor contract. Remote delivery requires the same credential that owns the session and that credential's `sensorStreamRead` grant. With delivery enabled, WebSocket clients with the owning access identity receive `sensorStreamSamples` and `sensorStreamStopped` events with the same page shape under `fields`. Reconnect and resume by cursor if an event was missed. Custom apps receive their own `app.sensor.samples` and `app.sensor.stopped` events. A session ends on stop, expiry, access loss or process exit. A short-lived terminal record lets callers inspect the outcome after capture ends.
+
+In an HTML widget, a single cursor read looks like this. Call it again from your own timer or UI. Use the same cursor contract from network or background callers.
+
+```javascript
+async function readSensorPage(sessionId, afterSequence, consume) {
+    const page = await dikciz.command("sensorStreamRead", {
+        sessionId,
+        afterSequence,
+        limit: 64,
+    });
+    if (page.lostSamples || page.discardedSamples) {
+        throw new Error("Sensor history is incomplete");
+    }
+    for (const sample of page.samples) {
+        consume(sample);
+    }
+    return {afterSequence: page.nextSequence, active: page.state === "active"};
+}
+```
+
 ## Additional native commands
 
 See [USSD requests](ussd-control.md), [camera capture/video](camera-control.md), [event replay](event-replay.md), [speech recognition and synthesis](speech-recognition.md), [audio playback and recording sessions](audio-playback.md), [hardware controls](hardware-controls.md), [Bluetooth](bluetooth-control.md), [NFC](nfc-control.md), [USB](usb-control.md), [Wi-Fi](wifi-control.md), [location services](location-services.md), [notification management](notification-management.md) and [durable jobs](command-jobs.md) for their dedicated operations. The [coverage table](capability-coverage.md) separates implemented operations from remaining work and Android privilege requirements.

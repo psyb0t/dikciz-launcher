@@ -20,7 +20,7 @@ internal class DikcizSensorReadings(context: Context) {
     fun read(request: JSONObject): JSONObject {
         val manager = context.getSystemService(SensorManager::class.java)
             ?: DikcizNativeCommands.failure(DikcizNativeCommands.ERROR_UNAVAILABLE, "Sensor service unavailable")
-        val inventory = (manager.getSensorList(Sensor.TYPE_ALL) + manager.getDynamicSensorList(Sensor.TYPE_ALL)).distinct()
+        val inventory = DikcizSensorStreams.inventory(manager)
         val selectedID = request.optInt("sensorId", -1)
         if (selectedID >= inventory.size) {
             DikcizNativeCommands.failure(DikcizNativeCommands.ERROR_NOT_FOUND, "Sensor ID is not in this device inventory")

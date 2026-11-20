@@ -49,14 +49,17 @@ Open the Dikciz mark, then Apps. Tap a title to open its interface. Home preserv
 
 | App | Walkthrough |
 | --- | --- |
-| SOS and check-ins | Add exact recipients, save an inactive plan and preview it. Arm a missed check-in or explicitly start the countdown, then cancel pending work when needed. Follow the [phone setup steps](safety-and-journeys.md#on-the-phone). |
-| Voice notes | Tap Record voice note, allow the microphone if asked, then Stop and save. Use the saved recording's playback control. Leaving the interface stops recording; reopen it to complete a pending save. |
-| Agenda and alarms | Allow calendar access, then Refresh agenda. Open calendar and Open alarms hand off to Android's apps. The agenda reads upcoming events; it does not create them. |
-| Device status | Read the battery gauge, process CPU history and memory/storage meters. Expand Device details for additional readings. Protected system counters remain explicit. |
-| Travel todo | Add or check tasks manually. Review location access and choose Watch New York only when you want its background arrival rule. Follow the [GPS and custom-event tutorial](todo-app-tutorial.md). |
+| [Impact response](app-impact-response.md) | Save a recipient and motion threshold, preview the message, then explicitly arm. The countdown offers cancellation before outgoing actions. |
+| [SOS and check-ins](app-sos-check-ins.md) | Add exact recipients, save an inactive plan and preview it. Arm a missed check-in or explicitly start the countdown, then cancel pending work when needed. Follow the [phone setup steps](safety-and-journeys.md#on-the-phone). |
+| [Voice notes](app-voice-notes.md) | Tap Record voice note, allow the microphone if asked, then Stop and save. Use the saved recording's playback control. Leaving the interface stops recording; reopen it to complete a pending save. |
+| [Agenda and alarms](app-agenda.md) | Allow calendar access, then Refresh agenda. Open calendar and Open alarms hand off to Android's apps. The agenda reads upcoming events; it does not create them. |
+| [Device status](app-device-status.md) | Read the battery gauge, process CPU history and memory/storage meters. Expand Device details for additional readings. Protected system counters remain explicit. |
+| [Travel todo](app-travel-todo.md) | Add or check tasks manually. Review location access and choose Watch New York only when you want its background arrival rule. Follow the [GPS and custom-event tutorial](todo-app-tutorial.md). |
 
 <details>
 <summary>View the screens</summary>
+
+<p><a href="{{ '/images/screens/custom-app-impact-response.png' | relative_url }}"><img src="{{ '/images/screens/custom-app-impact-response.png' | relative_url }}" alt="Impact Response disarmed on first launch" width="280" loading="lazy"></a><br>Impact Response.</p>
 
 <p><a href="{{ "/images/screens/apps.png" | relative_url }}"><img src="{{ "/images/screens/apps.png" | relative_url }}" alt="App list" width="280"></a><br>App list.</p>
 

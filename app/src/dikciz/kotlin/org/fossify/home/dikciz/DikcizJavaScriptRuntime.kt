@@ -1,6 +1,8 @@
 package org.fossify.home.dikciz
 
 import android.os.Debug
+import android.os.SystemClock
+import android.util.LruCache
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.time.ZoneId
@@ -12,6 +14,7 @@ import org.mozilla.javascript.ContextFactory
 import org.mozilla.javascript.Function
 import org.mozilla.javascript.NativePromise
 import org.mozilla.javascript.RhinoException
+import org.mozilla.javascript.Script
 import org.mozilla.javascript.Scriptable
 import org.mozilla.javascript.ScriptableObject
 import org.mozilla.javascript.Undefined
@@ -20,6 +23,21 @@ import org.mozilla.javascript.Undefined
 internal class DikcizJavaScriptRuntime(
     private val decodeResult: (String, DikcizLimits) -> DikcizLuaAutomationResult.Actions,
 ) {
+    private data class Program(val source: String, val script: Script, @Volatile var usedAt: Long)
+    private val programs = LruCache<String, Program>(COMPILED_SCRIPT_CACHE_SIZE)
+
+    private fun program(context: Context, script: DikcizLuaScript): Script {
+        val now = SystemClock.elapsedRealtime()
+        val cached = programs.get(script.id)
+        if (cached != null && cached.source == script.source && now - cached.usedAt < COMPILED_SCRIPT_IDLE_MS) {
+            cached.usedAt = now
+            return cached.script
+        }
+        val compiled = context.compileString(script.source, script.id + ".js", 1, null)
+        programs.put(script.id, Program(script.source, compiled, now))
+        return compiled
+    }
+
     fun executeEvent(
         script: DikcizLuaScript,
         event: DikcizAutomationEvent,
@@ -38,7 +56,15 @@ internal class DikcizJavaScriptRuntime(
             val json = ScriptableObject.getProperty(scope, "JSON") as Scriptable
             val parse = ScriptableObject.getProperty(json, "parse") as Function
             val stringify = ScriptableObject.getProperty(json, "stringify") as Function
-            val freeze = cx.evaluateString(scope, FREEZE_SOURCE, "script-context", 1, null) as Function
+            val objectConstructor = ScriptableObject.getProperty(scope, "Object") as Scriptable
+            val freeze = ScriptableObject.getProperty(objectConstructor, "freeze") as Function
+            fun freezeJson(value: Any?) {
+                if (value !is Scriptable || value is Function) return
+                value.ids.forEach { key ->
+                    freezeJson(if (key is Int) value.get(key, value) else value.get(key.toString(), value))
+                }
+                freeze.call(cx, scope, objectConstructor, arrayOf(value))
+            }
             fun fromJson(value: String): Any? = parse.call(cx, scope, json, arrayOf(value))
             fun toJson(value: Any?): String {
                 val result = stringify.call(cx, scope, json, arrayOf(value))
@@ -68,15 +94,16 @@ internal class DikcizJavaScriptRuntime(
             val context = fromJson(contextJson.toString()) as ScriptableObject
             context.defineProperty("request", command(false), READ_ONLY_PROPERTY)
             context.defineProperty("requestJson", command(true), READ_ONLY_PROPERTY)
-            freeze.call(cx, scope, scope, arrayOf(context))
+            freezeJson(context)
             scope.defineProperty("context", context, READ_ONLY_PROPERTY)
             val time = Instant.ofEpochMilli(event.timestampMilliseconds).atZone(ZoneId.systemDefault())
             val eventJson = JSONObject().put("type", event.name).put("source", event.source)
                 .put("timestampMilliseconds", event.timestampMilliseconds).put("coalescingKey", event.coalescingKey)
                 .put("payload", event.payload).put("time", JSONObject().put("hour24", time.hour).put("minute", time.minute))
             val eventValue = fromJson(eventJson.toString())
-            freeze.call(cx, scope, scope, arrayOf(eventValue))
-            cx.evaluateString(scope, script.source, script.id + ".js", 1, null)
+            freezeJson(eventValue)
+            // Compiled code can be reused while each invocation still receives a fresh scope.
+            program(cx, script).exec(cx, scope)
             factory.budget.check()
             val handler = ScriptableObject.getProperty(scope, HANDLER_NAME)
             if (handler === Scriptable.NOT_FOUND || handler === Undefined.instance) return DikcizLuaAutomationResult.NoHandler
@@ -168,6 +195,8 @@ internal class DikcizJavaScriptRuntime(
     }
 
     companion object {
+        private const val COMPILED_SCRIPT_CACHE_SIZE = 4
+        private const val COMPILED_SCRIPT_IDLE_MS = 60_000L
         private const val HANDLER_NAME = "onEvent"
         private const val INTERPRETER_MODE = -1
         private const val OBSERVER_INTERVAL = 1000
@@ -176,15 +205,6 @@ internal class DikcizJavaScriptRuntime(
         private const val READ_ONLY_PROPERTY = ScriptableObject.READONLY or ScriptableObject.PERMANENT
         private val FORBIDDEN_GLOBALS = listOf("Packages", "java", "javax", "org", "com", "edu", "net",
             "JavaAdapter", "JavaImporter", "importClass", "importPackage", "getClass")
-        private const val FREEZE_SOURCE = """
-            (function freeze(value) {
-                if (value && typeof value === "object" && !Object.isFrozen(value)) {
-                    Object.keys(value).forEach(function(key) { freeze(value[key]); });
-                    Object.freeze(value);
-                }
-                return value;
-            })
-        """
     }
 }
 
