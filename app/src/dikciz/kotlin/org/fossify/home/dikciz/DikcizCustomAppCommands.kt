@@ -8,6 +8,10 @@ internal object DikcizCustomAppCommands {
     const val LIST = "customAppsList"
     const val READ = "customAppRead"
     const val INSTALL = "customAppInstall"
+    const val INSTALL_TOOL = "dikciz_custom_app_install"
+    const val EXPECTED_REVISION = "expectedRevision"
+    const val SOURCE_REVISION = "sourceRevision"
+    private val SOURCE_REVISION_PATTERN = Regex("^(?:[0-9a-f]{64})?$")
     const val CONTROL = "customAppControl"
     const val EVENT = "customAppEvent"
     const val STATE = "customAppState"
@@ -41,10 +45,12 @@ internal object DikcizCustomAppCommands {
     val DEFINITIONS = listOf(
         DikcizNativeCommands.Definition(LIST, "dikciz_custom_apps_list", "List installed editable Dikciz apps. Follow hasMore; disabled apps cannot execute background code. Apps are independent of Android APKs.",
             mapOf("offset" to integer(0, 1000000), "limit" to integer(1, 200))),
-        DikcizNativeCommands.Definition(READ, "dikciz_custom_app_read", "Read one app manifest, full HTML/CSS/JS, optional Lua/JS background source, state, run status and durable timers. Sources live under /sdcard/Dikciz/apps/<appId>. This read can contain private app data and requires an explicit operation grant for scoped remote clients.", id, setOf("appId")),
-        DikcizNativeCommands.Definition(INSTALL, "dikciz_custom_app_install", "Install or replace a complete app bundle after confirm=true. manifest has version:1,id,title,description,language (lua/javascript), optional commands (legacy metadata), events (event names), optional locationMonitoring boolean. Sources use html/css/javascript/backgroundSource. New apps start enabled and inherit Dikciz Android access. Replacing requires no pending timers or alert and preserves data and running/stopped state. All entrypoints share validation.",
+        DikcizNativeCommands.Definition(READ, "dikciz_custom_app_read", "Read one app manifest, full HTML/CSS/JS, optional Lua/JS background source, sourceRevision, state, run status and durable timers. Sources live under /sdcard/Dikciz/apps/<appId>. This read can contain private app data and requires an explicit operation grant for scoped remote clients.", id, setOf("appId")),
+        DikcizNativeCommands.Definition(INSTALL, INSTALL_TOOL, "Install or replace a complete app bundle after confirm=true. Supply expectedRevision from customAppRead for edits, or an empty string for create only. manifest has version:1,id,title,description,language (lua/javascript), optional commands (legacy metadata), events (event names), optional locationMonitoring boolean. Sources use html/css/javascript/backgroundSource. New apps start enabled and inherit Dikciz Android access. Replacing requires no pending timers or alert and preserves data and running/stopped state. All entrypoints share validation.",
             mapOf("manifest" to manifest, "html" to text(MAXIMUM_SOURCE_BYTES), "css" to text(MAXIMUM_SOURCE_BYTES),
-                "javascript" to text(MAXIMUM_SOURCE_BYTES), "backgroundSource" to text(MAXIMUM_SOURCE_BYTES)) + confirmation,
+                "javascript" to text(MAXIMUM_SOURCE_BYTES), "backgroundSource" to text(MAXIMUM_SOURCE_BYTES),
+                EXPECTED_REVISION to text(64).put("pattern", SOURCE_REVISION_PATTERN.pattern)
+                    .put("description", "Observed sourceRevision for replacement. Empty means create only.")) + confirmation,
             setOf("manifest", "html", "confirm"), false),
         DikcizNativeCommands.Definition(CONTROL, "dikciz_custom_app_control", "open starts an app and opens its UI; enable starts it without permission approval; disable stops it and cancels timers and alerts; remove requires confirm=true and deletes only this app's directory; export writes a bounded .dikciz-app.zip; import requires path and confirm=true and installs a new enabled app. Apps inherit Dikciz Android access. Export excludes state and runtime files. To copy an app, install its source with a different manifest.id for an independent instance.",
             id + mapOf("action" to choice("open", "enable", "disable", "remove", "export", "import"), "path" to text(4096)) + confirmation,
@@ -72,6 +78,9 @@ internal object DikcizCustomAppCommands {
             DikcizNativeCommands.invalid("Invalid appId")
         }
         when (type) {
+            INSTALL -> if (request.has(EXPECTED_REVISION) && !SOURCE_REVISION_PATTERN.matches(request.getString(EXPECTED_REVISION))) {
+                DikcizNativeCommands.invalid("expectedRevision must be empty or a lowercase SHA-256 revision")
+            }
             STATE -> if (request.getString("action") == "replace" && !request.has("state")) DikcizNativeCommands.invalid("replace requires state")
             SCHEDULE -> {
                 val required = when (request.getString("action")) {

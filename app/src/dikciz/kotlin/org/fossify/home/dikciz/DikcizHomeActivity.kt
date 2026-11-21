@@ -4277,9 +4277,9 @@ class DikcizHomeActivity : Activity() {
     }
 
     /**
-     * Creates one top-level item on the selected page through the control plane.
+     * Creates one top-level item on the requested or currently selected page.
      *
-     * The item always lands in the first fitting free cells of the selected page, so the
+     * The item always lands in the first fitting free cells of its page, so the
      * caller never chooses an anchor. Use `widgetMove` and `widgetResize` afterwards.
      * Types that need extra Android interaction, app shortcuts and Android provider
      * widgets, keep their existing routes: `appAction` with `addShortcut` and the native
@@ -4287,7 +4287,10 @@ class DikcizHomeActivity : Activity() {
      */
     private fun addAutomationWidget(command: DikcizAutomationCommand): JSONObject {
         val configuration = homeConfiguration ?: throw automationFailure(MESSAGE_CONFIGURATION_UNAVAILABLE)
-        val page = configuration.selectedPage() ?: throw automationFailure(MESSAGE_SELECTED_PAGE_UNAVAILABLE)
+        val pageID = command.request.optString(DikcizAutomationControlPlane.KEY_PAGE_ID, configuration.selectedPageID)
+        val page = configuration.pages.firstOrNull { it.id == pageID }
+            ?: throw DikcizAutomationRequestException("page_not_found", "Widget target page does not exist")
+        if (page.locked) throw DikcizAutomationRequestException("page_locked", "Widget target page is locked")
         val widgetType = command.request.getString(DikcizAutomationControlPlane.KEY_WIDGET_TYPE)
         val placement = DikcizGridLayoutEngine.placePreferredSpan(
             grid = configuration.nativeGrid,
@@ -4481,9 +4484,10 @@ class DikcizHomeActivity : Activity() {
     /** Inserts an already-placed widget without re-running placement. */
     private fun insertAutomationWidget(pageID: String, widget: HomeWidget): Boolean {
         return updateConfiguration { current ->
-            current
-                .replacePage(pageID) { page -> page.copy(widgets = page.widgets + widget) }
-                .copy(selectedPageID = pageID)
+            val page = current.pages.firstOrNull { it.id == pageID }
+                ?: throw DikcizAutomationRequestException("page_not_found", "Widget target page disappeared")
+            if (page.locked) throw DikcizAutomationRequestException("page_locked", "Widget target page is locked")
+            current.replacePage(pageID) { it.copy(widgets = it.widgets + widget) }.copy(selectedPageID = pageID)
         }
     }
 

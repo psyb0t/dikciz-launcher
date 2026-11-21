@@ -36,6 +36,7 @@ Current four-page starter on the emulator, with live London weather, sample cale
 | Start here | Details |
 | --- | --- |
 | [Who this is for](#who-this-is-for) | [What you can build](#what-the-home-supports), [AI chat](#chat-with-your-phone) |
+| [Bundled apps](#bundled-apps) | Screenshots and guides for the six included apps. |
 | [Build your first app](#build-your-first-app) | [GPS todo walkthrough](https://psyb0t.github.io/dikciz-launcher/todo-app-tutorial/) |
 | [Bundled widgets and scripts](#bundled-widgets-and-scripts) | [Complete catalog](https://psyb0t.github.io/dikciz-launcher/starter-home/) |
 | [Install](#install-it) | [Home features](#what-the-home-supports), [navigation](#navigate-and-manage-the-home) |
@@ -94,7 +95,21 @@ Tap the cheese beside the launcher controls for an on-device assistant. Add an O
 
 Open **Settings**, **Safety, journeys and devices** for inactive contact plans, opt-in missed check-ins/SOS, geofences, recorded routes, retained Bluetooth/USB/NFC connections, image OCR/barcodes/PDFs, Health Connect records and Android-approved Wi-Fi flows. All use the shared phone APIs. [Read the setup and limits](https://psyb0t.github.io/dikciz-launcher/companion/) before enabling background work. The optional Vehicle console template reads a paired ELM327 adapter. Chat also offers five [read-only routines](https://psyb0t.github.io/dikciz-launcher/assistant-routines/).
 
+## Bundled apps
+
 **Dikciz**, **Apps** opens complete editable apps. [Impact response](https://psyb0t.github.io/dikciz-launcher/apps/impact-response/), [SOS and check-ins](https://psyb0t.github.io/dikciz-launcher/apps/sos-check-ins/), [Voice notes](https://psyb0t.github.io/dikciz-launcher/apps/voice-notes/), [Agenda and alarms](https://psyb0t.github.io/dikciz-launcher/apps/agenda-and-alarms/), [Device status](https://psyb0t.github.io/dikciz-launcher/apps/device-status/) and [Travel todo](https://psyb0t.github.io/dikciz-launcher/apps/travel-todo/) ship with Dikciz. Impact Response opens disarmed. It can warn on phone motion and text one chosen contact after a cancellation countdown. Each app has its own Android task and Recents entry, without a manager toolbar. Create or import your own. Apps share the Android access granted to Dikciz. [The app guide](https://psyb0t.github.io/dikciz-launcher/custom-apps/) covers source, state, events, timers, dimmed alerts and reusable archives.
+
+<p align="center">
+<a href="https://psyb0t.github.io/dikciz-launcher/apps/impact-response/"><img src="docs/images/screens/custom-app-impact-response.png" alt="Impact Response disarmed, with contact and motion threshold settings" width="190"></a>
+<a href="https://psyb0t.github.io/dikciz-launcher/apps/sos-check-ins/"><img src="docs/images/screens/custom-app-sos.png" alt="SOS and check-ins with contact and plan controls" width="190"></a>
+<a href="https://psyb0t.github.io/dikciz-launcher/apps/voice-notes/"><img src="docs/images/screens/custom-app-voice-saved.png" alt="Voice notes with a saved recording and playback controls" width="190"></a>
+</p>
+
+<p align="center">
+<a href="https://psyb0t.github.io/dikciz-launcher/apps/agenda-and-alarms/"><img src="docs/images/screens/custom-app-agenda.png" alt="Agenda and alarms with calendar access and alarm controls" width="190"></a>
+<a href="https://psyb0t.github.io/dikciz-launcher/apps/device-status/"><img src="docs/images/screens/custom-app-device-status.png" alt="Device status showing battery, CPU history, memory and storage" width="190"></a>
+<a href="https://psyb0t.github.io/dikciz-launcher/apps/travel-todo/"><img src="docs/images/screens/custom-app-travel-todo.png" alt="Travel todo with an editable checklist and a GPS watch control" width="190"></a>
+</p>
 
 ## Build your first app
 

@@ -56,6 +56,14 @@ def test_assistant_platform_library_contract(instruction_files, protocol):
     assert entries[SKILL]["description"] == "Inspect a fixture using native APIs."
     assert "body" not in entries[SKILL]
     assert entries[AGENT]["kind"] == "agent"
+    skill = native_call(protocol, "assistantLibrary", {"action": "loadSkill", "name": SKILL})
+    assert skill["directory"] == "skills/fixture-skill"
+    assert len(skill["revision"]) == 64 and skill["sha256"] == entries[SKILL]["sha256"]
+    assert "Skill body marker 731" in skill["text"]
+    builtin = native_call(protocol, "assistantLibrary", {"action": "loadSkill", "name": "dikciz-write-app"})
+    assert builtin["directory"] == "@builtin/dikciz-write-app" and "expectedRevision" in builtin["text"]
+    native_call(protocol, "assistantLibrary", {"action": "loadSkill", "name": "unknown-skill"}, error="assistant_skill_missing")
+    native_call(protocol, "assistantLibrary", {"action": "loadSkill", "name": "../AGENTS.md"}, error="validation_failed")
     reference = native_call(protocol, "assistantLibrary", {"action": "read", "path": "skills/fixture-skill/references/check.md"})
     assert reference["text"].endswith("☃")
     for path in ("../config.json", "/absolute", "skills/../AGENTS.md", "skills\\escape"):
@@ -94,7 +102,7 @@ def test_assistant_platform_library_rejects_invalid(instruction_files, case):
 def test_assistant_platform_prompt_and_on_demand_skill(instruction_files, provider_endpoint, protocol):
     endpoint, script, records = provider_endpoint
     _, identifier = conversation(endpoint, protocol)
-    script["wrapper_calls"] = [("phone_library", {"action": "read", "path": "skills/fixture-skill/SKILL.md"})]
+    script["wrapper_calls"] = [("phone_skill", {"name": SKILL})]
     try:
         send(identifier, "Inspect the fixture")
         messages = wait_turn(identifier)
@@ -103,6 +111,7 @@ def test_assistant_platform_prompt_and_on_demand_skill(instruction_files, provid
         assert "Inspect a fixture using native APIs" in first
         assert "Skill body marker 731" not in first
         assert "Skill body marker 731" in json.dumps(messages)
+        assert "Skill body marker 731" in json.dumps(records[1]["body"])
         write_text(ASSISTANT_ROOT + "/AGENTS.md", "Updated owner instruction marker 815.")
         records.clear()
         script["wrapper_calls"] = []
@@ -408,6 +417,10 @@ def test_assistant_platform_library_storage_permission(instruction_files):
         storage_control = wait_for_storage_access_control()
         result = native_call("http", "assistantLibrary", {"action": "list"}, error="file_access_denied")
         assert "permissionRequest" in result and result["permissionRequest"]["requirementId"] == "sharedStorage"
+        bundled = native_call("http", "assistantLibrary", {
+            "action": "read", "path": "@builtin/dikciz-write-widget/SKILL.md",
+        })
+        assert "# Author an HTML widget" in bundled["text"]
     finally:
         if storage_control is not None:
             storage_control.close()

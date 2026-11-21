@@ -570,8 +570,10 @@ internal class DikcizAutomationControlPlane(
             -> request.requireBoundedString(KEY_SEMANTIC_ID, MAXIMUM_SEMANTIC_ID_CHARACTERS)
 
             TYPE_SELECT_PAGE -> request.requireBoundedString(KEY_PAGE_ID, MAXIMUM_SEMANTIC_ID_CHARACTERS)
-            TYPE_ADD_WIDGET ->
+            TYPE_ADD_WIDGET -> {
                 request.requireBoundedString(KEY_WIDGET_TYPE, MAXIMUM_SEMANTIC_ID_CHARACTERS)
+                if (request.has(KEY_PAGE_ID)) request.requireBoundedString(KEY_PAGE_ID, MAXIMUM_SEMANTIC_ID_CHARACTERS)
+            }
 
             TYPE_GRID_SET -> {
                 request.requireBoundedInt(
@@ -1414,7 +1416,7 @@ internal class DikcizAutomationControlPlane(
             TYPE_DIAGNOSTICS to setOf(KEY_REQUEST_ID, KEY_TYPE),
             TYPE_HOME_GET to setOf(KEY_REQUEST_ID, KEY_TYPE),
             TYPE_WIDGET_GET to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_WIDGET_ADDRESS),
-            TYPE_ADD_WIDGET to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_WIDGET_TYPE),
+            TYPE_ADD_WIDGET to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_WIDGET_TYPE, KEY_PAGE_ID),
             TYPE_GRID_SET to setOf(
                 KEY_REQUEST_ID,
                 KEY_TYPE,

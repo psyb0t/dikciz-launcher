@@ -135,7 +135,7 @@ def provider_endpoint():
                             "model": "fixture-model", "choices": [{"index": 0, "delta": delta, "finish_reason": finish}]})
             tools = script["wrapper_calls"] or script["tools"]
             tool_results = sum(message.get("role") == "tool" for message in body.get("messages", []))
-            if tools and tool_results < len(tools) and not summary:
+            if body.get("tools") and tools and tool_results < len(tools) and not summary:
                 name, arguments = tools[tool_results]
                 wrapper = name if script["wrapper_calls"] else "phone_call"
                 encoded = json.dumps(arguments if script["wrapper_calls"] else {"name": name, "arguments_json": json.dumps(arguments)})
@@ -175,13 +175,23 @@ def provider_endpoint():
             tool_results = sum(block.get("type") == "tool_result" for message in body.get("messages", []) for block in message.get("content", []) if isinstance(block, dict))
             tools = script["wrapper_calls"] or script["tools"]
             reason = "end_turn"
-            if tools and tool_results < len(tools):
-                name, arguments = tools[tool_results]
-                wrapper = name if script["wrapper_calls"] else "phone_call"
-                encoded = json.dumps(arguments if script["wrapper_calls"] else {"name": name, "arguments_json": json.dumps(arguments)})
-                self.event({"type": "content_block_start", "index": index, "content_block": {"type": "tool_use", "id": "fixture-call-" + str(tool_results), "name": wrapper, "input": {}}}, "content_block_start")
-                for fragment in script.get("argument_chunks", [encoded[:8], encoded[8:]]):
-                    self.event({"type": "content_block_delta", "index": index, "delta": {"type": "input_json_delta", "partial_json": fragment}}, "content_block_delta")
+            if body.get("tools") and tools and tool_results < len(tools):
+                batch = tools[tool_results:tool_results + script.get("batch_size", 1)]
+                for offset, (name, arguments) in enumerate(batch):
+                    if callable(arguments):
+                        arguments = arguments(body)
+                    wrapper = name if script["wrapper_calls"] else "phone_call"
+                    encoded = json.dumps(arguments if script["wrapper_calls"] else {"name": name, "arguments_json": json.dumps(arguments)})
+                    self.event({"type": "content_block_start", "index": index, "content_block": {
+                        "type": "tool_use", "id": "fixture-call-" + str(tool_results + offset),
+                        "name": wrapper, "input": {},
+                    }}, "content_block_start")
+                    for fragment in script.get("argument_chunks", [encoded[:8], encoded[8:]]):
+                        self.event({"type": "content_block_delta", "index": index, "delta": {
+                            "type": "input_json_delta", "partial_json": fragment,
+                        }}, "content_block_delta")
+                    self.event({"type": "content_block_stop", "index": index}, "content_block_stop")
+                    index += 1
                 reason = "tool_use"
             else:
                 self.wait_for_text()
@@ -190,7 +200,8 @@ def provider_endpoint():
                     self.event({"type": "content_block_delta", "index": index, "delta": {"type": "text_delta", "text": text[offset:offset+3]}}, "content_block_delta")
             if script["mode"] == "broken":
                 return
-            self.event({"type": "content_block_stop", "index": index}, "content_block_stop")
+            if reason != "tool_use":
+                self.event({"type": "content_block_stop", "index": index}, "content_block_stop")
             self.event({"type": "message_delta", "delta": {"stop_reason": reason, "stop_sequence": None}, "usage": {"output_tokens": 30}}, "message_delta")
             self.event({"type": "message_stop"}, "message_stop")
 
@@ -664,7 +675,7 @@ def test_chat_agent_screenshot_is_a_provider_image(websocket_control, provider_e
         cleanup(identifier)
 
 
-@pytest.mark.parametrize("limit", ["context", "timeout", "rounds"])
+@pytest.mark.parametrize("limit", ["context", "timeout"])
 def test_chat_agent_limits_report_terminal_failure(websocket_control, provider_endpoint, limit):
     endpoint, script, records = provider_endpoint
     options = {}
@@ -672,13 +683,10 @@ def test_chat_agent_limits_report_terminal_failure(websocket_control, provider_e
     if limit == "context":
         options = {"contextTokens": 8192, "maxOutputTokens": 512, "summaryOutputTokens": 128, "safetyMarginTokens": 128}
         text = "Oversized fixture input " * 1000
-    elif limit == "timeout":
+    else:
         options = {"timeoutMilliseconds": 1000}
         script["text"] = "Slow fixture output " * 500
         script["delay"] = 0.01
-    else:
-        options = {"maximumRounds": 1}
-        script["tools"] = [("dikciz_device_state", {})]
     _, identifier = conversation(endpoint, **options)
     try:
         send(identifier, text)
@@ -686,8 +694,6 @@ def test_chat_agent_limits_report_terminal_failure(websocket_control, provider_e
         assert json.loads(rows[-1]["blocks"])[0]["kind"] == "error"
         if limit == "context":
             assert not records
-        elif limit == "rounds":
-            assert len(records) == 1 and any(row["role"] == "tool" and row["state"] == "complete" for row in rows)
         else:
             assert "timed out" in rows[-1]["blocks"]
     finally:
@@ -822,8 +828,10 @@ def test_chat_agent_recovery_failed_turn_context(websocket_control, provider_end
                 time.sleep(0.1)
             assert records
             chat("stop", conversationId=identifier)
-        wait_turn(identifier, "cancelled" if failure == "cancelled" else "failed")
+        expected = {"cancelled": "cancelled", "rounds": "complete"}.get(failure, "failed")
+        wait_turn(identifier, expected)
         if failure == "rounds":
+            assert not records[-1]["body"].get("tools")
             chat("profileSave", profile={**profile, "maximumRounds": 32})
         script.update(mode="text", tools=[], text="Continuing the earlier request.", delay=0.002)
         before = len(records)
@@ -1185,5 +1193,231 @@ def test_chat_provider_models_manual_fallback(websocket_control, provider_endpoi
         send(identifier)
         wait_turn(identifier)
         assert records[-1]["body"]["model"] == "fixture-manual"
+    finally:
+        cleanup(identifier)
+
+
+@pytest.mark.parametrize("read_only", [False, True])
+def test_chat_authoring_budget_and_access(websocket_control, provider_endpoint, read_only):
+    endpoint, script, records = provider_endpoint
+    calls = [("dikciz_home_get", {}), ("dikciz_add_widget", {"widgetType": "html"})]
+    if read_only:
+        calls.reverse()
+    script.update(wrapper_calls=calls, text="Fixture partial report.")
+    _, identifier = conversation(endpoint, "anthropic", maximumRounds=1, readOnly=read_only)
+    try:
+        send(identifier, "Exercise the authoring tool budget.")
+        rows = wait_turn(identifier)
+        tools = {entry["name"]: entry["input_schema"] for entry in records[0]["body"]["tools"]}
+        assert "dikciz_home_get" in tools
+        assert ("dikciz_add_widget" in tools) is not read_only
+        assert len(records) == 2
+        assert not records[-1]["body"].get("tools")
+        assert "Report confirmed work" in json.dumps(records[-1]["body"]["system"])
+        assert_tool_pairing(records[-1]["body"])
+        results = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
+        assert len(results) == 1
+        if read_only:
+            assert results[0]["structuredContent"]["code"] == "read_only_violation"
+        else:
+            assert "pages" in results[0]["structuredContent"]
+        assert any(block["kind"] == "notice" for block in json.loads(rows[-1]["blocks"]))
+    finally:
+        cleanup(identifier)
+
+
+def test_chat_authoring_ends_repeated_discovery(websocket_control, provider_endpoint):
+    endpoint, script, records = provider_endpoint
+    call = ("phone_tools", {"query": "HTML widget"})
+    script.update(wrapper_calls=[call] * 4, text="Fixture discovery report.")
+    _, identifier = conversation(endpoint, "anthropic")
+    try:
+        send(identifier, "Find a widget tool.")
+        rows = wait_turn(identifier)
+        results = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
+        assert len(results) == 3
+        assert "tools" in results[0]
+        assert all(result["code"] == "duplicate_discovery" for result in results[1:])
+        assert len(records) == 4 and not records[-1]["body"].get("tools")
+        assert_tool_pairing(records[-1]["body"])
+    finally:
+        cleanup(identifier)
+
+
+def test_chat_authoring_rejects_bad_lua_update(websocket_control, provider_endpoint):
+    endpoint, script, records = provider_endpoint
+    original = native_call("http", "configGet")["config"]
+    prepared = json.loads(json.dumps(original))
+    script_id = "chat-lua-" + uuid.uuid4().hex[:8]
+    initial = "function on_event(event) return {status='ready'} end"
+    broken = "function on_event(event)"
+    prepared.setdefault("scripts", []).append({
+        "id": script_id, "title": "Lua fixture", "source": initial,
+        "enabled": True, "apiVersion": 1, "state": {"keep": True},
+    })
+    native_call("http", "configReplace", {"config": prepared})
+    prepared["scripts"][-1]["source"] = broken
+    script["wrapper_calls"] = [
+        ("dikciz_automation_simulate", {"source": broken, "language": "lua", "event": {"type": "author.fixture"}}),
+        ("dikciz_config_replace", {"config": prepared}),
+    ]
+    _, identifier = conversation(endpoint, "anthropic")
+    try:
+        send(identifier, "Check the draft syntax and save the fixture Lua edit.")
+        rows = wait_turn(identifier)
+        results = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
+        assert results[0]["structuredContent"]["code"] == "invalid_lua"
+        assert results[1]["code"] == "invalid_lua" and results[1]["scriptId"] == script_id
+        assert "main.lua" in results[1]["diagnostic"]
+        saved = native_call("http", "configGet")["config"]["scripts"][-1]
+        assert saved["source"] == initial and saved["state"] == {"keep": True}
+        schema = next(tool["input_schema"] for tool in records[0]["body"]["tools"] if tool["name"] == "dikciz_automation_simulate")
+        assert schema["properties"]["event"]["required"] == ["type"]
+    finally:
+        cleanup(identifier)
+        native_call("http", "configReplace", {"config": original})
+
+
+def test_chat_authoring_installs_and_runs_javascript_app(websocket_control, provider_endpoint):
+    from .test_custom_apps import app_fields
+
+    endpoint, script, records = provider_endpoint
+    app_id = "fixture_" + uuid.uuid4().hex[:12]
+    event = "author.example"
+    bundle = app_fields(app_id, events=[event])
+    script["wrapper_calls"] = [
+        ("dikciz_automation_simulate", {
+            "source": bundle["backgroundSource"], "language": "javascript", "event": {"type": event},
+        }),
+        ("dikciz_custom_app_install", bundle),
+        ("dikciz_custom_app_event", {"appId": app_id, "event": event}),
+        ("dikciz_custom_app_read", {"appId": app_id}),
+    ]
+    _, identifier = conversation(endpoint, "anthropic")
+    try:
+        send(identifier, "Use $dikciz-write-app to build a fixture that counts one test event.")
+        rows = wait_turn(identifier)
+        results = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
+        assert len(records) == 5 and len(results) == 4
+        assert all(not result.get("isError") for result in results)
+        assert results[0]["structuredContent"]["outcome"] == "completed"
+        assert results[0]["structuredContent"]["simulated"] is True
+        assert results[-1]["structuredContent"]["state"] == {"count": 1}
+        saved = native_call("http", "customAppRead", {"appId": app_id})
+        assert saved["backgroundSource"] == bundle["backgroundSource"] and saved["state"] == {"count": 1}
+        assert_tool_pairing(records[-1]["body"])
+
+        updated = {**bundle, "backgroundSource": bundle["backgroundSource"].replace("+1", "+2")}
+        records.clear()
+        script["wrapper_calls"] += [
+            ("dikciz_custom_app_install", updated),
+            ("dikciz_custom_app_install", {**updated, "expectedRevision": saved["sourceRevision"]}),
+            ("dikciz_custom_app_event", {"appId": app_id, "event": event}),
+        ]
+        send(identifier, "Update that fixture to increment by two while retaining its count.")
+        rows = wait_turn(identifier)
+        results = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"][-3:]
+        assert results[0]["isError"] and "custom_app_revision_conflict" in json.dumps(results[0])
+        assert not results[1].get("isError")
+        revised = native_call("http", "customAppRead", {"appId": app_id})
+        assert revised["sourceRevision"] == results[1]["structuredContent"]["sourceRevision"]
+        assert revised["sourceRevision"] != saved["sourceRevision"]
+        assert revised["html"] == saved["html"] and revised["state"] == {"count": 3}
+        native_call("http", "customAppInstall", {**bundle, "expectedRevision": saved["sourceRevision"]},
+                    error="custom_app_revision_conflict")
+        after_conflict = native_call("http", "customAppRead", {"appId": app_id})
+        for field in ("sourceRevision", "backgroundSource", "html", "state"):
+            assert after_conflict[field] == revised[field]
+    finally:
+        cleanup(identifier)
+        installed = native_call("http", "customAppsList", {})
+        if any(app.get("appId", app.get("id")) == app_id for app in installed["items"]):
+            native_call("http", "customAppControl", {"action": "remove", "appId": app_id, "confirm": True})
+
+
+def test_chat_keeps_oversized_tool_results_in_transcript(websocket_control, provider_endpoint):
+    from .test_custom_apps import app_fields
+
+    endpoint, script, records = provider_endpoint
+    app_id = "fixture_" + uuid.uuid4().hex[:12]
+    marker = "Large fixture content."
+    bundle = {**app_fields(app_id), "html": "<p>" + marker * 3600 + "</p>"}
+    _, identifier = conversation(endpoint, "anthropic", contextTokens=65536)
+    try:
+        native_call("http", "customAppInstall", bundle)
+        script["wrapper_calls"] = [("dikciz_custom_app_read", {"appId": app_id})]
+        send(identifier, "Inspect the large fixture.")
+        rows = wait_turn(identifier)
+        result = next(row for row in rows if row["role"] == "tool")
+        assert marker in result["blocks"]
+        provider_body = json.dumps(records[1]["body"])
+        assert marker not in provider_body and "tool_result_too_large" in provider_body
+        assert_tool_pairing(records[1]["body"])
+    finally:
+        cleanup(identifier)
+        native_call("http", "customAppControl", {"action": "remove", "appId": app_id, "confirm": True},
+                    allowed_errors=("custom_app_not_found",))
+
+
+@pytest.mark.parametrize("maximum_rounds,retains_thinking", [(1, False), (8, True)])
+def test_chat_sonnet_55_reasoning_binding(websocket_control, provider_endpoint, maximum_rounds, retains_thinking):
+    endpoint, script, records = provider_endpoint
+    script.update(thinking="signed", wrapper_calls=[("dikciz_home_get", {})], text="Verified the fixture tool result.")
+    _, identifier = conversation(endpoint, "anthropic", model="claude-sonnet-5-5", reasoning="none",
+                                 maximumRounds=maximum_rounds)
+    try:
+        send(identifier, "Read the fixture home map.")
+        wait_turn(identifier)
+        assert len(records) == 2
+        initial, continuation = (record["body"] for record in records)
+        assert initial["model"] == "claude-sonnet-5-5"
+        assert initial["thinking"] == {"type": "between_tools"}
+        assert initial["output_config"] == {"effort": "low"}
+        assert_tool_pairing(continuation)
+        blocks = [block for message in continuation["messages"] for block in message["content"]
+                  if isinstance(block, dict) and block.get("type") == "thinking"]
+        if retains_thinking:
+            assert blocks and blocks[0]["signature"] == "EXAMPLE-DO-NOT-USE-SIGNATURE"
+        else:
+            assert not blocks and not continuation.get("tools")
+    finally:
+        cleanup(identifier)
+
+
+def test_chat_authoring_ends_repeated_invalid_calls(websocket_control, provider_endpoint):
+    endpoint, script, records = provider_endpoint
+    call = ("dikciz_add_widget", {"widgetType": 8})
+    script.update(wrapper_calls=[call] * 4, text="Fixture corrected its report.")
+    _, identifier = conversation(endpoint, "anthropic")
+    try:
+        send(identifier, "Exercise repeated invalid widget requests.")
+        rows = wait_turn(identifier)
+        results = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
+        assert len(results) == 3
+        assert results[0].get("structuredContent", results[0])["code"] == "validation_failed"
+        assert all(result["code"] == "duplicate_rejected_tool" for result in results[1:])
+        assert len(records) == 4 and not records[-1]["body"].get("tools")
+        assert_tool_pairing(records[-1]["body"])
+    finally:
+        cleanup(identifier)
+
+
+def test_chat_authoring_bounds_a_parallel_tool_batch(websocket_control, provider_endpoint):
+    endpoint, script, records = provider_endpoint
+    original = native_call("http", "configGet")["config"]
+    read = ("phone_call", {"name": "dikciz_device_info", "arguments_json": "{}"})
+    extra_write = ("dikciz_add_widget", {"widgetType": "html"})
+    script.update(wrapper_calls=[read] * 16 + [extra_write], batch_size=17, text="Fixture ended the batch.")
+    _, identifier = conversation(endpoint, "anthropic")
+    try:
+        send(identifier, "Exercise the tool batch limit.")
+        rows = wait_turn(identifier)
+        results = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
+        assert len(results) == 17
+        assert all(not item.get("isError") for item in results[:-1])
+        assert results[-1]["code"] == "tool_limit_reached"
+        assert len(records) == 2 and not records[-1]["body"].get("tools")
+        assert_tool_pairing(records[-1]["body"])
+        assert native_call("http", "configGet")["config"] == original
     finally:
         cleanup(identifier)

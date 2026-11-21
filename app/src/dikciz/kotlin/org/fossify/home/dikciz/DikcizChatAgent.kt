@@ -8,6 +8,8 @@ import ai.koog.prompt.message.AttachmentSource
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
+import ai.koog.prompt.message.ResponseMetaInfo
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import org.json.JSONArray
@@ -78,34 +80,68 @@ internal class DikcizChatAgent(
         val user = Message.User(parts, RequestMetaInfo.Empty)
         store.updateMessage(queued.getLong("id"), "running", DikcizChatProvider.encode(user))
         val current = mutableListOf<Message>(user)
+        val maximumRounds = profile.getInt("maximumRounds")
+        val discoveryResults = mutableSetOf<String>()
+        val rejectedRequests = mutableMapOf<String, String>()
+        var consecutiveDuplicateRounds = 0
+        var executedCalls = 0
+        var reachedBudget = false
         DikcizChatProvider(profile).use { provider ->
-            repeat(profile.getInt("maximumRounds")) { round ->
+            for (round in 0..maximumRounds) {
+                val finalReply = round == maximumRounds || reachedBudget
                 currentCoroutineContext().ensureActive()
                 val access = accessContext(profile, task, conversationID)
-                val system = Message.System(DikcizChatSettings.SYSTEM_PROMPT + "\n" + profile.optString("systemPrompt") +
-                    "\n" + DikcizChatTasks.instructions(task) + "\n" + library.prompt(block.getString("text")) + "\n" + agentInstructions + "\nCurrent launcher access context:\n" + access, RequestMetaInfo.Empty)
-                val context = context(conversationID, queued.getLong("id"), system, current, profile)
+                val taskSkill = if (task?.optString(DikcizChatTasks.KEY_KIND) == DikcizChatTasks.WIDGET) "dikciz-write-widget" else null
+                val instructions = listOf(
+                    DikcizChatSettings.SYSTEM_PROMPT,
+                    profile.optString("systemPrompt"),
+                    DikcizChatTasks.instructions(task),
+                    library.prompt(block.getString("text"), taskSkill),
+                    agentInstructions,
+                    "Current launcher access context:\n$access",
+                )
+                val finalInstructions = if (finalReply) FINAL_REPORT_INSTRUCTIONS else ""
+                val system = Message.System((instructions + finalInstructions).joinToString("\n"), RequestMetaInfo.Empty)
+                val tools = if (finalReply) emptyList() else {
+                    val catalogue = mcp("tools/list", JSONObject()).getJSONArray("tools")
+                    DikcizChatCoreTools.descriptors(catalogue) + DikcizChatProvider.TOOLS.filter { tool ->
+                        tool.name !in LIBRARY_WRAPPERS || permitted(DikcizAssistantLibrary.DEFINITION.tool)
+                    }
+                }
                 val blocks = JSONArray()
                 val blockIndices = mutableMapOf<Pair<String, Int?>, Int>()
                 val rowID = store.append(conversationID, turnID, "assistant", "running", "", blocks)
                 var lastFlush = 0L
                 progress("Thinking")
-                val response = provider.stream(context, { kind, index, text, complete ->
-                    if (kind == "text") progress("Writing a reply")
-                    if (kind == "reasoning") progress("Thinking")
-                    val position = blockIndices.getOrPut(kind to index) {
-                        blocks.put(JSONObject().put("kind", kind).put("text", ""))
-                        blocks.length() - 1
-                    }
-                    val block = blocks.getJSONObject(position)
-                    block.put("text", if (complete) text else block.getString("text") + text)
-                    val now = SystemClock.elapsedRealtime()
-                    if (now - lastFlush >= STREAM_FLUSH_MILLISECONDS || complete) {
-                        store.updateMessage(rowID, "running", blocks = blocks)
-                        lastFlush = now
-                        changed()
-                    }
-                })
+                val response = try {
+                    val context = context(conversationID, queued.getLong("id"), system, current, profile, finalReply)
+                    provider.stream(context, { kind, index, text, complete ->
+                        if (kind == "text") progress("Writing a reply")
+                        if (kind == "reasoning") progress("Thinking")
+                        val position = blockIndices.getOrPut(kind to index) {
+                            blocks.put(JSONObject().put("kind", kind).put("text", ""))
+                            blocks.length() - 1
+                        }
+                        val block = blocks.getJSONObject(position)
+                        block.put("text", if (complete) text else block.getString("text") + text)
+                        val now = SystemClock.elapsedRealtime()
+                        if (now - lastFlush >= STREAM_FLUSH_MILLISECONDS || complete) {
+                            store.updateMessage(rowID, "running", blocks = blocks)
+                            lastFlush = now
+                            changed()
+                        }
+                    }, withTools = !finalReply, tools = tools)
+                } catch (exception: Exception) {
+                    if (!finalReply || exception is CancellationException) throw exception
+                    logger.warn("chat_final_report_unavailable", mapOf("turn_id" to turnID, "error_type" to exception.javaClass.simpleName))
+                    val fallback = "The tool limit was reached after $executedCalls attempts. Check the recorded results for completed steps before continuing."
+                    while (blocks.length() > 0) blocks.remove(blocks.length() - 1)
+                    blocks.put(JSONObject().put("kind", "text").put("text", fallback))
+                    Message.Assistant(fallback, ResponseMetaInfo.Empty)
+                }
+                if (finalReply) {
+                    blocks.put(JSONObject().put("kind", "notice").put("text", "This turn reached its tool limit."))
+                }
                 if (response.finishReason in setOf("length", "max_tokens")) {
                     blocks.put(JSONObject().put("kind", "notice").put("text", "Provider output limit reached. The answer may be incomplete."))
                 }
@@ -114,17 +150,46 @@ internal class DikcizChatAgent(
                 val calls = response.parts.filterIsInstance<MessagePart.Tool.Call>()
                 if (calls.isEmpty()) {
                     store.updateMessage(queued.getLong("id"), "complete")
-                    logger.info("chat_turn_completed", mapOf("turn_id" to turnID, "round_count" to round + 1))
+                    logger.info("chat_turn_completed", mapOf(
+                        "turn_id" to turnID, "round_count" to round + 1,
+                        "tool_count" to executedCalls, "tool_limit_reached" to finalReply,
+                    ))
                     changed()
                     return
                 }
-                for (call in calls) {
+                var duplicateRequests = 0
+                for ((callIndex, call) in calls.withIndex()) {
                     currentCoroutineContext().ensureActive()
                     val toolBlocks = JSONArray().put(JSONObject().put("kind", "toolResult").put("name", call.tool).put("text", "Executing"))
                     val resultRow = store.append(conversationID, turnID, "tool", "executing", "", toolBlocks)
+                    val key = requestKey(call)
+                    val discovery = call.tool in DISCOVERY_TOOLS
+                    val previousRejection = rejectedRequests[key]
                     val rawResult = try {
-                        if (call.tool == "phone_agent") delegate(DikcizChatToolArguments.forExecution(call))
-                        else DikcizOperations.withActor("chat:" + conversationID) { invoke(call) }
+                        when {
+                            callIndex >= MAXIMUM_TOOL_BATCH || executedCalls >= MAXIMUM_TOOL_CALLS -> {
+                                reachedBudget = true
+                                toolError("tool_limit_reached", "A tool limit was reached before this request executed.")
+                            }
+                            discovery && key in discoveryResults -> {
+                                duplicateRequests++
+                                toolError("duplicate_discovery", "Reuse the earlier result for this discovery request.")
+                            }
+                            previousRejection != null -> {
+                                duplicateRequests++
+                                toolError("duplicate_rejected_tool", "This identical request already failed with $previousRejection. Correct it using the earlier result.")
+                            }
+                            else -> {
+                                executedCalls++
+                                reachedBudget = executedCalls >= MAXIMUM_TOOL_CALLS
+                                if (discovery) discoveryResults.add(key)
+                                if (call.tool == "phone_agent") {
+                                    delegate(DikcizChatToolArguments.forExecution(call))
+                                } else {
+                                    DikcizOperations.withActor("chat:" + conversationID) { invoke(call) }
+                                }
+                            }
+                        }
                     } catch (exception: DikcizAutomationRequestException) {
                         JSONObject().put("isError", true).put("code", exception.code).put("message", exception.message)
                     } catch (exception: DikcizMcpResourceException) {
@@ -135,22 +200,42 @@ internal class DikcizChatAgent(
                     } catch (_: org.json.JSONException) {
                         toolError("validation_failed", argumentGuidance(call.tool))
                     }
+                    val code = rawResult.optString("code").ifBlank { rawResult.optJSONObject("structuredContent")?.optString("code").orEmpty() }
+                    if (code in REPEAT_REJECTION_CODES) rejectedRequests[key] = code
+                    if (!discovery && !rawResult.optBoolean("isError")) rejectedRequests.clear()
                     val result = withToolContract(call, rawResult)
                     if (result.optBoolean("isError")) {
                         logger.warn("chat_tool_rejected", mapOf("turn_id" to turnID, "tool" to call.tool, "code" to result.optString("code")))
                     }
-                    val resultMessage = Message.User(MessagePart.Tool.Result(call.id, call.tool, resultParts(result), result.optBoolean("isError")), RequestMetaInfo.Empty)
+                    val resultBudget = store.inputBudget(profile, profile.getInt("maxOutputTokens")) / TOOL_RESULT_BUDGET_DIVISOR
+                    val resultMessage = Message.User(
+                        MessagePart.Tool.Result(call.id, call.tool, resultParts(result, resultBudget), result.optBoolean("isError")),
+                        RequestMetaInfo.Empty,
+                    )
                     toolBlocks.getJSONObject(0).put("text", displayResult(result).toString()).put("state", if (result.optBoolean("isError")) "error" else "complete")
                     store.updateMessage(resultRow, "complete", DikcizChatProvider.encode(resultMessage), toolBlocks)
-                    if (call.tool == "phone_call" && !result.optBoolean("isError")) {
-                        mcp("tools/responseRecorded", JSONObject().put("name", JSONObject(call.args).getString("name")).put("result", result))
+                    if (!result.optBoolean("isError")) {
+                        val name = when {
+                            call.tool == "phone_call" -> JSONObject(call.args).getString("name")
+                            call.tool in DikcizChatCoreTools.names -> call.tool
+                            else -> null
+                        }
+                        if (name != null) mcp("tools/responseRecorded", JSONObject().put("name", name).put("result", result))
                     }
                     current.add(resultMessage)
                     changed()
                 }
+                consecutiveDuplicateRounds = if (duplicateRequests == calls.size) consecutiveDuplicateRounds + 1 else 0
+                reachedBudget = reachedBudget || consecutiveDuplicateRounds >= MAXIMUM_DUPLICATE_ROUNDS
             }
         }
-        error("Maximum tool rounds reached. Inspect the completed operations before continuing.")
+    }
+
+    private fun requestKey(call: MessagePart.Tool.Call): String {
+        val canonical = DikcizChatToolArguments.canonicalArguments(call.args)
+        return MessageDigest.getInstance("SHA-256")
+            .digest("$forceReadOnly:${call.tool}:$canonical".toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
     }
 
     private fun accessContext(profile: JSONObject, task: JSONObject?, conversationID: String): JSONObject {
@@ -206,7 +291,9 @@ internal class DikcizChatAgent(
                 else -> arguments.getString("name").takeIf { TOOL_NAME.matches(it) }
                     ?.let { "Using " + it.removePrefix("dikciz_").replace('_', ' ') } ?: "Checking a phone tool"
             }
-            else -> "Checking a tool request"
+            else -> if (call.tool in DikcizChatCoreTools.names) {
+                "Using " + call.tool.removePrefix("dikciz_").replace('_', ' ')
+            } else "Checking a tool request"
         })
         return when (call.tool) {
             "phone_tools" -> {
@@ -233,16 +320,53 @@ internal class DikcizChatAgent(
                 arguments.optString("offset", "0").toIntOrNull() ?: DikcizNativeCommands.invalid("Invalid search offset"),
                 arguments.optString("limit", "5").toIntOrNull() ?: DikcizNativeCommands.invalid("Invalid search limit"),
             )
-            "phone_call" -> mcp("tools/call", JSONObject().put("name", arguments.getString("name"))
-                .put("arguments", DikcizChatToolArguments.parse(arguments.getString("arguments_json"))))
-            "phone_library" -> {
-                val result = mcp("tools/call", JSONObject().put("name", "dikciz_assistant_library").put("arguments", arguments))
+            "phone_call" -> callPhone(arguments.getString("name"), DikcizChatToolArguments.parse(arguments.getString("arguments_json")))
+            in LIBRARY_WRAPPERS -> {
+                if (call.tool == DikcizChatProvider.TOOL_SKILL) arguments.put("action", DikcizAssistantLibrary.ACTION_LOAD_SKILL)
+                val result = mcp("tools/call", JSONObject()
+                    .put("name", DikcizAssistantLibrary.DEFINITION.tool).put("arguments", arguments))
                 if (result.optBoolean("isError")) result else result.getJSONObject("structuredContent")
             }
             "phone_resources" -> mcp("resources/list", JSONObject().apply { arguments.optString("cursor").takeIf(String::isNotEmpty)?.let { put("cursor", it) } })
             "phone_resource" -> mcp("resources/read", JSONObject().put("uri", arguments.getString("uri")))
-            else -> JSONObject().put("isError", true).put("code", "unknown_tool").put("message", "Discover a supported phone tool first")
+            in DikcizChatCoreTools.names -> callPhone(call.tool, arguments)
+            else -> toolError("unknown_tool", "Discover a supported phone tool first")
         }
+    }
+
+    private fun callPhone(name: String, arguments: JSONObject): JSONObject {
+        val currentReadOnly = store.effectiveProfile(currentConversationID).getBoolean(DikcizChatSettings.KEY_READ_ONLY)
+        if (name == "dikciz_config_replace" && !forceReadOnly && !currentReadOnly && permitted(name)) {
+            validateLuaEdits(arguments)?.let { return it }
+        }
+        if (name == DikcizCustomAppCommands.INSTALL_TOOL && !arguments.has(DikcizCustomAppCommands.EXPECTED_REVISION)) {
+            arguments.put(DikcizCustomAppCommands.EXPECTED_REVISION, "")
+        }
+        return mcp("tools/call", JSONObject().put("name", name).put("arguments", arguments))
+    }
+
+    private fun validateLuaEdits(arguments: JSONObject): JSONObject? {
+        val drafts = arguments.optJSONObject("config")?.optJSONArray("scripts") ?: return null
+        if (drafts.length() == 0) return null
+        val request = JSONObject().put("name", "dikciz_config_get").put("arguments", JSONObject())
+        val existing = binding("tools/call", request, true).optJSONObject("structuredContent")
+            ?.optJSONObject("config")?.optJSONArray("scripts")
+        val byID = if (existing == null) emptyMap() else (0 until existing.length()).map(existing::getJSONObject)
+            .associateBy { it.getString("id") }
+        for (index in 0 until drafts.length()) {
+            val draft = drafts.optJSONObject(index) ?: continue
+            if (draft.opt("enabled") != true || draft.optString("language", "lua") != "lua") continue
+            val id = draft.opt("id") as? String ?: continue
+            val source = draft.opt("source") as? String ?: continue
+            if (!SCRIPT_ID.matches(id) || source.length > MAXIMUM_LUA_SOURCE_CHARACTERS) continue
+            val previous = byID[id]
+            if (previous?.opt("enabled") == true && previous.optString("language", "lua") == "lua" &&
+                previous.optString("source") == source) continue
+            val diagnostic = DikcizLuaRuntime().validateSyntax(id, source) ?: continue
+            return toolError("invalid_lua", "Lua script syntax is invalid. The configuration was not saved.")
+                .put("scriptId", id).put("diagnostic", diagnostic)
+        }
+        return null
     }
 
     private suspend fun delegate(arguments: JSONObject): JSONObject {
@@ -306,23 +430,42 @@ internal class DikcizChatAgent(
         return if (result.optBoolean("isError")) result else result.getJSONObject("structuredContent")
     }
 
-    private fun resultParts(result: JSONObject): List<MessagePart.ContentPart> {
+    private fun resultParts(result: JSONObject, textBudget: Int = Int.MAX_VALUE): List<MessagePart.ContentPart> {
         val parts = mutableListOf<MessagePart.ContentPart>()
         val text = JSONObject(result.toString())
         val structured = text.optJSONObject("structuredContent")
+        val originalStructuredText = structured?.toString()
         structured?.remove("pngBase64")
         val content = text.optJSONArray("content")
         if (content != null) {
+            val compact = JSONArray()
             for (index in 0 until content.length()) {
                 val item = content.getJSONObject(index)
+                if (item.optString("type") == "text" && item.optString("text") == originalStructuredText) continue
                 if (item.optString("type") == "image" && item.optString("mimeType") == "image/png") {
                     parts.add(MessagePart.Attachment(AttachmentSource.Image(AttachmentContent.Binary.Base64(item.getString("data")), "png")))
                     item.remove("data")
                     item.put("imageAttached", true)
                 }
+                compact.put(item)
             }
+            if (compact.length() == 0) text.remove("content") else text.put("content", compact)
         }
-        parts.add(0, MessagePart.Text(text.toString()))
+        val serialized = text.toString()
+        val bytes = serialized.toByteArray(Charsets.UTF_8).size
+        val modelText = if (bytes <= textBudget) {
+            serialized
+        } else {
+            JSONObject()
+                .put("code", "tool_result_too_large")
+                .put("isError", result.optBoolean("isError"))
+                .put("resultCode", result.optString("code").ifBlank { structured?.optString("code").orEmpty() })
+                .put("resultBytes", bytes)
+                .put("limitBytes", textBudget)
+                .put("message", "Full result saved to chat. Use a narrower read or smaller page. Inspect actual state before retrying a write.")
+                .toString()
+        }
+        parts.add(0, MessagePart.Text(modelText))
         return parts
     }
 
@@ -344,7 +487,9 @@ internal class DikcizChatAgent(
         system: Message.System,
         current: List<Message>,
         profile: JSONObject,
+        finalReply: Boolean,
     ): List<Message> {
+        val toolReserve = if (finalReply) 0 else TOOL_SCHEMA_RESERVE
         val budget = store.inputBudget(profile, profile.getInt("maxOutputTokens"))
         val conversation = store.conversation(id)
         val summarize = profile.getString("compaction") == "summarize"
@@ -368,7 +513,7 @@ internal class DikcizChatAgent(
             history.forEach { group -> addAll(replayTurn(group, profile)) }
             addAll(current)
         }
-        while (estimate(messages()) > budget) {
+        while (estimate(messages()) + toolReserve > budget) {
             if (history.isEmpty()) error("Current input and tool results exceed the available context budget. Increase the context limit or start a new conversation.")
             if (!summarize) {
                 history.removeAt(0)
@@ -388,7 +533,7 @@ internal class DikcizChatAgent(
                 prefix.addAll(groupMessages)
                 history.removeAt(0)
                 lastCovered = group.first().getLong("id")
-                if (estimate(messages()) + summaryOutput <= budget) break
+                if (estimate(messages()) + toolReserve + summaryOutput <= budget) break
             }
             if (lastCovered == coveredTurn) error("A completed turn is too large for the summarizer's context budget")
             val summaryResponse = DikcizChatProvider(summaryProfile).use { provider ->
@@ -462,7 +607,7 @@ internal class DikcizChatAgent(
     }
 
     private fun estimate(messages: List<Message>): Int {
-        var bytes = TOOL_SCHEMA_RESERVE.toLong()
+        var bytes = 0L
         DikcizChatToolArguments.forProvider(messages).forEach { message ->
             bytes += MESSAGE_FRAME_RESERVE
             message.parts.forEach { part -> bytes += when (part) {
@@ -486,7 +631,17 @@ internal class DikcizChatAgent(
         const val UNCERTAIN_TOOL_MESSAGE = "Execution was interrupted before its result was recorded. The action may have completed. Inspect actual state before retrying; never automatically repeat a side effect."
         const val STREAM_FLUSH_MILLISECONDS = 100L
         const val TOOL_PAGE_SIZE = 12
+        const val TOOL_RESULT_BUDGET_DIVISOR = 2
+        val LIBRARY_WRAPPERS = setOf(DikcizChatProvider.TOOL_LIBRARY, DikcizChatProvider.TOOL_SKILL)
         const val TOOL_SCHEMA_RESERVE = 4096
+        const val MAXIMUM_TOOL_CALLS = 128
+        const val MAXIMUM_TOOL_BATCH = 16
+        val REPEAT_REJECTION_CODES = setOf("validation_failed", "unknown_tool", "agent_tool_denied", "read_only_violation", "invalid_lua")
+        const val MAXIMUM_DUPLICATE_ROUNDS = 2
+        const val MAXIMUM_LUA_SOURCE_CHARACTERS = 65536
+        val SCRIPT_ID = Regex("[A-Za-z0-9_-]{1,128}")
+        const val FINAL_REPORT_INSTRUCTIONS = "The tool limit for this turn was reached. Report confirmed work, failed or unexecuted steps, and any verification still required. Use the recorded results as evidence. Return a final answer now."
+        val DISCOVERY_TOOLS = setOf("phone_tools", "phone_search", "phone_resources", "phone_resource")
         const val MESSAGE_FRAME_RESERVE = 32
         const val IMAGE_TOKEN_RESERVE = 16384
         const val SUMMARY_INSTRUCTION_RESERVE = 1024

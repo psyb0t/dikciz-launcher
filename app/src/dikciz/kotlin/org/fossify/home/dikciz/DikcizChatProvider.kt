@@ -109,6 +109,7 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
         onBlock: (String, Int?, String, Boolean) -> Unit,
         withTools: Boolean = true,
         maximumOutput: Int = profile.getInt("maxOutputTokens"),
+        tools: List<ToolDescriptor> = TOOLS,
     ): Message.Assistant {
         anthropicStream.reset()
         val parts = linkedMapOf<Pair<String, Int?>, MessagePart.ResponsePart>()
@@ -116,11 +117,18 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
         var metadata = ResponseMetaInfo.Empty
         var finishReason: String? = null
         var ended = false
-        val requestMessages = DikcizChatToolArguments.forProvider(messages)
+        val offeredTools = if (withTools) tools else emptyList()
+        val normalized = DikcizChatToolArguments.forProvider(messages).let {
+            if (isAnthropic) groupAnthropicToolResults(it) else it
+        }
+        val boundRequest = if (isAnthropic && model.id in DikcizChatAnthropicPrefix.MODELS) {
+            DikcizChatAnthropicPrefix.prepare(normalized, offeredTools)
+        } else null
+        val requestMessages = if (isAnthropic) boundRequest?.messages ?: normalized else openAIImages(normalized)
         client.executeStreaming(
-            Prompt(if (isAnthropic) requestMessages else openAIImages(requestMessages), "dikciz-chat", parameters(maximumOutput)),
+            Prompt(requestMessages, "dikciz-chat", parameters(maximumOutput)),
             model,
-            if (withTools) TOOLS else emptyList(),
+            offeredTools,
         ).collect { frame ->
             when (frame) {
                 is StreamFrame.TextDelta -> {
@@ -137,8 +145,8 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
                     parts["reasoning" to frame.index] = if (isAnthropic) anthropicStream.reasoning(frame.index, reasoning) else reasoning
                     onBlock("reasoning", frame.index, frame.content.joinToString("\n"), true)
                 }
-                is StreamFrame.ToolCallDelta -> onBlock("tool", frame.index, frame.content.orEmpty(), false)
-                is StreamFrame.ToolCallComplete -> {
+                is StreamFrame.ToolCallDelta -> if (withTools) onBlock("tool", frame.index, frame.content.orEmpty(), false)
+                is StreamFrame.ToolCallComplete -> if (withTools) {
                     val arguments = DikcizChatToolArguments.incoming(frame.content)
                     parts["tool" to frame.index] = MessagePart.Tool.Call(frame.id, frame.name, arguments)
                     onBlock("tool", frame.index, JSONObject().put("id", frame.id).put("name", frame.name).put("arguments", arguments).toString(), true)
@@ -164,6 +172,7 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
         metadata = metadata.copy(modelId = model.id, metadata = buildJsonObject {
             metadata.metadata?.forEach { (name, value) -> put(name, value) }
             put("dikcizProviderIdentity", identity(profile))
+            boundRequest?.let { put(DikcizChatAnthropicPrefix.METADATA_KEY, it.prefix) }
         })
         val ordered = if (isAnthropic) parts.entries.sortedBy { it.key.second ?: Int.MAX_VALUE }.map { it.value } else parts.values.toList()
         return Message.Assistant(ordered, metadata, finishReason)
@@ -173,6 +182,13 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
         if (isAnthropic) {
             val thinking = profile.optInt("thinkingTokens", 0)
             val effort = profile.optString("reasoning", "auto")
+            if (model.id == SONNET_ADAPTIVE_MODEL) {
+                val betweenTools = effort == "none"
+                return AnthropicParams(maxTokens = maximumOutput, additionalProperties = buildMap {
+                    put("thinking", buildJsonObject { put("type", if (betweenTools) "between_tools" else "adaptive") })
+                    if (effort != "auto") put("output_config", buildJsonObject { put("effort", if (betweenTools) "low" else effort) })
+                })
+            }
             return AnthropicParams(maxTokens = maximumOutput,
                 thinking = if (thinking > 0) AnthropicThinking.Enabled(thinking) else if (effort == "none") AnthropicThinking.Disabled() else null,
                 additionalProperties = if (effort !in setOf("auto", "none")) mapOf(
@@ -189,6 +205,25 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
             maxTokens = if (additional.containsKey("max_tokens")) null else maximumOutput,
             additionalProperties = additional,
         )
+    }
+
+    private fun groupAnthropicToolResults(messages: List<Message>): List<Message> = buildList {
+        val pending = mutableListOf<MessagePart.RequestPart>()
+        fun flush() {
+            if (pending.isEmpty()) return
+            add(Message.User(pending.toList(), RequestMetaInfo.Empty))
+            pending.clear()
+        }
+        // Claude requires every result from one assistant batch in the next user message.
+        for (message in messages) {
+            if (message is Message.User && message.parts.isNotEmpty() && message.parts.all { it is MessagePart.Tool.Result }) {
+                pending.addAll(message.parts)
+            } else {
+                flush()
+                add(message)
+            }
+        }
+        flush()
     }
 
     private fun openAIImages(messages: List<Message>): List<Message> {
@@ -222,11 +257,14 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
         private const val MAXIMUM_MODEL_PAGES = 20
         private const val MAXIMUM_MODELS = 2000
         private const val CONNECTION_TIMEOUT_MILLISECONDS = 60000L
+        private const val SONNET_ADAPTIVE_MODEL = "claude-sonnet-5-5"
         val JSON = Json { ignoreUnknownKeys = true }
         fun identity(profile: JSONObject): String = profile.getString("protocol") + ":" + profile.getString("baseUrl").trimEnd('/') + ":" + profile.getString("model")
         fun encode(message: Message): String = JSON.encodeToString(Message.serializer(), message)
         fun decode(document: String): Message = JSON.decodeFromString(Message.serializer(), document)
         private fun parameter(name: String, description: String) = ToolParameterDescriptor(name, description, ToolParameterType.String)
+        const val TOOL_SKILL = "phone_skill"
+        const val TOOL_LIBRARY = "phone_library"
         val TOOLS = listOf(
             ToolDescriptor("phone_tools", "Search the phone MCP tool catalogue and return input schemas. Discovery never executes an action. Search a task, exact identifier or keywords. Ranked results support aliases, prefixes and typo correction. Use phone_call to execute a discovered tool. Follow hasMore with nextOffset to see more tools.",
                 requiredParameters = listOf(parameter("query", "Ranked task or identifier search; empty lists the first page.")),
@@ -236,7 +274,9 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
                 optionalParameters = listOf(parameter("collection", "docs by default, tools for exact installed contracts, or an owner collection."), parameter("limit", "Decimal string from 1 to 20; defaults to 5."), parameter("offset", "Decimal string from 0 to 10000; defaults to 0."))),
             ToolDescriptor("phone_call", "Call an exact tool from current phone_tools or phone_search discovery. Supply its required native parameters with their advertised types inside the arguments_json string. Returns its real result, errors, permission recovery and a live toolContract when rejected. Never assume acceptance means completion.",
                 requiredParameters = listOf(parameter("name", "Exact discovered MCP tool name."), parameter("arguments_json", "String containing a strict JSON object matching the discovered inputSchema, including every required field. Use the string {} when the native tool takes no arguments."))),
-            ToolDescriptor("phone_library", "List owner-installed skills, agents and rules, or read a relative assistant library file. Read a skill's SKILL.md before following it; supporting references and scripts are loaded on demand, never executed by loading.",
+            ToolDescriptor(TOOL_SKILL, "Load an enabled skill by exact name from the current skill catalog. Returns its instructions, directory and revision. Supporting files are read separately with phone_library.",
+                requiredParameters = listOf(parameter("name", "Exact skill name, such as dikciz-write-app."))),
+            ToolDescriptor(TOOL_LIBRARY, "List skills, agents and rules, or read one relative library file such as a skill reference. Loading files does not execute code.",
                 requiredParameters = listOf(parameter("action", "list or read")), optionalParameters = listOf(parameter("path", "Relative path returned by list; required for read."))),
             ToolDescriptor("phone_agent", "Delegate a task to an installed named agent. It runs with an isolated persistent conversation and returns its final answer and conversationId. Inherits this turn's read-only mode and tool restrictions; agent files can narrow access. Calls share parent cancellation, timeout and a two-level delegation limit. Discover names with phone_library.",
                 requiredParameters = listOf(parameter("name", "Exact installed agent name."), parameter("prompt", "Self-contained task, at most 32768 characters. Supply necessary context, without credentials."))),

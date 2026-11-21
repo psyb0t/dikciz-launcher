@@ -337,7 +337,7 @@ MCP: [`dikciz_activity_read`](command-reference.md#dikciz_activity_read). The li
 
 ## addWidget
 
-Place one new top-level item in the first fitting free cells of the selected page grid. Rejects with page_full and writes nothing when no space fits. Use dikciz_widget_move and dikciz_widget_resize to place it afterwards.
+Place one new top-level item in the first fitting free cells of the named page, or the selected page when pageId is absent. Returns the saved address. Rejects locked or full pages without writing. Use dikciz_widget_move and dikciz_widget_resize for placement afterwards.
 
 MCP: [`dikciz_add_widget`](command-reference.md#dikciz_add_widget). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
 
@@ -482,7 +482,7 @@ MCP: [`dikciz_app_icon`](command-reference.md#dikciz_app_icon). The linked refer
 
 ## assistantLibrary
 
-Discover owner-authored skills, named agents and rules under /sdcard/Dikciz/assistant. list returns metadata; read returns exact UTF-8 instructions or supporting skill files using a relative path. Instructions reload between chat rounds and cannot raise tool permissions. Supports portable SKILL.md front matter and Markdown agents/rules, including .agents, .claude and .hermes skill directories.
+Discover owner and bundled skills, agents and rules. list returns metadata. loadSkill uses an exact enabled skill name and returns its Markdown, directory and revision. read uses a relative path for exact UTF-8 files. Instructions reload between chat rounds and cannot raise tool permissions.
 
 MCP: [`dikciz_assistant_library`](command-reference.md#dikciz_assistant_library). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
 
@@ -492,6 +492,7 @@ MCP: [`dikciz_assistant_library`](command-reference.md#dikciz_assistant_library)
 | `command.assistantLibrary.action.list` | action=list | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
 | `command.assistantLibrary.action.inspect` | action=inspect | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
 | `command.assistantLibrary.action.read` | action=read | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+| `command.assistantLibrary.action.loadSkill` | action=loadSkill | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
 
 ## assistantLibraryManage
 
@@ -1070,7 +1071,7 @@ MCP: [`dikciz_custom_app_event`](command-reference.md#dikciz_custom_app_event). 
 
 ## customAppInstall
 
-Install or replace a complete app bundle after confirm=true. manifest has version:1,id,title,description,language (lua/javascript), optional commands (legacy metadata), events (event names), optional locationMonitoring boolean. Sources use html/css/javascript/backgroundSource. New apps start enabled and inherit Dikciz Android access. Replacing requires no pending timers or alert and preserves data and running/stopped state. All entrypoints share validation.
+Install or replace a complete app bundle after confirm=true. Supply expectedRevision from customAppRead for edits, or an empty string for create only. manifest has version:1,id,title,description,language (lua/javascript), optional commands (legacy metadata), events (event names), optional locationMonitoring boolean. Sources use html/css/javascript/backgroundSource. New apps start enabled and inherit Dikciz Android access. Replacing requires no pending timers or alert and preserves data and running/stopped state. All entrypoints share validation.
 
 MCP: [`dikciz_custom_app_install`](command-reference.md#dikciz_custom_app_install). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
 
@@ -1080,7 +1081,7 @@ MCP: [`dikciz_custom_app_install`](command-reference.md#dikciz_custom_app_instal
 
 ## customAppRead
 
-Read one app manifest, full HTML/CSS/JS, optional Lua/JS background source, state, run status and durable timers. Sources live under /sdcard/Dikciz/apps/<appId>. This read can contain private app data and requires an explicit operation grant for scoped remote clients.
+Read one app manifest, full HTML/CSS/JS, optional Lua/JS background source, sourceRevision, state, run status and durable timers. Sources live under /sdcard/Dikciz/apps/<appId>. This read can contain private app data and requires an explicit operation grant for scoped remote clients.
 
 MCP: [`dikciz_custom_app_read`](command-reference.md#dikciz_custom_app_read). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
 

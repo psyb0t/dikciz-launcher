@@ -7,6 +7,17 @@ nav_order: 10
 
 # Changelog
 
+## [0.35.0] - 2026-11-21
+
+- Give chat typed tools for building widgets, testing automations and authoring custom apps. Bundle a skill for each workflow and load installed skills by name.
+- Let addWidget target a page by ID. Reject insertion into a locked page.
+- Check custom app revisions before applying chat edits. Reject stale source and preserve saved state and app files during replacement.
+- Keep large tool results in the chat transcript and send the model a short receipt. Stop repeated discovery and rejected calls, then report what completed when a tool limit is reached.
+- Preserve Anthropic tool result pairing and handle Claude Sonnet 5.5 thinking across tool rounds. Validate new or changed enabled Lua scripts before saving from chat. Bound Lua execution time.
+- Add a screenshot gallery for the six bundled apps.
+
+Migration: rename any owner skill or agent named dikciz-write-widget, dikciz-write-script or dikciz-write-app. These names are now reserved. To replace an existing custom app from chat, pass the source revision returned by the app read.
+
 ## [0.34.0] - 2026-11-20
 
 - Bundle Impact Response under Dikciz > Apps. It opens disarmed and keeps existing installed copies and settings.

@@ -3,6 +3,7 @@
 docs/
 .git/
 .testing/
+.plan/
 .agent_notes/
 .research_files/
 .env

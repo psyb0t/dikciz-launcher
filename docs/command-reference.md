@@ -433,7 +433,7 @@ WebView invocation: `await dikciz.command("activityRead", fields)`. Headless Jav
 
 ## dikciz_add_widget
 
-Place one new top-level item in the first fitting free cells of the selected page grid. Rejects with page_full and writes nothing when no space fits. Use dikciz_widget_move and dikciz_widget_resize to place it afterwards.
+Place one new top-level item in the first fitting free cells of the named page, or the selected page when pageId is absent. Returns the saved address. Rejects locked or full pages without writing. Use dikciz_widget_move and dikciz_widget_resize for placement afterwards.
 
 Ordinary command: `addWidget`. [Token scope definitions](token-permissions.md#addwidget). [Result envelope and task guides](developer-manual.md#result-contract).
 
@@ -442,6 +442,7 @@ WebView invocation: `await dikciz.command("addWidget", fields)`. Headless JavaSc
 | Parameter | Required | Type | Default | Definition and bounds |
 | --- | --- | --- | --- | --- |
 | `autoRequestPermissions` | No | `boolean` | `false` | Show owner permission recovery when required. Defaults to false; explicit permission-request tools always ask. Never grants access or retries an operation. |
+| `pageId` | No | `string` | `Not declared` | Stable Dikciz page ID from dikciz_snapshot. {"maximum": 256} |
 | `widgetType` | Yes | `string` | `Not declared` | Item type to create: html, appGroup, or scriptDashboard. {"maximum": 256} |
 
 
@@ -453,6 +454,11 @@ WebView invocation: `await dikciz.command("addWidget", fields)`. Headless JavaSc
     "widgetType": {
       "type": "string",
       "description": "Item type to create: html, appGroup, or scriptDashboard.",
+      "maximum": 256
+    },
+    "pageId": {
+      "type": "string",
+      "description": "Stable Dikciz page ID from dikciz_snapshot.",
       "maximum": 256
     },
     "autoRequestPermissions": {
@@ -1124,7 +1130,7 @@ WebView invocation: `await dikciz.command("appIcon", fields)`. Headless JavaScri
 
 ## dikciz_assistant_library
 
-Discover owner-authored skills, named agents and rules under /sdcard/Dikciz/assistant. list returns metadata; read returns exact UTF-8 instructions or supporting skill files using a relative path. Instructions reload between chat rounds and cannot raise tool permissions. Supports portable SKILL.md front matter and Markdown agents/rules, including .agents, .claude and .hermes skill directories.
+Discover owner and bundled skills, agents and rules. list returns metadata. loadSkill uses an exact enabled skill name and returns its Markdown, directory and revision. read uses a relative path for exact UTF-8 files. Instructions reload between chat rounds and cannot raise tool permissions.
 
 Ordinary command: `assistantLibrary`. [Token scope definitions](token-permissions.md#assistantlibrary). [Result envelope and task guides](developer-manual.md#result-contract).
 
@@ -1132,8 +1138,9 @@ WebView invocation: `await dikciz.command("assistantLibrary", fields)`. Headless
 
 | Parameter | Required | Type | Default | Definition and bounds |
 | --- | --- | --- | --- | --- |
-| `action` | Yes | `string` | `Not declared` | See the complete schema below. {"enum": ["list", "inspect", "read"]} |
+| `action` | Yes | `string` | `Not declared` | See the complete schema below. {"enum": ["list", "inspect", "read", "loadSkill"]} |
 | `autoRequestPermissions` | No | `boolean` | `false` | Ask the owner to grant missing Android access. Never grants access or retries automatically. |
+| `name` | No | `string` | `Not declared` | Exact skill name. Required for loadSkill. {"maxLength": 64} |
 | `path` | No | `string` | `Not declared` | See the complete schema below. {"maxLength": 1024} |
 
 
@@ -1147,8 +1154,14 @@ WebView invocation: `await dikciz.command("assistantLibrary", fields)`. Headless
       "enum": [
         "list",
         "inspect",
-        "read"
+        "read",
+        "loadSkill"
       ]
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Exact skill name. Required for loadSkill."
     },
     "path": {
       "type": "string",
@@ -4108,7 +4121,7 @@ WebView invocation: `await dikciz.command("customAppEvent", fields)`. Headless J
 
 ## dikciz_custom_app_install
 
-Install or replace a complete app bundle after confirm=true. manifest has version:1,id,title,description,language (lua/javascript), optional commands (legacy metadata), events (event names), optional locationMonitoring boolean. Sources use html/css/javascript/backgroundSource. New apps start enabled and inherit Dikciz Android access. Replacing requires no pending timers or alert and preserves data and running/stopped state. All entrypoints share validation.
+Install or replace a complete app bundle after confirm=true. Supply expectedRevision from customAppRead for edits, or an empty string for create only. manifest has version:1,id,title,description,language (lua/javascript), optional commands (legacy metadata), events (event names), optional locationMonitoring boolean. Sources use html/css/javascript/backgroundSource. New apps start enabled and inherit Dikciz Android access. Replacing requires no pending timers or alert and preserves data and running/stopped state. All entrypoints share validation.
 
 Ordinary command: `customAppInstall`. [Token scope definitions](token-permissions.md#customappinstall). [Result envelope and task guides](developer-manual.md#result-contract).
 
@@ -4120,6 +4133,7 @@ WebView invocation: `await dikciz.command("customAppInstall", fields)`. Headless
 | `backgroundSource` | No | `string` | `Not declared` | See the complete schema below. {"maxLength": 262144} |
 | `confirm` | Yes | `boolean` | `Not declared` | See the complete schema below. |
 | `css` | No | `string` | `Not declared` | See the complete schema below. {"maxLength": 262144} |
+| `expectedRevision` | No | `string` | `Not declared` | Observed sourceRevision for replacement. Empty means create only. {"maxLength": 64, "pattern": "^(?:[0-9a-f]{64})?$"} |
 | `html` | Yes | `string` | `Not declared` | See the complete schema below. {"maxLength": 262144} |
 | `javascript` | No | `string` | `Not declared` | See the complete schema below. {"maxLength": 262144} |
 | `manifest` | Yes | `object` | `Not declared` | See the complete schema below. |
@@ -4220,6 +4234,12 @@ WebView invocation: `await dikciz.command("customAppInstall", fields)`. Headless
       "type": "string",
       "maxLength": 262144
     },
+    "expectedRevision": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^(?:[0-9a-f]{64})?$",
+      "description": "Observed sourceRevision for replacement. Empty means create only."
+    },
     "confirm": {
       "type": "boolean"
     },
@@ -4240,7 +4260,7 @@ WebView invocation: `await dikciz.command("customAppInstall", fields)`. Headless
 
 ## dikciz_custom_app_read
 
-Read one app manifest, full HTML/CSS/JS, optional Lua/JS background source, state, run status and durable timers. Sources live under /sdcard/Dikciz/apps/<appId>. This read can contain private app data and requires an explicit operation grant for scoped remote clients.
+Read one app manifest, full HTML/CSS/JS, optional Lua/JS background source, sourceRevision, state, run status and durable timers. Sources live under /sdcard/Dikciz/apps/<appId>. This read can contain private app data and requires an explicit operation grant for scoped remote clients.
 
 Ordinary command: `customAppRead`. [Token scope definitions](token-permissions.md#customappread). [Result envelope and task guides](developer-manual.md#result-contract).
 

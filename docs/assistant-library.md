@@ -45,7 +45,7 @@ restrictions. Do not change settings or stop applications.
 Read references/checks.md if the owner asks for a detailed interpretation.
 ```
 
-Only its metadata and content revision (`sha256`) enter the initial request. A changed revision tells the assistant to re-read previously loaded instructions. The assistant calls `phone_library` with `action:read` and the returned relative path to load instructions or supporting files. Ask for `$inspect-device` to load that skill explicitly in the next turn. Skill names must match their directory, use lowercase letters, digits and single hyphens, and contain at most 64 characters. Descriptions are required and limited to 1024 characters.
+Only its metadata and content revision (`sha256`) enter the initial request. A changed revision tells the assistant to re-read previously loaded instructions. The assistant calls `phone_skill` with the exact skill name to load its instructions and directory. To read a supporting file, it uses `phone_library` with `action:read` and the exact relative path. Ask for `$inspect-device` to load that skill explicitly in the next turn. Skill names must match their directory, use lowercase letters, digits and single hyphens, and contain at most 64 characters. Descriptions are required and limited to 1024 characters.
 
 Files under `references/`, `scripts/` and `assets/` stay available on demand. Reading a script never runs it. Execution uses the ordinary phone tools and their current permissions. Optional metadata such as `license`, `compatibility` and `metadata` remains descriptive. A skill's `allowed-tools` is not a grant or an executor boundary; use agent tool restrictions or a scoped remote token when that boundary is needed.
 
@@ -105,7 +105,7 @@ Front matter supports scalar fields, quoted strings, indented literal/folded tex
 
 ## Discovery, limits and backups
 
-`assistantLibrary` is exposed as `dikciz_assistant_library` on MCP and shares the native executor across HTTP, WebSocket, Lua and JavaScript. `action:list` returns the root and bounded entry metadata. `action:read` requires a relative `path`. Entry `id` values are stable SHA-256 hashes of their instruction paths without the `.disabled` suffix; they do not change when the content or enabled state changes. The built-in `phone_library` wrapper offers the same reads. Remote clients need the installed library read grant; it does not imply file writes or chat control. Discover the current contract and grant IDs from the phone.
+`assistantLibrary` is exposed as `dikciz_assistant_library` on MCP and shares the native executor across HTTP, WebSocket, Lua and JavaScript. `action:list` returns the root and bounded entry metadata. `action:read` requires a relative `path`. Entry `id` values are stable SHA-256 hashes of their instruction paths without the `.disabled` suffix; they do not change when the content or enabled state changes. Use `action:loadSkill` with the exact `name` of an enabled skill to read its text, relative directory and revision. `phone_skill` and `phone_library` share this executor and its grants. Remote clients need the installed library read grant; it does not imply file writes or chat control. Discover the current contract and grant IDs from the phone.
 
 The library allows 512 files, 128 instruction entries, 12 directory levels, 64 KiB per text file, 512 KiB of instruction metadata/body data, and 128 KiB of injected owner instructions/catalog data. Exceeding a budget fails explicitly. The model's own input budget must also fit the selected instructions. Paths cannot escape the assistant root, include dot segments or follow symlinks. Put credentials in the provider connection settings, never in these files.
 
@@ -121,7 +121,7 @@ The library allows 512 files, 128 instruction entries, 12 directory levels, 64 K
 
 The manager lists skills, agents and rules with enabled, disabled, invalid and built-in states. Tap an owner item to edit the complete Markdown file. **New instruction** offers the three kinds. **Validate** checks the instruction format without saving; provider compatibility and agent token budgets are checked when an agent starts its turn. **Save** validates and atomically replaces the file. Errors keep the text in place. Rotation preserves an open draft. The item's **More** menu holds enable/disable and confirmed deletion. Deleting the instruction preserves its supporting files. Disabling adds `.disabled` to its filename, excluding it from subsequent model rounds. Re-enabling validates it and rejects duplicate identities.
 
-**Built-in guides** explain how the assistant can write its own skills, rules and agents, plus how to debug automations. Their discovery metadata is always present; their short bodies load on demand. Read them using `phone_library` and a returned `@builtin/.../SKILL.md` path. They live in the APK, separate from owner files; copy a guide to a differently named owner skill to customize it. These four names are reserved for bundled guides. If an older owner skill or agent uses one, rename it and update its front matter before using chat.
+**Built-in guides** explain how the assistant can write its own skills, rules and agents, plus how to debug automations. Their discovery metadata is always present. Their short bodies load on demand. Read them by name with `phone_skill`. The APK supplies the guides. Copy a guide to a differently named owner skill to customize it. The names below are reserved for bundled guides. If an older owner skill or agent uses one, rename it and update its front matter before using chat.
 
 | Guide | Purpose |
 | --- | --- |
@@ -129,6 +129,9 @@ The manager lists skills, agents and rules with enabled, disabled, invalid and b
 | `dikciz-write-agent` | Write a named prompt, exact tool restrictions and read-only settings, then test isolated delegation. |
 | `dikciz-write-rule` | Place persistent owner preferences in the right scope without duplicating existing instructions. |
 | `dikciz-debug-automation` | Follow causal history, inspect retained events and simulate a current handler. |
+| `dikciz-write-widget` | Create and verify an HTML widget on a specific page. The Make widget task loads this guide automatically. |
+| `dikciz-write-script` | Validate a Lua or JavaScript handler against fixture events and verify its saved state. |
+| `dikciz-write-app` | Install or edit a custom app with a web UI and background handler. |
 
 The bundled guides cannot grant access. The assistant still needs writable access to save instructions. Read-only mode hides the management tool and immediately rejects a forged call. Remote tokens use separate inspect/read/validate/manage operation grants from installed discovery.
 

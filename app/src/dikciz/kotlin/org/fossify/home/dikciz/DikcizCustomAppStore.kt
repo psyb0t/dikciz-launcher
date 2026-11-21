@@ -27,6 +27,9 @@ internal data class DikcizCustomApp(
     val title: String get() = manifest.getString("title")
     val language: DikcizScriptLanguage get() = if (manifest.getString("language") == "lua") DikcizScriptLanguage.Lua else DikcizScriptLanguage.JavaScript
     val events: Set<String> get() = manifest.getJSONArray("events").strings().toSet()
+    fun sourceRevision(): String = MessageDigest.getInstance("SHA-256")
+        .digest(JSONArray(listOf(manifest, html, css, javascript, source)).toString().toByteArray(UTF_8))
+        .joinToString("") { "%02x".format(it) }
 }
 
 internal fun JSONArray.strings(): List<String> = (0 until length()).map { getString(it) }
@@ -77,11 +80,15 @@ internal class DikcizCustomAppStore(private val context: Context, private val pu
         return DikcizCustomApp(manifest, values[0], values[1], values[2], values[3], JSONObject())
     }
 
-    fun write(app: DikcizCustomApp, preserveState: Boolean = true) {
+    fun write(app: DikcizCustomApp, preserveState: Boolean = true, expectedRevision: String? = null) {
         val dir = directory(app.id)
         recover(app.id)
-        if (!dir.exists() && ids().size >= DikcizCustomAppCommands.MAXIMUM_APPS) DikcizNativeCommands.failure("custom_app_capacity", "Delete an app before installing another")
-        val state = if (preserveState && dir.exists()) read(app.id).state else app.state
+        val exists = dir.exists()
+        if (expectedRevision != null && (exists == expectedRevision.isEmpty())) revisionConflict()
+        if (!exists && ids().size >= DikcizCustomAppCommands.MAXIMUM_APPS) DikcizNativeCommands.failure("custom_app_capacity", "Delete an app before installing another")
+        val previous = if (exists && (preserveState || expectedRevision != null)) read(app.id) else null
+        if (expectedRevision != null && previous != null && previous.sourceRevision() != expectedRevision) revisionConflict()
+        val state = if (preserveState) previous?.state ?: app.state else app.state
         val stage = File(root, ".${app.id}.staging")
         val backup = File(root, ".${app.id}.backup")
         if (stage.exists() || backup.exists()) DikcizNativeCommands.failure("custom_app_recovery_required", "An unfinished app replacement needs recovery")
@@ -101,6 +108,11 @@ internal class DikcizCustomAppStore(private val context: Context, private val pu
             if (stage.exists()) removeTree(stage)
         }
     }
+
+    private fun revisionConflict(): Nothing = DikcizNativeCommands.failure(
+        "custom_app_revision_conflict",
+        "App source changed or already exists. Read the current app and retry with its sourceRevision.",
+    )
 
     private fun recover(id: String) {
         val dir = directory(id)

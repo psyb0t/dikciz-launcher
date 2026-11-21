@@ -43,6 +43,15 @@ internal object DikcizChatToolArguments {
         return arguments
     }
 
+    fun canonicalArguments(arguments: String): String =
+        objectOrNull(arguments)?.let(::ordered)?.toString() ?: arguments
+
+    private fun ordered(element: JsonElement): JsonElement = when (element) {
+        is JsonObject -> JsonObject(element.toSortedMap().mapValues { ordered(it.value) })
+        is JsonArray -> JsonArray(element.map(::ordered))
+        else -> element
+    }
+
     fun forProvider(messages: List<Message>): List<Message> = messages.map(::forProviderMessage)
 
     private fun forProviderMessage(message: Message): Message {

@@ -203,3 +203,70 @@ def test_chat_quick_tasks_cancelled_screen_stays_hidden(websocket_control, provi
     finally:
         agent.cleanup(identifier)
         agent.emulator_dikciz_accessibility_set(False)
+
+
+def test_chat_authoring_typed_widget_from_builtin_skill(websocket_control, provider_endpoint):
+    original = native_call("http", "configGet")["config"]
+    configured = agent.fixture_document()
+    page_id = "chat-typed-" + uuid.uuid4().hex[:8]
+    append_empty_page(configured, page_id, "Typed widget target", 7, 7)
+    native_call("http", "configReplace", {"config": configured})
+    configured = native_call("http", "configGet")["config"]
+    assert configured["launcher"]["home"]["selectedPageId"] != page_id
+    endpoint, script, records = provider_endpoint
+    _, identifier = agent.conversation(endpoint, "anthropic", maximumRounds=6)
+    values = {
+        "title": "Typed counter",
+        "html": '<p id="counter">Fixture</p>',
+        "css": "body{color:orange}",
+        "javascript": "window.addEventListener('dikciz-ready',()=>selfWidget.patchState({ready:true}));",
+    }
+
+    def widget_args(body):
+        result = next(part for message in body["messages"] for part in message.get("content", [])
+                      if isinstance(part, dict) and part.get("tool_use_id") == "fixture-call-1")
+        return {"widgetAddress": json.loads(result["content"][0]["text"])["structuredContent"]["address"]}
+
+    def patch_args(body):
+        address = widget_args(body)["widgetAddress"]
+        return {"sourceWidgetAddress": address, "actions": [
+            {"type": "patchWidget", "widgetAddress": address, "values": values},
+        ]}
+
+    script.update(wrapper_calls=[
+        ("dikciz_home_get", {}),
+        ("dikciz_add_widget", {"widgetType": "html", "pageId": page_id}),
+        ("dikciz_automation_dispatch", patch_args),
+        ("dikciz_widget_get", widget_args),
+    ], text="Fixture checked its saved widget.")
+    try:
+        agent.send(identifier, "Use $dikciz-write-widget to create one counter on " + page_id)
+        rows = agent.wait_turn(identifier)
+        assert len(records) == 5
+        first = records[0]["body"]
+        assert "@builtin/dikciz-write-widget/SKILL.md" in json.dumps(first["system"])
+        assert "Author an HTML widget" in json.dumps(first["system"])
+        schemas = {tool["name"]: tool["input_schema"] for tool in first["tools"]}
+        assert schemas["dikciz_add_widget"]["required"] == ["widgetType"]
+        assert schemas["dikciz_add_widget"]["properties"]["pageId"]["type"] == "string"
+        dispatch = schemas["dikciz_automation_dispatch"]["properties"]["actions"]
+        assert dispatch["type"] == "array" and dispatch["items"]["type"] == "object"
+        pending = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
+        assert len(pending) == 4 and all(not row.get("isError") for row in pending)
+        assert pending[-1]["structuredContent"]["title"] == values["title"]
+        deadline = time.monotonic() + agent.TURN_TIMEOUT
+        while time.monotonic() < deadline:
+            saved = native_call("http", "configGet")["config"]
+            pages = saved["launcher"]["home"]["pages"]
+            assert pages[:-1] == configured["launcher"]["home"]["pages"][:-1]
+            actual = pages[-1]["widgets"]
+            assert len(actual) == 1
+            if actual[0]["state"].get("ready"):
+                break
+            time.sleep(0.2)
+        assert all(actual[0][key] == value for key, value in values.items())
+        assert actual[0]["state"] == {"ready": True}
+        agent.assert_tool_pairing(records[-1]["body"])
+    finally:
+        agent.cleanup(identifier)
+        native_call("http", "configReplace", {"config": original})

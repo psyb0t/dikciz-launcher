@@ -19,6 +19,7 @@ import org.luaj.vm2.lib.StringLib
 import org.luaj.vm2.lib.TableLib
 import org.luaj.vm2.lib.OneArgFunction
 import org.luaj.vm2.lib.ZeroArgFunction
+import org.luaj.vm2.lib.VarArgFunction
 import org.luaj.vm2.lib.jse.JseMathLib
 import org.luaj.vm2.LoadState
 import java.time.Instant
@@ -100,6 +101,13 @@ internal class DikcizLuaRuntime {
         } catch (_: IllegalArgumentException) {
             DikcizLuaAutomationResult.Failure(DikcizLuaFailure.InvalidResult)
         }
+    }
+
+    fun validateSyntax(scriptID: String, source: String): String? = try {
+        createCompilerGlobals().load(source, scriptChunkName(scriptID))
+        null
+    } catch (exception: LuaError) {
+        luaErrorDiagnostic(exception)
     }
 
     fun decodeJsonEventResult(serialized: String, limits: DikcizLimits): DikcizLuaAutomationResult.Actions {
@@ -324,7 +332,11 @@ internal class DikcizLuaRuntime {
         executionBudget: LuaExecutionBudget,
         host: LuaHostBridge?,
     ): LuaValue {
-        val thread = LuaThread(globals, chunk)
+        val entry = object : VarArgFunction() {
+            override fun invoke(arguments: Varargs): Varargs =
+                executionBudget.runWorker { chunk.invoke(arguments) }
+        }
+        val thread = LuaThread(globals, entry)
         val instructionLimitHook = InstructionLimitHook(executionBudget)
         setHook.invoke(
             LuaValue.varargsOf(
@@ -1078,7 +1090,10 @@ internal class DikcizLuaRuntime {
     private class LuaExecutionBudget(
         private val maximumDurationNanos: Long,
     ) {
-        private val startedAtThreadCpuNanos = Debug.threadCpuTimeNanos()
+        private val caller = Thread.currentThread()
+        private val callerStartedCpuNanos = Debug.threadCpuTimeNanos()
+        private var workerStartedCpuNanos = 0L
+        @Volatile private var workerCpuNanos = 0L
         private val initialUsedMemoryBytes = usedMemoryBytes()
         private var nativeCpuNanos = 0L
         private var nativeAllocationBytes = 0L
@@ -1086,6 +1101,16 @@ internal class DikcizLuaRuntime {
         @Volatile
         var limitFailure: Error? = null
             private set
+
+        // LuaJ runs the chunk on another thread, whose CPU clock has a different origin.
+        fun runWorker(action: () -> Varargs): Varargs {
+            workerStartedCpuNanos = Debug.threadCpuTimeNanos()
+            try {
+                return action()
+            } finally {
+                workerCpuNanos = (Debug.threadCpuTimeNanos() - workerStartedCpuNanos).coerceAtLeast(0L)
+            }
+        }
 
         fun runHostRequest(action: () -> String): String {
             throwIfExceeded()
@@ -1108,7 +1133,13 @@ internal class DikcizLuaRuntime {
             if (Thread.currentThread().isInterrupted) {
                 fail(DikcizLuaExecutionCancelled())
             }
-            if (Debug.threadCpuTimeNanos() - startedAtThreadCpuNanos - nativeCpuNanos >= maximumDurationNanos) {
+            val currentCpuNanos = Debug.threadCpuTimeNanos()
+            val consumedCpuNanos = if (Thread.currentThread() === caller) {
+                workerCpuNanos + (currentCpuNanos - callerStartedCpuNanos - nativeCpuNanos).coerceAtLeast(0L)
+            } else {
+                (currentCpuNanos - workerStartedCpuNanos).coerceAtLeast(0L)
+            }
+            if (consumedCpuNanos >= maximumDurationNanos) {
                 fail(DikcizLuaExecutionDeadlineExceeded())
             }
             if (usedMemoryBytes() - initialUsedMemoryBytes - nativeAllocationBytes + hostResponseBytes >=

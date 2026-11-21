@@ -328,7 +328,7 @@ A native page is one fixed viewport and does not grow, so on a normal home `scro
 
 ## Placement commands
 
-`addWidget` creates one top-level item on the selected page. It takes only `widgetType`, one of `html`, `appGroup`, or `scriptDashboard`, and always places the item in the first fitting free cells, reading left to right and then down. There is no cell argument: placement is not chosen at insertion. Use `widgetMove` and `widgetResize` afterwards to place it.
+`addWidget` creates one top-level item and selects its page. Pass `widgetType` as `html`, `appGroup`, or `scriptDashboard`. Optional `pageId` targets a specific page. Omit it to use the current page. The command uses the first fitting free cells, reading left to right and then down. Use `widgetMove` and `widgetResize` for specific placement. A missing or locked page returns `page_not_found` or `page_locked` without inserting a widget.
 
 App shortcuts keep the existing `appAction` route with `addShortcut`, and Android provider widgets keep the native picker because Android owns their binding step.
 

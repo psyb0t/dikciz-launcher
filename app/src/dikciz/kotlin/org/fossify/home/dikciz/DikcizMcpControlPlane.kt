@@ -1441,6 +1441,7 @@ internal class DikcizMcpControlPlane(
             ),
             DikcizAutomationControlPlane.TYPE_ADD_WIDGET to setOf(
                 DikcizAutomationControlPlane.KEY_WIDGET_TYPE,
+                DikcizAutomationControlPlane.KEY_PAGE_ID,
             ),
             DikcizAutomationControlPlane.TYPE_GRID_SET to setOf(
                 DikcizAutomationControlPlane.KEY_COLUMNS,
@@ -1574,7 +1575,7 @@ internal class DikcizMcpControlPlane(
             ToolDefinition("dikciz_diagnostics", "Read Dikciz diagnostics", "Read local control-plane diagnostics.", emptyList(), true),
             ToolDefinition("dikciz_widget_get", "Read Dikciz widget", "Read one widget by its stable H/V widget address.", listOf(widgetAddressArgument()), true),
             ToolDefinition(TOOL_GRID_SET, "Set Dikciz page grid", "Replace the page grid used by every page. Reflow widget rectangles to fit, relocate collisions and remove overflow items in saved order. Return the saved grid and evictedWidgets with pageId/id records. Evicting app shortcuts leaves their apps installed.", listOf(gridColumnsArgument(), gridRowsArgument(), gridGapArgument(), gridOuterPaddingArgument()), false),
-            ToolDefinition(TOOL_ADD_WIDGET, "Add Dikciz widget", "Place one new top-level item in the first fitting free cells of the selected page grid. Rejects with page_full and writes nothing when no space fits. Use dikciz_widget_move and dikciz_widget_resize to place it afterwards.", listOf(widgetTypeArgument()), false),
+            ToolDefinition(TOOL_ADD_WIDGET, "Add Dikciz widget", "Place one new top-level item in the first fitting free cells of the named page, or the selected page when pageId is absent. Returns the saved address. Rejects locked or full pages without writing. Use dikciz_widget_move and dikciz_widget_resize for placement afterwards.", listOf(widgetTypeArgument(), pageIDArgument().copy(isRequired = false)), false),
             ToolDefinition(TOOL_WIDGET_MOVE, "Move Dikciz widget", "Move one widget to an explicit grid rectangle. Rejects with grid_collision or grid_bounds and writes nothing.", listOf(widgetAddressArgument(), cellArgument()), false),
             ToolDefinition(TOOL_WIDGET_RESIZE, "Resize Dikciz widget", "Resize one widget to an explicit grid rectangle. Rejects with grid_collision or grid_bounds and writes nothing.", listOf(widgetAddressArgument(), cellArgument()), false),
             ToolDefinition(TOOL_HTML_WIDGET_RENDERER_CRASH, "Test HTML renderer recovery", "Crash one rendered HTML widget through Android's documented WebView test URL, then report the normal renderer-loss recovery through local logs.", listOf(widgetAddressArgument()), false),

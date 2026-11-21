@@ -47,6 +47,7 @@ keystore.jks
 keystore.properties
 
 .testing/
+.plan/
 .android-lab
 dist/
 git-update.sh

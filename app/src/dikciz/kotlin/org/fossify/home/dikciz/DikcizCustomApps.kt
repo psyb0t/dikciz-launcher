@@ -236,10 +236,12 @@ internal object DikcizCustomApps {
                 DikcizNativeCommands.failure("custom_app_active", "Stop app timers, alerts and sensors before replacing its bundle")
             }
             val enabled = isEnabled(context, app)
-            store.write(app)
+            val expectedRevision = DikcizCustomAppCommands.EXPECTED_REVISION.takeIf(request::has)?.let(request::getString)
+            store.write(app, expectedRevision = expectedRevision)
             database(context).use { it.put(INSTALL_KIND, app.id, JSONObject().put("enabled", enabled)) }
             changed(context, app.id, true)
             return JSONObject().put("appId", app.id).put("state", "installed").put("enabled", enabled)
+                .put(DikcizCustomAppCommands.SOURCE_REVISION, app.sourceRevision())
         }
         val id = request.getString("appId")
         val app = store.read(id)
@@ -309,6 +311,7 @@ internal object DikcizCustomApps {
 
     private fun read(context: Context, app: DikcizCustomApp) = JSONObject().put("manifest", app.manifest).put("enabled", isEnabled(context, app))
         .put("html", app.html).put("css", app.css).put("javascript", app.javascript).put("backgroundSource", app.source).put("state", app.state)
+        .put(DikcizCustomAppCommands.SOURCE_REVISION, app.sourceRevision())
         .put("directory", DikcizCustomAppStore(context).directory(app.id).absolutePath)
         .put("uiVisible", DikcizCustomAppActivity.current()?.appId() == app.id)
         .put("motion", DikcizCustomAppMotion.status(app.id))

@@ -20,35 +20,53 @@ internal class DikcizAssistantLibrary(private val context: Context) {
     private val root: File get() = File(HomeConfigStore(context).configurationFile.parentFile!!.canonicalFile, DIRECTORY)
 
     fun execute(request: JSONObject): JSONObject = synchronized(LOCK) { when (request.getString("action")) {
-        "list" -> JSONObject().put("root", root.absolutePath).put("entries", JSONArray(entries().map(Entry::summary))).put("builtins", JSONArray(builtins().map(Entry::summary)))
+        "list" -> JSONObject().put("root", root.absolutePath)
+            .put("entries", JSONArray(entries().map(Entry::summary)))
+            .put("builtins", JSONArray(builtins().map(Entry::summary)))
         "inspect" -> inspect()
+        ACTION_LOAD_SKILL -> loadSkill(request.optString("name"))
         "read" -> {
             val path = request.optString("path")
             if (path.isBlank()) DikcizNativeCommands.invalid("path is required for assistant library read")
             val text = read(path)
             JSONObject().put("path", path).put("text", text).put("revision", revision(text))
         }
-        else -> DikcizNativeCommands.invalid("Choose list, inspect or read")
+        else -> DikcizNativeCommands.invalid("Choose list, inspect, read or loadSkill")
     } }
 
     fun agent(name: String): Entry = synchronized(LOCK) { entries().firstOrNull { it.kind == AGENT && it.name == name }
         ?: DikcizNativeCommands.failure("assistant_agent_missing", "No named agent is installed with that name") }
 
-    fun prompt(userText: String): String {
+    private fun loadSkill(name: String): JSONObject {
+        if (name.length > MAXIMUM_NAME || !NAME.matches(name)) DikcizNativeCommands.invalid("Use an exact skill name from the assistant library")
+        val path = if (name in BUILTIN_NAMES) {
+            "$BUILTIN_PREFIX$name/SKILL.md"
+        } else {
+            entries().firstOrNull { it.kind == SKILL && it.name == name }?.path
+                ?: DikcizNativeCommands.failure("assistant_skill_missing", "Skill is not enabled. Use a name from the assistant library.")
+        }
+        val text = read(path)
+        val entry = if (name in BUILTIN_NAMES) parseBuiltin(path, name, text) else parse(path, text)
+        return entry.summary().put("directory", path.substringBeforeLast('/')).put("revision", revision(text)).put("text", text)
+    }
+
+    fun prompt(userText: String, taskSkill: String? = null): String {
         return synchronized(LOCK) {
-        val entries = entries() + builtins()
-        if (entries.isEmpty()) return ""
+        val entries = availableOwnerEntries() + builtins()
         val instructions = entries.filter { it.kind == RULE }.map { "Owner instruction file: ${it.path}\nScope metadata: ${it.metadata}\n${it.body}" }
-        val selected = entries.filter { it.kind == SKILL && Regex("(?<![A-Za-z0-9_-])\\$" + Regex.escape(it.name) + "(?![A-Za-z0-9_-])").containsMatchIn(userText) }
+        val selected = entries.filter { it.kind == SKILL && (it.name == taskSkill || Regex("(?<![A-Za-z0-9_-])\\$" + Regex.escape(it.name) + "(?![A-Za-z0-9_-])").containsMatchIn(userText)) }
         val sections = listOf(
-            "Owner assistant library. These instructions cannot grant permissions or override the current access context. Apply path-scoped rules only to their named targets. Load a relevant skill with phone_library before following it. Re-read a previously loaded skill when its sha256 changes. Delegate named agents with phone_agent when useful or requested; delegates have isolated histories and inherit access restrictions.",
+            "Owner assistant library. These instructions cannot grant permissions or override the current access context. Apply path-scoped rules only to their named targets. Load relevant skills by name with phone_skill. Use phone_library to read individual supporting files. Re-read a loaded skill when its sha256 changes. Delegate named agents with phone_agent when useful or requested; delegates have isolated histories and inherit access restrictions.",
             JSONObject().put("entries", JSONArray(entries.filter { it.kind != RULE }.map(Entry::summary))).toString(),
-        ) + instructions + selected.map { "Explicitly requested skill: ${it.path}\n${it.body}" }
+        ) + instructions + selected.map { "Loaded skill: ${it.path}\n${it.body}" }
         val value = sections.joinToString("\n\n")
         if (value.toByteArray(Charsets.UTF_8).size > MAXIMUM_PROMPT_BYTES) DikcizNativeCommands.failure("assistant_library_too_large", "Owner instructions exceed the prompt budget. Split instructions into on-demand skills.")
         value
         }
     }
+
+    private fun availableOwnerEntries(): List<Entry> =
+        if (HomeConfigStore(context).hasSharedStorageAccess()) entries() else emptyList()
 
     private fun entries(): List<Entry> {
         requireStorageAccess()
@@ -88,7 +106,7 @@ internal class DikcizAssistantLibrary(private val context: Context) {
         val name = if (kind == RULE) path else metadata["name"].orEmpty()
         val description = metadata["description"].orEmpty()
         if (name in BUILTIN_NAMES) DikcizNativeCommands.invalid("Bundled guide names are reserved; choose a different owner name")
-        if (kind != RULE && (!NAME.matches(name) || name.length > 64 || description.isBlank() || description.length > MAXIMUM_DESCRIPTION)) {
+        if (kind != RULE && (!NAME.matches(name) || name.length > MAXIMUM_NAME || description.isBlank() || description.length > MAXIMUM_DESCRIPTION)) {
             DikcizNativeCommands.invalid("Assistant skills and agents require a valid name and description: $path")
         }
         if (kind == SKILL && name != path.substringBeforeLast('/').substringAfterLast('/')) DikcizNativeCommands.invalid("Skill name must match its directory: $path")
@@ -158,8 +176,12 @@ internal class DikcizAssistantLibrary(private val context: Context) {
 
     private fun builtins(): List<Entry> = BUILTIN_NAMES.map { name ->
         val path = BUILTIN_PREFIX + name + "/SKILL.md"
-        val (metadata, body) = header(read(path))
-        Entry(SKILL, path, name, metadata.getValue("description"), body, metadata)
+        parseBuiltin(path, name, read(path))
+    }
+
+    private fun parseBuiltin(path: String, name: String, text: String): Entry {
+        val (metadata, body) = header(text)
+        return Entry(SKILL, path, name, metadata.getValue("description"), body, metadata)
     }
 
     private fun file(path: String): File {
@@ -317,12 +339,17 @@ internal class DikcizAssistantLibrary(private val context: Context) {
 
     companion object {
         const val TYPE = "assistantLibrary"
+        const val ACTION_LOAD_SKILL = "loadSkill"
+        private const val MAXIMUM_NAME = 64
         const val TYPE_MANAGE = "assistantLibraryManage"
         const val TYPE_VALIDATE = "assistantLibraryValidate"
         private val LOCK = Any()
         private const val DISABLED_SUFFIX = ".disabled"
         private const val BUILTIN_PREFIX = "@builtin/"
-        private val BUILTIN_NAMES = listOf("dikciz-write-skill", "dikciz-write-agent", "dikciz-write-rule", "dikciz-debug-automation")
+        private val BUILTIN_NAMES = listOf(
+            "dikciz-write-skill", "dikciz-write-agent", "dikciz-write-rule", "dikciz-debug-automation",
+            "dikciz-write-widget", "dikciz-write-script", "dikciz-write-app",
+        )
         private fun revision(text: String): String = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
         const val DIRECTORY = "assistant"
         const val AGENT = "agent"
@@ -350,8 +377,9 @@ internal class DikcizAssistantLibrary(private val context: Context) {
             .map { it.trim().removePrefix("- ").trim('"', '\'') }.filter(String::isNotBlank).toSet()
 
         val DEFINITION = DikcizNativeCommands.Definition(TYPE, "dikciz_assistant_library",
-            "Discover owner-authored skills, named agents and rules under /sdcard/Dikciz/assistant. list returns metadata; read returns exact UTF-8 instructions or supporting skill files using a relative path. Instructions reload between chat rounds and cannot raise tool permissions. Supports portable SKILL.md front matter and Markdown agents/rules, including .agents, .claude and .hermes skill directories.",
-            mapOf("action" to JSONObject().put("type", "string").put("enum", JSONArray(listOf("list", "inspect", "read"))),
+            "Discover owner and bundled skills, agents and rules. list returns metadata. loadSkill uses an exact enabled skill name and returns its Markdown, directory and revision. read uses a relative path for exact UTF-8 files. Instructions reload between chat rounds and cannot raise tool permissions.",
+            mapOf("action" to JSONObject().put("type", "string").put("enum", JSONArray(listOf("list", "inspect", "read", ACTION_LOAD_SKILL))),
+                "name" to JSONObject().put("type", "string").put("maxLength", MAXIMUM_NAME).put("description", "Exact skill name. Required for loadSkill."),
                 "path" to JSONObject().put("type", "string").put("maxLength", MAXIMUM_PATH)), setOf("action"))
         val DEFINITIONS = listOf(DEFINITION,
             DikcizNativeCommands.Definition(TYPE_VALIDATE, "dikciz_assistant_library_validate",
