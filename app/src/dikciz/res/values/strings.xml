@@ -53,6 +53,8 @@
     <string name="dikciz_html_widget_default_title">HTML widget</string>
     <string name="dikciz_html_widget_blank_document">&lt;p&gt;New HTML widget&lt;/p&gt;</string>
     <string name="dikciz_app_group_default_title">App group</string>
+    <string name="dikciz_app_group_move_to_page">Move to page</string>
+    <string name="dikciz_app_group_move_unavailable">This app group cannot be changed.</string>
     <string name="dikciz_app_group_remove_title">Remove %1$s?</string>
     <string name="dikciz_app_group_remove_message">It leaves %1$s. The app stays installed.</string>
     <string name="dikciz_settings_page_grid">Page grid</string>
@@ -180,9 +182,7 @@
     <string name="dikciz_script_delete_message">Remove %1$s from the active script list? Its public files stay in /sdcard/Dikciz/scripts until you remove them yourself.</string>
     <string name="dikciz_script_enabled">Enabled</string>
     <string name="dikciz_script_title_input">Script title</string>
-    <string name="dikciz_script_source_label">Source</string>
     <string name="dikciz_script_source_input">Script source</string>
-    <string name="dikciz_script_state_label">State</string>
     <string name="dikciz_script_state_input">State JSON object</string>
     <string name="dikciz_script_state_invalid">State must be a valid JSON object.</string>
     <string name="dikciz_script_id_unavailable">Dikciz cannot generate another unique script ID with this configuration limit.</string>
@@ -342,6 +342,11 @@
     <string name="dikciz_device_access_progress">%1$d of %2$d available controls are ready.</string>
     <string name="dikciz_device_access_entry">%1$s: %2$s</string>
     <string name="dikciz_device_access_grant_next">Set up %1$s</string>
+    <string name="dikciz_device_access_skip">Skip</string>
+    <string name="dikciz_device_access_retry">Try again: %1$s</string>
+    <string name="dikciz_device_access_open_settings">Open Android Settings for %1$s</string>
+    <string name="dikciz_device_access_state_deferred">skipped or denied</string>
+    <string name="dikciz_device_access_setup_reviewed">Setup reviewed. You can return to skipped permissions below.</string>
     <string name="dikciz_device_access_complete">Every available Android control is ready.</string>
     <string name="dikciz_device_access_request_unavailable">This Android control cannot be opened on this device.</string>
     <string name="dikciz_device_access_state_granted">ready</string>
@@ -408,7 +413,12 @@
     <string name="dikciz_page_search_entry">%1$s (%2$s)</string>
     <string name="dikciz_page_search_empty">No page matches that search.</string>
     <string name="dikciz_launcher_control_title">Launcher controls</string>
-    <string name="dikciz_launcher_control_app_drawer">Open app drawer</string>
+    <string name="dikciz_launcher_control_app_drawer">All Android apps</string>
+    <string name="dikciz_page_indicator_add_before">Insert page before</string>
+    <string name="dikciz_page_indicator_add_after">Insert page after</string>
+    <string name="dikciz_widget_editor_file">Widget source file</string>
+    <string name="dikciz_script_editor_file">Script source file</string>
+    <string name="dikciz_script_source_invalid">Invalid script source.</string>
     <string name="dikciz_launcher_control_add_to_page">Add to this page</string>
     <string name="dikciz_launcher_control_manage_page">Manage this page</string>
     <string name="dikciz_launcher_control_settings">Open Dikciz settings</string>
@@ -479,7 +489,7 @@
     <string name="dikciz_microphone_stream_channel">Microphone capture</string>
     <string name="dikciz_microphone_stream_active">Microphone audio is streaming. Stop recording when finished.</string>
     <string name="dikciz_microphone_stream_stop">Stop recording</string>
-    <string name="dikciz_launcher_control_apps">Apps</string>
+    <string name="dikciz_launcher_control_apps">Dikciz apps</string>
     <string name="dikciz_launcher_control_debugger">Automation debugger</string>
     <string name="dikciz_launcher_control_library">Skills, agents &amp; rules</string>
 </resources>

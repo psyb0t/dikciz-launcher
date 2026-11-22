@@ -83,7 +83,7 @@ Six Lua examples ship disabled: **Low battery reminder**, **Unplug at 80 percent
 
 ## Navigate and manage the home
 
-Tap the Dikciz mark beside the bottom page rail for the app drawer, widgets, page management and Settings. Swipe up from that rail to open the app drawer. Tap the magnifier to find a page by name or address. A full page refuses another widget rather than overlapping existing items.
+Tap **All Android apps** or swipe up from the lower part of Home to open the app drawer. The Dikciz mark opens widgets, page management and Settings. Tap the magnifier to find a page by name or address. A full page refuses another widget.
 
 The [illustrated user guide](https://psyb0t.github.io/dikciz-launcher/user-guide/) walks through pages, apps, groups, provider widgets, moving and resizing items, appearance, scripts and recovery.
 
@@ -113,7 +113,7 @@ Open **Settings**, **Safety, journeys and devices** for inactive contact plans, 
 
 ## Build your first app
 
-Open **Dikciz > Apps > Travel todo** for a complete editable app. Add tasks, then opt into **Watch New York**. An accurate GPS entry checks off **Go to New York**, even while its UI is closed. A custom event can check off another task. The [step-by-step tutorial](https://psyb0t.github.io/dikciz-launcher/todo-app-tutorial/) explains every source file, permission, event and saved-state change; the [complete reference source](app/src/dikciz/assets/apps/travel-todo/) ships in the APK.
+Open **Dikciz > Dikciz apps > Travel todo** for a complete editable app. Add tasks, then opt into **Watch New York**. An accurate GPS entry checks off **Go to New York**, even while its UI is closed. A custom event can check off another task. The [step-by-step tutorial](https://psyb0t.github.io/dikciz-launcher/todo-app-tutorial/) explains every source file, permission, event and saved-state change; the [complete reference source](app/src/dikciz/assets/apps/travel-todo/) ships in the APK.
 
 <p align="center">
 <img src="docs/images/custom-apps/todo-watching.png" alt="Travel todo waiting for a GPS entry near New York" width="280">

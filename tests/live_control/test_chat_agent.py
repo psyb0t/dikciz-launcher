@@ -1020,6 +1020,7 @@ def test_chat_provider_models_native_dropdown_and_tokens(websocket_control, prov
     profile, identifier = conversation(endpoint)
     try:
         chat("show",conversationId=identifier)
+        direct_tap(wait_for_physical_description_bounds("Chat options"))
         wait_for_physical_description_bounds("Chat model")
         direct_tap(physical_description_bounds("Chat model"))
         try:
@@ -1181,6 +1182,7 @@ def test_chat_provider_models_manual_fallback(websocket_control, provider_endpoi
     identifier = chat("create", profileId=profile["id"])["id"]
     try:
         chat("show", conversationId=identifier)
+        direct_tap(wait_for_physical_description_bounds("Chat options"))
         direct_tap(wait_for_physical_button_bounds("Close"))
         direct_tap(wait_for_physical_description_bounds("Chat model settings"))
         direct_enter_text(wait_for_physical_description_bounds("Model ID"), "fixture-manual")

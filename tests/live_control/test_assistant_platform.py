@@ -388,7 +388,23 @@ def test_assistant_platform_backup_confirmation_ui(instruction_files, app_factor
             AUTOMATION.request(connection, "scrollTo", semanticId="backups:confirm")
             run_device_operation("screenshot")
             shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / ("backup-apps-preview-" + layout + ".png"))
-            device_command("input keyevent KEYCODE_BACK")
+            if layout != "portrait":
+                device_command("input keyevent KEYCODE_BACK")
+                return
+            tap(connection, "backups:confirm")
+            settings(connection)
+            tap(connection, "settings:backups")
+            deadline = time.monotonic() + 30
+            status = ""
+            while time.monotonic() < deadline:
+                snapshot = wait_for_snapshot_node(connection, "backups:status")
+                status = AUTOMATION.require_node(snapshot, "backups:status")["text"]
+                if status.startswith("Restored."):
+                    break
+                time.sleep(.2)
+            assert status.startswith("Restored."), status
+            run_device_operation("screenshot")
+            shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "backup-restored-status.png")
     finally:
         if layout == "landscape":
             emulator_device_orientation_set("portrait")

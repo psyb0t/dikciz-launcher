@@ -147,7 +147,7 @@ Tap the cheese beside the launcher controls. The chat opens as a half-screen pan
 1. Open the header gear and **Add provider**.
 2. Choose **OpenAI**, **Anthropic** or **Custom**. The first two fill the standard host and protocol. Custom accepts your own compatible base URL.
 3. Enter the API key and save. Keys are stored separately with Android Keystore encryption and omitted from reads.
-4. Create a conversation using that provider. Choose **Chat model** from the API-backed list; refresh it when needed. If discovery cannot list a private model, enter its exact ID under **Tune**.
+4. Create a conversation using that provider. Open **Chat options** and choose **Chat model** from the API-backed list. If discovery cannot list a private model, enter its exact ID under **Tune**.
 5. Review the context size, maximum output, reasoning and access setting for this conversation. Several conversations can share one provider connection while using different models and budgets.
 
 The current OpenAI-compatible protocol is streaming Chat Completions; Anthropic-compatible uses streaming Messages. A provider template does not make every model or API feature compatible. Read [provider settings](embedded-chat.md#connect-a-provider) before choosing an endpoint that only supports another protocol.
@@ -244,7 +244,7 @@ A writable call can opt into owner review with `autoRequestPermissions: true`. F
 
 ## 6. Build an event pipeline
 
-Start with [Build a todo app that reacts to GPS](todo-app-tutorial.md) for the shortest complete app example. **Dikciz > Apps > Travel todo** contains all five editable source files. Its explicit **Watch New York** action creates a native geofence, and its background JavaScript checks off the destination after the matching event. The same list accepts a custom event for another task. The walkthrough covers permissions, source editing, independent copies and stopping monitoring.
+Start with [Build a todo app that reacts to GPS](todo-app-tutorial.md) for the shortest complete app example. **Dikciz > Dikciz apps > Travel todo** contains all five editable source files. Its explicit **Watch New York** action creates a native geofence, and its background JavaScript checks off the destination after the matching event. The same list accepts a custom event for another task. The walkthrough covers permissions, source editing, independent copies and stopping monitoring.
 
 <img src="{{ "/images/custom-apps/todo-watching.png" | relative_url }}" alt="Travel todo with an opt-in New York rule" width="280"> <img src="{{ "/images/custom-apps/todo-arrived.png" | relative_url }}" alt="Persisted task completion after a real emulator GPS event" width="280">
 

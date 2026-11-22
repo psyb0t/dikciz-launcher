@@ -17,7 +17,7 @@ from .test_operations_ux import tap
 from .test_remote_tokens import token_owner, create as token_create, call as token_call, catalogue as token_catalogue
 from .test_remote_tokens import http_command
 from .test_chat_agent import provider_endpoint, conversation, chat, send, wait_turn, cleanup
-from .ui import direct_tap, wait_for_physical_text_bounds
+from .ui import direct_tap, direct_tap_at, physical_bounds_for, wait_for_physical_text_bounds
 
 COMMAND_LIST = "customAppsList"
 COMMAND_READ = "customAppRead"
@@ -232,10 +232,27 @@ def test_custom_apps_bundled_impact_response(websocket_control):
     assert installed["enabled"] and installed["state"] == {} and not installed["uiVisible"]
     assert installed["timers"] == [] and not installed["alert"]["active"]
     open_app_manager(websocket_control)
-    tap(websocket_control, "custom-app:impact-response:open")
     try:
+        run_device_operation("screenshot")
+        shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "app-manager-row.png")
+        semantic_id = "custom-app:impact-response:open"
+        snapshot = wait_for_snapshot_node(websocket_control, semantic_id)
+        row = next(node for node in snapshot["nodes"] if node["semanticId"] == semantic_id)
+        assert row["role"] == "button" and row["clickable"]
+        title = installed["manifest"]["title"]
+        direct_tap(wait_for_physical_description_bounds("Actions for " + title))
+        wait_for_physical_text_bounds("Edit bundle")
+        assert not native_call("http", COMMAND_READ, identity)["uiVisible"]
+        direct_tap(wait_for_physical_text_bounds("Cancel"))
+
+        description = installed["manifest"]["description"]
+        bounds = physical_bounds_for(lambda node: description in node.get("text", ""))
+        x, _ = center(bounds)
+        y = bounds["top"] + 3 * (bounds["bottom"] - bounds["top"]) // 4
+        direct_tap_at(x, y)
         assert wait_app_visible(websocket_control)["appId"] == identity["appId"]
         wait_for_physical_text_bounds("Disarmed")
+        wait_for_physical_text_bounds("Emergency countdown (seconds)")
         run_device_operation("screenshot")
         shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png",
                         ARTIFACT_DIRECTORY / "custom-app-impact-response.png")
@@ -248,6 +265,68 @@ def test_custom_apps_bundled_impact_response(websocket_control):
         assert after["state"] == {} and after["timers"] == [] and not after["alert"]["active"]
     finally:
         restore_system_home()
+
+
+def test_custom_apps_impact_cancel_resumes_original_arm(websocket_control):
+    identifier = "impact-response"
+    identity = {"appId": identifier}
+    settings = {"address": "+15555550123", "threshold": 12, "armHours": 2}
+    grant_permissions(("android.permission.POST_NOTIFICATIONS",))
+    device_command(f"appops set {DIKCIZ_DEBUG_PACKAGE} SYSTEM_ALERT_WINDOW allow")
+
+    def invoke(event, payload=None, error=None):
+        return native_call("http", COMMAND_EVENT, {
+            **identity, "event": event, "payload": payload or {},
+        }, error=error)
+
+    def save_state(snapshot):
+        native_call("http", COMMAND_STATE, {**identity, "action": "replace", "state": snapshot})
+
+    try:
+        assert invoke("impact.save", settings)["state"]["settings"]["countdownSeconds"] == 20
+        for invalid in (4, 121, 5.5, "9", None):
+            invoke("impact.save", {**settings, "countdownSeconds": invalid}, error="impact_invalid")
+        for duration in (5, 120, 60):
+            assert invoke("impact.save", {**settings, "countdownSeconds": duration})["state"]["settings"]["countdownSeconds"] == duration
+        snapshot = native_call("http", COMMAND_READ, identity)["state"]
+        clock = native_call("http", "customAppRuntime")
+        readings = native_call("http", "sensorReadings", {"limit": 200})
+        linear_sensor_id = next(item["sensorId"] for item in readings["items"] if item["type"] == 10)
+        armed_until = clock["elapsedMilliseconds"] + 120_000
+        episode = "impact-cancel-fixture"
+        snapshot["incident"] = {
+            "id": episode, "boot": clock["boot"], "phase": "warning",
+            "deadline": clock["elapsedMilliseconds"] + 60_000, "message": "Emulator countdown",
+            "resumeArm": {"boot": clock["boot"], "until": armed_until, "sensorId": linear_sensor_id},
+        }
+        save_state(snapshot)
+        native_call("http", COMMAND_SCHEDULE, {
+            **identity, "action": "schedule", "timerId": "impact.deliver", "event": "impact.deliver",
+            "delayMilliseconds": 60_000, "payload": {"id": episode},
+        })
+        native_call("http", COMMAND_ALERT, {
+            **identity, "action": "show", "episodeId": episode, "durationMilliseconds": 60_000,
+            "title": "Possible impact detected", "detail": "Emulator countdown",
+            "cancelLabel": "Cancel pending alerts", "cancelEvent": "impact.cancel",
+        })
+        assert invoke("impact.cancel", {"id": "different-episode"})["state"]["incident"]["phase"] == "warning"
+        semantic_id = f"app:{identifier}:warning:cancel"
+        wait_for_snapshot_node(websocket_control, semantic_id)
+        tap(websocket_control, semantic_id)
+        wait_for_snapshot_node(websocket_control, semantic_id, should_exist=False)
+        result = native_call("http", COMMAND_READ, identity)
+        armed = result["state"]["armed"]
+        assert armed["until"] == armed_until and armed["sessionId"]
+        assert result["state"]["incident"]["phase"] == "cancelled"
+        assert "sms" not in result["state"]["incident"]
+        assert result["timers"][0]["state"] == "cancelled"
+        assert not result["alert"]["active"]
+        stale = invoke("impact.cancel", {"id": episode})
+        assert stale["state"]["armed"] == armed
+        assert invoke("impact.disarm")["state"]["armed"] is None
+    finally:
+        invoke("impact.disarm")
+        save_state({})
 
 
 @pytest.mark.parametrize("identifier", ["sos", "voice-notes", "agenda", "device-status", "travel-todo"])

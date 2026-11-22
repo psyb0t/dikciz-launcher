@@ -173,6 +173,7 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
 
     override fun onCreate() {
         super.onCreate()
+        activeService = this
         homeConfigStore = HomeConfigStore(applicationContext)
         logger = DikcizLogger(LOG_TAG, homeConfigStore.logDirectory)
         bluetoothAdapter = getSystemService(BluetoothManager::class.java)?.adapter
@@ -244,6 +245,7 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        if (activeService === this) activeService = null
         // Process death skips this callback, retaining its wakeup recovery alarm.
         cancelAlarm()
         unregisterConfigurationObservers()
@@ -359,7 +361,11 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
         configuration = loadedConfiguration
         logger.configure(loadedConfiguration.logging)
         DikcizAutomationEventBus.acceptConfiguration(applicationContext, loadedConfiguration)
-        if (!loadedConfiguration.requiresBackgroundAutomationService() && !DikcizChatRuntime.get(this).hasRules() && DikcizCustomApps.subscriptions().isEmpty()) {
+        configureSources(loadedConfiguration)
+    }
+
+    private fun configureSources(loadedConfiguration: HomeConfiguration) {
+        if (!loadedConfiguration.requiresBackgroundAutomationService() && !DikcizChatRuntime.get(this).hasRules() && !DikcizCustomApps.requiresAutomationService()) {
             cancelAlarm()
             unregisterSources()
             unregisterLocation()
@@ -1920,8 +1926,29 @@ internal class DikcizAutomationService : Service(), SensorEventListener, Locatio
         }
     }
 
-    private companion object {
-        val CONNECTIVITY_TRANSPORTS = listOf(
+    companion object {
+        @android.annotation.SuppressLint("StaticFieldLeak")
+        private var activeService: DikcizAutomationService? = null
+
+        fun appSubscriptionsChanged(context: Context) {
+            val service = activeService
+            if (service != null) {
+                val current = service.configuration
+                if (current == null) service.reconfigure() else service.configureSources(current)
+                return
+            }
+            if (!DikcizCustomApps.requiresAutomationService()) return
+            try {
+                context.startForegroundService(Intent(context, DikcizAutomationService::class.java))
+            } catch (exception: RuntimeException) {
+                DikcizCustomApps.logger(context).warn(
+                    "custom_app_event_sources_rejected",
+                    mapOf("error_class" to exception.javaClass.simpleName),
+                )
+            }
+        }
+
+        private val CONNECTIVITY_TRANSPORTS = listOf(
             ConnectivityTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH, TRANSPORT_BLUETOOTH),
             ConnectivityTransport(NetworkCapabilities.TRANSPORT_CELLULAR, TRANSPORT_CELLULAR),
             ConnectivityTransport(NetworkCapabilities.TRANSPORT_ETHERNET, TRANSPORT_ETHERNET),

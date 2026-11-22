@@ -177,3 +177,62 @@ def test_tapping_an_app_tile_launches_its_app(
     wait_for_foreground_application(ANDROID_SETTINGS_PACKAGE)
     restore_system_home()
     wait_for_selected_page(websocket_control, GROUP_PAGE_ID)
+
+
+def test_launcher_touch_drags_folder_member_to_an_empty_home_cell(
+    websocket_control: socket.socket,
+) -> None:
+    apply_group_page(
+        websocket_control,
+        [
+            app_group_widget(FIRST_COLUMN),
+            app_widget(SECOND_APP_WIDGET_ID, CLOCK_TILE_TITLE, CLOCK_COMPONENT, SECOND_COLUMN),
+        ],
+    )
+    original = group_page_widgets(websocket_control)
+    occupied = center(physical_description_bounds(
+        WIDGET_MOVE_HANDLE_DESCRIPTION.format(CLOCK_TILE_TITLE),
+    ))
+    pitch, _ = native_grid_cell_pitch()
+    empty = (occupied[0] + pitch, occupied[1])
+
+    direct_tap_at(*center(physical_description_bounds(
+        WIDGET_MOVE_HANDLE_DESCRIPTION.format(GROUP_WIDGET_TITLE),
+    )))
+    member = wait_for_physical_description_bounds(SETTINGS_TILE_TITLE)
+    run_device_operation("screenshot")
+    shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "folder-drag-before.png")
+    direct_hold_then_drag(center(member), occupied)
+    assert group_page_widgets(websocket_control) == original
+
+    member = wait_for_physical_description_bounds(SETTINGS_TILE_TITLE)
+    start_x, start_y = center(member)
+    target_x, target_y = empty
+    device_command(f"input motionevent DOWN {start_x} {start_y} && sleep 1.1 && input motionevent MOVE {target_x} {target_y}")
+    try:
+        run_device_operation("screenshot")
+        shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "folder-drag-in-progress.png")
+    finally:
+        device_command(f"input motionevent UP {target_x} {target_y}")
+    wait_for_physical_description_bounds(WIDGET_MOVE_HANDLE_DESCRIPTION.format(SETTINGS_TILE_TITLE))
+    by_id = {widget["id"]: widget for widget in group_page_widgets(websocket_control)}
+    assert len(by_id) == 3, by_id
+    assert by_id[GROUP_WIDGET_ID]["type"] == APP_WIDGET_TYPE_NAME
+    assert by_id[GROUP_WIDGET_ID]["component"] == CLOCK_COMPONENT
+    assert by_id[GROUP_WIDGET_ID]["title"] == CLOCK_TILE_TITLE
+    assert by_id[GROUP_WIDGET_ID]["cell"]["column"] == FIRST_COLUMN
+    assert by_id[SECOND_APP_WIDGET_ID] == original[1]
+    extracted = next(widget for widget in by_id.values() if widget["component"] == SETTINGS_COMPONENT)
+    assert extracted["cell"] == {"column": SECOND_COLUMN + 1, "row": 0, "columnSpan": 1, "rowSpan": 1}
+    run_device_operation("screenshot")
+    shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "folder-drag-after.png")
+
+    apply_group_page(websocket_control, [app_group_widget(FIRST_COLUMN)])
+    direct_tap_at(*center(physical_description_bounds(
+        WIDGET_MOVE_HANDLE_DESCRIPTION.format(GROUP_WIDGET_TITLE),
+    )))
+    direct_long_press(wait_for_physical_description_bounds(SETTINGS_TILE_TITLE))
+    direct_tap(wait_for_physical_text_bounds("Move to page"))
+    wait_for_physical_description_bounds(WIDGET_MOVE_HANDLE_DESCRIPTION.format(SETTINGS_TILE_TITLE))
+    extracted = next(widget for widget in group_page_widgets(websocket_control) if widget["component"] == SETTINGS_COMPONENT)
+    assert extracted["cell"]["column"] == SECOND_COLUMN and extracted["cell"]["row"] == 0

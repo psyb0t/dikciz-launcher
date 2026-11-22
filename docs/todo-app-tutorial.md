@@ -10,7 +10,7 @@ parent: "Developer manual"
 
 Build one complete Dikciz app with a checklist, a JavaScript backend and saved state. Its **Go to New York** item checks itself when an accurate location fix enters an example destination circle. The backend keeps listening after you close its interface.
 
-The working reference ships as **Dikciz > Apps > Travel todo**. Its [five source files](https://github.com/psyb0t/dikciz-launcher/tree/main/app/src/dikciz/assets/apps/travel-todo/) are also in this repository. It starts with location monitoring off. No API key, model, messages or calendar writes are involved.
+The working reference ships as **Dikciz > Dikciz apps > Travel todo**. Its [five source files](https://github.com/psyb0t/dikciz-launcher/tree/main/app/src/dikciz/assets/apps/travel-todo/) are also in this repository. It starts with location monitoring off. No API key, model, messages or calendar writes are involved.
 
 <p><img src="{{ "/images/custom-apps/todo-watching.png" | relative_url }}" alt="Travel todo with the New York location rule enabled and the trip still unchecked" width="280"> <img src="{{ "/images/custom-apps/todo-arrived.png" | relative_url }}" alt="The same app reopened after an emulator GPS entry automatically checked Go to New York" width="280"></p>
 
@@ -29,9 +29,9 @@ flowchart LR
 
 ## 1. Open the reference
 
-Open **Dikciz > Apps > Travel todo**. Check a task manually or scroll down to add your own. The initial list has **Go to New York**, **Pack my bag** and **Charge my phone**. You can use the list with location access denied.
+Open **Dikciz > Dikciz apps > Travel todo**. Check a task manually or scroll down to add your own. The initial list has **Go to New York**, **Pack my bag** and **Charge my phone**. You can use the list with location access denied.
 
-To inspect the source, return to **Dikciz > Apps**, open **More actions** beside Travel todo, then choose **Edit bundle**. The file selector exposes the manifest, HTML, CSS, UI JavaScript and backend source. Switching files preserves the other drafts; Save bundle writes them together. See the [editor and recovery screens](screens.md#apps-and-complete-bundles). Stop an active location watch before editing. Saving preserves whether the app is running or stopped. Open it directly, or choose **Start app** to resume a stopped backend.
+To inspect the source, return to **Dikciz > Dikciz apps**, open **More actions** beside Travel todo, then choose **Edit bundle**. The file selector exposes the manifest, HTML, CSS, UI JavaScript and backend source. Switching files preserves the other drafts; Save bundle writes them together. See the [editor and recovery screens](screens.md#apps-and-complete-bundles). Stop an active location watch before editing. Saving preserves whether the app is running or stopped. Open it directly, or choose **Start app** to resume a stopped backend.
 
 <p><img src="{{ "/images/custom-apps/custom-apps.png" | relative_url }}" alt="Native custom-app manager with complete bundles and their controls" width="280"> <img src="{{ "/images/custom-apps/todo-editor.png" | relative_url }}" alt="Complete bundle editor showing the travel app manifest" width="280"></p>
 

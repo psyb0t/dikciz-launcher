@@ -1,8 +1,10 @@
 package org.fossify.home.dikciz
 
+import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -22,16 +24,21 @@ import android.widget.ArrayAdapter
 import android.widget.Spinner
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.widget.doAfterTextChanged
 import io.noties.markwon.Markwon
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin
 import io.noties.markwon.ext.tables.TablePlugin
 import java.util.UUID
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -49,6 +56,7 @@ internal class DikcizChatActivity : Activity() {
     private lateinit var runtime: DikcizChatRuntime
     private lateinit var root: FrameLayout
     private lateinit var panel: LinearLayout
+    private lateinit var sheetHandle: ImageButton
     private lateinit var messages: LinearLayout
     private lateinit var scroll: ChatScrollView
     private lateinit var composer: EditText
@@ -59,9 +67,16 @@ internal class DikcizChatActivity : Activity() {
     private lateinit var emptyState: TextView
     private lateinit var markwon: Markwon
     private lateinit var modelControls: DikcizChatModelControls
+    private lateinit var chatOptions: LinearLayout
+    private var showChatOptions = false
+    private var loadingDraft = false
+    private val drafts by lazy { getSharedPreferences(DIKCIZ_CHAT_DRAFTS, Context.MODE_PRIVATE) }
+    private val pendingSends = mutableSetOf<String>()
     private val rendered = mutableMapOf<Long, MessageView>()
     private var conversationID: String? = null
     private var fullScreen = false
+    private var sheetProgress = 0f
+    private var sheetAnimation: ValueAnimator? = null
     private var followLatest = true
     private var rendering = false
     private var renderAgain = false
@@ -73,6 +88,7 @@ internal class DikcizChatActivity : Activity() {
         markwon = Markwon.builder(this).usePlugin(TablePlugin.create(this)).usePlugin(StrikethroughPlugin.create()).build()
         conversationID = savedInstanceState?.getString("conversationId") ?: intent.getStringExtra("conversationId")
         fullScreen = savedInstanceState?.getBoolean("fullScreen") ?: intent.getBooleanExtra("fullScreen", false)
+        sheetProgress = if (fullScreen) 1f else 0f
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.setBackgroundDrawableResource(android.R.color.transparent)
@@ -84,13 +100,14 @@ internal class DikcizChatActivity : Activity() {
                 setColor(BACKGROUND)
                 setStroke(dp(1), PANEL_EDGE)
             }
-            setPadding(dp(16), dp(8), dp(16), dp(12))
+            setPadding(dp(16), 0, dp(16), dp(12))
             isClickable = true
         }
         root.addView(panel, FrameLayout.LayoutParams(-1, -1, Gravity.BOTTOM))
-        panel.addView(View(this).apply {
-            background = GradientDrawable().apply { cornerRadius = dp(2).toFloat(); setColor(MUTED) }
-        }, LinearLayout.LayoutParams(dp(32), dp(3)).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = dp(6) })
+        sheetHandle = createSheetHandle()
+        panel.addView(sheetHandle, LinearLayout.LayoutParams(dp(72), dp(48)).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+        })
         val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         title = button("Dikciz", "Choose conversation") { chooseConversation() }.apply {
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
@@ -103,23 +120,28 @@ internal class DikcizChatActivity : Activity() {
         }
         header.addView(title, LinearLayout.LayoutParams(0, dp(48), 1f))
         header.addView(button("+", "New conversation") { newConversation() }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        header.addView(button("⚙", "Chat provider settings") { chooseProfile() }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        header.addView(button("↕", "Expand or reduce chat") {
-            fullScreen = !fullScreen
+        header.addView(button("⋯", "Chat options") {
+            showChatOptions = !showChatOptions
+            if (showChatOptions && availableHeight() < dp(300)) {
+                WindowCompat.getInsetsController(window, root).hide(WindowInsetsCompat.Type.ime())
+            }
             resize()
         }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        header.addView(button("⚙", "Chat provider settings") { chooseProfile() }, LinearLayout.LayoutParams(dp(48), dp(48)))
         header.addView(button("×", "Hide Dikciz chat") { finish() }, LinearLayout.LayoutParams(dp(48), dp(48)))
         panel.addView(header)
         status = textView().apply { textSize = 11f; setTextColor(MUTED); contentDescription = "Chat agent status" }
 
-        modelControls = DikcizChatModelControls(this, { conversationID }) { request, completed -> command(request, completed) }
-        panel.addView(modelControls.view)
+        modelControls = DikcizChatModelControls(this, { conversationID }) { request, completed -> command(request, completed = completed) }
+        chatOptions = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        chatOptions.addView(modelControls.view)
         val tasks = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         tasks.addView(taskButton("Make me a widget") { widgetTask() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(8) })
         tasks.addView(taskButton("Explain this screen") {
             startTask(DikcizChatTasks.EXPLAIN_SCREEN, composer.text.toString().ifBlank { DikcizChatTasks.DEFAULT_SCREEN_QUESTION })
         }, LinearLayout.LayoutParams(0, dp(48), 1f))
-        panel.addView(tasks, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+        chatOptions.addView(tasks, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+        panel.addView(chatOptions)
         panel.addView(View(this).apply { setBackgroundColor(PANEL_EDGE) },
             LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(8) })
         val content = FrameLayout(this)
@@ -165,6 +187,13 @@ internal class DikcizChatActivity : Activity() {
             maxLines = 4
         }
         controls.addView(composer, LinearLayout.LayoutParams(0, -2, 1f))
+        composer.doAfterTextChanged { text ->
+            if (loadingDraft) return@doAfterTextChanged
+            val id = conversationID ?: return@doAfterTextChanged
+            val value = text.toString()
+            if (value.isEmpty()) drafts.edit().remove(id).apply()
+            else drafts.edit().putString(id, UUID.randomUUID().toString() + "\n" + value).apply()
+        }
         controls.addView(button("↑", "Send chat message") { send() }.apply {
             textSize = 24f
             setTextColor(BACKGROUND)
@@ -182,8 +211,10 @@ internal class DikcizChatActivity : Activity() {
             view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, keyboard.bottom))
             insets
         }
-        root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> resize(); if (followLatest) scrollLatest() }
+        root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> resize() }
+        scroll.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> if (followLatest) scrollLatest() }
         if (conversationID.isNullOrBlank()) conversationID = runtime.store.conversations().firstOrNull()?.getString("id")
+        loadDraft()
         resize()
     }
 
@@ -191,8 +222,7 @@ internal class DikcizChatActivity : Activity() {
         super.onNewIntent(intent)
         setIntent(intent)
         intent.getStringExtra("conversationId")?.takeIf(String::isNotBlank)?.let { selectConversation(it) }
-        fullScreen = intent.getBooleanExtra("fullScreen", fullScreen)
-        resize()
+        settleSheet(intent.getBooleanExtra("fullScreen", fullScreen), animate = false)
     }
 
     override fun onResume() {
@@ -201,6 +231,7 @@ internal class DikcizChatActivity : Activity() {
         val selected = runtime.attachActivity(this, conversationID)
         if (conversationID != selected) {
             conversationID = selected
+            loadDraft()
             rendered.clear()
             messages.removeAllViews()
         }
@@ -214,6 +245,7 @@ internal class DikcizChatActivity : Activity() {
     }
 
     override fun onDestroy() {
+        sheetAnimation?.cancel()
         scope.cancel()
         if (::modelControls.isInitialized) modelControls.invalidate()
         super.onDestroy()
@@ -225,13 +257,118 @@ internal class DikcizChatActivity : Activity() {
         super.onSaveInstanceState(outState)
     }
 
-    private fun resize() {
-        if (!::panel.isInitialized || root.height == 0) return
+    private fun createSheetHandle(): ImageButton {
+        val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+        var startX = 0f
+        var startY = 0f
+        var startProgress = 0f
+        var verticalDrag = false
+        var ignored = false
+        return ImageButton(this).apply {
+            contentDescription = handleDescription()
+            scaleType = ImageView.ScaleType.CENTER
+            setPadding(0, 0, 0, 0)
+            background = RippleDrawable(
+                ColorStateList.valueOf(BUTTON_RIPPLE),
+                null,
+                GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(Color.WHITE) },
+            )
+            setImageDrawable(GradientDrawable().apply {
+                setSize(dp(36), dp(4))
+                cornerRadius = dp(2).toFloat()
+                setColor(MUTED)
+            })
+            setOnClickListener { settleSheet(!fullScreen) }
+            setOnTouchListener { handle, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        sheetAnimation?.cancel()
+                        startX = event.rawX
+                        startY = event.rawY
+                        startProgress = sheetProgress
+                        verticalDrag = false
+                        ignored = false
+                        handle.isPressed = true
+                    }
+                    MotionEvent.ACTION_MOVE -> if (!ignored) {
+                        val horizontal = abs(event.rawX - startX)
+                        val vertical = startY - event.rawY
+                        if (!verticalDrag && maxOf(horizontal, abs(vertical)) > touchSlop) {
+                            verticalDrag = abs(vertical) > horizontal
+                            ignored = !verticalDrag
+                            handle.isPressed = false
+                        }
+                        val travel = availableHeight() - compactHeight(availableHeight())
+                        if (verticalDrag && travel > 0) {
+                            sheetProgress = (startProgress + vertical / travel).coerceIn(0f, 1f)
+                            resize()
+                        }
+                    }
+                    MotionEvent.ACTION_POINTER_DOWN -> {
+                        ignored = true
+                        handle.isPressed = false
+                        settleSheet(fullScreen)
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        handle.isPressed = false
+                        if (ignored) {
+                            settleSheet(fullScreen)
+                        } else if (verticalDrag) {
+                            val distance = startY - event.rawY
+                            settleSheet(if (abs(distance) >= dp(SHEET_SWIPE_DISTANCE_DP)) distance > 0 else fullScreen)
+                        } else {
+                            handle.performClick()
+                        }
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        handle.isPressed = false
+                        settleSheet(fullScreen)
+                    }
+                }
+                true
+            }
+        }
+    }
+
+    private fun handleDescription() = if (fullScreen) "Collapse chat" else "Expand chat"
+
+    private fun settleSheet(expanded: Boolean, animate: Boolean = true) {
+        sheetAnimation?.cancel()
+        fullScreen = expanded
+        sheetHandle.contentDescription = handleDescription()
+        val target = if (expanded) 1f else 0f
+        if (!animate || sheetProgress == target) {
+            sheetProgress = target
+            resize()
+            return
+        }
         runtime.setWindowMode(fullScreen)
-        val available = root.height - root.paddingTop - root.paddingBottom
-        val height = if (fullScreen) available else maxOf(available / 2, minOf(dp(360), available))
+        sheetAnimation = ValueAnimator.ofFloat(sheetProgress, target).apply {
+            duration = SHEET_SETTLE_MILLISECONDS
+            addUpdateListener {
+                sheetProgress = it.animatedValue as Float
+                resize()
+            }
+            start()
+        }
+    }
+
+    private fun availableHeight() = (root.height - root.paddingTop - root.paddingBottom).coerceAtLeast(0)
+
+    private fun compactHeight(available: Int) = maxOf(available / 2, minOf(dp(360), available))
+
+    private fun resize() {
+        if (root.height == 0) return
+        runtime.setWindowMode(fullScreen)
+        val available = availableHeight()
+        val compact = compactHeight(available)
+        val height = compact + ((available - compact) * sheetProgress).roundToInt()
+        chatOptions.visibility = if (showChatOptions && height >= dp(300)) View.VISIBLE else View.GONE
         val parameters = panel.layoutParams as FrameLayout.LayoutParams
-        if (parameters.height != height) { parameters.height = height; panel.layoutParams = parameters }
+        if (parameters.height != height) {
+            parameters.height = height
+            panel.layoutParams = parameters
+        }
     }
 
     private fun render() {
@@ -283,9 +420,34 @@ internal class DikcizChatActivity : Activity() {
         if (text.isBlank()) return
         val id = conversationID
         if (id == null) { newConversation(); return }
+        if (!pendingSends.add(id)) return
+        val submitted = drafts.getString(id, null)
+        val requestKey = submitted?.substringBefore('\n') ?: UUID.randomUUID().toString()
         followLatest = true
         command(JSONObject().put("action", "send").put("conversationId", id).put("text", text)
-            .put("requestKey", UUID.randomUUID().toString())) { composer.setText("") }
+            .put("requestKey", requestKey), failed = {
+                pendingSends.remove(id)
+                showCommandError(it)
+            }) {
+            pendingSends.remove(id)
+            if (drafts.getString(id, null) == submitted) {
+                drafts.edit().remove(id).apply()
+                if (conversationID == id) loadDraft()
+            }
+        }
+    }
+
+    private fun loadDraft() {
+        loadingDraft = true
+        val id = conversationID
+        val record = id?.let { drafts.getString(it, null) }
+        val text = if (id != null && record != null && runtime.store.request(id, record.substringBefore('\n')) != null) {
+            drafts.edit().remove(id).apply()
+            ""
+        } else record?.substringAfter('\n').orEmpty()
+        composer.setText(text)
+        composer.setSelection(text.length)
+        loadingDraft = false
     }
 
     private fun widgetTask() {
@@ -301,24 +463,36 @@ internal class DikcizChatActivity : Activity() {
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 if (input.text.isBlank()) { input.error = "Describe the widget"; return@setOnClickListener }
-                startTask(DikcizChatTasks.WIDGET, input.text.toString())
-                dialog.dismiss()
+                val submit = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                submit.isEnabled = false
+                startTask(DikcizChatTasks.WIDGET, input.text.toString(), failed = { error ->
+                    input.error = error
+                    submit.isEnabled = true
+                }) { dialog.dismiss() }
             }
         }
         dialog.show()
         DikcizUiStyle.dialog(dialog)
     }
 
-    private fun startTask(task: String, text: String) {
+    private fun startTask(
+        task: String,
+        text: String,
+        failed: ((String) -> Unit)? = null,
+        completed: (JSONObject) -> Unit = {},
+    ) {
         val id = conversationID ?: run { newConversation(); return }
         followLatest = true
         command(JSONObject().put("action", DikcizChatTasks.ACTION).put("task", task)
-            .put("conversationId", id).put("text", text).put("requestKey", UUID.randomUUID().toString())) {
-            composer.setText("")
-        }
+            .put("conversationId", id).put("text", text).put("requestKey", UUID.randomUUID().toString()),
+            failed, completed)
     }
 
-    private fun command(request: JSONObject, completed: (JSONObject) -> Unit = {}) {
+    private fun command(
+        request: JSONObject,
+        failed: ((String) -> Unit)? = null,
+        completed: (JSONObject) -> Unit = {},
+    ) {
         scope.launch {
             try {
                 val reply = withContext(Dispatchers.IO) {
@@ -331,9 +505,15 @@ internal class DikcizChatActivity : Activity() {
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
-                AlertDialog.Builder(this@DikcizChatActivity).setTitle("Dikciz chat").setMessage(exception.message ?: "Operation failed").setPositiveButton("Close", null).show().also(DikcizUiStyle::dialog)
+                val message = exception.message ?: "Operation failed"
+                (failed ?: ::showCommandError)(message)
             }
         }
+    }
+
+    private fun showCommandError(message: String) {
+        AlertDialog.Builder(this).setTitle("Dikciz chat").setMessage(message)
+            .setPositiveButton("Close", null).show().also(DikcizUiStyle::dialog)
     }
 
     private fun chooseConversation() {
@@ -360,7 +540,7 @@ internal class DikcizChatActivity : Activity() {
                         val profiles = runtime.store.profiles()
                         AlertDialog.Builder(this).setTitle("Conversation provider")
                             .setItems((0 until profiles.length()).map { profiles.getJSONObject(it).getString("name") }.toTypedArray()) { _, index ->
-                                command(JSONObject().put("action", "configure").put("conversationId", id).put("profileId", profiles.getJSONObject(index).getString("id")))
+                                reviewProviderChange(id, profiles.getJSONObject(index))
                             }.show().also(DikcizUiStyle::dialog)
                     }
                     3 -> chooseRoutine()
@@ -371,6 +551,22 @@ internal class DikcizChatActivity : Activity() {
                         }.setNegativeButton("Cancel", null).show().also(DikcizUiStyle::dialog)
                 }
             }.show().also(DikcizUiStyle::dialog)
+    }
+
+    private fun reviewProviderChange(id: String, profile: JSONObject) {
+        val profileID = profile.getString("id")
+        val name = profile.getString("name")
+        val host = android.net.Uri.parse(profile.optString("baseUrl")).host
+        val destination = if (host.isNullOrBlank()) name else "$name ($host)"
+        AlertDialog.Builder(this).setTitle("Use $destination?")
+            .setMessage("Future requests can send eligible conversation history, attachments, and tool results to this provider. Start a new conversation to keep this history here.")
+            .setPositiveButton("Switch provider") { _, _ ->
+                command(JSONObject().put("action", "configure").put("conversationId", id).put("profileId", profileID))
+            }
+            .setNeutralButton("New conversation") { _, _ ->
+                command(JSONObject().put("action", "create").put("profileId", profileID)) { selectConversation(it.getString("id")) }
+            }
+            .setNegativeButton("Cancel", null).show().also(DikcizUiStyle::dialog)
     }
 
     private fun chooseRoutine() {
@@ -387,6 +583,7 @@ internal class DikcizChatActivity : Activity() {
 
     private fun selectConversation(id: String) {
         conversationID = runtime.attachActivity(this, id)
+        loadDraft()
         rendered.clear(); messages.removeAllViews(); followLatest = true
         render()
     }
@@ -394,6 +591,7 @@ internal class DikcizChatActivity : Activity() {
     internal fun onConversationDeleted(id: String) {
         if (conversationID != id) return
         conversationID = null
+        loadDraft()
         rendered.clear()
         messages.removeAllViews()
         runtime.attachActivity(this, null)
@@ -643,6 +841,8 @@ internal class DikcizChatActivity : Activity() {
         const val OWNER_BUBBLE = 0xFF333126.toInt()
         const val ASSISTANT_BUBBLE = 0xFF22231F.toInt()
         const val BUTTON_RIPPLE = 0x44F6C85F
+        const val SHEET_SWIPE_DISTANCE_DP = 28
+        const val SHEET_SETTLE_MILLISECONDS = 180L
         val SETTING_CHOICES = mapOf(
             "protocol" to arrayOf("openai", "anthropic"),
         )

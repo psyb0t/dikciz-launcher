@@ -22,6 +22,7 @@ internal class DikcizBackupSettings(
     private val handler = Handler(Looper.getMainLooper())
 
     fun show(initialPath: String = "") {
+        lateinit var dialog: AlertDialog
         val form = column()
         val views = linkedMapOf<String, View>()
         form.addView(TextView(context).apply {
@@ -46,6 +47,7 @@ internal class DikcizBackupSettings(
             create.isEnabled = false
             feedback.text = "Encrypting backup…"
             execute(DikcizBackups.TYPE_CREATE, request) { result, error ->
+                if (!dialog.isShowing) return@execute
                 create.isEnabled = true
                 feedback.text = error ?: "Saved encrypted backup:\n" + result!!.getString("path")
             }
@@ -57,6 +59,7 @@ internal class DikcizBackupSettings(
             text = "Choose a saved backup"; isAllCaps = false
             setOnClickListener {
                 execute(DikcizBackups.TYPE_LIST, JSONObject().put("limit", 200)) { result, error ->
+                    if (!dialog.isShowing) return@execute
                     if (error != null) { feedback.text = error; return@execute }
                     val rows = result!!.getJSONArray("items")
                     if (rows.length() == 0) { feedback.text = "No encrypted backups saved yet."; return@execute }
@@ -72,17 +75,32 @@ internal class DikcizBackupSettings(
         form.addView(choose); views["backups:choose"] = choose
         val preview = Button(context).apply { text = "Preview restore"; isAllCaps = false }
         form.addView(preview); views["backups:preview"] = preview
+        val refreshStatus: () -> Unit = {
+            preview.isEnabled = !restoring
+            if (restoreMessage.isNotEmpty()) feedback.text = restoreMessage
+        }
+        feedback.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(view: View) {
+                restoreObservers.add(refreshStatus)
+                refreshStatus()
+            }
+            override fun onViewDetachedFromWindow(view: View) {
+                restoreObservers.remove(refreshStatus)
+            }
+        })
         preview.setOnClickListener {
+            if (restoring) return@setOnClickListener
             val request = JSONObject().put("path", path.text.toString()).put("passphrase", password.text.toString())
             password.text.clear()
             preview.isEnabled = false
             feedback.text = "Decrypting and validating…"
             execute(DikcizBackups.TYPE_PREVIEW, request) { result, error ->
+                if (!dialog.isShowing || restoring) return@execute
                 preview.isEnabled = true
                 if (error != null) feedback.text = error else confirm(result!!)
             }
         }
-        val dialog = AlertDialog.Builder(context).setTitle("Backup and restore")
+        dialog = AlertDialog.Builder(context).setTitle("Backup and restore")
             .setView(ScrollView(context).apply { addView(form) }).setNegativeButton("Close", null).create()
         showDialog(dialog) { views }
     }
@@ -107,14 +125,24 @@ internal class DikcizBackupSettings(
         showDialog(dialog) {
             val button = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             button.setOnClickListener {
+                if (restoring) return@setOnClickListener
+                val close = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
                 button.isEnabled = false
-                status.text = "Restoring validated snapshot…"
+                activate.isEnabled = false
+                close.text = "Hide"
+                updateRestore(true, "Restoring backup… You can hide this window. Restore will continue.")
+                status.text = restoreMessage
                 execute(DikcizBackups.TYPE_RESTORE, JSONObject().put("previewId", preview.getString("previewId"))
                     .put("sha256", preview.getString("sha256")).put("confirm", true)
                     .put("activateAutomation", activate.isChecked)) { _, error ->
-                    button.isEnabled = true
-                    status.text = error ?: "Restored. Return to Home to view the restored layout."
-                    if (error == null) { button.visibility = View.GONE; dialog.getButton(AlertDialog.BUTTON_NEGATIVE).text = "Done" }
+                    updateRestore(false, error ?: "Restored. Return to Home to view the restored layout.")
+                    if (dialog.isShowing) {
+                        status.text = restoreMessage
+                        button.isEnabled = error != null
+                        activate.isEnabled = error != null
+                        if (error == null) button.visibility = View.GONE
+                        close.text = if (error == null) "Done" else "Cancel"
+                    }
                 }
             }
             mapOf("backups:summary" to summary, "backups:confirm" to button, "backups:activate" to activate, "backups:restore-status" to status)
@@ -142,5 +170,14 @@ internal class DikcizBackupSettings(
 
     private companion object {
         val worker = Executors.newSingleThreadExecutor { task -> Thread(task, "dikciz-backups").apply { isDaemon = true } }
+        val restoreObservers = mutableSetOf<() -> Unit>()
+        var restoring = false
+        var restoreMessage = ""
+
+        fun updateRestore(inProgress: Boolean, message: String) {
+            restoring = inProgress
+            restoreMessage = message
+            restoreObservers.toList().forEach { it() }
+        }
     }
 }

@@ -43,7 +43,7 @@ The cold-start splash shows the running version and build type at its bottom. Ta
 
 ## Apps and complete bundles
 
-Open the Dikciz mark, then Apps. Tap a title to open its interface. Home preserves its task; Recents returns to it. The overflow beside each title contains Edit bundle, execution controls, source export and removal. Editing opens one source file at a time. Switching files retains the other drafts; Save bundle writes the complete package. Back asks before discarding edits. Import expects a source archive path and keeps an invalid path available for correction. Read [custom apps](custom-apps.md) and the [GPS todo tutorial](todo-app-tutorial.md) for source, state and events.
+Open the Dikciz mark, then **Dikciz apps**. Tap an app row to open it. Home leaves its task available in Recents. The row overflow contains editing, execution controls, export and removal. Edit one source file at a time and save the bundle together. Import from Android Files or enter a path, then review the destination before installing or replacing. Read [custom apps](custom-apps.md) and the [GPS todo tutorial](todo-app-tutorial.md) for source, state and events.
 
 ### Use a bundled app
 
@@ -81,6 +81,8 @@ Open the Dikciz mark, then Apps. Tap a title to open its interface. Home preserv
 
 <p><a href="{{ "/images/screens/app-import.png" | relative_url }}"><img src="{{ "/images/screens/app-import.png" | relative_url }}" alt="Import a source archive" width="280"></a><br>Import a source archive.</p>
 
+<p><a href="{{ "/images/screens/app-import-review.png" | relative_url }}"><img src="{{ "/images/screens/app-import-review.png" | relative_url }}" alt="Import review offers Save as copy, Keep existing and Replace" width="280"></a><br>Review an import with a matching app ID.</p>
+
 <p><a href="{{ "/images/screens/app-remove.png" | relative_url }}"><img src="{{ "/images/screens/app-remove.png" | relative_url }}" alt="Remove an app and its data" width="280"></a><br>Remove an app and its data.</p>
 
 <p><a href="{{ "/images/screens/custom-app-sos.png" | relative_url }}"><img src="{{ "/images/screens/custom-app-sos.png" | relative_url }}" alt="SOS and check-ins" width="280"></a><br>SOS and check-ins.</p>
@@ -109,7 +111,7 @@ Open the Dikciz mark, then Apps. Tap a title to open its interface. Home preserv
 
 ## Assistant and conversations
 
-Tap the cheese beside the home controls. Use the resize action for half or full height. The composer stays below the message viewport and above the keyboard. Scroll up to read earlier messages; Latest resumes following the stream. Tap the conversation title for saved conversations, Events and Manage. Manage offers Rename, Change provider, Delete and Run a routine. Deletion confirms removal of the transcript and event rules. Closing chat leaves a turn running; the working notification reopens it and Stop cancels remaining work. See [embedded chat](embedded-chat.md) for tool execution and cancellation limits.
+Tap the cheese beside the Home controls. Drag or tap the top handle to switch heights. The composer stays above the keyboard and saves a draft for each conversation. Tap **Chat options** for model controls and quick tasks. Scroll up to read earlier messages. **Latest** resumes following the stream. The conversation title opens saved conversations, Events and Manage. The working notification reopens its conversation or stops remaining work. See [embedded chat](embedded-chat.md) for tool execution and cancellation.
 
 <details>
 <summary>View the screens</summary>
@@ -117,6 +119,8 @@ Tap the cheese beside the home controls. Use the resize action for half or full 
 <p><a href="{{ "/images/screens/chat-sheet-empty.png" | relative_url }}"><img src="{{ "/images/screens/chat-sheet-empty.png" | relative_url }}" alt="Empty assistant" width="280"></a><br>Empty assistant.</p>
 
 <p><a href="{{ "/images/screens/chat-sheet-half.png" | relative_url }}"><img src="{{ "/images/screens/chat-sheet-half.png" | relative_url }}" alt="Half-height streamed Markdown" width="280"></a><br>Half-height streamed Markdown.</p>
+
+<p><a href="{{ "/images/screens/chat-sheet-options.png" | relative_url }}"><img src="{{ "/images/screens/chat-sheet-options.png" | relative_url }}" alt="Chat options with the model picker and quick tasks" width="280"></a><br>Chat options.</p>
 
 <p><a href="{{ "/images/screens/chat-sheet-full.png" | relative_url }}"><img src="{{ "/images/screens/chat-sheet-full.png" | relative_url }}" alt="Full-height assistant" width="280"></a><br>Full-height assistant.</p>
 
@@ -131,6 +135,8 @@ Tap the cheese beside the home controls. Use the resize action for half or full 
 <p><a href="{{ "/images/screens/conversation-rename.png" | relative_url }}"><img src="{{ "/images/screens/conversation-rename.png" | relative_url }}" alt="Rename a conversation" width="280"></a><br>Rename a conversation.</p>
 
 <p><a href="{{ "/images/screens/conversation-provider.png" | relative_url }}"><img src="{{ "/images/screens/conversation-provider.png" | relative_url }}" alt="Change provider" width="280"></a><br>Change provider.</p>
+
+<p><a href="{{ "/images/screens/chat-provider-review.png" | relative_url }}"><img src="{{ "/images/screens/chat-provider-review.png" | relative_url }}" alt="Review the destination before changing the conversation's provider" width="280"></a><br>Review the new provider and choose whether to keep this conversation.</p>
 
 <p><a href="{{ "/images/screens/conversation-delete.png" | relative_url }}"><img src="{{ "/images/screens/conversation-delete.png" | relative_url }}" alt="Delete confirmation" width="280"></a><br>Delete confirmation.</p>
 
@@ -152,7 +158,7 @@ Tap the cheese beside the home controls. Use the resize action for half or full 
 
 ## Providers, models and access
 
-Open the chat settings icon and choose Add provider. OpenAI and Anthropic templates fill the protocol and base URL; Custom accepts your compatible host. Enter your own API key and save the connection. Select a model from the model menu, then use Tune for that conversation's context/output limits, compaction and reasoning settings. Read-only access hides write tools and blocks direct execution of writes. Context size includes the reserved output budget. Provider defaults and per-conversation overrides are separate; see [provider setup](embedded-chat.md#connect-a-provider).
+Open the chat settings icon and choose **Add provider**. OpenAI and Anthropic templates fill the protocol and base URL. **Custom** accepts your compatible host. Enter your own API key and save the connection. Open **Chat options** to select a model. **Tune** opens that conversation's context, output, compaction and reasoning settings. See [provider setup](embedded-chat.md#connect-a-provider).
 
 <details>
 <summary>View the screens</summary>
@@ -227,7 +233,7 @@ Open Settings, Activity & resources. Choose the activity filter to inspect compl
 
 ## Backups and recovery
 
-Open Settings, Backup and restore. Enter a passphrase of at least 12 characters, choose whether encrypted provider keys should be included, and create the archive. Preserve both archive and passphrase. To restore, choose the archive, enter its passphrase and preview it. Inspect the counts before confirming replacement. Cancel leaves the current setup intact. Scripts, apps and event rules remain disabled unless explicitly activated. App source/state/files/runtime and assistant instructions are included; imported pending or claimed timers require review. Remote credentials and listener settings are excluded; see [backup scope](backups.md).
+Open **Settings**, **Backup and restore**. Enter a passphrase of at least 12 characters and create the archive. Preserve both archive and passphrase. To restore, choose the archive, enter its passphrase and preview it. Inspect the counts before confirming replacement. After you tap **Restore**, **Hide** closes the window while restore continues. Reopen Backup and restore for status. See [backup scope and activation rules](backups.md).
 
 <details>
 <summary>View the screens</summary>
@@ -237,6 +243,8 @@ Open Settings, Backup and restore. Enter a passphrase of at least 12 characters,
 <p><a href="{{ "/images/screens/backup-saved.png" | relative_url }}"><img src="{{ "/images/screens/backup-saved.png" | relative_url }}" alt="Saved archive" width="280"></a><br>Saved archive.</p>
 
 <p><a href="{{ "/images/screens/backup-preview.png" | relative_url }}"><img src="{{ "/images/screens/backup-preview.png" | relative_url }}" alt="Validated restore preview" width="280"></a><br>Validated restore preview.</p>
+
+<p><a href="{{ "/images/screens/backup-restored-status.png" | relative_url }}"><img src="{{ "/images/screens/backup-restored-status.png" | relative_url }}" alt="The completed restore status shown when reopening Backup and restore" width="280"></a><br>Restore result after reopening Backup and restore.</p>
 
 </details>
 
@@ -365,7 +373,7 @@ Open Settings, Automation, Set up full device access. The screen lists granted, 
 
 ## Script creation and transfer
 
-Open Settings, Manage scripts. Choose New Lua script or New JavaScript script, enter a title, edit the source and JSON state, then Save. Scripts and event subscriptions are separate: saving source does not grant permissions or subscribe to every event. An existing script can be exported as a reusable archive. Copy the archive to the imports directory, choose Import script archive and inspect the confirmation before importing. Delete script has its own confirmation; Cancel returns to the editor. See [background JavaScript](background-javascript.md) and the [scripting tutorial](scripting-tutorial.md) for event registration, policy and state.
+Open **Settings**, **Manage scripts**. Choose a script language and enter a title. Use **Script source file** to switch between code and JSON state. Save checks syntax without running the script and reveals the field with any error. Register desired event subscriptions and grant required permissions separately. See [background JavaScript](background-javascript.md) and the [scripting tutorial](scripting-tutorial.md) for event registration, policy and state.
 
 <details>
 <summary>View the screens</summary>

@@ -12,7 +12,7 @@ nav_order: 2
 
 SOS and check-ins can text selected contacts after an explicit SOS trigger or a missed check-in. A countdown gives you time to cancel before delivery. Saved plans stay inactive until you arm them.
 
-Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), complete [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Apps > SOS and check-ins**.
+Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), complete [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Dikciz apps > SOS and check-ins**.
 
 <img src="{{ '/images/screens/custom-app-sos.png' | relative_url }}" alt="SOS and check-ins app with contact and plan controls" width="300" loading="lazy">
 

@@ -12,6 +12,8 @@ Dikciz acts with the Android identity and grants of its installed package. HTTP,
 
 Read `deviceInfo` for the serving package/version, `controlStatus` or `tools/list` for supported commands, `automationStatus.deviceAccess.requirements` for current setup and `nativeDataStatus` for provider columns and grants. Discover the installed build, not just the latest repository documentation. Release and debug packages have independent Android grants.
 
+In **Full device access**, use **Skip** to move on without a grant. Denied requests also move off the next-action button. Retry from the individual row. When Android stops offering a prompt, that row opens the app's Android Settings page.
+
 ## Feature access map
 
 This map describes prerequisites, not permission grants. Android version, hardware, provider ownership and device policy can further restrict an operation.

@@ -26,7 +26,7 @@ Use [Screens and guided workflows](screens.md) for complete app management, assi
 
 That access lets Dikciz create and watch `/sdcard/Dikciz/`. It contains your pages, widgets, themes, scripts, packages, and logs. Dikciz cannot load or save your home until Android grants it.
 
-The bundled home opens on `Home (1H1V)`. Its native bottom and right rails show the current horizontal and vertical page coordinates. Every page is a fixed grid. A full page rejects another native widget instead of making items overlap or extending the page below the screen.
+The bundled home opens on `Home (1H1V)`. Its bottom and right rails show the current horizontal and vertical page coordinates. Focus a rail and use its arrow keys or accessibility actions to move between pages. Use **Search Dikciz pages** to jump to a named page. Each page is a fixed grid. A full page rejects extra widgets.
 
 ![Bundled home](images/user-guide/01-first-launch.png)
 
@@ -76,7 +76,7 @@ New and reset homes start with 8 columns and 6 rows. Open **Settings**, then cha
 
 ## Open and edit complete Dikciz apps
 
-Open **Dikciz > Apps** for [Impact response](app-impact-response.md), [SOS and check-ins](app-sos-check-ins.md), [Voice notes](app-voice-notes.md), [Agenda and alarms](app-agenda.md), [Device status](app-device-status.md), and [Travel todo](app-travel-todo.md). These have their own UI, backend and state, independent of page widgets. Each opens in its own Android task without a permanent Apps/Close toolbar. Use Home or Back to leave, Recents to switch, and Dikciz > Apps for management. Open **More actions** beside an app title for **Edit bundle**, execution controls, export and removal. The file selector exposes complete HTML, CSS, UI JavaScript, backend and manifest drafts. Stop active work before changing source; saving preserves its running or stopped state. **Export reusable bundle** shares source, without private state or recordings. **Remove app and its state** deletes that instance's public data.
+Open **Dikciz > Dikciz apps** for [Impact response](app-impact-response.md), [SOS and check-ins](app-sos-check-ins.md), [Voice notes](app-voice-notes.md), [Agenda and alarms](app-agenda.md), [Device status](app-device-status.md), and [Travel todo](app-travel-todo.md). These have their own UI, backend and state, independent of page widgets. Each opens in its own Android task without a permanent Apps/Close toolbar. Use Home or Back to leave, Recents to switch, and Dikciz > Dikciz apps for management. Open **More actions** beside an app title for **Edit bundle**, execution controls, export and removal. The file selector exposes complete HTML, CSS, UI JavaScript, backend and manifest drafts. Stop active work before changing source; saving preserves its running or stopped state. **Export reusable bundle** shares source, without private state or recordings. **Remove app and its state** deletes that instance's public data.
 
 Impact Response opens disarmed. Save an exact contact, review Android access, and preview the message before arming. [Impact Response setup](app-impact-response.md#set-up-and-arm) covers the countdown, cancellation and optional actions.
 
@@ -88,7 +88,7 @@ Travel todo is a working reference. Use the checklist normally, or grant locatio
 
 ### Find, launch, or manage an installed app
 
-Tap the Dikciz mark and choose **Open app drawer**. You can also swipe up from the horizontal page rail. The drawer lists launchable apps installed on your phone.
+Tap the grid icon labelled **All Android apps** in the Home controls. You can also swipe up from the bottom 140 dp of the home screen, including the lower part of the page. Swipe down on the drawer header to close it, or use Close or Back. The Dikciz mark opens utilities, including **Dikciz apps** for editable bundles.
 
 ![App drawer](images/user-guide/07-app-drawer.png)
 
@@ -134,7 +134,7 @@ While moving or resizing, the grid stays visible. Drops and resize handles snap 
 
 ![Resize grid](images/user-guide/13-resize-grid.png)
 
-Drop one app shortcut on another to make an app group. Open the group to launch a member. Long press a member to remove it. A group with one member becomes a normal shortcut again.
+Drop one app shortcut on another to make an app group. Tap a group to open it, then tap a member to launch it. Hold a member and drag it beyond the group onto an empty home cell. The group clears out of the way as you drag. Dropping back into the group or onto an occupied cell leaves everything in place. Hold and release a member for **Move to page** or **Remove**. A group with one member becomes a normal shortcut again.
 
 ![App group](images/user-guide/10-app-group.png)
 
@@ -146,7 +146,7 @@ Drop one app shortcut on another to make an app group. Open the group to launch 
 
 ### Edit an HTML widget
 
-Long press the move handle at the top of an HTML widget, choose **Edit**, then change its title, HTML, CSS, JavaScript, or JSON state. The editor contains the source that widget runs. Long source fields scroll within a bounded area so CSS, JavaScript, state and save controls remain reachable.
+Long press the move handle at the top of an HTML widget and choose **Edit**. Use **Widget source file** to switch between HTML, CSS, JavaScript and JSON state. All changes stay in the form as you switch files. If the state is invalid, Save selects the state field and shows the error beside it.
 
 An HTML widget is one programmable document. Long press anywhere in its content or background to open the same whole-widget controls. **Edit** exposes all HTML, CSS, JavaScript and JSON state. To change one section, edit its markup and the code that renders it. **Delete** removes the entire WebView widget; it never means delete the section under your finger. Page and widget locks protect editing.
 
@@ -186,7 +186,7 @@ For JavaScript, implement synchronous `onEvent(event)` in `main.js`. The [backgr
 
 ### Grant the Android access an automation needs
 
-Open **Settings**, then **Automation**, then **Set up full device access**. The dedicated setup screen shows active and missing Android permissions and special accesses. Tap the next setup button or choose an individual missing access to open its Android panel. Return with Back to refresh the checklist. If another app takes the foreground, reopen **Full device access** from Recents to continue. Android can recreate the screen without losing the setup route. Android makes the final decision. SMS automation uses read, receive and send SMS permissions. Setup does not request replacing your default messaging app.
+Open **Settings**, then **Automation**, then **Set up full device access**. Tap the next setup button or choose a specific missing access. Use **Skip** to move on. Denying a request also advances setup. Return to a skipped row to retry, or open Android Settings from the row when Android no longer offers a prompt. Reopen **Full device access** from Recents after an app switch. SMS automation uses read, receive and send SMS permissions. Your default messaging app stays in place.
 
 ![Automation access](images/user-guide/31-automation-access.png)
 

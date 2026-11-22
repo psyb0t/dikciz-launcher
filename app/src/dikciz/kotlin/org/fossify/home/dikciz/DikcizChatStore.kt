@@ -17,6 +17,8 @@ import javax.crypto.spec.GCMParameterSpec
 import org.json.JSONArray
 import org.json.JSONObject
 
+internal const val DIKCIZ_CHAT_DRAFTS = "dikciz_chat_drafts"
+
 internal class DikcizChatStore(private val context: Context) : SQLiteOpenHelper(context, DATABASE, null, VERSION) {
     private val modelLimits = DikcizChatModelLimits(context)
 
@@ -186,6 +188,7 @@ internal class DikcizChatStore(private val context: Context) : SQLiteOpenHelper(
     fun deleteConversation(id: String) {
         conversation(id)
         writableDatabase.delete("conversations", "id=?", arrayOf(id))
+        context.getSharedPreferences(DIKCIZ_CHAT_DRAFTS, Context.MODE_PRIVATE).edit().remove(id).apply()
     }
 
     @Synchronized

@@ -3,6 +3,7 @@ package org.fossify.home.dikciz
 import android.content.Context
 import android.graphics.Rect
 import android.view.MotionEvent
+import android.view.ViewConfiguration
 import kotlin.math.abs
 
 /**
@@ -15,10 +16,11 @@ import kotlin.math.abs
  */
 internal class DikcizHomeGestureDetector(
     context: Context,
-    private val activationBounds: () -> List<Rect>,
+    private val activationBounds: () -> Rect?,
     private val isGestureEnabled: () -> Boolean,
     private val onDrawerRequested: () -> Unit,
 ) {
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val activationHeightPixels = densityPixels(context, ACTIVATION_HEIGHT_DP)
     private val triggerDistancePixels = densityPixels(context, TRIGGER_DISTANCE_DP)
 
@@ -31,6 +33,7 @@ internal class DikcizHomeGestureDetector(
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> beginCandidate(event)
             MotionEvent.ACTION_MOVE -> return continueCandidate(event)
+            MotionEvent.ACTION_POINTER_DOWN -> isTrackingCandidate = false
             MotionEvent.ACTION_UP,
             MotionEvent.ACTION_CANCEL,
             -> {
@@ -47,15 +50,9 @@ internal class DikcizHomeGestureDetector(
         if (!isGestureEnabled()) {
             return
         }
-        val x = event.rawX.toInt()
-        val y = event.rawY.toInt()
-        val isInsideActivationArea = activationBounds().any { bounds ->
-            // The band never reaches above its own rect, so a short rail cannot
-            // claim the drag that belongs to the page above it.
-            val activationTop = maxOf(bounds.top, bounds.bottom - activationHeightPixels)
-            x in bounds.left..bounds.right && y in activationTop..bounds.bottom
-        }
-        if (!isInsideActivationArea) {
+        val bounds = activationBounds() ?: return
+        bounds.top = maxOf(bounds.top, bounds.bottom - activationHeightPixels)
+        if (!bounds.contains(event.rawX.toInt(), event.rawY.toInt())) {
             return
         }
         initialX = event.rawX
@@ -67,16 +64,20 @@ internal class DikcizHomeGestureDetector(
         if (hasClaimedGesture) {
             return true
         }
-        if (!isTrackingCandidate) {
-            return false
-        }
-        val horizontalDistance = event.rawX - initialX
-        val verticalDistance = event.rawY - initialY
-        if (abs(horizontalDistance) > abs(verticalDistance)) {
+        if (!isTrackingCandidate || !isGestureEnabled()) {
             isTrackingCandidate = false
             return false
         }
-        if (verticalDistance > -triggerDistancePixels) {
+        val horizontalDistance = abs(event.rawX - initialX)
+        val verticalDistance = initialY - event.rawY
+        if (maxOf(horizontalDistance, abs(verticalDistance)) < touchSlop) {
+            return false
+        }
+        if (horizontalDistance > verticalDistance) {
+            isTrackingCandidate = false
+            return false
+        }
+        if (verticalDistance < triggerDistancePixels) {
             return false
         }
         isTrackingCandidate = false

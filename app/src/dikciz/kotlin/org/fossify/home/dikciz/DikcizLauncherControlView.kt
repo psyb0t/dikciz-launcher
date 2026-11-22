@@ -52,15 +52,6 @@ internal enum class DikcizLauncherControlAction(
     ;
 }
 
-/**
- * The always-visible launcher affordance. It holds the page-search pill and the launcher
- * controls pill in the bottom chrome row beside the horizontal page indicator instead of
- * over the page canvas, so it never covers a widget card.
- *
- * Both pills are icon only. The chrome row has room for a mark, not for a word, so each
- * pill names itself through its content description for the screen reader and for
- * automation. Page identity stays in the sheets the pills open, never in the chrome.
- */
 internal class DikcizLauncherControlView @JvmOverloads constructor(
     context: Context,
     attributes: AttributeSet? = null,
@@ -68,8 +59,10 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
 ) : LinearLayout(context, attributes, defaultStyleAttribute) {
     var onControlsRequested: (() -> Unit)? = null
     var onPageSearchRequested: (() -> Unit)? = null
+    var onAppDrawerRequested: (() -> Unit)? = null
 
     val pageSearchButton: Button
+    val appDrawerButton: Button
     val controlButton: Button
     val chatButton: Button
     var onChatRequested: (() -> Unit)? = null
@@ -88,13 +81,17 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
             iconResourceID = R.drawable.dikciz_brand_mark,
             descriptionResourceID = R.string.dikciz_launcher_control_open_description,
         ) { onControlsRequested?.invoke() }
+        appDrawerButton = createPillButton(
+            iconResourceID = R.drawable.dikciz_icon_route_app_drawer,
+            descriptionResourceID = R.string.dikciz_launcher_control_app_drawer,
+        ) { onAppDrawerRequested?.invoke() }
         chatButton = Button(context).apply {
             background = context.getDrawable(R.drawable.dikciz_control_pill)
             gravity = Gravity.CENTER
-            minWidth = 0
-            minimumWidth = 0
-            minHeight = densityPixels(CHAT_HEIGHT_DP)
-            minimumHeight = densityPixels(CHAT_HEIGHT_DP)
+            minWidth = densityPixels(CONTROL_SIZE_DP)
+            minimumWidth = densityPixels(CONTROL_SIZE_DP)
+            minHeight = densityPixels(CONTROL_SIZE_DP)
+            minimumHeight = densityPixels(CONTROL_SIZE_DP)
             setPadding(densityPixels(HORIZONTAL_PADDING_DP), 0, densityPixels(HORIZONTAL_PADDING_DP), 0)
             setTextColor(context.getColor(R.color.dikciz_brand_cheese))
             textSize = 11f
@@ -104,12 +101,10 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
             contentDescription = "Open Dikciz chat"
             setOnClickListener { onChatRequested?.invoke() }
         }
-        addView(chatButton, LayoutParams(LayoutParams.WRAP_CONTENT, densityPixels(CHAT_HEIGHT_DP)).apply { marginEnd = densityPixels(PILL_GAP_DP) })
+        addView(appDrawerButton, pillLayoutParameters())
         addView(pageSearchButton, pillLayoutParameters())
-        addView(
-            controlButton,
-            pillLayoutParameters().apply { marginStart = densityPixels(PILL_GAP_DP) },
-        )
+        addView(chatButton, pillLayoutParameters())
+        addView(controlButton, pillLayoutParameters())
     }
 
     fun setChatUnread(count: Int) {
@@ -130,12 +125,10 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
         return Button(context).apply {
             background = context.getDrawable(R.drawable.dikciz_control_pill)
             gravity = Gravity.CENTER
-            // A platform Button carries a 48dp minimum on both axes, which would push the
-            // pill past the height the chrome row can spend on it.
-            minHeight = densityPixels(CONTROL_HEIGHT_DP)
-            minimumHeight = densityPixels(CONTROL_HEIGHT_DP)
-            minWidth = NO_SIZE
-            minimumWidth = NO_SIZE
+            minHeight = densityPixels(CONTROL_SIZE_DP)
+            minimumHeight = densityPixels(CONTROL_SIZE_DP)
+            minWidth = densityPixels(CONTROL_SIZE_DP)
+            minimumWidth = densityPixels(CONTROL_SIZE_DP)
             setPadding(
                 densityPixels(HORIZONTAL_PADDING_DP),
                 NO_SIZE,
@@ -174,7 +167,7 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
     }
 
     private fun pillLayoutParameters(): LayoutParams {
-        return LayoutParams(LayoutParams.WRAP_CONTENT, densityPixels(CONTROL_HEIGHT_DP))
+        return LayoutParams(LayoutParams.WRAP_CONTENT, densityPixels(CONTROL_SIZE_DP))
     }
 
     private fun densityPixels(valueDP: Int): Int {
@@ -182,12 +175,10 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
     }
 
     private companion object {
-        const val CHAT_HEIGHT_DP = 44
-        const val CHAT_ICON_DP = 30
-        const val CONTROL_HEIGHT_DP = 34
+        const val CHAT_ICON_DP = 26
+        const val CONTROL_SIZE_DP = 48
         const val CONTROL_ICON_SIZE_DP = 18
         const val HORIZONTAL_PADDING_DP = 8
-        const val PILL_GAP_DP = 6
         const val NO_SIZE = 0
         const val NO_TINT = 0
     }

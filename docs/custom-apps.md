@@ -11,7 +11,7 @@ has_children: true
 
 Open **Dikciz**, **Apps** to open, create, edit, enable, disable, export or remove a complete app. Each app combines its own HTML/CSS/JavaScript interface with a Lua or headless JavaScript backend and persistent state. Closing its WebView leaves subscribed events and scheduled backend work available through the native host.
 
-Each app opens in its own Android task, with its title in Recents and its full interface below the system bars. There is no permanent Apps/Close toolbar around the app. Home leaves it available in Recents; Back exits its interface. Reopening the same app reuses its task. Return to **Dikciz > Apps** to manage bundles.
+Each app opens in its own Android task, with its title in Recents and its full interface below the system bars. There is no permanent Apps/Close toolbar around the app. Home leaves it available in Recents; Back exits its interface. Reopening the same app reuses its task. Return to **Dikciz > Dikciz apps** to manage bundles.
 
 These are apps inside Dikciz. Android does not install a separate APK or grant them separate Android identities. Every app inherits the Android access granted to Dikciz, including its phone commands, files, shell and SDK access. There is no separate app permission screen, command allowlist or manifest approval. Android still enforces the permissions and special access granted to the Dikciz package.
 
@@ -26,7 +26,7 @@ These are apps inside Dikciz. Android does not install a separate APK or grant t
 | [Agenda and alarms](app-agenda.md) | Upcoming calendar entries, next Android alarm and links to Android calendar/alarm apps. Calendar access is optional and requested explicitly. |
 | [Device status](app-device-status.md) | Live battery, memory, storage, process CPU history and Android-exposed per-core data. Restricted system counters remain explicit. |
 
-Bundled source installs only when absent. Updates preserve customized bundles. Removing a bundled app records that choice, so reopening Home does not silently reinstall it. Voice notes, Agenda and Device status reuse the complete widget documents as independent apps; their UI polling stops when hidden. SOS uses its backend for deadlines and outgoing effects. Geofences, route capture and the visual automation editor remain native features.
+Bundled source installs when absent. The [Impact Response bundle upgrade](app-impact-response.md#read-or-edit-the-detector) can also update the original manifest, backend and UI in place while preserving state. Updates preserve customized bundles. Removing a bundled app records that choice, so reopening Home does not silently reinstall it. Voice notes, Agenda and Device status reuse the complete widget documents as independent apps; their UI polling stops when hidden. SOS uses its backend for deadlines and outgoing effects. Geofences, route capture and the visual automation editor remain native features.
 
 ## Files and state
 
@@ -60,6 +60,10 @@ State belongs to the exact app ID, independent of page/widget state. Duplicate t
 
 Source and manifest edits require no permission approval. UI source changes reload the visible app; state-file writes update its live state. Background source loads fresh for the next invocation. Invalid files and subscriptions report validation errors. Stop and Start control background execution, not permissions.
 
+### On-demand location
+
+An app that needs location only during a background sensor session can set `"locationWhileStreaming": "locationDemand"` in its manifest. This gates its declared `location` subscriptions on an active background sensor stream owned by the same app and a Boolean `locationDemand: true` in its state. Save the flag through `customAppState` or a returned `patchState` action. To release the request, clear the flag or stop the stream. The host also releases it when the last stream expires or fails. Start a new stream and save the flag again after process restart. Android location permissions still apply.
+
 ## Backend
 
 JavaScript exports synchronous `onEvent(event)`; Lua exports `on_event(event)`. Both receive immutable `context.state`, `context.scriptId` and Android access context. JavaScript has no DOM, Node.js, fetch or browser timers. Its execution limits are the same as [background scripts](background-javascript.md#background-lifetime-and-limits). Globals are fresh on every call.
@@ -81,13 +85,17 @@ App-local `customAppRead`, `customAppState`, `customAppEvent`, `customAppSchedul
 
 ## Interface
 
-The [illustrated app workflow](screens.md#apps-and-complete-bundles) shows the manager overflow, Android Recents, file selector, keyboard and recovery dialogs. To edit, return to Dikciz > Apps and use the overflow beside the app title; the running app itself has no permanent management toolbar.
+The [illustrated app workflow](screens.md#apps-and-complete-bundles) shows the manager overflow, Android Recents, file selector, keyboard and recovery dialogs. Tap the app row, including its description, to open it. Use the overflow at the right of the row to edit or manage the bundle.
 
 `ui.html`, `ui.css` and `ui.js` use the existing injected `window.dikciz` bridge and app-local command binding. `selfWidget` exposes this app's state and `storagePath`, ending in `/apps/<id>/files`. Its state patch merges top-level fields into app state, preserving unrelated keys and explicit nulls. Use ordinary DOM listeners and await bridge results. An app can call `customAppEvent` to invoke its own backend while its UI is open. Subscribe to `dikciz-state` for persisted state changes and ordinary event callbacks for subscribed native/custom events.
 
 For a complete working reference, read [Travel todo](todo-app-tutorial.md) and its linked source files.
 
-Tap an app's name to open it. Its **More actions** overflow contains editing, start/stop, export and removal. The native manager's **Edit bundle** exposes the complete manifest, HTML, CSS, UI JavaScript and backend source. Choose a file above the editor; switching files and rotating the screen preserve unsaved edits. Back asks before discarding changes. Failed saves keep the editor open; failed imports retain the archive path for correction and retry. State can be edited with `customAppState` or the public file. Saving preserves the app's running or stopped state. New apps start enabled. **Start app** and **Disable and stop** control execution without a permission dialog. Opening a stopped app starts it. The native manager is a separate activity, reachable again after Android permission screens take the foreground. Hiding or closing its interface sends `app.ui.hidden` to its backend. Voice notes uses that event to stop its recorder and preserve a pending save for reopening; other apps decide their own hidden behavior.
+Tap an app row to open it. Its overflow contains editing, start/stop, export and removal. **Edit bundle** exposes the manifest, HTML, CSS, UI JavaScript and backend source one file at a time. Drafts survive file changes and Android task recreation. Back asks before discarding edits. **Save bundle** checks that the installed source still matches the revision you opened. A conflict keeps your edits available in the editor. **Save as copy** writes them under a new app ID with independent state.
+
+**Import** accepts a bundle from Android Files or an archive path. Review the app name and ID before installing. If the ID already exists, you can keep the original, save a copy under a new ID or replace the reviewed source. Replacement preserves the app's state, files and running or stopped status. New apps start enabled.
+
+Edit state with `customAppState` or the public file. **Start app** and **Disable and stop** control execution. Opening a stopped app starts it. Resume the manager through Android Recents after a permission screen takes the foreground. Hiding or closing an app sends `app.ui.hidden` to its backend. Voice Notes uses that event to stop its recorder and preserve a pending save for reopening.
 
 ## App logs
 
@@ -109,7 +117,7 @@ The monitor emits `app.motion.hit` with `monitorId`, `values` (three axes in m/s
 
 Timers are claimed durably before invoking the backend. A handler may reschedule the same ID, which creates a new generation. Pending timers can survive process restart within the same boot. An interrupted claimed timer or a pending timer from another boot becomes `needs_review`; its original effect is not replayed. The host sends `app.resume` with `interrupted: true` for app-defined recovery. Android may delay alarms or reject background starts. Inspect timer state and the latest app run rather than treating scheduling as completed execution.
 
-`customAppAlert` shows an urgent dimmed modal using `action: show`, `episodeId`, `durationMilliseconds`, `title`, `detail`, `cancelLabel` and `cancelEvent`. Duration is 1000 through 3600000 ms. Optional `announcement` and `finalAnnouncement` use `{seconds}`. Only one app can own the urgent alert. Android notification access and an urgent countdown channel are required. Overlay access allows presentation over other apps; otherwise an active Dikciz activity can host a dialog. Keyguard, volume, DND and background restrictions remain Android-controlled. `action: close` releases it.
+`customAppAlert` shows an urgent dimmed modal using `action: show`, `episodeId`, `durationMilliseconds`, `title`, `detail`, `cancelLabel` and `cancelEvent`. Duration is 1000 through 3600000 ms. Optional `announcement` and `finalAnnouncement` use `{seconds}`. Only one app can own the urgent alert. The native Cancel button invokes the configured event with the alert identifier in its payload as `episodeId`. Android notification access and an urgent countdown channel are required. Overlay access allows presentation over other apps; otherwise an active Dikciz activity can host a dialog. Keyguard, volume, DND and background restrictions remain Android-controlled. `action: close` releases it.
 
 The modal's cancellation button invokes the app's declared cancel event, then closes. Its native host owns window/audio/vibration cleanup. The app must cancel its pending timers and update its own state. The foreground notification's **Pause apps** invokes `app.stopped`, disables affected apps and cancels pending timers/alerts. For concurrent owner cancellation, `customAppEvent` accepts `interruptRunning: true`, which blocks further mutating calls from the current handler except state and cleanup commands, including geofence deletion. Already submitted effects cannot be recalled.
 

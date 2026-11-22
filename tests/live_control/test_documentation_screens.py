@@ -108,6 +108,7 @@ def test_documentation_screens_chat_dialogs(websocket_control, provider_endpoint
                 direct_tap(node_bounds(node))
                 capture("routine-confirmation")
             back()
+        description("Chat options")
         text("Make me a widget")
         capture("widget-request")
         text("Cancel")

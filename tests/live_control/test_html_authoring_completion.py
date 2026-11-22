@@ -1,5 +1,7 @@
 """Exercise HTML editing through renderer recovery and direct state delivery."""
 
+import shutil
+
 from . import *
 
 
@@ -209,6 +211,8 @@ def test_html_authoring_survives_renderer_loss_and_direct_state_without_reload(
             recovered_count=recovered_count,
         )
         wait_for_snapshot_node(websocket_control, HTML_AUTHORING_EDITOR_TITLE_SEMANTIC_ID)
+        run_device_operation("screenshot")
+        shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "widget-file-editor.png")
         AUTOMATION.request(
             websocket_control,
             AUTOMATION.TYPE_SET_TEXT,
@@ -239,6 +243,16 @@ def test_html_authoring_survives_renderer_loss_and_direct_state_without_reload(
             HTML_AUTHORING_EDITOR_HTML_SEMANTIC_ID,
         )
         assert html_input[AUTOMATION.KEY_TEXT] == HTML_AUTHORING_EDITED_HTML
+        picker_id = "widget:authoring-surface:editor:file"
+        state_id = "widget:authoring-surface:editor:state"
+        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId=picker_id)
+        direct_tap(wait_for_physical_text_bounds("State JSON"))
+        snapshot = wait_for_snapshot_node(websocket_control, state_id)
+        original_state = AUTOMATION.require_node(snapshot, state_id)["text"]
+        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SET_TEXT, semanticId=state_id, text="{")
+        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId=HTML_AUTHORING_EDITOR_SAVE_SEMANTIC_ID)
+        wait_for_snapshot_node(websocket_control, state_id)
+        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SET_TEXT, semanticId=state_id, text=original_state)
         AUTOMATION.request(
             websocket_control,
             AUTOMATION.TYPE_TAP,

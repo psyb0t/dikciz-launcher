@@ -12,7 +12,7 @@ Open **Settings**, **Safety, journeys and devices** for the SOS app and native P
 
 ## On the phone
 
-1. Open **Dikciz > Apps > SOS and check-ins**. Use **SMS access**, **Location access** and **Notifications** to review required Android access. **Contacts access** is optional when entering exact numbers.
+1. Open **Dikciz > Dikciz apps > SOS and check-ins**. Use **SMS access**, **Location access** and **Notifications** to review required Android access. **Contacts access** is optional when entering exact numbers.
 2. Enter a **Name** and **Exact phone number**, then tap **Add number**. Alternatively, use **Find a contact** and **Search contacts** to select a result. Review the resulting recipient list.
 3. Edit the message, check-in interval, cancellation grace, update interval and maximum updates. Tap **Save inactive plan**. Saving alone starts no monitoring or messages.
 4. Tap **Preview exact message** and inspect the recipients, location text and timing before starting anything.

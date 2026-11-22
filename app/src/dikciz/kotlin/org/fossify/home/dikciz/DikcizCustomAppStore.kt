@@ -67,8 +67,7 @@ internal class DikcizCustomAppStore(private val context: Context, private val pu
         validateManifest(manifest)
         if (manifest.getString("id") != id) DikcizNativeCommands.invalid("Manifest id does not match app directory")
         val source = if (manifest.getString("language") == "lua") LUA else JAVASCRIPT
-        val state = File(dir, STATE).let { if (it.isFile) parseObject(readFile(it, DikcizCustomAppCommands.MAXIMUM_STATE_BYTES)) else JSONObject() }
-        validateState(state)
+        val state = readState(id)
         return DikcizCustomApp(manifest, readFile(File(dir, HTML)), readFile(File(dir, CSS)), readFile(File(dir, UI_JAVASCRIPT)), readFile(File(dir, source)), state)
     }
 
@@ -126,6 +125,13 @@ internal class DikcizCustomAppStore(private val context: Context, private val pu
         if (stage.exists()) removeTree(stage)
     }
 
+    fun readState(id: String): JSONObject {
+        val file = File(directory(id), STATE)
+        val state = if (file.isFile) parseObject(readFile(file, DikcizCustomAppCommands.MAXIMUM_STATE_BYTES)) else JSONObject()
+        validateState(state)
+        return state
+    }
+
     fun saveState(id: String, state: JSONObject) {
         validateState(state)
         writeFile(File(directory(id), STATE), state.toString())
@@ -153,8 +159,13 @@ internal class DikcizCustomAppStore(private val context: Context, private val pu
             DikcizFileCommands.isCredentialPath(file)) {
             DikcizNativeCommands.invalid("Expected a readable bounded .dikciz-app.zip")
         }
+        return file.inputStream().use(::readArchive)
+    }
+
+    fun readArchive(input: InputStream): DikcizCustomApp {
+        val archive = readBounded(input, MAXIMUM_ARCHIVE_BYTES.toInt())
         val entries = linkedMapOf<String, String>()
-        try { ZipInputStream(file.inputStream()).use { zip ->
+        try { ZipInputStream(archive.inputStream()).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
                 if (entry.isDirectory || entry.name !in ENTRY_NAMES || entries.containsKey(entry.name)) DikcizNativeCommands.invalid("Unexpected or duplicate app archive entry")
@@ -179,8 +190,20 @@ internal class DikcizCustomAppStore(private val context: Context, private val pu
         val installed = mutableListOf<String>()
         for (id in BUNDLED) {
             if (id in excluded) continue
-            if (File(directory(id), MANIFEST).exists()) continue
             fun asset(name: String) = context.assets.open("apps/$id/$name").bufferedReader(UTF_8).use { it.readText() }
+            if (File(directory(id), MANIFEST).exists()) {
+                if (id == IMPACT_RESPONSE_ID) {
+                    try {
+                        migrateImpactBundle(id, ::asset)
+                    } catch (exception: Exception) {
+                        DikcizCustomApps.logger(context).warn(
+                            "impact_bundle_upgrade_skipped",
+                            mapOf("error_class" to exception.javaClass.simpleName),
+                        )
+                    }
+                }
+                continue
+            }
             val manifest = JSONObject(asset(MANIFEST))
             val app = fromRequest(JSONObject().put("manifest", manifest).put("html", asset(HTML)).put("css", asset(CSS))
                 .put("javascript", asset(UI_JAVASCRIPT)).put("backgroundSource", asset(if (manifest.getString("language") == "lua") LUA else JAVASCRIPT)))
@@ -189,6 +212,28 @@ internal class DikcizCustomAppStore(private val context: Context, private val pu
         }
         return installed
     }
+
+    private fun migrateImpactBundle(id: String, asset: (String) -> String) {
+        if (File(directory(id), JAVASCRIPT).length() !in PREVIOUS_IMPACT_BACKEND_SIZES) return
+        val currentManifest = manifest(id)
+        val nextManifest = JSONObject(asset(MANIFEST))
+        val manifestWithoutLocationGate = JSONObject(nextManifest.toString()).apply { remove(LOCATION_WHILE_STREAMING) }
+        if (currentManifest.toString() !in setOf(nextManifest.toString(), manifestWithoutLocationGate.toString())) return
+        val app = read(id)
+        if (sha256(app.source) !in PREVIOUS_IMPACT_BACKEND_SHA256) return
+        val hasOriginalUi = sha256(app.html) == PREVIOUS_IMPACT_HTML_SHA256 &&
+            sha256(app.javascript) == PREVIOUS_IMPACT_UI_SHA256
+        val updated = app.copy(
+            manifest = nextManifest,
+            source = asset(JAVASCRIPT),
+            html = if (hasOriginalUi) asset(HTML) else app.html,
+            javascript = if (hasOriginalUi) asset(UI_JAVASCRIPT) else app.javascript,
+        )
+        write(updated, expectedRevision = app.sourceRevision())
+    }
+
+    private fun sha256(source: String): String = MessageDigest.getInstance("SHA-256")
+        .digest(source.toByteArray(UTF_8)).joinToString("") { "%02x".format(it) }
 
     private fun files(app: DikcizCustomApp) = linkedMapOf(MANIFEST to app.manifest.toString(2), HTML to app.html, CSS to app.css,
         UI_JAVASCRIPT to app.javascript, app.language.sourceFileName to app.source)
@@ -257,10 +302,19 @@ internal class DikcizCustomAppStore(private val context: Context, private val pu
         private const val MAXIMUM_ARCHIVE_BYTES = 2097152L
         private val ENTRY_NAMES = setOf(MANIFEST, HTML, CSS, UI_JAVASCRIPT, JAVASCRIPT, LUA)
         private val RESERVED_IDS = setOf("imports", "exports")
-        val BUNDLED = listOf("sos", "impact-response", "voice-notes", "agenda", "device-status", "travel-todo")
+        const val LOCATION_WHILE_STREAMING = "locationWhileStreaming"
+        private const val IMPACT_RESPONSE_ID = "impact-response"
+        private val PREVIOUS_IMPACT_BACKEND_SIZES = setOf(34_746L, 34_858L)
+        private val PREVIOUS_IMPACT_BACKEND_SHA256 = setOf(
+            "9cc3fa9e2e1c870fd311f5d996e507113d0b6f5630348809059e970d3ab1bfcc",
+            "174b90411773f13478a102b1b10bdb93a0ae0b5c7c75064d25cf5115d4a0b33e",
+        )
+        private const val PREVIOUS_IMPACT_HTML_SHA256 = "cd25fa99431a2ba614d11567833bcc4e082df2644f672bc9c641b28e1c41ea36"
+        private const val PREVIOUS_IMPACT_UI_SHA256 = "6a6a82eb8c4325e46188ee75f56f270c3b55aef3e499cf6e0fc16403152f4a2f"
+        val BUNDLED = listOf("sos", IMPACT_RESPONSE_ID, "voice-notes", "agenda", "device-status", "travel-todo")
 
         fun validateManifest(value: JSONObject) {
-            if (value.keys().asSequence().any { it !in setOf("version", "id", "title", "description", "language", "commands", "events", "eventSubscriptions", "locationMonitoring") }) DikcizNativeCommands.invalid("Unknown app manifest field")
+            if (value.keys().asSequence().any { it !in setOf("version", "id", "title", "description", "language", "commands", "events", "eventSubscriptions", "locationMonitoring", LOCATION_WHILE_STREAMING) }) DikcizNativeCommands.invalid("Unknown app manifest field")
             if (value.opt("version") !is Int || value.getInt("version") != 1 || value.opt("id") !is String ||
                 !DikcizCustomAppCommands.ID_PATTERN.matches(value.getString("id")) || value.getString("id") in RESERVED_IDS) DikcizNativeCommands.invalid("Invalid app manifest identity or version")
             for ((key, maximum) in mapOf("title" to 120, "description" to 2000)) {
@@ -274,6 +328,12 @@ internal class DikcizCustomAppStore(private val context: Context, private val pu
                 if (items.length() > 128) DikcizNativeCommands.invalid("Too many app declarations")
                 val names = (0 until items.length()).map { items.opt(it) as? String ?: DikcizNativeCommands.invalid("Invalid app declaration") }
                 if (names.distinct().size != names.size || names.any { !DikcizCustomAppCommands.EVENT_PATTERN.matches(it) }) DikcizNativeCommands.invalid("Invalid or duplicate app declaration")
+            }
+            if (value.has(LOCATION_WHILE_STREAMING)) {
+                val key = value.opt(LOCATION_WHILE_STREAMING) as? String
+                if (key == null || !DikcizCustomAppCommands.ID_PATTERN.matches(key)) {
+                    DikcizNativeCommands.invalid("locationWhileStreaming must name an app state key")
+                }
             }
             if (value.has("locationMonitoring") && value.opt("locationMonitoring") !is Boolean) DikcizNativeCommands.invalid("locationMonitoring must be boolean")
             if (value.has("eventSubscriptions") && value.opt("eventSubscriptions") !is JSONArray) DikcizNativeCommands.invalid("eventSubscriptions must be an array")

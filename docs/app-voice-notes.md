@@ -12,7 +12,7 @@ nav_order: 3
 
 Voice notes records microphone audio and keeps it in the app's local files. Open it from the launcher when you want a quick recording you can play back later.
 
-Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), complete [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Apps > Voice notes**.
+Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), complete [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Dikciz apps > Voice notes**.
 
 <img src="{{ '/images/screens/custom-app-voice-saved.png' | relative_url }}" alt="Voice notes showing a saved recording and its playback control" width="300" loading="lazy">
 

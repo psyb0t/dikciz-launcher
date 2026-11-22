@@ -27,7 +27,12 @@ internal class DikcizDeviceAccessActivity : Activity() {
     private lateinit var entries: LinearLayout
     private lateinit var progress: TextView
     private lateinit var nextButton: Button
+    private lateinit var skipButton: Button
     private lateinit var logger: DikcizLogger
+    private val deferred = linkedSetOf<String>()
+    private val settingsOnly = linkedSetOf<String>()
+    private var runtimeRequest: String? = null
+    private var externalRequest: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,7 +44,13 @@ internal class DikcizDeviceAccessActivity : Activity() {
         entries = findViewById(R.id.dikciz_device_access_entries)
         progress = findViewById(R.id.dikciz_device_access_progress)
         nextButton = findViewById(R.id.dikciz_device_access_next)
+        skipButton = findViewById(R.id.dikciz_device_access_skip)
+        deferred.addAll(savedInstanceState?.getStringArrayList(STATE_DEFERRED).orEmpty())
+        settingsOnly.addAll(savedInstanceState?.getStringArrayList(STATE_SETTINGS_ONLY).orEmpty())
+        runtimeRequest = savedInstanceState?.getString(STATE_RUNTIME_REQUEST)
+        externalRequest = savedInstanceState?.getString(STATE_EXTERNAL_REQUEST)
         DikcizUiStyle.button(nextButton, primary = true)
+        DikcizUiStyle.button(skipButton)
         findViewById<Button>(R.id.dikciz_device_access_close).apply {
             DikcizUiStyle.button(this)
             setOnClickListener { finishAndRemoveTask() }
@@ -56,7 +67,20 @@ internal class DikcizDeviceAccessActivity : Activity() {
     override fun onResume() {
         super.onResume()
         foreground = WeakReference(this)
+        externalRequest?.let { key ->
+            val entry = DikcizDeviceAccess.entries(this).firstOrNull { it.requirement.persistedValue == key }
+            if (entry?.state == DikcizDeviceAccessState.NeedsSetup) deferred.add(key)
+        }
+        externalRequest = null
         renderAccess()
+    }
+
+    override fun onSaveInstanceState(state: Bundle) {
+        state.putStringArrayList(STATE_DEFERRED, ArrayList(deferred))
+        state.putStringArrayList(STATE_SETTINGS_ONLY, ArrayList(settingsOnly))
+        state.putString(STATE_RUNTIME_REQUEST, runtimeRequest)
+        state.putString(STATE_EXTERNAL_REQUEST, externalRequest)
+        super.onSaveInstanceState(state)
     }
 
     override fun onPause() {
@@ -73,9 +97,15 @@ internal class DikcizDeviceAccessActivity : Activity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == ACCESS_REQUEST_CODE && foreground?.get() === this) {
-            renderAccess()
+        if (requestCode != ACCESS_REQUEST_CODE) return
+        val key = runtimeRequest ?: return
+        runtimeRequest = null
+        val denied = permissions.filterIndexed { index, _ ->
+            grantResults.getOrNull(index) != android.content.pm.PackageManager.PERMISSION_GRANTED
         }
+        if (denied.isNotEmpty() || grantResults.isEmpty()) deferred.add(key)
+        if (denied.any { !shouldShowRequestPermissionRationale(it) }) settingsOnly.add(key)
+        renderAccess()
     }
 
     fun semanticViews(): Map<String, View> = views
@@ -100,6 +130,10 @@ internal class DikcizDeviceAccessActivity : Activity() {
             entry.state != DikcizDeviceAccessState.Unavailable && entry.state != DikcizDeviceAccessState.OnDemand
         }
         val granted = actionable.count { it.state == DikcizDeviceAccessState.Granted }
+        actionable.filter { it.state == DikcizDeviceAccessState.Granted }.forEach {
+            deferred.remove(it.requirement.persistedValue)
+            settingsOnly.remove(it.requirement.persistedValue)
+        }
         progress.text = getString(R.string.dikciz_device_access_progress, granted, actionable.size)
         entries.removeAllViews()
         views.clear()
@@ -108,8 +142,12 @@ internal class DikcizDeviceAccessActivity : Activity() {
         views[SEMANTIC_SETTINGS_DEVICE_ACCESS_CLOSE] = findViewById(R.id.dikciz_device_access_close)
         access.forEach { entry ->
             val title = getString(entry.requirement.titleResourceID)
+            val key = entry.requirement.persistedValue
             val label = TextView(this).apply {
-                text = getString(R.string.dikciz_device_access_entry, title, getString(stateResourceID(entry.state)))
+                val state = if (key in deferred && entry.state == DikcizDeviceAccessState.NeedsSetup) {
+                    R.string.dikciz_device_access_state_deferred
+                } else stateResourceID(entry.state)
+                text = getString(R.string.dikciz_device_access_entry, title, getString(state))
                 setTextColor(getColor(R.color.dikciz_foreground))
                 setPadding(0, resources.getDimensionPixelSize(R.dimen.dikciz_page_chrome_inset), 0, 0)
             }
@@ -118,24 +156,37 @@ internal class DikcizDeviceAccessActivity : Activity() {
             if (entry.state == DikcizDeviceAccessState.NeedsSetup) {
                 val button = Button(this).apply {
                     DikcizUiStyle.button(this)
-                    text = getString(R.string.dikciz_device_access_grant_next, title)
-                    setOnClickListener { requestAccess(entry.requirement) }
+                    text = getString(when (key) {
+                        in settingsOnly -> R.string.dikciz_device_access_open_settings
+                        in deferred -> R.string.dikciz_device_access_retry
+                        else -> R.string.dikciz_device_access_grant_next
+                    }, title)
+                    setOnClickListener {
+                        if (key in settingsOnly) openApplicationSettings(entry.requirement) else requestAccess(entry.requirement)
+                    }
                 }
                 entries.addView(button)
                 views[SEMANTIC_SETUP_PREFIX + entry.requirement.persistedValue] = button
             }
         }
-        val next = access.firstOrNull { it.state == DikcizDeviceAccessState.NeedsSetup }?.requirement
+        val next = access.firstOrNull { it.state == DikcizDeviceAccessState.NeedsSetup && it.requirement.persistedValue !in deferred }?.requirement
         nextButton.visibility = if (next == null) View.GONE else View.VISIBLE
+        skipButton.visibility = nextButton.visibility
         nextButton.setOnClickListener { next?.let(::requestAccess) }
+        skipButton.setOnClickListener {
+            next?.let { deferred.add(it.persistedValue) }
+            renderAccess()
+        }
         if (next == null) {
             entries.addView(TextView(this).apply {
-                text = getString(R.string.dikciz_device_access_complete)
+                text = getString(if (granted == actionable.size) R.string.dikciz_device_access_complete
+                    else R.string.dikciz_device_access_setup_reviewed)
                 setTextColor(getColor(R.color.dikciz_foreground))
             })
         } else {
             nextButton.text = getString(R.string.dikciz_device_access_grant_next, getString(next.titleResourceID))
             views[SEMANTIC_SETTINGS_DEVICE_ACCESS_NEXT] = nextButton
+            views[SEMANTIC_SETTINGS_DEVICE_ACCESS_PREFIX + "skip"] = skipButton
         }
         scroll.post {
             scroll.scrollTo(0, previousScroll)
@@ -152,17 +203,17 @@ internal class DikcizDeviceAccessActivity : Activity() {
         logger.info(EVENT_REQUESTED, mapOf(FIELD_REQUIREMENT to requirement.persistedValue))
         try {
             if (requirement == DikcizDeviceAccessRequirement.SharedStorage && Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-                requestPermissions(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), ACCESS_REQUEST_CODE)
+                requestRuntimeAccess(requirement, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE))
                 return
             }
             if (requirement == DikcizDeviceAccessRequirement.LocationBackground && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                openApplicationSettings(requirement)
                 return
             }
             when (requirement.kind) {
-                DikcizDeviceAccessKind.RuntimePermission -> requestPermissions(
+                DikcizDeviceAccessKind.RuntimePermission -> requestRuntimeAccess(
+                    requirement,
                     DikcizDeviceAccess.runtimePermissions(requirement),
-                    ACCESS_REQUEST_CODE,
                 )
                 DikcizDeviceAccessKind.SystemSettings -> {
                     val settings = DikcizDeviceAccess.settingsIntent(this, requirement)
@@ -170,12 +221,13 @@ internal class DikcizDeviceAccessActivity : Activity() {
                         unavailable(requirement)
                         return
                     }
+                    externalRequest = requirement.persistedValue
                     startActivity(settings)
                 }
-                DikcizDeviceAccessKind.DeviceAdministration -> startActivityForResult(
-                    DikcizDeviceAdministration.activationIntent(this),
-                    ACCESS_REQUEST_CODE,
-                )
+                DikcizDeviceAccessKind.DeviceAdministration -> {
+                    externalRequest = requirement.persistedValue
+                    startActivityForResult(DikcizDeviceAdministration.activationIntent(this), ACCESS_REQUEST_CODE)
+                }
                 DikcizDeviceAccessKind.OnDemand -> unavailable(requirement)
             }
         } catch (exception: ActivityNotFoundException) {
@@ -185,7 +237,27 @@ internal class DikcizDeviceAccessActivity : Activity() {
         }
     }
 
+    private fun requestRuntimeAccess(requirement: DikcizDeviceAccessRequirement, permissions: Array<String>) {
+        if (runtimeRequest != null) return
+        runtimeRequest = requirement.persistedValue
+        requestPermissions(permissions, ACCESS_REQUEST_CODE)
+    }
+
+    private fun openApplicationSettings(requirement: DikcizDeviceAccessRequirement) {
+        externalRequest = requirement.persistedValue
+        try {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+        } catch (exception: ActivityNotFoundException) {
+            unavailable(requirement, exception)
+        } catch (exception: SecurityException) {
+            unavailable(requirement, exception)
+        }
+    }
+
     private fun unavailable(requirement: DikcizDeviceAccessRequirement, exception: Exception? = null) {
+        runtimeRequest = null
+        externalRequest = null
+        deferred.add(requirement.persistedValue)
         logger.warn(EVENT_UNAVAILABLE, buildMap {
             put(FIELD_REQUIREMENT, requirement.persistedValue)
             exception?.let { put(FIELD_ERROR_CLASS, it.javaClass.simpleName) }
@@ -214,6 +286,10 @@ internal class DikcizDeviceAccessActivity : Activity() {
         private const val SEMANTIC_ENTRY_PREFIX = SEMANTIC_SETTINGS_DEVICE_ACCESS_PREFIX + "entry:"
         private const val SEMANTIC_SETUP_PREFIX = SEMANTIC_SETTINGS_DEVICE_ACCESS_PREFIX + "setup:"
         private const val ACCESS_REQUEST_CODE = 1
+        private const val STATE_DEFERRED = "deferred"
+        private const val STATE_SETTINGS_ONLY = "settingsOnly"
+        private const val STATE_RUNTIME_REQUEST = "runtimeRequest"
+        private const val STATE_EXTERNAL_REQUEST = "externalRequest"
         private const val LOG_COMPONENT = "DikcizDeviceAccess"
         private const val EVENT_HOST_RESTORE = "device_access_host_restore_requested"
         private const val EVENT_REFRESHED = "device_access_screen_refreshed"

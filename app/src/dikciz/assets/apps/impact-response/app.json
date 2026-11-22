@@ -5,6 +5,7 @@
   "description": "Configurable motion alert with a cancellation countdown, SMS and optional calls, photos and WhatsApp delivery.",
   "language": "javascript",
   "events": [],
+  "locationWhileStreaming": "locationDemand",
   "eventSubscriptions": [
     {
       "event": "location",

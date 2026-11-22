@@ -1,6 +1,6 @@
 # On-device chat
 
-MCP dikciz_chat, HTTP/WebSocket chatControl and native bindings share validation, permissions and results. The launcher cheese opens half-screen chat with streaming Markdown, model selection, settings and conversation management. Expand or hide it; scroll up to pause following and Latest to resume.
+MCP dikciz_chat, HTTP/WebSocket chatControl and native bindings share validation, permissions and results. The launcher cheese opens half-screen chat with streaming Markdown and per-conversation drafts. Chat options opens model selection and quick tasks. Drag or tap the top handle to switch heights. Scroll up to pause following and tap Latest to resume. The native provider switch offers a new conversation to avoid sending eligible history to the new destination.
 
 Actions:
 

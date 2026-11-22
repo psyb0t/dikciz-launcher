@@ -2,7 +2,9 @@
 
 const G = 9.80665;
 const TYPE_LINEAR_ACCELERATION = 10;
-const GRACE_MS = 20000;
+const DEFAULT_COUNTDOWN_SECONDS = 20;
+const MIN_COUNTDOWN_SECONDS = 5;
+const MAX_COUNTDOWN_SECONDS = 120;
 const SHORT_CALL_MS = 2000;
 const DIALER_PACKAGES = ["com.google.android.dialer", "com.android.dialer"];
 const DIALER_END_BUTTON = "incall_end_call";
@@ -51,6 +53,7 @@ function required(type, fields) {
 }
 
 function save(state) {
+    state.locationDemand = !!state.armed && (state.settings.speed === true || state.settings.braking === true);
     required("customAppState", {action: "replace", state: state});
 }
 
@@ -78,13 +81,17 @@ function settings(input) {
     if (!address || !Number.isFinite(threshold) || threshold < 1 || threshold > 12) return null;
     const armHours = Object.prototype.hasOwnProperty.call(input, "armHours") ? input.armHours : DEFAULT_ARM_HOURS;
     if (!Number.isFinite(armHours) || armHours < MIN_ARM_HOURS || armHours > MAX_ARM_HOURS) return null;
+    const countdownSeconds = Object.prototype.hasOwnProperty.call(input, "countdownSeconds")
+        ? input.countdownSeconds : DEFAULT_COUNTDOWN_SECONDS;
+    if (!Number.isInteger(countdownSeconds) ||
+        countdownSeconds < MIN_COUNTDOWN_SECONDS || countdownSeconds > MAX_COUNTDOWN_SECONDS) return null;
     const sim = input.subscriptionId;
     if (sim != null && (!Number.isInteger(sim) || sim < 0 || sim > 2147483647)) return null;
     const whatsapp = input.whatsapp === true;
     const whatsappName = label(input.whatsappName);
     const storageName = label(input.storageName);
     if (whatsapp && (!input.photos || !whatsappName || !storageName)) return null;
-    return {address: address, threshold: threshold, armHours: armHours, call: input.call === true,
+    return {address: address, threshold: threshold, armHours: armHours, countdownSeconds: countdownSeconds, call: input.call === true,
         photos: input.photos === true, speed: input.speed === true, subscriptionId: sim == null ? null : sim,
         whatsapp: whatsapp, whatsappName: whatsappName, storageName: storageName, braking: input.braking === true};
 }
@@ -108,6 +115,7 @@ function close(state, phase) {
     if (active(state.incident)) {
         const run = state.incident;
         run.phase = phase;
+        delete run.resumeArm;
         if (run.whatsapp && !run.whatsapp.finished) {
             run.whatsapp.finished = true;
             run.whatsapp.error = run.whatsapp.stage === "verify" ? "send_unverified" : "interrupted";
@@ -117,6 +125,29 @@ function close(state, phase) {
     required("customAppSchedule", {action: "cancelAll"});
     required("customAppAlert", {action: "close"});
     return done("Disarmed");
+}
+
+function cancelWarning(state, input) {
+    const run = state.incident;
+    const episodeId = input.episodeId || input.id;
+    if (!run || run.phase !== "warning" || (episodeId && episodeId !== run.id)) {
+        return done("No matching countdown");
+    }
+    const resume = run.resumeArm;
+    close(state, "cancelled");
+    const clock = required("customAppRuntime");
+    if (!resume || resume.boot !== clock.boot || !Number.isFinite(resume.until) ||
+        resume.until <= clock.elapsedMilliseconds) {
+        state.monitorStatus = "expired";
+        save(state);
+        return done("Alert cancelled. Arming duration ended.");
+    }
+
+    state.speedFix = null;
+    state.motion = null;
+    state.armed = {boot: resume.boot, until: resume.until, since: clock.nowMilliseconds, sensorId: resume.sensorId};
+    if (!startMotionLease(state, clock)) return done("Alert cancelled. Motion monitoring could not resume.");
+    return done("Alert cancelled. Monitoring resumed.");
 }
 
 function status(reply, fallback) {
@@ -138,11 +169,11 @@ function logStep(run, event, outcome, detail) {
     if (reply.type !== "result") run.logStatus = "log_unavailable";
 }
 
-function show(run) {
+function show(run, countdownMilliseconds) {
     return request("customAppAlert", {
-        action: "show", episodeId: run.id, durationMilliseconds: GRACE_MS,
+        action: "show", episodeId: run.id, durationMilliseconds: countdownMilliseconds,
         title: run.braking ? "Hard braking detected" : "Possible impact detected", detail: run.message,
-        cancelLabel: "Cancel pending alerts", cancelEvent: "impact.close",
+        cancelLabel: "Cancel pending alerts", cancelEvent: "impact.cancel",
         announcement: run.message + " SMS sends in {seconds} seconds.",
     });
 }
@@ -201,7 +232,9 @@ function observeSpeed(state, clock, sample, eventTime) {
 }
 
 function beginWarning(state, clock, axes, braking, observedAt) {
+    const arm = state.armed;
     stopMotion(state);
+    const countdownMilliseconds = (state.settings.countdownSeconds || DEFAULT_COUNTDOWN_SECONDS) * MS_PER_SECOND;
     const at = Number.isFinite(observedAt) ? observedAt : clock.nowMilliseconds;
     const age = state.speedFix ? at - state.speedFix.observedAt : -1;
     const speed = state.settings.speed && state.speedFix && state.speedFix.confirmed && age >= 0 && age <= MAX_SPEED_AGE_MS
@@ -215,16 +248,17 @@ function beginWarning(state, clock, axes, braking, observedAt) {
         : describe(at, axes, state.settings.threshold, speed);
     const run = {
         id: clock.invocationId, boot: clock.boot, phase: "warning", at: at,
-        deadline: clock.elapsedMilliseconds + GRACE_MS, axes: axes, speed: speed, photos: {},
+        deadline: clock.elapsedMilliseconds + countdownMilliseconds, axes: axes, speed: speed, photos: {},
+        resumeArm: {boot: arm.boot, until: arm.until, sensorId: arm.sensorId},
         recipient: state.settings.address, message: message, braking: braking,
     };
     state.incident = run;
     state.armed = null;
     save(state);
     logStep(run, "impact_detected", "started", run.braking ? "hard_braking" : "acceleration");
-    const alert = show(run);
+    const alert = show(run, countdownMilliseconds);
     if (alert.type !== "result") run.failure = alert.code || "alert_failed";
-    if (run.failure || !schedule(run, "impact.deliver", GRACE_MS)) return close(state, "blocked");
+    if (run.failure || !schedule(run, "impact.deliver", countdownMilliseconds)) return close(state, "blocked");
     return done("Cancellation countdown started");
 }
 
@@ -512,6 +546,7 @@ function endShortCall(state, run) {
 
 function deliver(state, run) {
     run.phase = "alert";
+    delete run.resumeArm;
     run.sms = "submitting";
     save(state);
     const message = {
@@ -604,7 +639,12 @@ function onEvent(event) {
     const state = JSON.parse(JSON.stringify(context.state || {}));
     const input = event.payload || {};
     const run = state.incident;
-    if (event.type === "impact.status") return done(state.armed ? "Armed" : "Disarmed");
+    if (event.type === "impact.status") {
+        return done(run && run.phase === "warning" ? "Cancellation countdown active" : state.armed ? "Armed" : "Disarmed");
+    }
+    if (event.type === "impact.cancel" || (event.type === "impact.close" && run && run.phase === "warning")) {
+        return cancelWarning(state, input);
+    }
     if (["impact.close", "impact.disarm", "app.stopped", "app.resume"].includes(event.type)) {
         return close(state, event.type === "app.resume" ? "interrupted" : "closed");
     }
@@ -614,7 +654,7 @@ function onEvent(event) {
     if (event.type === "impact.save") {
         if (state.armed || active(run)) return rejected("Disarm or close the current alert before editing.");
         const next = settings(input);
-        if (!next) return rejected("Enter a valid recipient, threshold and arming duration (0.01 to 168 hours). WhatsApp also needs photos, the exact chat name and storage name.");
+        if (!next) return rejected("Enter a valid recipient, threshold, arming duration from 0.01 to 168 hours and whole-second countdown from 5 to 120 seconds. WhatsApp also needs photos, the exact chat name and storage name.");
         state.settings = next;
         save(state);
         return done("Settings saved");
@@ -649,6 +689,7 @@ function onEvent(event) {
         }
         state.speedFix = null;
         state.motion = null;
+        state.settings = options;
         const start = required("customAppRuntime");
         const duration = Math.round(options.armHours * MS_PER_HOUR);
         state.armed = {boot: start.boot, until: start.elapsedMilliseconds + duration, since: start.nowMilliseconds, sensorId: sensor.sensorId};

@@ -40,6 +40,8 @@ internal object DikcizCustomAppCommands {
             .put("events", JSONObject().put("type", "array").put("maxItems", 128).put("uniqueItems", true).put("items", text(96).put("pattern", EVENT_PATTERN.pattern)))
             .put("eventSubscriptions", JSONObject().put("type", "array").put("maxItems", 128).put("items", objectValue)
                 .put("description", "Canonical event subscription objects, as in HTML widget eventSubscriptions. Use event, minimumIntervalMilliseconds and event-specific sensorTypes/samplingPeriodMicroseconds/locationPrecision/alarmIntervalMilliseconds/healthRefreshIntervalMilliseconds/packageNames. See the event recipe."))
+            .put(DikcizCustomAppStore.LOCATION_WHILE_STREAMING, text(64).put("pattern", ID_PATTERN.pattern)
+                .put("description", "Gate native location subscriptions on this Boolean state key and an active background sensor stream owned by the app."))
             .put("locationMonitoring", JSONObject().put("type", "boolean")))
         .put("required", JSONArray(listOf("version", "id", "title", "description", "language", "events")))
     val DEFINITIONS = listOf(

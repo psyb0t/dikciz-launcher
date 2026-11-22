@@ -40,6 +40,8 @@ internal class DikcizHtmlWidgetView(
     private var messagePort: WebMessagePort? = null
     private var generation = INITIAL_GENERATION
     private var isReleased = false
+    private var viewPaused = false
+    private var publishedVisibility: Boolean? = null
     private var loadedDocumentBytes = EMPTY_DOCUMENT_BYTES
     private var pageScale = context.resources.displayMetrics.density
     private val documentGestures = GestureDetector(
@@ -68,6 +70,11 @@ internal class DikcizHtmlWidgetView(
         loadWidget()
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        publishVisibility()
+    }
+
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
         super.onVisibilityChanged(changedView, visibility)
         if (isAttachedToWindow) publishVisibility()
@@ -81,6 +88,12 @@ internal class DikcizHtmlWidgetView(
     private fun publishVisibility() {
         if (isReleased || !isAttachedToWindow) return
         val visible = isShown && windowVisibility == View.VISIBLE
+        if (viewPaused == visible) {
+            viewPaused = !visible
+            if (visible) webView.onResume() else webView.onPause()
+        }
+        if (publishedVisibility == visible) return
+        publishedVisibility = visible
         webView.evaluateJavascript(
             "window.dikcizWidgetVisible=$visible;window.dispatchEvent(new CustomEvent('dikciz-visibility',{detail:{visible:$visible}}));",
             null,
@@ -177,6 +190,7 @@ internal class DikcizHtmlWidgetView(
 
     private fun loadWidget() {
         generation++
+        publishedVisibility = null
         releaseCommandBridge()
         val document = DikcizHtmlWidgetDocument.create(widget, widgetContext, currentState)
         loadedDocumentBytes = document.toByteArray(StandardCharsets.UTF_8).size
@@ -217,6 +231,7 @@ internal class DikcizHtmlWidgetView(
         view.evaluateJavascript(api) {
             if (documentGeneration == generation) {
                 view.postWebMessage(WebMessage(BRIDGE_MESSAGE, arrayOf(channel[1])), Uri.parse(ORIGIN))
+                publishedVisibility = null
                 publishVisibility()
             }
         }

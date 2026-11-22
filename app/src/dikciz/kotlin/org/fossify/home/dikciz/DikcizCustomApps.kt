@@ -40,13 +40,23 @@ internal object DikcizCustomApps {
     val alertRevision = AtomicLong()
     private val lifecycleWorker = Executors.newSingleThreadExecutor()
     private val resuming = AtomicBoolean(false)
-    private data class AppSubscription(val appId: String, val index: Int, val subscription: DikcizAutomationSubscription)
+    private data class AppSubscription(
+        val appId: String,
+        val index: Int,
+        val subscription: DikcizAutomationSubscription,
+        val locationStateKey: String? = null,
+    )
     @Volatile private var appSubscriptions: List<AppSubscription> = emptyList()
     @Volatile private var sourceSubscriptions: List<DikcizAutomationSubscription> = emptyList()
+    @Volatile private var locationSubscriptions: Map<String, List<AppSubscription>> = emptyMap()
     private val subscriptionObservers = mutableListOf<FileObserver>()
     private val lastDispatch = mutableMapOf<String, Long>()
     private var subscriptionRefresh: Runnable? = null
     fun subscriptions(): List<DikcizAutomationSubscription> = sourceSubscriptions
+
+    fun requiresAutomationService(): Boolean = sourceSubscriptions.any {
+        it.event != DikcizAutomationEventType.Custom && it.event != DikcizAutomationEventType.Manual
+    }
     fun signalCancellation(id: String) { cancellations.computeIfAbsent(id) { AtomicLong() }.incrementAndGet() }
     fun signalAllCancellations() { cancellations.values.forEach { it.incrementAndGet() } }
     fun resumeAsync(context: Context) {
@@ -214,7 +224,12 @@ internal object DikcizCustomApps {
         store.saveState(SAFETY_ID, state)
     }
 
-    @Synchronized fun execute(context: Context, type: String, request: JSONObject): JSONObject {
+    @Synchronized fun execute(
+        context: Context,
+        type: String,
+        request: JSONObject,
+        retryBeforeCommands: Boolean = false,
+    ): JSONObject {
         DikcizNativeCommands.validate(type, request, true)
         val store = DikcizCustomAppStore(context)
         if (type == DikcizCustomAppCommands.RUNTIME) return runtime(context)
@@ -290,11 +305,17 @@ internal object DikcizCustomApps {
                 if (event == DikcizCustomAppMotion.HIT || event == DikcizCustomAppMotion.STOPPED || event in DikcizSensorStreams.APP_EVENTS) {
                     DikcizNativeCommands.invalid("Motion events are emitted by the device sensor")
                 }
-                invoke(context, app, event, request.optJSONObject("payload") ?: JSONObject())
+                invoke(
+                    context, app, event, request.optJSONObject("payload") ?: JSONObject(),
+                    retryBeforeCommands = retryBeforeCommands,
+                )
             }
             DikcizCustomAppCommands.STATE -> {
                 if (request.getString("action") == "replace") {
-                    store.saveState(id, request.getJSONObject("state")); changed(context, id)
+                    val state = request.getJSONObject("state")
+                    store.saveState(id, state)
+                    updateLocationDemand(context, id, state)
+                    changed(context, id)
                 }
                 JSONObject().put("state", store.read(id).state)
             }
@@ -327,7 +348,15 @@ internal object DikcizCustomApps {
     @Synchronized fun query(context: Context, id: String, event: String, payload: JSONObject): JSONObject =
         invoke(context, DikcizCustomAppStore(context).read(id), event, payload, true)
 
-    private fun invoke(context: Context, app: DikcizCustomApp, name: String, payload: JSONObject, readOnly: Boolean = false, stopping: Boolean = false): JSONObject {
+    private fun invoke(
+        context: Context,
+        app: DikcizCustomApp,
+        name: String,
+        payload: JSONObject,
+        readOnly: Boolean = false,
+        stopping: Boolean = false,
+        retryBeforeCommands: Boolean = false,
+    ): JSONObject {
         requireEnabled(context, app)
         if (!activeCalls.add(app.id)) DikcizNativeCommands.failure("custom_app_reentrant", "An app cannot invoke itself during a running handler")
         val sensorBatch = name == DikcizSensorStreams.SAMPLES_EVENT
@@ -341,9 +370,17 @@ internal object DikcizCustomApps {
                 JSONObject(payload.toString()), customEventName = name)
             val replies = mutableListOf<DikcizLocalCommands.Reply>()
             val execute = if (app.language == DikcizScriptLanguage.JavaScript) javascript::executeEvent else lua::executeEvent
-            val result = execute(script, event, configuration.limits, JSONObject(), null, DikcizAutomationStatus.androidAccessDocument(context)) { raw ->
-                scopedCommand(context, app.id, JSONObject(raw), readOnly, revision).also { replies.add(it) }.response.toString()
+            val androidAccess = DikcizAutomationStatus.androidAccessDocument(context)
+            val runHandler = {
+                execute(script, event, configuration.limits, JSONObject(), null, androidAccess) { raw ->
+                    scopedCommand(context, app.id, JSONObject(raw), readOnly, revision).also { replies.add(it) }.response.toString()
+                }
             }
+            val firstResult = runHandler()
+            val result = if (retryBeforeCommands && replies.isEmpty() &&
+                firstResult is DikcizLuaAutomationResult.Failure &&
+                firstResult.reason == DikcizLuaFailure.ExecutionDeadlineExceeded
+            ) runHandler() else firstResult
             val run = JSONObject().put("lastRunAt", System.currentTimeMillis()).put("event", name)
             when (result) {
                 is DikcizLuaAutomationResult.Actions -> {
@@ -362,12 +399,13 @@ internal object DikcizCustomApps {
                     if (result.actions.any { it !is DikcizLuaAutomationAction.PatchState && it !is DikcizLuaAutomationAction.EmitEvent }) {
                         DikcizNativeCommands.failure("custom_app_action_denied", "App actions support patchState and emitEvent; use phone commands for other effects")
                     }
-                    val state = DikcizCustomAppStore(context).read(app.id).state
-                    result.actions.filterIsInstance<DikcizLuaAutomationAction.PatchState>().forEach { patch ->
-                        patch.values.keys().forEach { key -> state.put(key, patch.values.get(key)) }
-                    }
-                    if (!readOnly && (!sensorBatch || result.actions.isNotEmpty())) {
-                        DikcizCustomAppStore(context).saveState(app.id, state)
+                    val stateStore = DikcizCustomAppStore(context)
+                    val state = stateStore.readState(app.id)
+                    val patches = result.actions.filterIsInstance<DikcizLuaAutomationAction.PatchState>()
+                    if (patches.isNotEmpty()) {
+                        patches.forEach { patch -> patch.values.keys().forEach { key -> state.put(key, patch.values.get(key)) } }
+                        stateStore.saveState(app.id, state)
+                        updateLocationDemand(context, app.id, state)
                     }
                     run.put("outcome", "completed").put("status", result.status ?: JSONObject.NULL)
                     result.actions.filterIsInstance<DikcizLuaAutomationAction.EmitEvent>().forEach { action ->
@@ -506,7 +544,7 @@ internal object DikcizCustomApps {
         val key = app.id + ":" + timerId
         if (request.getString("action") == "cancel") {
             database(context).use { db -> db.get(TIMER_KIND, key)?.let { db.put(TIMER_KIND, key, it.put("state", "cancelled")) } }
-            DikcizCustomAppService.wake(context)
+            DikcizCustomAppService.resourcesChanged()
             return JSONObject().put("state", "cancelled").put("timerId", timerId)
         }
         val saved = timers(context)
@@ -538,8 +576,14 @@ internal object DikcizCustomApps {
         it.optString("state") == PENDING && (id == null || it.optString("appId") == id)
     }
     @Synchronized fun cancelTimers(context: Context, id: String?, reason: String) {
-        database(context).use { db -> timers(context).filter { it.optString("state") == PENDING && (id == null || it.optString("appId") == id) }
-            .forEach { db.put(TIMER_KIND, it.getString("id"), it.put("state", "cancelled").put("reason", reason)) } }
+        val pending = timers(context).filter {
+            it.optString("state") == PENDING && (id == null || it.optString("appId") == id)
+        }
+        if (pending.isEmpty()) return
+        database(context).use { db ->
+            pending.forEach { db.put(TIMER_KIND, it.getString("id"), it.put("state", "cancelled").put("reason", reason)) }
+        }
+        DikcizCustomAppService.resourcesChanged()
     }
 
     @Synchronized fun deliverDue(context: Context) {
@@ -634,7 +678,10 @@ internal object DikcizCustomApps {
     @Synchronized fun onEvent(context: Context, event: DikcizAutomationEvent) {
         if (event.name == DikcizCustomAppMotion.HIT || event.name == DikcizCustomAppMotion.STOPPED ||
             event.name in DikcizSensorStreams.APP_EVENTS) return
-        val matches = appSubscriptions.filter { it.subscription.matches(event) }
+        val matches = appSubscriptions.filter {
+            it.subscription.matches(event) &&
+                (it.locationStateKey == null || DikcizSensorStreams.appHasBackgroundStream(it.appId))
+        }
         if (matches.isEmpty()) return
         val store = DikcizCustomAppStore(context)
         for ((id, subscriptions) in matches.groupBy(AppSubscription::appId)) {
@@ -677,12 +724,14 @@ internal object DikcizCustomApps {
     }
 
     @Synchronized fun alert(context: Context): JSONObject? = database(context).use { it.get(ALERT_KIND, "current") }
-    @Synchronized fun closeAlert(context: Context, id: String?) {
+    @Synchronized fun closeAlert(context: Context, id: String?, episodeId: String? = null) {
         val current = alert(context) ?: return
-        if (id == null || current.optString("appId") == id) {
+        if ((id == null || current.optString("appId") == id) &&
+            (episodeId == null || current.optString("episodeId") == episodeId)) {
             database(context).use { it.delete(ALERT_KIND, "current") }
             alertRevision.incrementAndGet()
             main.post { DikcizSosWarning.current()?.close() }
+            DikcizCustomAppService.resourcesChanged()
         }
     }
 
@@ -714,29 +763,43 @@ internal object DikcizCustomApps {
         val store = DikcizCustomAppStore(context)
         val configuration = HomeConfigStore(context).loadOrCreate()
         val entries = mutableListOf<AppSubscription>()
-        for (id in store.ids()) {
+        val gated = mutableMapOf<String, List<AppSubscription>>()
+        val ids = store.ids()
+        for (id in ids) {
             try {
                 val manifest = store.manifest(id)
                 val app = DikcizCustomApp(manifest, "", "", "", "", JSONObject())
-                if (isEnabled(context, app)) parseSubscriptions(context, manifest, configuration.limits).forEachIndexed { index, subscription -> entries.add(AppSubscription(id, index, subscription)) }
-                else {
+                if (!isEnabled(context, app)) {
                     cancelTimers(context, id, "app_stopped")
                     closeAlert(context, id)
+                    continue
                 }
+                val stateKey = manifest.opt(DikcizCustomAppStore.LOCATION_WHILE_STREAMING) as? String
+                val declared = parseSubscriptions(context, manifest, configuration.limits).mapIndexed { index, subscription ->
+                    AppSubscription(id, index, subscription, stateKey.takeIf { subscription.event == DikcizAutomationEventType.Location })
+                }
+                val (conditional, always) = declared.partition { it.locationStateKey != null }
+                if (conditional.isNotEmpty()) {
+                    if (DikcizSensorStreams.appHasBackgroundStream(id) && store.readState(id).opt(requireNotNull(stateKey)) == true) {
+                        entries.addAll(conditional)
+                    }
+                    gated[id] = conditional
+                }
+                entries.addAll(always)
             } catch (exception: Exception) {
                 cancelTimers(context, id, "invalid_manifest")
                 closeAlert(context, id)
                 logger(context).warn("custom_app_subscriptions_rejected", mapOf("app_id" to id, "error_class" to exception.javaClass.simpleName))
             }
         }
-        val changed = appSubscriptions != entries
-        appSubscriptions = entries.toList()
-        sourceSubscriptions = entries.map(AppSubscription::subscription)
-        lastDispatch.keys.retainAll(entries.map { it.appId + ":" + it.index }.toSet())
+        locationSubscriptions = gated.toMap()
+        if (publishSubscriptions(context, entries)) {
+            main.post { DikcizClipboardMonitor.sync(context.applicationContext, configuration) }
+        }
         subscriptionObservers.forEach(FileObserver::stopWatching)
         subscriptionObservers.clear()
         val root = store.directory("watch-root").parentFile!!
-        for (directory in listOf(root) + store.ids().map(store::directory)) {
+        for (directory in listOf(root) + ids.map(store::directory)) {
             @Suppress("DEPRECATION")
             val observer = object : FileObserver(directory.absolutePath, SUBSCRIPTION_WATCH_EVENTS) {
                 override fun onEvent(event: Int, name: String?) {
@@ -750,11 +813,47 @@ internal object DikcizCustomApps {
             }
             observer.startWatching(); subscriptionObservers.add(observer)
         }
-        if (changed) main.post {
-            DikcizClipboardMonitor.sync(context.applicationContext, configuration)
-            try { context.startForegroundService(Intent(context, DikcizAutomationService::class.java)) }
-            catch (exception: RuntimeException) { logger(context).warn("custom_app_event_sources_rejected", mapOf("error_class" to exception.javaClass.simpleName)) }
-        }
+    }
+
+    fun backgroundSensorChanged(context: Context, id: String) {
+        if (id !in locationSubscriptions) return
+        lifecycleWorker.execute { reconcileLocationDemand(context, id) }
+    }
+
+    @Synchronized private fun reconcileLocationDemand(context: Context, id: String) {
+        val state = if (DikcizSensorStreams.appHasBackgroundStream(id)) {
+            try {
+                DikcizCustomAppStore(context).readState(id)
+            } catch (exception: Exception) {
+                logger(context).warn(
+                    "custom_app_location_state_rejected",
+                    mapOf("app_id" to id, "error_class" to exception.javaClass.simpleName),
+                )
+                null
+            }
+        } else null
+        updateLocationDemand(context, id, state)
+    }
+
+    private fun updateLocationDemand(context: Context, id: String, state: JSONObject?) {
+        val declared = locationSubscriptions[id] ?: return
+        val wasActive = appSubscriptions.any { it.appId == id && it.locationStateKey != null }
+        val stateKey = requireNotNull(declared.first().locationStateKey)
+        val active = state?.opt(stateKey) == true &&
+            DikcizSensorStreams.appHasBackgroundStream(id)
+        if (active == wasActive) return
+        val retained = appSubscriptions.filterNot { it.appId == id && it.locationStateKey != null }
+        publishSubscriptions(context, if (active) retained + declared else retained)
+    }
+
+    private fun publishSubscriptions(context: Context, entries: List<AppSubscription>): Boolean {
+        val ordered = entries.sortedWith(compareBy(AppSubscription::appId, AppSubscription::index))
+        if (appSubscriptions == ordered) return false
+        appSubscriptions = ordered
+        sourceSubscriptions = ordered.map(AppSubscription::subscription)
+        lastDispatch.keys.retainAll(ordered.map { it.appId + ":" + it.index }.toSet())
+        main.post { DikcizAutomationService.appSubscriptionsChanged(context.applicationContext) }
+        return true
     }
 
     private fun changed(context: Context, id: String, registry: Boolean = false) {

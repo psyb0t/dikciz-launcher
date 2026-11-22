@@ -397,6 +397,7 @@ internal fun HomePage.withCombinedAppGroup(
 internal fun HomePage.withoutAppGroupMember(
     groupID: String,
     component: String,
+    survivorTitle: String?,
 ): HomePage {
     val group = findWidget(groupID) as? AppGroupHomeWidget ?: return this
     val remaining = group.components.filterNot { candidate -> candidate == component }
@@ -409,7 +410,7 @@ internal fun HomePage.withoutAppGroupMember(
     return replaceWidget(groupID) {
         AppHomeWidget(
             id = groupID,
-            title = group.title,
+            title = survivorTitle ?: group.title,
             component = remaining.first(),
             displayStyle = AppWidgetDisplayStyle.IconWithLabel,
             enabled = group.enabled,

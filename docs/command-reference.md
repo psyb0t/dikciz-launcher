@@ -4205,6 +4205,12 @@ WebView invocation: `await dikciz.command("customAppInstall", fields)`. Headless
           },
           "description": "Canonical event subscription objects, as in HTML widget eventSubscriptions. Use event, minimumIntervalMilliseconds and event-specific sensorTypes/samplingPeriodMicroseconds/locationPrecision/alarmIntervalMilliseconds/healthRefreshIntervalMilliseconds/packageNames. See the event recipe."
         },
+        "locationWhileStreaming": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}",
+          "description": "Gate native location subscriptions on this Boolean state key and an active background sensor stream owned by the app."
+        },
         "locationMonitoring": {
           "type": "boolean"
         }

@@ -10,9 +10,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -22,14 +19,14 @@ import java.util.concurrent.Executors
 import org.json.JSONObject
 
 /** Visible native lifetime, monotonic alarms and window hosting for every custom app. */
-internal class DikcizCustomAppService : Service(), LocationListener {
+internal class DikcizCustomAppService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
     private lateinit var logger: DikcizLogger
     private lateinit var warning: DikcizSosWarning
     private var lastAlert: JSONObject? = null
     private var busy = false
-    private var registeredLocation = false
+    private var tickRequested = false
     private var startId = 0
     private var alarmAt = 0L
     private var episode = ""
@@ -68,9 +65,17 @@ internal class DikcizCustomAppService : Service(), LocationListener {
                         warning.update(observed)
                         updateAlertNotification(observed)
                     }
+                    if (tickRequested || currentStartId != startId) {
+                        tickRequested = false
+                        handler.post(this)
+                        return@post
+                    }
                     if (!alive && stopSelfResult(currentStartId)) return@post
                     updateAlarm(deadline)
-                    handler.postDelayed(this, TICK_MILLISECONDS)
+                    val timerDelay = if (deadline == 0L) Long.MAX_VALUE
+                        else (deadline - SystemClock.elapsedRealtime()).coerceAtLeast(1L)
+                    val delay = if (observed != null) minOf(timerDelay, TICK_MILLISECONDS) else timerDelay
+                    if (delay != Long.MAX_VALUE) handler.postDelayed(this, delay)
                 }
             }
         }
@@ -78,6 +83,7 @@ internal class DikcizCustomAppService : Service(), LocationListener {
 
     override fun onCreate() {
         super.onCreate()
+        activeService = this
         logger = DikcizLogger("DikcizAppHost", HomeConfigStore(this).logDirectory)
         warning = DikcizSosWarning(this, logger, ::cancelAlert)
         DikcizSosWarning.createChannel(this)
@@ -93,13 +99,6 @@ internal class DikcizCustomAppService : Service(), LocationListener {
             if (intent?.getBooleanExtra(LOCATION, false) == true) types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && types != 0) startForeground(NOTIFICATION_ID, notification(), types)
             else startForeground(NOTIFICATION_ID, notification())
-            if (intent?.getBooleanExtra(LOCATION, false) == true && !registeredLocation) {
-                val manager = getSystemService(LocationManager::class.java)
-                manager.getProviders(true).filter { it in setOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER) }.forEach {
-                    manager.requestLocationUpdates(it, LOCATION_INTERVAL_MILLISECONDS, 0f, this, Looper.getMainLooper())
-                }
-                registeredLocation = true
-            }
         } catch (exception: SecurityException) {
             return rejectStart(exception, currentId)
         } catch (exception: RuntimeException) {
@@ -116,9 +115,14 @@ internal class DikcizCustomAppService : Service(), LocationListener {
             }
             ACTION_CANCEL -> cancelAlert()
         }
-        handler.removeCallbacks(tick)
-        if (!busy) handler.post(tick)
+        requestTick()
         return START_STICKY
+    }
+
+    private fun requestTick() {
+        if (!running) return
+        handler.removeCallbacks(tick)
+        if (busy) tickRequested = true else handler.post(tick)
     }
 
     private fun rejectStart(exception: RuntimeException, currentId: Int): Int {
@@ -133,11 +137,19 @@ internal class DikcizCustomAppService : Service(), LocationListener {
         observed?.optString("appId")?.let(DikcizCustomApps::signalCancellation)
         worker.execute {
             try {
-                val alert = observed ?: DikcizCustomApps.alert(applicationContext) ?: return@execute
-                DikcizCustomApps.signalCancellation(alert.getString("appId"))
-                DikcizCustomApps.execute(applicationContext, DikcizCustomAppCommands.EVENT, JSONObject().put("type", DikcizCustomAppCommands.EVENT)
-                    .put("appId", alert.getString("appId")).put("event", alert.getString("cancelEvent")))
-                DikcizCustomApps.closeAlert(applicationContext, alert.getString("appId"))
+                val alert = DikcizCustomApps.alert(applicationContext) ?: return@execute
+                val appId = alert.getString("appId")
+                val episodeId = alert.getString("episodeId")
+                if (observed != null && (observed.optString("appId") != appId ||
+                        observed.optString("episodeId") != episodeId)) return@execute
+                DikcizCustomApps.signalCancellation(appId)
+                val request = JSONObject().put("type", DikcizCustomAppCommands.EVENT)
+                    .put("appId", appId).put("event", alert.getString("cancelEvent"))
+                    .put("payload", JSONObject().put("episodeId", episodeId))
+                DikcizCustomApps.execute(
+                    applicationContext, DikcizCustomAppCommands.EVENT, request, retryBeforeCommands = true,
+                )
+                DikcizCustomApps.closeAlert(applicationContext, appId, episodeId)
             } catch (exception: Exception) {
                 logger.error("custom_app_alert_cancel_failed", mapOf("error_class" to exception.javaClass.simpleName))
                 handler.post { warning.cancelFailed() }
@@ -184,16 +196,15 @@ internal class DikcizCustomAppService : Service(), LocationListener {
     }
 
     override fun onConfigurationChanged(configuration: android.content.res.Configuration) { super.onConfigurationChanged(configuration); warning.relayout() }
-    override fun onLocationChanged(location: Location) = Unit
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onDestroy() {
+        if (activeService === this) activeService = null
         running = false
         DikcizSensorStreams.stopBackground("foreground_unavailable")
         handler.removeCallbacksAndMessages(null)
         warning.close()
         getSystemService(NotificationManager::class.java).cancel(DikcizSosWarning.NOTIFICATION_ID)
         getSystemService(AlarmManager::class.java).cancel(alarm(this))
-        if (registeredLocation) getSystemService(LocationManager::class.java).removeUpdates(this)
         worker.shutdown()
         super.onDestroy()
     }
@@ -202,7 +213,6 @@ internal class DikcizCustomAppService : Service(), LocationListener {
         private const val CHANNEL = "dikciz-custom-apps"
         private const val NOTIFICATION_ID = 7330
         private const val TICK_MILLISECONDS = 1000L
-        private const val LOCATION_INTERVAL_MILLISECONDS = 10000L
         private const val ALERT_EXPIRY_MILLISECONDS = 60000L
         private const val LOCATION = "locationMonitoring"
         private const val ACTION_STOP = "dikciz.custom.apps.STOP"
@@ -213,7 +223,13 @@ internal class DikcizCustomAppService : Service(), LocationListener {
         fun start(context: Context) {
             context.startForegroundService(Intent(context, DikcizCustomAppService::class.java).putExtra(LOCATION, DikcizCustomApps.locationMonitoring(context)))
         }
-        fun wake(context: Context) { if (running) start(context) }
+        @android.annotation.SuppressLint("StaticFieldLeak")
+        private var activeService: DikcizCustomAppService? = null
+        private val main = Handler(Looper.getMainLooper())
+
+        fun resourcesChanged() {
+            main.post { activeService?.requestTick() }
+        }
         fun alarm(context: Context): PendingIntent = PendingIntent.getBroadcast(context, NOTIFICATION_ID,
             Intent(context, DikcizCustomAppAlarmReceiver::class.java), FLAGS)
     }

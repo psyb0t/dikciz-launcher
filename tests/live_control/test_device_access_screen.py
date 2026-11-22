@@ -7,6 +7,7 @@ import shutil
 
 from . import *
 from . import test_remote_device_control as REMOTE
+from .test_clock_permission_ui import tap_android_permission_button
 from .test_device_access_setup import FULL_ACCESS, NEXT_ACCESS, CLOSE_ACCESS, OPEN_SETUP, ROLE_COMMAND
 from .test_launcher_regressions import recent_task
 
@@ -23,6 +24,7 @@ SETUP_SCREEN = "deviceAccess"
 SETUP_TITLE = "Full device access"
 ENTRY_PREFIX = "settings:device-access:setup:"
 PROGRESS = "settings:device-access:progress"
+SKIP_ACCESS = "settings:device-access:skip"
 WAIT_SECONDS = 60
 CONTACT_PERMISSIONS = ("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS")
 BATTERY_ACCESS = "ignoreBatteryOptimizations"
@@ -141,15 +143,21 @@ def test_device_access_screen_battery_dialog_cancel_grant_and_return(websocket_c
 def test_device_access_screen_runtime_permission_refreshes_in_place(websocket_control):
     assert access_entry("contacts")["state"] == "needsSetup"
     try:
-        open_setup(websocket_control)
+        snapshot = open_setup(websocket_control)
+        first_action = AUTOMATION.require_node(snapshot, NEXT_ACCESS)["text"]
+        REMOTE.remote_call("http", "tap", {"semanticId": SKIP_ACCESS})
+        snapshot = wait_for_snapshot_node(websocket_control, NEXT_ACCESS)
+        assert AUTOMATION.require_node(snapshot, NEXT_ACCESS)["text"] != first_action
         task = setup_task()
         REMOTE.remote_call("http", "tap", {"semanticId": ENTRY_PREFIX + "contacts"})
         wait_for_foreground_application("com.android.permissioncontroller")
-        device_command("input keyevent KEYCODE_BACK")
+        tap_android_permission_button(":id/permission_deny_button")
         wait_setup()
         assert access_entry("contacts")["state"] == "needsSetup"
+        retry = REMOTE.remote_call("http", "find", {"semanticId": ENTRY_PREFIX + "contacts"})["node"]
+        assert retry["text"].startswith("Try again")
         REMOTE.remote_call("http", "tap", {"semanticId": ENTRY_PREFIX + "contacts"})
-        direct_tap(wait_for_physical_button_bounds("Allow"))
+        tap_android_permission_button(":id/permission_allow_button")
         wait_setup()
         assert setup_task() == task
         assert access_entry("contacts")["state"] == "granted"

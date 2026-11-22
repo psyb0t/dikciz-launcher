@@ -168,6 +168,50 @@ def assert_accessibility_owner_setup(status: dict[str, Any]) -> None:
     assert requirement[AUTOMATION.KEY_STATE] == expected_state
 
 
+def test_launcher_page_rail_accessibility_and_drawer_focus(websocket_control):
+    control = websocket_control
+    rail = ":id/dikciz_horizontal_page_indicator"
+
+    def snapshot():
+        return AUTOMATION.request(control, AUTOMATION.TYPE_ACCESSIBILITY_SNAPSHOT)
+
+    def horizontal(snapshot):
+        return [
+            node for node in snapshot["nodes"]
+            if (node.get("viewIdResourceName") or "").endswith(rail)
+        ]
+
+    try:
+        emulator_dikciz_accessibility_set(True)
+        wait_for_selected_page(control, FIXTURE_HOME_PAGE_ID)
+        home = snapshot()
+        indicator, = horizontal(home)
+        assert "scrollForward" in indicator["actions"]
+        AUTOMATION.request(
+            control, AUTOMATION.TYPE_ACCESSIBILITY_ACTION, action="scrollForward",
+            snapshotId=home["snapshotId"], nodeId=indicator["nodeId"],
+        )
+        wait_for_selected_page(control, FIXTURE_NOTES_PAGE_ID)
+        device_command("input keyevent KEYCODE_TAB")
+        notes = snapshot()
+        indicator, = horizontal(notes)
+        AUTOMATION.request(
+            control, AUTOMATION.TYPE_ACCESSIBILITY_ACTION, action="focus",
+            snapshotId=notes["snapshotId"], nodeId=indicator["nodeId"],
+        )
+        device_command("input keyevent KEYCODE_DPAD_LEFT")
+        wait_for_selected_page(control, FIXTURE_HOME_PAGE_ID)
+        AUTOMATION.request(control, AUTOMATION.TYPE_TAP, semanticId="launcher:android-apps")
+        wait_for_snapshot_node(control, APP_DRAWER_SEARCH_SEMANTIC_ID)
+        assert horizontal(snapshot()) == []
+        AUTOMATION.request(control, AUTOMATION.TYPE_TAP, semanticId=APP_DRAWER_CLOSE_SEMANTIC_ID)
+        wait_for_snapshot_node(control, APP_DRAWER_SEARCH_SEMANTIC_ID, should_exist=False)
+        assert horizontal(snapshot())
+    finally:
+        restore_system_home()
+        emulator_dikciz_accessibility_set(False)
+
+
 def test_accessibility_owner_setup_status_is_typed_and_identical_through_both_control_planes(
     websocket_control: socket.socket,
 ) -> None:

@@ -56,6 +56,13 @@ internal class DikcizAccessibilityAutomationException(
 
 internal object DikcizAccessibilityAutomation {
     private val snapshots = ConcurrentHashMap<String, AccessibilitySnapshotDescriptor>()
+    private class ContentEventWindow(
+        var lastPublished: Long,
+        var pending: Runnable? = null,
+        var latest: DikcizAutomationEvent? = null,
+    )
+    private val contentEvents = linkedMapOf<Pair<String, Int>, ContentEventWindow>()
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     @Volatile
     private var service: DikcizAccessibilityAutomationService? = null
@@ -63,6 +70,7 @@ internal object DikcizAccessibilityAutomation {
     fun connect(service: DikcizAccessibilityAutomationService) {
         this.service = service
         snapshots.clear()
+        clearContentEvents()
         recordLifecycleEvent(service.applicationContext, ACCESSIBILITY_STATE_CONNECTED)
     }
 
@@ -71,6 +79,7 @@ internal object DikcizAccessibilityAutomation {
             return
         }
         this.service = null
+        clearContentEvents()
         recordLifecycleEvent(service.applicationContext, ACCESSIBILITY_STATE_DISCONNECTED)
     }
 
@@ -297,25 +306,56 @@ internal object DikcizAccessibilityAutomation {
     }
 
     fun recordWindowEvent(context: Context, event: AccessibilityEvent) {
-        if (event.eventType !in REPORTED_EVENT_TYPES) {
-            return
-        }
+        if (event.eventType !in REPORTED_EVENT_TYPES) return
         val packageName = event.packageName?.toString()?.take(MAXIMUM_METADATA_CHARACTERS).orEmpty()
         val className = event.className?.toString()?.take(MAXIMUM_METADATA_CHARACTERS).orEmpty()
-        DikcizAutomationEventBus.enqueue(
-            context,
-            DikcizAutomationEvent(
-                type = DikcizAutomationEventType.AccessibilityWindow,
-                source = SOURCE_ACCESSIBILITY_SERVICE,
-                timestampMilliseconds = System.currentTimeMillis(),
-                coalescingKey = "$packageName:${event.windowId}",
-                payload = JSONObject()
-                    .put(DikcizAutomationEventPayload.PACKAGE_NAME, packageName)
-                    .put(KEY_CLASS_NAME, className)
-                    .put(KEY_EVENT_TYPE, event.eventType)
-                    .put(KEY_WINDOW_ID, event.windowId),
-            ),
+        val window = packageName to event.windowId
+        val document = DikcizAutomationEvent(
+            type = DikcizAutomationEventType.AccessibilityWindow,
+            source = SOURCE_ACCESSIBILITY_SERVICE,
+            timestampMilliseconds = System.currentTimeMillis(),
+            coalescingKey = "$packageName:${event.windowId}",
+            payload = JSONObject()
+                .put(DikcizAutomationEventPayload.PACKAGE_NAME, packageName)
+                .put(KEY_CLASS_NAME, className)
+                .put(KEY_EVENT_TYPE, event.eventType)
+                .put(KEY_WINDOW_ID, event.windowId),
         )
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
+            contentEvents.remove(window)?.pending?.let(mainHandler::removeCallbacks)
+            DikcizAutomationEventBus.enqueue(context, document)
+            return
+        }
+        val now = SystemClock.uptimeMillis()
+        val previous = contentEvents[window]
+        if (previous == null) {
+            if (contentEvents.size >= MAXIMUM_CONTENT_WINDOWS) {
+                contentEvents.remove(contentEvents.keys.first())?.pending?.let(mainHandler::removeCallbacks)
+            }
+            contentEvents[window] = ContentEventWindow(now)
+            DikcizAutomationEventBus.enqueue(context, document)
+            return
+        }
+        previous.latest = document
+        if (previous.pending != null) return
+        val publish = Runnable {
+            previous.pending = null
+            previous.lastPublished = SystemClock.uptimeMillis()
+            previous.latest?.let { DikcizAutomationEventBus.enqueue(context, it) }
+            previous.latest = null
+        }
+        val delay = CONTENT_EVENT_INTERVAL_MILLISECONDS - (now - previous.lastPublished)
+        if (delay <= 0L) {
+            publish.run()
+        } else {
+            previous.pending = publish
+            mainHandler.postDelayed(publish, delay)
+        }
+    }
+
+    private fun clearContentEvents() {
+        contentEvents.values.forEach { it.pending?.let(mainHandler::removeCallbacks) }
+        contentEvents.clear()
     }
 
     private fun recordLifecycleEvent(context: Context, state: String) {
@@ -611,6 +651,8 @@ internal object DikcizAccessibilityAutomation {
     private const val ACCESSIBILITY_STATE_DISCONNECTED = "disconnected"
     private const val ACCESSIBILITY_STATE_INTERRUPTED = "interrupted"
     private const val COALESCING_LIFECYCLE_PREFIX = "accessibility_service:"
+    private const val CONTENT_EVENT_INTERVAL_MILLISECONDS = 1_000L
+    private const val MAXIMUM_CONTENT_WINDOWS = 32
     private val REPORTED_EVENT_TYPES = setOf(
         AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
         AccessibilityEvent.TYPE_WINDOWS_CHANGED,

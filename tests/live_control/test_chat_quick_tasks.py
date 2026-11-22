@@ -88,6 +88,7 @@ def test_chat_quick_tasks_screen_capture_and_read_only(websocket_control, provid
         native_call("http", "intent", {"intentType": "activity", "action": "android.settings.SETTINGS"})
         time.sleep(0.5)
         agent.chat("show", conversationId=identifier)
+        direct_tap(wait_for_physical_description_bounds("Chat options"))
         wait_for_physical_description_bounds("Explain this screen")
         key = str(uuid.uuid4())
         queued = task(identifier, "explainScreen", entrypoint, key, text="Explain this settings screen.")
@@ -147,6 +148,7 @@ def test_chat_quick_tasks_native_buttons(websocket_control, provider_endpoint):
     _, identifier = agent.conversation(provider_endpoint[0])
     try:
         agent.chat("show", conversationId=identifier)
+        direct_tap(wait_for_physical_description_bounds("Chat options"))
         direct_tap(wait_for_physical_description_bounds("Make me a widget"))
         direct_enter_text(wait_for_physical_description_bounds("Widget request"), "Create a fixture note widget.")
         direct_hide_keyboard()

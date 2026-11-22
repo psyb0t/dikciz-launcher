@@ -166,6 +166,7 @@ internal object DikcizSensorStreams {
             if (exception is DikcizAutomationRequestException) throw exception
             DikcizNativeCommands.failure("sensor_start_failed", "Android could not start sensor capture.")
         }
+        if (background && appId != null) DikcizCustomApps.backgroundSensorChanged(application, appId)
         return session.status()
     }
 
@@ -187,6 +188,9 @@ internal object DikcizSensorStreams {
     fun appIsActive(appId: String): Boolean =
         synchronized(guard) { active.values.any { it.appId == appId } }
 
+    fun appHasBackgroundStream(appId: String): Boolean =
+        synchronized(guard) { active.values.any { it.appId == appId && it.background } }
+
     private fun matching(filter: (Session) -> Boolean): List<Session> =
         synchronized(guard) { active.values.filter(filter) }
 
@@ -206,6 +210,10 @@ internal object DikcizSensorStreams {
             if (schedulePrune) lifecycle.postDelayed(prune, COMPLETED_MS + CHECK_MS)
         }
         session.unregister()
+        if (session.background) {
+            session.appId?.let { DikcizCustomApps.backgroundSensorChanged(session.application, it) }
+            DikcizCustomAppService.resourcesChanged()
+        }
         session.deliver()
     }
 
@@ -225,7 +233,7 @@ internal object DikcizSensorStreams {
     }
 
     private class Session(
-        private val application: Application,
+        val application: Application,
         private val manager: SensorManager,
         private val sensor: Sensor,
         private val sensorId: Int,

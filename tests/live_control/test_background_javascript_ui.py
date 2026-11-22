@@ -1,6 +1,7 @@
 """Create, edit and transfer JavaScript scripts through native controls."""
 
 import json
+import shutil
 import zipfile
 
 from . import *
@@ -24,11 +25,24 @@ def test_background_javascript_native_editor_and_archive_round_trip(websocket_co
     source = AUTOMATION.require_node(snapshot, "lua-script:source")["text"]
     assert "function onEvent(event)" in source
     run_device_operation("screenshot")
+    shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "script-javascript-editor.png")
     AUTOMATION.request(websocket_control, "setText", semanticId="lua-script:title", text="JavaScript UI fixture")
+    AUTOMATION.request(websocket_control, "setText", semanticId="lua-script:source", text="function onEvent(")
+    AUTOMATION.request(websocket_control, "tap", semanticId="lua-script:save")
+    snapshot = wait_for_snapshot_node(websocket_control, "lua-script:source")
+    assert AUTOMATION.require_node(snapshot, "lua-script:source")["text"] == "function onEvent("
+    configured = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, "configGet"))
+    assert all(item["title"] != "JavaScript UI fixture" for item in configured["scripts"])
+    AUTOMATION.request(websocket_control, "setText", semanticId="lua-script:source", text=source)
+    AUTOMATION.request(websocket_control, "tap", semanticId="lua-script:file")
+    direct_tap(wait_for_physical_text_bounds("State JSON object"))
+    wait_for_snapshot_node(websocket_control, "lua-script:state")
+    AUTOMATION.request(websocket_control, "setText", semanticId="lua-script:state", text='{"checked":true}')
     AUTOMATION.request(websocket_control, "tap", semanticId="lua-script:save")
     configured = AUTOMATION.require_configuration(AUTOMATION.request(websocket_control, "configGet"))
     script = next(item for item in configured["scripts"] if item["title"] == "JavaScript UI fixture")
     assert script["language"] == "javascript" and script["source"] == source
+    assert script["state"] == {"checked": True}
     identifier = script["id"]
     AUTOMATION.request(websocket_control, "tap", semanticId="lua-script:" + identifier)
     wait_for_snapshot_node(websocket_control, "lua-script:export")

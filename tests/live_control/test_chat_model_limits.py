@@ -118,6 +118,7 @@ def test_chat_model_limits_native_defaults_and_override(websocket_control, provi
     _, identifier = agent.conversation(endpoint)
     try:
         agent.chat("show", conversationId=identifier)
+        direct_tap(wait_for_physical_description_bounds("Chat options"))
         direct_tap(wait_for_physical_description_bounds("Chat model"))
         direct_tap(wait_for_physical_text_bounds("gpt-6.1-sol"))
         direct_tap(wait_for_physical_description_bounds("Chat model settings"))

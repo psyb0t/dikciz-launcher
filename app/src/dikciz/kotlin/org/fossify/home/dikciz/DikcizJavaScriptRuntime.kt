@@ -195,6 +195,18 @@ internal class DikcizJavaScriptRuntime(
     }
 
     companion object {
+        fun validateSyntax(scriptID: String, source: String): String? {
+            val context = ExecutionFactory().enterContext()
+            return try {
+                context.compileString(source, "$scriptID.js", 1, null)
+                null
+            } catch (error: RhinoException) {
+                error.details() + " (line " + error.lineNumber() + ")"
+            } finally {
+                Context.exit()
+            }
+        }
+
         private const val COMPILED_SCRIPT_CACHE_SIZE = 4
         private const val COMPILED_SCRIPT_IDLE_MS = 60_000L
         private const val HANDLER_NAME = "onEvent"

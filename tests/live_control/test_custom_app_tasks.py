@@ -5,7 +5,7 @@ import time
 import pytest
 
 from . import *
-from .test_custom_apps import app_factory, control, COMMAND_READ, TIMEOUT_SECONDS, POLL_SECONDS
+from .test_custom_apps import app_factory, control, COMMAND_INSTALL, COMMAND_READ, TIMEOUT_SECONDS, POLL_SECONDS
 from .test_native_data import native_call, PROTOCOLS
 from .test_launcher_regressions import recent_task
 
@@ -72,6 +72,13 @@ def test_custom_app_tasks_editor_draft_and_import_recovery(websocket_control, ap
         run_device_operation("emulator-device-orientation-set", EMULATOR_DEVICE_ORIENTATION="landscape")
         snapshot = wait_for_snapshot_node(websocket_control, "custom-app:editor:html")
         assert AUTOMATION.require_node(snapshot, "custom-app:editor:html")["text"] == draft
+        newer_html = "<h1>Newer installed source</h1>"
+        native_call("http", COMMAND_INSTALL, {**fields, "html": newer_html})
+        tap(websocket_control, "custom-app:editor:save")
+        wait_for_physical_text_bounds("This app changed after you opened it. Save as copy to keep your edits.")
+        snapshot = wait_for_snapshot_node(websocket_control, "custom-app:editor:html")
+        assert AUTOMATION.require_node(snapshot, "custom-app:editor:html")["text"] == draft
+        assert native_call("http", COMMAND_READ, {"appId": identifier})["html"] == newer_html
         device_command("input keyevent KEYCODE_BACK")
         wait_for_snapshot_node(websocket_control, "custom-app:confirm")
         capture("app-discard")
@@ -81,7 +88,7 @@ def test_custom_app_tasks_editor_draft_and_import_recovery(websocket_control, ap
         tap(websocket_control, "custom-app:editor:cancel")
         tap(websocket_control, "custom-app:confirm")
         wait_for_snapshot_node(websocket_control, "custom-app:new")
-        assert native_call("http", COMMAND_READ, {"appId": identifier})["html"] == fields["html"]
+        assert native_call("http", COMMAND_READ, {"appId": identifier})["html"] == newer_html
         tap(websocket_control, "custom-app:import")
         path = "/sdcard/Dikciz/apps/imports/missing.dikciz-app.zip"
         AUTOMATION.request(websocket_control, "setText", semanticId="custom-app:import:path", text=path)
@@ -90,6 +97,43 @@ def test_custom_app_tasks_editor_draft_and_import_recovery(websocket_control, ap
         capture("app-import-error")
         assert AUTOMATION.require_node(snapshot, "custom-app:import:path")["text"] == path
         assert AUTOMATION.require_node(snapshot, "custom-app:import:confirm")["enabled"]
+        archive = control(identifier, "export")["path"]
+        AUTOMATION.request(websocket_control, "setText", semanticId="custom-app:import:path", text=archive)
+        tap(websocket_control, "custom-app:import:confirm")
+        wait_for_snapshot_node(websocket_control, "custom-app:import:install")
+        capture("app-import-review")
+        tap(websocket_control, "custom-app:import:keep")
+        assert native_call("http", COMMAND_READ, {"appId": identifier})["html"] == newer_html
     finally:
         run_device_operation("emulator-device-orientation-set", EMULATOR_DEVICE_ORIENTATION="portrait")
         restore_system_home()
+
+
+def test_custom_app_tasks_editor_restores_draft_after_process_death(websocket_control, app_factory):
+    from .test_custom_apps import open_app_manager
+    from .test_operations_ux import tap
+    from .ui import direct_tap, physical_description_text, wait_for_physical_description_bounds, wait_for_physical_text_bounds
+
+    identifier, fields = app_factory()
+    draft = "<h1>Draft owns this app revision</h1>"
+    try:
+        open_app_manager(websocket_control)
+        tap(websocket_control, f"custom-app:{identifier}:more")
+        tap(websocket_control, f"custom-app:{identifier}:edit")
+        tap(websocket_control, "custom-app:editor:file")
+        direct_tap(wait_for_physical_text_bounds("HTML"))
+        wait_for_snapshot_node(websocket_control, "custom-app:editor:html")
+        AUTOMATION.request(websocket_control, "setText", semanticId="custom-app:editor:html", text=draft)
+        device_command("am start -W -a android.settings.SETTINGS")
+        wait_for_foreground_application(ANDROID_SETTINGS_PACKAGE)
+        process = device_command("pidof " + DIKCIZ_DEBUG_PACKAGE).strip()
+        assert process.isdigit(), process
+        device_command("run-as " + DIKCIZ_DEBUG_PACKAGE + " kill -9 " + process)
+        device_command("input keyevent KEYCODE_BACK")
+        wait_for_physical_description_bounds("html")
+        assert physical_description_text("html") == draft
+        assert device_command("pidof " + DIKCIZ_DEBUG_PACKAGE).strip() != process
+    finally:
+        restore_system_home()
+        with wait_for_restarted_websocket_control():
+            assert native_call("http", COMMAND_READ, {"appId": identifier})["html"] == fields["html"]

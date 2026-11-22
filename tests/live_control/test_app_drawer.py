@@ -10,8 +10,7 @@ def settings_row_semantic_id() -> str:
 
 
 def open_drawer_through_control() -> None:
-    direct_tap(wait_for_physical_description_bounds(LAUNCHER_CONTROL_OPEN_DESCRIPTION))
-    direct_tap(wait_for_physical_button_bounds(LAUNCHER_CONTROL_APP_DRAWER_LABEL))
+    direct_tap(wait_for_physical_description_bounds(LAUNCHER_CONTROL_APP_DRAWER_LABEL))
     wait_for_physical_text_bounds(APP_DRAWER_TITLE)
 
 
@@ -59,6 +58,10 @@ def test_app_drawer_opens_from_the_visible_control_and_the_upward_home_gesture(
         )
 
         open_drawer_through_control()
+        title_x, title_y = center(wait_for_physical_text_bounds(APP_DRAWER_TITLE))
+        direct_swipe((title_x, title_y), (title_x, title_y + HOME_GESTURE_TRAVEL_PIXELS))
+        wait_for_snapshot_node(reentered_control, APP_DRAWER_SEARCH_SEMANTIC_ID, should_exist=False)
+        open_drawer_through_control()
         filter_drawer_to_settings()
         control_snapshot = wait_for_snapshot_node(reentered_control, settings_row_semantic_id())
         assert bounds_for(control_snapshot, APP_DRAWER_SEARCH_SEMANTIC_ID)["bottom"] > 0
@@ -72,6 +75,33 @@ def test_app_drawer_opens_from_the_visible_control_and_the_upward_home_gesture(
         close_drawer(reentered_control)
     finally:
         reentered_control.close()
+
+
+def test_launcher_touch_opens_drawer_from_either_side_of_the_lower_home_page(
+    websocket_control: socket.socket,
+) -> None:
+    page = physical_page_scroll_bounds()
+    width = page["right"] - page["left"]
+    start_y = page["bottom"] - round(80 * device_density_scale())
+    for start_x in (page["left"] + width // 4, page["right"] - width // 4):
+        direct_swipe(
+            (start_x, start_y),
+            (start_x, start_y - HOME_GESTURE_TRAVEL_PIXELS),
+            HOME_GESTURE_DURATION_MILLISECONDS,
+        )
+        wait_for_physical_text_bounds(APP_DRAWER_TITLE)
+        close_drawer(websocket_control)
+
+    left = page["left"] + width // 4
+    right = page["right"] - width // 4
+    direct_swipe((left, start_y), (right, start_y), HOME_GESTURE_DURATION_MILLISECONDS)
+    wait_for_snapshot_node(websocket_control, APP_DRAWER_SEARCH_SEMANTIC_ID, should_exist=False)
+    direct_swipe((left, start_y), (left, page["bottom"]), HOME_GESTURE_DURATION_MILLISECONDS)
+    wait_for_snapshot_node(websocket_control, APP_DRAWER_SEARCH_SEMANTIC_ID, should_exist=False)
+
+    rail_x, _ = center(physical_page_indicator_bounds("vertical"))
+    direct_swipe((rail_x, start_y), (rail_x, start_y - HOME_GESTURE_TRAVEL_PIXELS), HOME_GESTURE_DURATION_MILLISECONDS)
+    wait_for_snapshot_node(websocket_control, APP_DRAWER_SEARCH_SEMANTIC_ID, should_exist=False)
 
 
 def test_app_drawer_search_matches_label_and_package_and_shows_an_empty_state(
@@ -219,7 +249,9 @@ def test_app_action_add_shortcut_persists_a_native_app_widget(
     # land on one. Adding always targets the selected page, so the test selects
     # an empty page of its own first.
     document = current_configuration(websocket_control)
-    append_empty_page(document, SHORTCUT_PAGE_ID, SHORTCUT_PAGE_TITLE, SHORTCUT_PAGE_COLUMN, 0)
+    pages = document["launcher"]["home"]["pages"]
+    next_column = max(page["position"]["column"] for page in pages if page["position"]["row"] == 0) + 1
+    append_empty_page(document, SHORTCUT_PAGE_ID, SHORTCUT_PAGE_TITLE, next_column, 0)
     document["launcher"]["home"]["selectedPageId"] = SHORTCUT_PAGE_ID
     AUTOMATION.require_configuration(
         AUTOMATION.request(
@@ -280,10 +312,9 @@ def test_app_action_add_shortcut_persists_a_native_app_widget(
         WIDGET_MOVE_HANDLE_DESCRIPTION.format(ANDROID_SETTINGS_LABEL_QUERY),
     )
     move_start = center(move_handle)
-    direct_swipe(
+    direct_hold_then_drag(
         move_start,
         (move_start[0] + WIDGET_MOVE_TRAVEL_PIXELS, move_start[1]),
-        WIDGET_MOVE_DURATION_MILLISECONDS,
     )
 
     deadline = time.monotonic() + CONFIGURATION_SAVE_TIMEOUT_SECONDS

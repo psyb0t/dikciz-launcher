@@ -43,6 +43,8 @@ import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.CheckBox
 import android.widget.CompoundButton
 import android.widget.EditText
@@ -54,6 +56,7 @@ import android.widget.PopupWindow
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
@@ -98,6 +101,9 @@ class DikcizHomeActivity : Activity() {
     private lateinit var appDrawer: DikcizAppDrawerView
     private lateinit var horizontalPageIndicator: DikcizPageIndicatorView
     private lateinit var launcherContent: LinearLayout
+    private var drawerPreviousFocus: View? = null
+    private var homeAccessibilityBeforeDrawer = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
+    private var homeFocusBeforeDrawer = ViewGroup.FOCUS_BEFORE_DESCENDANTS
     private lateinit var launcherControl: DikcizLauncherControlView
     private lateinit var launcherWallpaper: ImageView
     private lateinit var pageCanvasHost: FrameLayout
@@ -353,6 +359,10 @@ class DikcizHomeActivity : Activity() {
         super.onStart()
         DikcizPackageUpdateReceiver.clearRecoveryNotification(this)
         isActivityStarted = true
+        if (controlPlanesStarted) {
+            mainHandler.removeCallbacks(pollControlConfigurationRunnable)
+            mainHandler.post(pollControlConfigurationRunnable)
+        }
         mainHandler.post { if (!isFinishing && !isDestroyed) showPendingPermissionRequest() }
         dikcizLogger.info(
             EVENT_ACTIVITY_STARTED,
@@ -585,6 +595,7 @@ class DikcizHomeActivity : Activity() {
         launcherControl = findViewById(R.id.dikciz_launcher_control)
         launcherControl.onControlsRequested = ::showLauncherControlSheet
         launcherControl.onPageSearchRequested = ::showPageSearchSheet
+        launcherControl.onAppDrawerRequested = { openAppDrawer(DRAWER_SOURCE_CONTROL) }
         launcherControl.onChatRequested = { startActivity(Intent(this, DikcizChatActivity::class.java)) }
         bindAppDrawer()
         pageScrollView.setOnTouchListener { view, event ->
@@ -837,7 +848,8 @@ class DikcizHomeActivity : Activity() {
                     scheduleControlConfigurationRefresh()
                 }
                 mainHandler.removeCallbacks(pollControlConfigurationRunnable)
-                mainHandler.postDelayed(pollControlConfigurationRunnable, CONFIGURATION_POLL_INTERVAL_MS)
+                val interval = if (isActivityStarted) CONFIGURATION_POLL_INTERVAL_MS else CONTROL_BACKGROUND_POLL_INTERVAL_MS
+                mainHandler.postDelayed(pollControlConfigurationRunnable, interval)
             }
         }
     }
@@ -2257,6 +2269,8 @@ class DikcizHomeActivity : Activity() {
             if (requiresHoldToMove(widget)) {
                 pendingMove.isMoveReady = true
                 setWidgetTouchInterceptionBlocked(widgetView, true)
+                widgetView.scaleX = WIDGET_PICKUP_SCALE
+                widgetView.scaleY = WIDGET_PICKUP_SCALE
                 widgetView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                 return@Runnable
             }
@@ -2286,6 +2300,10 @@ class DikcizHomeActivity : Activity() {
             return
         }
         mainHandler.removeCallbacks(pendingMove.longPressRunnable)
+        if (pendingMove.isMoveReady) {
+            pendingMove.widgetView.scaleX = 1f
+            pendingMove.widgetView.scaleY = 1f
+        }
         pendingWidgetMove = null
     }
 
@@ -3224,16 +3242,21 @@ class DikcizHomeActivity : Activity() {
         return widget.components.mapNotNull(applicationsByComponent::get)
     }
 
-    /**
-     * Opens a group as a grid of its member icons.
-     *
-     * Tapping a member launches it. Long pressing one offers Remove, which is
-     * how every other item in Dikciz is removed, and removing the second to
-     * last member collapses the group back into a plain app shortcut.
-     */
     private fun showAppGroupContents(widget: AppGroupHomeWidget) {
+        val configuration = homeConfiguration ?: return
+        val page = configuration.selectedPage() ?: return
         val applications = appGroupApplications(widget)
         lateinit var dialog: AlertDialog
+        val drag = if (page.locked || widget.locked || isSafeMode) {
+            null
+        } else {
+            DikcizAppGroupMemberDrag(
+                host = findViewById(R.id.dikciz_home_root),
+                dialog = { dialog },
+                showGrid = { visible -> widgetContainer.isGridGuideVisible = visible },
+                canDrop = { x, y -> appGroupDropCell(page.id, x, y) != null },
+            )
+        }
         val contents = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -3247,7 +3270,7 @@ class DikcizHomeActivity : Activity() {
                     gravity = Gravity.CENTER_HORIZONTAL
                     row.forEach { application ->
                         addView(
-                            createAppGroupMember(widget, application) { dialog.dismiss() },
+                            createAppGroupMember(page.id, widget, application, drag) { dialog.dismiss() },
                         )
                     }
                 })
@@ -3266,6 +3289,7 @@ class DikcizHomeActivity : Activity() {
                 publishAutomationUIRendered()
             },
             onDismiss = {
+                drag?.clearPreview()
                 automationViews.keys.removeAll { key ->
                     key.startsWith(appGroupSemanticID(widget.id))
                 }
@@ -3275,8 +3299,10 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun createAppGroupMember(
+        pageID: String,
         widget: AppGroupHomeWidget,
         application: DikcizLaunchableApp,
+        drag: DikcizAppGroupMemberDrag?,
         onSelected: () -> Unit,
     ): View {
         val component = application.component.flattenToShortString()
@@ -3304,19 +3330,116 @@ class DikcizHomeActivity : Activity() {
                 text = application.label
                 setTextColor(getColor(R.color.dikciz_foreground))
             })
-            isClickable = true
-            isLongClickable = true
             setOnClickListener {
                 onSelected()
                 launchExplicitComponent(application.component)
             }
-            setOnLongClickListener {
-                onSelected()
-                confirmAppGroupMemberRemoval(widget, application.label, component)
-                true
-            }
+            drag?.bind(
+                member = this,
+                icon = application.icon,
+                onMenu = { showAppGroupMemberMenu(pageID, widget, application) },
+                onDrop = { x, y ->
+                    appGroupDropCell(pageID, x, y)?.let { cell ->
+                        moveAppGroupMemberToPage(pageID, widget.id, application, cell)
+                    }
+                },
+            )
             registerAutomationView(appGroupMemberSemanticID(widget.id, component), this)
         }
+    }
+
+    private fun showAppGroupMemberMenu(
+        pageID: String,
+        widget: AppGroupHomeWidget,
+        application: DikcizLaunchableApp,
+    ) {
+        showActiveDialog(
+            panelDialogBuilder()
+                .setTitle(application.label)
+                .setPositiveButton(R.string.dikciz_app_group_move_to_page) { _, _ ->
+                    moveAppGroupMemberToPage(pageID, widget.id, application, cell = null)
+                }
+                .setNeutralButton(R.string.dikciz_dialog_remove) { _, _ ->
+                    val storedComponent = widget.components.firstOrNull {
+                        ComponentName.unflattenFromString(it) == application.component
+                    }
+                    storedComponent?.let { confirmAppGroupMemberRemoval(widget, application.label, it) }
+                }
+                .setNegativeButton(R.string.dikciz_dialog_cancel, null)
+                .create(),
+        )
+    }
+
+    private fun appGroupDropCell(pageID: String, x: Float, y: Float): DikcizGridRectangle? {
+        val configuration = homeConfiguration ?: return null
+        val page = configuration.selectedPage()?.takeIf { it.id == pageID && !it.locked } ?: return null
+        if (page.widgets.size >= configuration.limits.maxWidgetsPerPage) return null
+
+        val viewport = Rect()
+        if (!pageScrollView.getGlobalVisibleRect(viewport) || !viewport.contains(x.toInt(), y.toInt())) return null
+        val location = IntArray(SCREEN_LOCATION_VALUES)
+        widgetContainer.getLocationOnScreen(location)
+        val gridX = x.roundToInt() - location[SCREEN_LOCATION_X]
+        val gridY = y.roundToInt() - location[SCREEN_LOCATION_Y]
+        if (gridX !in widgetContainer.paddingLeft until widgetContainer.width - widgetContainer.paddingRight ||
+            gridY !in widgetContainer.paddingTop until widgetContainer.height - widgetContainer.paddingBottom
+        ) {
+            return null
+        }
+        val (column, row) = widgetContainer.cellAt(gridX, gridY)
+        val cell = DikcizWidgetSpans.APP.atOrigin().copy(column = column, row = row)
+        return cell.takeIf { page.occupiedCells().none(it::overlaps) }
+    }
+
+    private fun moveAppGroupMemberToPage(
+        pageID: String,
+        groupID: String,
+        application: DikcizLaunchableApp,
+        cell: DikcizGridRectangle?,
+    ) {
+        val saved = updateConfiguration { configuration ->
+            val page = configuration.selectedPage()?.takeIf { it.id == pageID && !it.locked }
+            val group = page?.findWidget(groupID) as? AppGroupHomeWidget
+            val component = group?.components?.firstOrNull {
+                ComponentName.unflattenFromString(it) == application.component
+            }
+            if (page == null || group == null || group.locked || component == null) {
+                throw HomeConfigException(getString(R.string.dikciz_app_group_move_unavailable))
+            }
+            val placement = DikcizGridLayoutEngine.place(configuration.nativeGrid, page.occupiedCells(), cell)
+            if (page.widgets.size >= configuration.limits.maxWidgetsPerPage || placement !is DikcizGridPlacement.Placed) {
+                throw HomeConfigException(getString(R.string.dikciz_grid_page_full))
+            }
+            val title = application.label.take(configuration.limits.maxTitleCharacters).trim()
+            val shortcutID = newWidgetID(title, configuration)
+                ?: throw HomeConfigException(getString(R.string.dikciz_widget_id_unavailable))
+            val shortcut = AppHomeWidget(
+                id = shortcutID,
+                title = title,
+                component = component,
+                displayStyle = AppWidgetDisplayStyle.IconWithLabel,
+                enabled = true,
+                cell = placement.rectangle,
+            )
+            val remaining = page.withoutAppGroupMember(
+                groupID,
+                component,
+                appGroupSurvivorTitle(group, component, configuration.limits.maxTitleCharacters),
+            )
+            configuration.replacePage(pageID) { remaining.copy(widgets = remaining.widgets + shortcut) }
+        }
+        if (saved) dikcizLogger.info(EVENT_APP_GROUP_MEMBER_MOVED, mapOf(FIELD_WIDGET_ID to groupID))
+    }
+
+    private fun appGroupSurvivorTitle(
+        group: AppGroupHomeWidget,
+        extractedComponent: String,
+        maxLength: Int,
+    ): String? {
+        val survivor = group.components.singleOrNull { it != extractedComponent }
+            ?.let(ComponentName::unflattenFromString) ?: return null
+        return appGroupApplications(group).firstOrNull { it.component == survivor }
+            ?.label?.take(maxLength)?.trim()?.takeIf(String::isNotEmpty)
     }
 
     private fun confirmAppGroupMemberRemoval(
@@ -3340,7 +3463,12 @@ class DikcizHomeActivity : Activity() {
         val remaining = widget.components.filterNot { candidate -> candidate == component }
         val willCollapse = remaining.size <= SINGLE_APP_GROUP_MEMBER
         val didRemove = updateSelectedPage { page ->
-            page.withoutAppGroupMember(widget.id, component)
+            val group = page.findWidget(widget.id) as? AppGroupHomeWidget
+            if (page.locked || group == null || group.locked || component !in group.components) {
+                throw HomeConfigException(getString(R.string.dikciz_app_group_move_unavailable))
+            }
+            val maxLength = homeConfiguration?.limits?.maxTitleCharacters ?: group.title.length
+            page.withoutAppGroupMember(widget.id, component, appGroupSurvivorTitle(group, component, maxLength))
         }
         if (!didRemove) {
             return
@@ -6189,6 +6317,7 @@ class DikcizHomeActivity : Activity() {
         launcherControl.setControlsVisible(!isSafeMode)
         registerAutomationView(SEMANTIC_LAUNCHER_CONTROL, launcherControl.controlButton)
         registerAutomationView(SEMANTIC_PAGE_SEARCH, launcherControl.pageSearchButton)
+        registerAutomationView("launcher:android-apps", launcherControl.appDrawerButton)
         registerAutomationView("launcher:chat", launcherControl.chatButton)
         chatBadgeObserver()
         if (appDrawer.isOpen) {
@@ -6196,12 +6325,14 @@ class DikcizHomeActivity : Activity() {
         }
     }
 
-    private fun homeGestureActivationBounds(): List<Rect> {
-        // Only the horizontal page rail starts the drawer gesture. The page
-        // viewport keeps its upward drag for scrolling page content.
-        val bounds = mutableListOf<Rect>()
-        Rect().takeIf(horizontalPageIndicator::getGlobalVisibleRect)?.let(bounds::add)
-        return bounds
+    private fun homeGestureActivationBounds(): Rect? {
+        val controls = Rect()
+        val page = Rect()
+        if (!launcherControl.getGlobalVisibleRect(controls) || !pageScrollView.getGlobalVisibleRect(page)) {
+            return null
+        }
+        // Measure from the visible controls instead of the edge-to-edge window behind system bars.
+        return Rect(page.left, page.top, page.right, controls.bottom)
     }
 
     private fun isHomeGestureEnabled(): Boolean {
@@ -6215,6 +6346,7 @@ class DikcizHomeActivity : Activity() {
             activeWidgetEdit == null &&
             activeWidgetResize == null &&
             activeWidgetMove == null &&
+            pendingWidgetMove?.isMoveReady != true &&
             armedWidgetMoveID == null
     }
 
@@ -6489,6 +6621,11 @@ class DikcizHomeActivity : Activity() {
             return
         }
         val applications = launchableApps()
+        drawerPreviousFocus = launcherContent.findFocus()
+        homeAccessibilityBeforeDrawer = launcherContent.importantForAccessibility
+        homeFocusBeforeDrawer = launcherContent.descendantFocusability
+        launcherContent.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        launcherContent.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
         appDrawer.open(applications)
         refreshSystemBackCallback()
         registerAppDrawerAutomationViews()
@@ -6507,6 +6644,10 @@ class DikcizHomeActivity : Activity() {
             return
         }
         appDrawer.close()
+        launcherContent.importantForAccessibility = homeAccessibilityBeforeDrawer
+        launcherContent.descendantFocusability = homeFocusBeforeDrawer
+        (drawerPreviousFocus ?: launcherControl.appDrawerButton).requestFocus()
+        drawerPreviousFocus = null
         refreshSystemBackCallback()
         clearAppDrawerAutomationViews()
         dikcizLogger.info(EVENT_APP_DRAWER_CLOSED)
@@ -8406,15 +8547,16 @@ class DikcizHomeActivity : Activity() {
             minLines = SCRIPT_STATE_EDITOR_MINIMUM_LINES
             setText(script?.state?.toString(SCRIPT_STATE_JSON_INDENTATION_SPACES) ?: DEFAULT_LUA_SCRIPT_STATE)
         }
+        val scriptFiles = listOf(sourceInput, stateInput)
+        val filePicker = editorFilePicker(scriptFiles, R.string.dikciz_script_editor_file)
         val form = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(standardPadding(), NO_PADDING, standardPadding(), NO_PADDING)
             addView(titleInput)
             addView(enabledInput)
             addView(createWidgetTitle("Language: " + language.persistedValue))
-            addView(createWidgetTitle(getString(R.string.dikciz_script_source_label)))
+            addView(filePicker)
             addView(sourceInput)
-            addView(createWidgetTitle(getString(R.string.dikciz_script_state_label)))
             addView(stateInput)
         }
         val exportButton = script?.let { savedScript ->
@@ -8454,6 +8596,7 @@ class DikcizHomeActivity : Activity() {
             }
             registerAutomationView(SEMANTIC_LUA_SCRIPT_TITLE, titleInput)
             registerAutomationView(SEMANTIC_LUA_SCRIPT_ENABLED, enabledInput)
+            registerAutomationView(SEMANTIC_LUA_SCRIPT_FILE, filePicker)
             registerAutomationView(SEMANTIC_LUA_SCRIPT_SOURCE, sourceInput)
             registerAutomationView(SEMANTIC_LUA_SCRIPT_STATE, stateInput)
             registerAutomationView(SEMANTIC_LUA_SCRIPT_SAVE, dialog.getButton(AlertDialog.BUTTON_POSITIVE))
@@ -8466,13 +8609,33 @@ class DikcizHomeActivity : Activity() {
         dialog.setOnShowListener {
             val saveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             saveButton.setOnClickListener {
-                val state = parseLuaScriptEditorState(stateInput) ?: return@setOnClickListener
+                val state = parseLuaScriptEditorState(stateInput)
+                if (state == null) {
+                    revealEditorFile(filePicker, scriptFiles, stateInput)
+                    return@setOnClickListener
+                }
+                val id = script?.id ?: newScriptIDOrShowError(titleInput.text.toString()) ?: return@setOnClickListener
+                val source = sourceInput.text.toString()
+                val limits = homeConfiguration?.limits ?: return@setOnClickListener
+                val syntaxError = try {
+                    homeConfigStore.validateScriptSource(source, id, limits)
+                    when (language) {
+                        DikcizScriptLanguage.Lua -> DikcizLuaRuntime().validateSyntax(id, source)
+                        DikcizScriptLanguage.JavaScript -> DikcizJavaScriptRuntime.validateSyntax(id, source)
+                    }
+                } catch (error: HomeConfigException) {
+                    error.message ?: getString(R.string.dikciz_script_source_invalid)
+                }
+                if (syntaxError != null) {
+                    sourceInput.error = syntaxError
+                    revealEditorFile(filePicker, scriptFiles, sourceInput)
+                    return@setOnClickListener
+                }
                 val updatedScript = DikcizLuaScript(
-                    id = script?.id ?: newScriptIDOrShowError(titleInput.text.toString())
-                        ?: return@setOnClickListener,
+                    id = id,
                     title = titleInput.text.toString(),
                     enabled = enabledInput.isChecked,
-                    source = sourceInput.text.toString(),
+                    source = source,
                     state = state,
                     language = language,
                 )
@@ -8550,7 +8713,7 @@ class DikcizHomeActivity : Activity() {
         return try {
             JSONObject(stateInput.text.toString())
         } catch (_: JSONException) {
-            Toast.makeText(this, R.string.dikciz_script_state_invalid, Toast.LENGTH_LONG).show()
+            stateInput.error = getString(R.string.dikciz_script_state_invalid)
             null
         }
     }
@@ -9964,19 +10127,15 @@ class DikcizHomeActivity : Activity() {
             contentDescription = text
             isAllCaps = false
         }
+        val sourceFields = listOf(htmlInput, cssInput, javascriptInput, stateInput)
+        val sourcePicker = editorFilePicker(sourceFields, R.string.dikciz_widget_editor_file)
         val form = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(standardPadding(), NO_PADDING, standardPadding(), NO_PADDING)
             addView(createWidgetTitle(getString(R.string.dikciz_dialog_title_hint)))
             addView(titleInput)
-            addView(createWidgetTitle(getString(R.string.dikciz_html_widget_html_input)))
-            addView(htmlInput)
-            addView(createWidgetTitle(getString(R.string.dikciz_html_widget_css_input)))
-            addView(cssInput)
-            addView(createWidgetTitle(getString(R.string.dikciz_html_widget_javascript_input)))
-            addView(javascriptInput)
-            addView(createWidgetTitle(getString(R.string.dikciz_html_widget_state_input)))
-            addView(stateInput)
+            addView(sourcePicker)
+            sourceFields.forEach { addView(it) }
             addView(autoFitHeightInput)
             addView(createWidgetTitle(getString(R.string.dikciz_html_widget_package_id_input)))
             addView(packageIDInput)
@@ -9992,7 +10151,8 @@ class DikcizHomeActivity : Activity() {
             val state = try {
                 JSONObject(stateInput.text.toString())
             } catch (_: JSONException) {
-                Toast.makeText(this, R.string.dikciz_html_widget_state_invalid, Toast.LENGTH_LONG).show()
+                stateInput.error = getString(R.string.dikciz_html_widget_state_invalid)
+                revealEditorFile(sourcePicker, sourceFields, stateInput)
                 return null
             }
             return currentWidget.copy(
@@ -10030,6 +10190,7 @@ class DikcizHomeActivity : Activity() {
                 saveHtmlWidgetToLibrary(edited, packageIDInput.text.toString())
             }
             clearWidgetEditorAutomationViews()
+            registerWidgetEditorAutomationView(widgetEditorSemanticID(currentWidget.id, SEMANTIC_EDITOR_FILE), sourcePicker)
             registerWidgetEditorAutomationView(
                 widgetEditorSemanticID(currentWidget.id, SEMANTIC_EDITOR_TITLE),
                 titleInput,
@@ -10068,6 +10229,35 @@ class DikcizHomeActivity : Activity() {
             )
         }
         showActiveDialog(dialog, onDismiss = ::clearWidgetEditorAutomationViews)
+    }
+
+    private fun editorFilePicker(fields: List<EditText>, descriptionID: Int): Spinner {
+        fields.drop(1).forEach { it.visibility = View.GONE }
+        return Spinner(this).apply {
+            contentDescription = getString(descriptionID)
+            minimumHeight = densityPixels(PANEL_MINIMUM_TOUCH_DP)
+            adapter = ArrayAdapter(
+                this@DikcizHomeActivity,
+                android.R.layout.simple_spinner_dropdown_item,
+                fields.map { it.contentDescription },
+            )
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    fields.forEachIndexed { index, field ->
+                        field.visibility = if (position == index) View.VISIBLE else View.GONE
+                    }
+                    publishAutomationUIRendered()
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            }
+        }
+    }
+
+    private fun revealEditorFile(picker: Spinner, fields: List<EditText>, target: EditText) {
+        picker.setSelection(fields.indexOf(target))
+        fields.forEach { it.visibility = if (it === target) View.VISIBLE else View.GONE }
+        target.requestFocus()
     }
 
     private fun saveHtmlWidgetToLibrary(widget: HtmlHomeWidget, packageID: String) {
@@ -11065,7 +11255,7 @@ class DikcizHomeActivity : Activity() {
             return
         }
         DikcizClipboardMonitor.sync(this, configuration)
-        if (!configuration.requiresBackgroundAutomationService() && !DikcizChatRuntime.get(this).hasRules() && DikcizCustomApps.subscriptions().isEmpty()) {
+        if (!configuration.requiresBackgroundAutomationService() && !DikcizChatRuntime.get(this).hasRules() && !DikcizCustomApps.requiresAutomationService()) {
             requestAutomationServiceStop()
             return
         }
@@ -11365,8 +11555,8 @@ class DikcizHomeActivity : Activity() {
         return null
     }
 
-    private fun newWidgetID(title: String): String? {
-        val configuration = homeConfiguration ?: return null
+    private fun newWidgetID(title: String, configuration: HomeConfiguration? = homeConfiguration): String? {
+        configuration ?: return null
         val usedIDs = configuration.pages
             .flatMap(HomePage::widgets)
             .mapTo(mutableSetOf(), HomeWidget::id)
@@ -11574,7 +11764,8 @@ class DikcizHomeActivity : Activity() {
             FileObserver.DELETE or
             FileObserver.MOVED_TO
         const val CONFIGURATION_RELOAD_DEBOUNCE_MS = 150L
-        const val CONFIGURATION_POLL_INTERVAL_MS = 2000L
+        const val CONFIGURATION_POLL_INTERVAL_MS = 2_000L
+        const val CONTROL_BACKGROUND_POLL_INTERVAL_MS = 10_000L
         const val FINGERPRINT_ENTRY_SEPARATOR = "|"
         const val EVENT_ACTIVITY_CREATED = "activity_created"
         const val EVENT_ACTIVITY_STARTED = "activity_started"
@@ -11729,6 +11920,7 @@ class DikcizHomeActivity : Activity() {
         const val EVENT_WIDGET_MOVED = "widget_moved"
         const val EVENT_WIDGET_CELLS_SWAPPED = "widget_cells_swapped"
         const val EVENT_APP_GROUP_MEMBER_ADDED = "app_group_member_added"
+        const val EVENT_APP_GROUP_MEMBER_MOVED = "app_group_member_moved"
         const val EVENT_APP_GROUP_MEMBER_REMOVED = "app_group_member_removed"
         const val EVENT_APP_GROUP_COLLAPSED = "app_group_collapsed"
         const val EVENT_WIDGET_EDIT_ACTIONS_SHOWN = "widget_edit_actions_shown"
@@ -12001,6 +12193,7 @@ class DikcizHomeActivity : Activity() {
         const val WIDGET_ID_SEPARATOR = "-"
         const val WIDGET_ID_SEPARATOR_CHARACTER = '-'
         const val APP_MOVE_HOLD_MILLISECONDS = 1000L
+        const val WIDGET_PICKUP_SCALE = 1.08f
         const val WIDGET_MOVE_ELEVATION_DP = 12
         const val WIDGET_TOP_EDGE_MOVE_GESTURE_HEIGHT_DP = 24
         const val APP_OP_MANAGE_EXTERNAL_STORAGE = "android:manage_external_storage"
@@ -12201,6 +12394,8 @@ class DikcizHomeActivity : Activity() {
         const val SEMANTIC_EDITOR_CSS = "css"
         const val SEMANTIC_EDITOR_DISPLAY_STYLE = "display-style"
         const val SEMANTIC_EDITOR_HTML = "html"
+        const val SEMANTIC_EDITOR_FILE = "file"
+        const val PANEL_MINIMUM_TOUCH_DP = 48
         const val SEMANTIC_EDITOR_AUTO_FIT_HEIGHT = "auto-fit-height"
         const val SEMANTIC_EDITOR_JAVASCRIPT = "javascript"
         const val SEMANTIC_EDITOR_OPEN = "open"
@@ -12334,6 +12529,7 @@ class DikcizHomeActivity : Activity() {
         const val SEMANTIC_LUA_SCRIPT_IMPORT_REPLACE = "lua-script:import-replace"
         const val SEMANTIC_LUA_SCRIPT_SAVE = "lua-script:save"
         const val SEMANTIC_LUA_SCRIPT_SOURCE = "lua-script:source"
+        const val SEMANTIC_LUA_SCRIPT_FILE = "lua-script:file"
         const val SEMANTIC_LUA_SCRIPT_STATE = "lua-script:state"
         const val SEMANTIC_LUA_SCRIPT_TITLE = "lua-script:title"
         const val VALUE_HOME_SCREEN = "home"

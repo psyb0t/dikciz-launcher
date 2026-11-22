@@ -10,23 +10,23 @@ nav_order: 1
 
 # Impact Response for Android
 
-Impact Response watches for a possible hard impact using your phone's linear acceleration sensor. After a 20-second cancellation window it can text one contact you chose. It can also listen for hard braking with precise GPS and phone motion if you turn that option on.
+Impact Response watches for a possible hard impact using your phone's linear acceleration sensor. After the emergency countdown it can text one contact you chose. It can also listen for hard braking with precise GPS and phone motion if you turn that option on.
 
-Impact Response ships inside Dikciz Launcher and opens disarmed. Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), follow [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Apps > Impact response**.
+Impact Response ships inside Dikciz Launcher and opens disarmed. Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), follow [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Dikciz apps > Impact response**.
 
 <figure>
-  <img src="{{ '/images/screens/custom-app-impact-response.png' | relative_url }}" alt="Impact Response open and disarmed, with an emergency contact form and motion threshold settings" width="300" loading="lazy">
+  <img src="{{ '/images/screens/custom-app-impact-response.png' | relative_url }}" alt="Impact Response open and disarmed, with the emergency contact, motion threshold and countdown settings" width="300" loading="lazy">
   <figcaption>Fresh setup with monitoring disarmed.</figcaption>
 </figure>
 
 ## Set up and arm
 
 1. Enter an international phone number with its country code, or find a contact by name and select the exact number. Contact lookup asks for Contacts access.
-2. Set an acceleration threshold from 1 to 12 g and a duration from 0.01 to 168 hours. The defaults are 4 g and 2 hours. Decimal hours work, including `2.5` for 2 hours 30 minutes. Choose an SMS SIM if needed and tap **Save settings**.
+2. Set an acceleration threshold from 1 to 12 g and a duration from 0.01 to 168 hours. The defaults are 4 g and 2 hours. Decimal hours work, including `2.5` for 2 hours 30 minutes. Set **Emergency countdown (seconds)** to a whole number from 5 to 120. Existing settings default to 20 seconds. Choose an SMS SIM if needed and tap **Save settings**.
 3. Open **Review Android access** and enable SMS and notifications, including Dikciz's urgent countdown channel. Keep the app open when arming. A phone without an available linear acceleration sensor cannot arm.
 4. Tap **Preview message** to read a sample with invented measurements. Preview sends nothing. Tap **Arm for … hours** to begin, then check for **Live motion sensor confirmed**. Tap **Disarm** to stop.
 
-While armed, the app watches for one incident. An impact warning includes the detection time, measured acceleration and threshold. Recent supported GPS readings can add a speed estimate. Android controls the lock screen, audio, and visibility of the warning. Use **Cancel pending alerts** during the countdown. After the countdown, **Close alert and stop repeats** stops pending steps. Android cannot recall SMS, calls or shares already submitted.
+While armed, the app handles one incident at a time. An impact warning includes the detection time, measured acceleration and threshold. Recent supported GPS readings can add a speed estimate. Android controls the lock screen, audio, and visibility of the warning. Use **Cancel pending alerts** during the countdown to prevent this alert's outgoing actions. Motion and optional GPS monitoring resume for the time left on the original arming duration, so another incident can trigger a new countdown. After the countdown, **Close alert and stop repeats** stops pending steps. Android cannot recall SMS, calls or shares already submitted.
 
 ## Optional actions
 
@@ -41,6 +41,6 @@ Check **Latest incident** for action outcomes and **Refresh SMS status** for And
 
 ## Read or edit the detector
 
-The [complete app source](https://github.com/psyb0t/dikciz-launcher/tree/main/app/src/dikciz/assets/apps/impact-response/) is an editable custom app. Its backend requests 5 ms sampling, a two-second raw history and batches about every 100 ms. Android determines the delivered rate. The app evaluates samples, stops or renews the capture lease, and disarms when readings are lost or capture ends unexpectedly. Fast background capture can use extra battery. See [raw sensor sessions](native-device-control.md#raw-sensor-sessions) and [app source and state](custom-apps.md#files-and-state).
+The [complete app source](https://github.com/psyb0t/dikciz-launcher/tree/main/app/src/dikciz/assets/apps/impact-response/) is an editable custom app. Its backend requests 5 ms sampling, a two-second raw history and batches about every 100 ms. Android determines the delivered rate. The app evaluates samples, stops or renews the capture lease, and disarms when readings are lost or capture ends unexpectedly. Fast background capture can use extra battery. GPS is requested only during active motion monitoring with **Recent GPS speed** or **Hard braking** enabled. Disarming, detecting an impact or losing the motion stream releases that GPS request. See [raw sensor sessions](native-device-control.md#raw-sensor-sessions) and [app source and state](custom-apps.md#files-and-state).
 
-If you already installed an app with ID `impact-response`, Dikciz keeps that copy and its settings. The bundled version fills an absent installation and respects previous removal.
+Dikciz upgrades recognized earlier bundled versions while preserving settings, recordings and edited UI files. The countdown field is added to the original bundled UI. Edited backends or manifests keep their contents. Removing the app prevents automatic reinstallation.

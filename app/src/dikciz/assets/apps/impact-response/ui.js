@@ -2,7 +2,7 @@
     "use strict";
 
     const byId = id => document.getElementById(id);
-    const fields = ["address", "threshold", "armHours", "braking", "speed", "call", "photos", "whatsapp", "whatsappName", "storageName"];
+    const fields = ["address", "threshold", "armHours", "countdownSeconds", "braking", "speed", "call", "photos", "whatsapp", "whatsappName", "storageName"];
     let state = {};
     let draftDirty = false;
     let busy = false;
@@ -42,6 +42,7 @@
         if (!run) return;
         byId("report").textContent = run.message;
         byId("close").hidden = !active;
+        byId("close").textContent = run.phase === "warning" ? "Cancel alert and keep monitoring" : "Close alert and stop repeats";
         byId("receipt").hidden = !run.sms;
         const outcomes = ["Incident status: " + run.phase];
         for (const key of ["sms", "call", "speech", "failure"]) {
@@ -94,7 +95,7 @@
         void work(async () => {
             const result = await invoke("impact.save", {
                 address: byId("address").value, threshold: byId("threshold").valueAsNumber,
-                armHours: byId("armHours").valueAsNumber,
+                armHours: byId("armHours").valueAsNumber, countdownSeconds: byId("countdownSeconds").valueAsNumber,
                 braking: byId("braking").checked, speed: byId("speed").checked, call: byId("call").checked, photos: byId("photos").checked,
                 whatsapp: byId("whatsapp").checked, whatsappName: byId("whatsappName").value,
                 storageName: byId("storageName").value,
@@ -119,7 +120,10 @@
         select.value = selected;
         byId("status").textContent = page.items.length ? "Choose an SMS SIM." : "Android reported no active SIMs.";
     }));
-    byId("close").addEventListener("click", () => void work(() => invoke("impact.close", {}, true)));
+    byId("close").addEventListener("click", () => void work(() => {
+        const run = state.incident;
+        return invoke(run.phase === "warning" ? "impact.cancel" : "impact.close", {id: run.id}, true);
+    }));
     byId("receipt").addEventListener("click", () => void work(() =>
         invoke("impact.receipt", {id: state.incident.id})));
     byId("preview").addEventListener("click", () => void work(async () => {

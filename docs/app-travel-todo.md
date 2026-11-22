@@ -12,7 +12,7 @@ nav_order: 6
 
 Travel todo is a checklist with an optional arrival rule. In the bundled example, entering a GPS geofence near New York checks off **Go to New York**. You can also add and complete ordinary tasks by hand.
 
-Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), complete [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Apps > Travel todo**.
+Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), complete [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Dikciz apps > Travel todo**.
 
 <img src="{{ '/images/screens/custom-app-travel-todo.png' | relative_url }}" alt="Travel todo checklist with a Go to New York task and a location-watch control" width="300" loading="lazy">
 

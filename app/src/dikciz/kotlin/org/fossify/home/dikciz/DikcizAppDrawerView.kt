@@ -8,8 +8,11 @@ import android.text.TextUtils
 import android.text.TextWatcher
 import android.util.AttributeSet
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewConfiguration
+import android.view.inputmethod.InputMethodManager
 import android.widget.BaseAdapter
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -18,6 +21,8 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.TextView
+import androidx.core.view.ViewCompat
+import kotlin.math.abs
 import org.fossify.home.R
 
 /**
@@ -54,7 +59,8 @@ internal class DikcizAppDrawerView @JvmOverloads constructor(
         // The drawer covers the page, so it must swallow touches that would otherwise
         // reach the page canvas underneath it.
         isClickable = true
-        isFocusable = true
+        isFocusableInTouchMode = true
+        ViewCompat.setAccessibilityPaneTitle(this, context.getString(R.string.dikciz_app_drawer_title))
         setBackgroundColor(context.getColor(R.color.dikciz_drawer_background))
         visibility = View.GONE
 
@@ -73,6 +79,26 @@ internal class DikcizAppDrawerView @JvmOverloads constructor(
             orientation = LinearLayout.VERTICAL
             addView(title)
             addView(countView)
+            var downX = 0f
+            var downY = 0f
+            val slop = ViewConfiguration.get(context).scaledTouchSlop
+            setOnTouchListener { view, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        downX = event.rawX
+                        downY = event.rawY
+                        true
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        val dx = abs(event.rawX - downX)
+                        val dy = event.rawY - downY
+                        if (dy >= densityPixels(DISMISS_SWIPE_DP) && dy > dx) onCloseRequested?.invoke()
+                        else if (dx <= slop && abs(dy) <= slop) view.performClick()
+                        true
+                    }
+                    else -> true
+                }
+            }
         }
         closeButton = iconButton(R.drawable.dikciz_icon_close).apply {
             contentDescription = context.getString(R.string.dikciz_app_drawer_close)
@@ -273,9 +299,11 @@ internal class DikcizAppDrawerView @JvmOverloads constructor(
         visibility = View.VISIBLE
         bringToFront()
         applyQuery(EMPTY_QUERY)
+        requestFocus()
     }
 
     fun close() {
+        context.getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(windowToken, 0)
         visibility = View.GONE
         applications = emptyList()
         visibleApplications = emptyList()
@@ -443,7 +471,8 @@ internal class DikcizAppDrawerView @JvmOverloads constructor(
         const val EMPTY_SIDE_MARGIN_DP = 8
         const val EMPTY_TITLE_TEXT_SIZE_SP = 16F
         const val ICON_BUTTON_PADDING_DP = 8
-        const val ICON_BUTTON_SIZE_DP = 44
+        const val ICON_BUTTON_SIZE_DP = 48
+        const val DISMISS_SWIPE_DP = 48
         const val LABELS_WEIGHT = 1F
         const val LABEL_PACKAGE_INDEX = 1
         const val LABEL_TITLE_INDEX = 0
@@ -461,7 +490,7 @@ internal class DikcizAppDrawerView @JvmOverloads constructor(
         const val ROW_PACKAGE_GAP_DP = 2
         const val ROW_PACKAGE_TEXT_SIZE_SP = 12F
         const val ROW_VERTICAL_PADDING_DP = 10
-        const val SEARCH_CLEAR_SIZE_DP = 32
+        const val SEARCH_CLEAR_SIZE_DP = 48
         const val SEARCH_FIELD_HEIGHT_DP = 50
         const val SEARCH_FIELD_TOP_MARGIN_DP = 14
         const val SEARCH_HORIZONTAL_PADDING_DP = 12

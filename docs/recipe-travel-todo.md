@@ -11,7 +11,7 @@ nav_order: 14
 <!-- {% raw %} -->
 # GPS todo app
 
-Dikciz > Apps > Travel todo opens a complete editable example under /sdcard/Dikciz/apps/travel-todo/. The manifest, ui.html, ui.css, ui.js and main.js are the reference source. Initial tasks include Go to New York. No geofence is created on installation or opening.
+Dikciz > Dikciz apps > Travel todo opens a complete editable example under /sdcard/Dikciz/apps/travel-todo/. The manifest, ui.html, ui.css, ui.js and main.js are the reference source. Initial tasks include Go to New York. No geofence is created on installation or opening.
 
 Read customAppRead appId travel-todo before edits. Use customAppControl action open to request UI; inspect uiVisible/snapshot for actual presentation. The UI sends customAppEvent events todo.open, todo.add payload {title}, todo.toggle payload {id}, todo.watch and todo.stop. Backend returned patchState persists the full list. ui.js listens for dikciz-state and redraws it.
 

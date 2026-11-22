@@ -7,6 +7,22 @@ nav_order: 10
 
 # Changelog
 
+## [0.36.0] - 2026-11-22
+
+- Set the Impact Response countdown from 5 to 120 seconds. The default is 20 seconds. Cancel during the countdown to resume monitoring through the original armed deadline.
+- Request GPS only while Impact Response has a live background motion stream and a GPS option enabled. Custom apps can tie their own location subscriptions to a background sensor stream and a state flag.
+- Let custom-app timers sleep until their next deadline. Pause hidden WebViews, reduce configuration polling while Home is stopped, and group repeated accessibility content updates before recording them.
+- Open custom apps by tapping their full row, including the description. The overflow still opens app management.
+- Open the Android app drawer from Home with one tap. Close it by swiping down on its header. Use keyboard arrows or accessibility actions on the page rails.
+- Drag apps out of Home app groups in one gesture. Hold an icon for one second to pick it up, then drag it to move it.
+- Drag the chat handle up to expand the sheet or down to collapse it. Use Android Home to leave chat or a custom app.
+- Keep separate chat drafts and review a new provider before switching. Find model controls and quick tasks under Chat options.
+- Recover bundle editor drafts after Android restarts the app. Reject stale saves. Choose an archive in Android Files and review conflicts before replacing an app or saving a copy.
+- Skip denied Android permissions and retry individual grants. Reopen Backup and restore to see the result after hiding the dialog.
+- Edit HTML widgets and scripts one source file at a time. See JSON state errors and background script syntax errors before saving.
+
+Updating replaces recognized bundled Impact Response source while preserving settings, recordings and edited UI files. The countdown field is added to the original bundled UI.
+
 ## [0.35.0] - 2026-11-21
 
 - Give chat typed tools for building widgets, testing automations and authoring custom apps. Bundle a skill for each workflow and load installed skills by name.

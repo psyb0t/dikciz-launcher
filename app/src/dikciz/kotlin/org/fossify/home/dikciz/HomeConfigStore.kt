@@ -1631,7 +1631,7 @@ internal class HomeConfigStore(
         )
     }
 
-    private fun validateScriptSource(
+    internal fun validateScriptSource(
         source: String,
         context: String,
         limits: DikcizLimits,

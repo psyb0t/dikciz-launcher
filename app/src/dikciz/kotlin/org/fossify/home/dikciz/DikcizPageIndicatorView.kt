@@ -4,11 +4,15 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.os.Handler
+import android.os.Bundle
 import android.os.Looper
 import android.util.AttributeSet
 import android.view.MotionEvent
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.accessibility.AccessibilityNodeInfo
+import androidx.core.view.ViewCompat
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -82,8 +86,15 @@ internal class DikcizPageIndicatorView @JvmOverloads constructor(
     init {
         isClickable = true
         isLongClickable = true
+        isFocusable = true
         minimumHeight = densityPixels(MINIMUM_TOUCH_SIZE_DP)
         minimumWidth = densityPixels(MINIMUM_TOUCH_SIZE_DP)
+        ViewCompat.addAccessibilityAction(this, context.getString(R.string.dikciz_page_indicator_add_before)) { _, _ ->
+            insertPage(PageInsertionSide.Before)
+        }
+        ViewCompat.addAccessibilityAction(this, context.getString(R.string.dikciz_page_indicator_add_after)) { _, _ ->
+            insertPage(PageInsertionSide.After)
+        }
     }
 
     fun clear() {
@@ -129,11 +140,13 @@ internal class DikcizPageIndicatorView @JvmOverloads constructor(
         if (pageTitles.isEmpty()) {
             return
         }
-        pageTitles.indices.forEach { index ->
+        val first = firstVisibleDot()
+        repeat(visibleDotCount()) { position ->
+            val index = first + position
             val isSelected = index == selectedPageIndex
             canvas.drawCircle(
-                dotXCoordinate(index),
-                dotYCoordinate(index),
+                dotXCoordinate(position),
+                dotYCoordinate(position),
                 if (isSelected) activeDotRadius() else inactiveDotRadius(),
                 if (isSelected) activeDotPaint else inactiveDotPaint,
             )
@@ -164,6 +177,44 @@ internal class DikcizPageIndicatorView @JvmOverloads constructor(
 
     override fun performClick(): Boolean {
         super.performClick()
+        return true
+    }
+
+    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
+        super.onInitializeAccessibilityNodeInfo(info)
+        info.isScrollable = pageTitles.size > 1
+        if (selectedPageIndex > 0) info.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_BACKWARD)
+        if (selectedPageIndex < pageTitles.lastIndex) info.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD)
+    }
+
+    override fun performAccessibilityAction(action: Int, arguments: Bundle?): Boolean = when (action) {
+        AccessibilityNodeInfo.ACTION_SCROLL_FORWARD -> stepPage(NEXT_PAGE_OFFSET)
+        AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD -> stepPage(PREVIOUS_PAGE_OFFSET)
+        else -> super.performAccessibilityAction(action, arguments)
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        val horizontal = axis == PageIndicatorAxis.Horizontal
+        val offset = when (keyCode) {
+            if (horizontal) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_UP -> PREVIOUS_PAGE_OFFSET
+            if (horizontal) KeyEvent.KEYCODE_DPAD_RIGHT else KeyEvent.KEYCODE_DPAD_DOWN -> NEXT_PAGE_OFFSET
+            else -> return super.onKeyDown(keyCode, event)
+        }
+        if (event.isShiftPressed) return insertPage(if (offset < 0) PageInsertionSide.Before else PageInsertionSide.After)
+        return stepPage(offset) || super.onKeyDown(keyCode, event)
+    }
+
+    private fun stepPage(offset: Int): Boolean {
+        val target = selectedPageIndex + offset
+        if (target !in pageTitles.indices) return false
+        requestPageSelection(target, PageIndicatorAction.Tap)
+        return true
+    }
+
+    private fun insertPage(side: PageInsertionSide): Boolean {
+        val insert = onPageEdgeLongPressed ?: return false
+        if (pageTitles.isEmpty()) return false
+        insert(side)
         return true
     }
 
@@ -298,7 +349,7 @@ internal class DikcizPageIndicatorView @JvmOverloads constructor(
 
     private fun nearestDotIndex(mainAxisCoordinate: Float): Int {
         val rawIndex = ((mainAxisCoordinate - firstDotCoordinate()) / dotGap()).roundToInt()
-        return rawIndex.coerceIn(0, pageTitles.lastIndex)
+        return firstVisibleDot() + rawIndex.coerceIn(0, visibleDotCount() - 1)
     }
 
     private fun pageInsertionSideFor(mainAxisCoordinate: Float): PageInsertionSide? {
@@ -339,10 +390,17 @@ internal class DikcizPageIndicatorView @JvmOverloads constructor(
     }
 
     private fun dotStripLength(): Float {
-        if (pageTitles.size <= 1) {
-            return 0F
-        }
-        return dotGap() * (pageTitles.size - 1)
+        return dotGap() * (visibleDotCount() - 1).coerceAtLeast(0)
+    }
+
+    private fun visibleDotCount(): Int {
+        val dotSpace = (mainAxisLength() - 2 * densityPixels(EDGE_TARGET_DP)).coerceAtLeast(0)
+        return minOf(pageTitles.size, (dotSpace / dotGap()).toInt() + 1)
+    }
+
+    private fun firstVisibleDot(): Int {
+        val count = visibleDotCount()
+        return (selectedPageIndex - count / 2).coerceIn(0, pageTitles.size - count)
     }
 
     private fun dotGap(): Float = densityPixels(DOT_GAP_DP).toFloat()
@@ -387,7 +445,8 @@ internal class DikcizPageIndicatorView @JvmOverloads constructor(
         const val DOT_GAP_DP = 14
         const val FIRST_PAGE_POSITION = 1
         const val INACTIVE_DOT_RADIUS_DP = 3
-        const val MINIMUM_TOUCH_SIZE_DP = 24
+        const val MINIMUM_TOUCH_SIZE_DP = 48
+        const val EDGE_TARGET_DP = 24
         const val NEXT_PAGE_OFFSET = 1
         const val PAGE_SWITCH_THRESHOLD_DP = 24
         const val PREVIOUS_PAGE_OFFSET = -1
