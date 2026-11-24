@@ -304,6 +304,8 @@ MCP: [`dikciz_accessibility_action`](command-reference.md#dikciz_accessibility_a
 | `command.accessibilityAction.action.scrollBackward` | action=scrollBackward | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
 | `command.accessibilityAction.action.setText` | action=setText | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
 | `command.accessibilityAction.action.select` | action=select | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+| `command.accessibilityAction.action.copy` | action=copy | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
+| `command.accessibilityAction.action.paste` | action=paste | Allows this command with the listed explicit selectors; other arguments retain the command's validation and documented scope. |
 
 ## accessibilitySnapshot
 
@@ -586,7 +588,7 @@ MCP: [`dikciz_audio_playback`](command-reference.md#dikciz_audio_playback). The 
 
 ## automationDispatch
 
-Run the same typed action array used by an HTML widget or Lua script.
+Run the same typed action array used by an HTML widget or Lua script. Action fields: dikciz://docs/guides/actions-state; Accessibility actions and humanized gestures: dikciz://docs/guides/actions-ui.
 
 MCP: [`dikciz_automation_dispatch`](command-reference.md#dikciz_automation_dispatch). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
 

@@ -32,8 +32,8 @@ Every record has `type`. Fields below are required unless marked optional. Most 
 | `setMediaVolume` | integer `levelPercent`, 0..100 | `mediaVolume` | Set Android's media stream volume, mapping the percentage to its discrete minimum/maximum indices. |
 | `notificationControl` | `actionToken` | `notificationControl` | Invoke an unexpired plain action from `notificationsList`. Use `notificationManage` for inline reply, dismissal or snooze. |
 | `lockDevice` | None | `lockDevice` | Lock with owner-enabled Device Administration. |
-| `accessibilityAction` | `snapshotId`, `nodeId`, `action`; optional `text` | `accessibilityAction` | Act on a fresh Android Accessibility node; `setText` needs text. See the Accessibility guide for supported actions and freshness. |
-| `accessibilityGesture` | `snapshotId`, `gesture`, `durationMilliseconds`; coordinates below | `accessibilityGesture` | `tap` needs `x`, `y`; `swipe` needs `startX`, `startY`, `endX`, `endY`. Coordinates are integer 0..10000; duration is integer 1..10000 ms. |
+| `accessibilityAction` | `snapshotId`, `nodeId`, `action`; optional `text` | `accessibilityAction` | Act on a fresh Android Accessibility node. `setText` needs `text`. `copy` and `paste` use the current Android selection or clipboard. See the Accessibility guide for supported actions and freshness. |
+| `accessibilityGesture` | `snapshotId`, `gesture`, coordinates; optional `durationMilliseconds`, `humanize`, `targetWidth`, `targetHeight` | `accessibilityGesture` | Use `tap`, `hold`, `doubleTap`, `swipe` or `twoFingerSwipe`. Gestures are humanized unless `humanize` is `false`. See the [gesture fields and ranges](automation-control.md#cross-app-android-ui). |
 | `accessibilityGlobalAction` | `action` | `accessibilityGlobalAction` | `back`, `home`, `recents`, `notifications`, `quickSettings`, `lockScreen` or `takeScreenshot`. Android version and service access apply. |
 
 ## Volume example
@@ -48,11 +48,9 @@ Replace the address with an actual HTML widget. Pass these arguments to MCP disp
 
 The corresponding Lua policy includes `"actions":["mediaVolume"]`, and its handler returns:
 
-<!-- {% raw %} -->
 ```lua
 return {status="Volume requested",actions={{type="setMediaVolume",levelPercent=35}}}
 ```
-<!-- {% endraw %} -->
 
 Read `deviceState.mediaVolume` and `mediaVolumeMaximum` before and after changes. The percentage is rounded to a device volume step, not a measured sound level. Fixed-volume devices or a rejected read-back return an explicit refusal. Per-player `audioPlayback.volumePercent` is a separate gain control and does not replace the media-stream setting.
 

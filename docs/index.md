@@ -16,14 +16,14 @@ Give the built-in assistant [SD-card skills, named agents and rules](assistant-l
 Your phone is programmable. Start with an editable Android home, build complete HTML/CSS/JavaScript apps, run Lua or JavaScript in the background, and connect your own AI to the same phone tools.
 
 <div class="docs-routes">
-<div><h2>Use your phone</h2><p>Install the APK, choose your home, grant Android access and set up chat.</p><p><a href="{{ '/tutorial/' | relative_url }}">Follow the illustrated tutorial</a></p></div>
-<div><h2>Build something</h2><p>Write widgets, background scripts and complete apps with their own saved state.</p><p><a href="{{ '/todo-app-tutorial/' | relative_url }}">Build the GPS todo app</a></p></div>
-<div><h2>Connect an agent</h2><p>Reach your phone over a private network and give each client the access it needs.</p><p><a href="{{ '/automation-control/' | relative_url }}">Connect HTTP, WebSocket or MCP</a></p></div>
+<div><h2>Use your phone</h2><p>Install the APK, choose your home, grant Android access and set up chat.</p><p><a href="tutorial.md">Follow the illustrated tutorial</a></p></div>
+<div><h2>Build something</h2><p>Write widgets, background scripts and complete apps with their own saved state.</p><p><a href="todo-app-tutorial.md">Build the GPS todo app</a></p></div>
+<div><h2>Connect an agent</h2><p>Reach your phone over a private network and give each client the access it needs.</p><p><a href="automation-control.md">Connect HTTP, WebSocket or MCP</a></p></div>
 </div>
 
 <div class="docs-gallery">
-<a href="{{ '/user-guide/' | relative_url }}"><img src="{{ '/images/user-guide/01-first-launch.png' | relative_url }}" alt="Dikciz starter home with weather, app icons and native dock" loading="lazy" width="190"></a>
-<a href="{{ '/custom-apps/' | relative_url }}"><img src="{{ '/images/custom-apps/todo-watching.png' | relative_url }}" alt="Travel todo custom app with a GPS arrival task" loading="lazy" width="190"></a>
+<a href="user-guide.md"><img src="images/user-guide/01-first-launch.png" alt="Dikciz starter home with weather, app icons and native dock" loading="lazy" width="190"></a>
+<a href="custom-apps.md"><img src="images/custom-apps/todo-watching.png" alt="Travel todo custom app with a GPS arrival task" loading="lazy" width="190"></a>
 </div>
 
 ## Find a guide

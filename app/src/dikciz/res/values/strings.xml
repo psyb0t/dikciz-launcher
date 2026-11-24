@@ -406,6 +406,8 @@
     <string name="dikciz_device_admin_name">Dikciz screen lock automation</string>
     <string name="dikciz_device_admin_description">Allows an approved Dikciz automation policy to lock this device.</string>
     <string name="dikciz_device_admin_explanation">Dikciz requests only the Android screen lock policy. It cannot wipe, reset, or manage the device.</string>
+    <string name="dikciz_chat_open">Open Dikciz chat</string>
+    <string name="dikciz_chat_open_unread">Open Dikciz chat. %1$d unread</string>
     <string name="dikciz_launcher_control_open_description">Open Dikciz launcher controls</string>
     <string name="dikciz_page_search_open_description">Search Dikciz pages</string>
     <string name="dikciz_page_search_title">Go to page</string>

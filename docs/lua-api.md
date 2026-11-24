@@ -91,7 +91,6 @@ For raw hardware capture, use `sensorStreamStart`, `sensorStreamStatus`, `sensor
 
 ## Returned actions
 
-<!-- {% raw %} -->
 
 | Return form | Meaning |
 | --- | --- |
@@ -100,7 +99,6 @@ For raw hardware capture, use `sensorStreamStart`, `sensorStreamStatus`, `sensor
 | `{{type = "...", ...}, ...}` | One-based sequential action list. |
 | `{status = "...", actions = {...}, result = {...}}` | Shared result object. Fields are optional; status is bounded by `maxTitleCharacters`, actions contain at most eight entries, and result is a JSON object for an app-event response. Unknown fields are rejected. |
 
-<!-- {% endraw %} -->
 
 The handler returns a shared result object with optional status and an action list. Use the exact fields from `automationDispatch` in the [command reference](command-reference.md#dikciz_automation_dispatch), and the executable examples in the [scripting tutorial](scripting-tutorial.md). Unsupported action fields fail validation. A standalone script's enabled policy must allow each returned action and its event source.
 

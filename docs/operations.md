@@ -82,6 +82,6 @@ The resource screen shows enabled scripts and HTML widgets, active chat work/eve
 
 ## On the phone
 
-<p><img src="{{ "/images/operations/getting-started.png" | relative_url }}" alt="Getting started links Android access, widget templates, chat and remote control." width="280"> <img src="{{ "/images/operations/rule-editor.png" | relative_url }}" alt="A visual rule with named trigger and condition choices, sample testing and an explicit save action." width="280"></p>
+<p><img src="images/operations/getting-started.png" alt="Getting started links Android access, widget templates, chat and remote control." width="280"> <img src="images/operations/rule-editor.png" alt="A visual rule with named trigger and condition choices, sample testing and an explicit save action." width="280"></p>
 
-<p><img src="{{ "/images/operations/activity.png" | relative_url }}" alt="Persistent command history with an Actions filter, caller identity and outcomes." width="280"></p>
+<p><img src="images/operations/activity.png" alt="Persistent command history with an Actions filter, caller identity and outcomes." width="280"></p>

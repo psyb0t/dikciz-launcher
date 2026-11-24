@@ -55,6 +55,8 @@ internal class DikcizAccessibilityAutomationException(
 ) : IllegalStateException(message)
 
 internal object DikcizAccessibilityAutomation {
+    /** One touch "person" per process, created on the first humanized gesture. */
+    private var touchModel: DikcizTouchModel? = null
     private val snapshots = ConcurrentHashMap<String, AccessibilitySnapshotDescriptor>()
     private class ContentEventWindow(
         var lastPublished: Long,
@@ -236,7 +238,8 @@ internal object DikcizAccessibilityAutomation {
                 putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value)
             }
         }
-        val accepted = node.performAction(action.androidActionID, arguments)
+        val accepted = (!action.usesClipboard || node.allowsClipboardAction(action)) &&
+            node.performAction(action.androidActionID, arguments)
         return JSONObject()
             .put(KEY_ACTION, action.persistedValue)
             .put(KEY_NODE_ID, nodeID)
@@ -255,46 +258,198 @@ internal object DikcizAccessibilityAutomation {
         if (!matchesDescriptor(descriptor, root)) {
             throw DikcizAccessibilityAutomationException(ERROR_SNAPSHOT_STALE, MESSAGE_SNAPSHOT_STALE)
         }
-        if (!gesture.isWithin(activeService.resources.displayMetrics.widthPixels, activeService.resources.displayMetrics.heightPixels)) {
+        val metrics = activeService.resources.displayMetrics
+        if (!gesture.isWithin(metrics.widthPixels, metrics.heightPixels)) {
             throw DikcizAccessibilityAutomationException(ERROR_GESTURE_INVALID, MESSAGE_GESTURE_INVALID)
         }
-        val completion = CountDownLatch(ONE_CALLBACK)
-        var outcome = OUTCOME_GESTURE_CANCELLED
-        val accepted = activeService.dispatchGesture(
-            gesture.toPlatformGesture(),
-            object : AccessibilityService.GestureResultCallback() {
-                override fun onCompleted(gestureDescription: GestureDescription) {
-                    outcome = OUTCOME_EXECUTED
-                    completion.countDown()
-                }
-
-                override fun onCancelled(gestureDescription: GestureDescription) {
-                    outcome = OUTCOME_GESTURE_CANCELLED
-                    completion.countDown()
-                }
-            },
-            Handler(Looper.getMainLooper()),
-        )
-        if (!accepted) {
-            outcome = OUTCOME_ANDROID_REJECTED
-        } else {
-            try {
-                if (!completion.await(GESTURE_RESULT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS)) {
-                    outcome = OUTCOME_GESTURE_TIMEOUT
-                }
-            } catch (_: InterruptedException) {
-                Thread.currentThread().interrupt()
-                throw DikcizAccessibilityAutomationException(
-                    ERROR_GESTURE_INTERRUPTED,
-                    MESSAGE_GESTURE_INTERRUPTED,
-                )
+        val (outcome, duration) = if (gesture.humanize) {
+            val plan = synchronized(this) { gesture.plan(touchModel(metrics.xdpi)) }
+            val slices = if (plan.continuous) {
+                continuousSlices(plan, metrics.widthPixels, metrics.heightPixels)
+            } else {
+                listOf(discreteGesture(plan, metrics.widthPixels, metrics.heightPixels))
             }
+            var result = OUTCOME_EXECUTED
+            for ((index, slice) in slices.withIndex()) {
+                // The whole gesture's length bounds any one slice's completion wait.
+                result = dispatchAndWait(activeService, slice, plan.totalDurationMilliseconds)
+                if (result != OUTCOME_EXECUTED) {
+                    android.util.Log.w(LOG_TAG, "humanized ${gesture.kind.persistedValue} slice ${index + 1}/${slices.size}: $result")
+                    break
+                }
+            }
+            result to plan.totalDurationMilliseconds
+        } else {
+            dispatchAndWait(activeService, gesture.toPlatformGesture(), gesture.totalDurationMilliseconds) to
+                gesture.totalDurationMilliseconds
         }
         return JSONObject()
             .put(KEY_GESTURE, gesture.kind.persistedValue)
             .put(KEY_OUTCOME, outcome)
             .put(KEY_SNAPSHOT_ID, gesture.snapshotID)
+            .put(KEY_HUMANIZED, gesture.humanize)
+            .put(KEY_DURATION_MILLISECONDS, duration)
     }
+
+    private fun touchModel(xdpi: Float): DikcizTouchModel =
+        touchModel ?: DikcizTouchModel(
+            random = kotlin.random.Random(java.security.SecureRandom().nextLong()),
+            pixelsPerMillimetre = (if (xdpi > 0f) xdpi else FALLBACK_DPI) / MILLIMETRES_PER_INCH,
+        ).also { touchModel = it }
+
+    private fun dispatchAndWait(
+        service: DikcizAccessibilityAutomationService,
+        description: GestureDescription,
+        durationMilliseconds: Long,
+    ): String {
+        val completion = CountDownLatch(ONE_CALLBACK)
+        val callbackOutcome = AtomicReference(OUTCOME_GESTURE_CANCELLED)
+        val accepted = service.dispatchGesture(
+            description,
+            object : AccessibilityService.GestureResultCallback() {
+                override fun onCompleted(gestureDescription: GestureDescription) {
+                    callbackOutcome.set(OUTCOME_EXECUTED)
+                    completion.countDown()
+                }
+
+                override fun onCancelled(gestureDescription: GestureDescription) {
+                    callbackOutcome.set(OUTCOME_GESTURE_CANCELLED)
+                    completion.countDown()
+                }
+            },
+            Handler(Looper.getMainLooper()),
+        )
+        if (!accepted) return OUTCOME_ANDROID_REJECTED
+        return try {
+            if (completion.await(durationMilliseconds + GESTURE_RESULT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS)) {
+                callbackOutcome.get()
+            } else {
+                OUTCOME_GESTURE_TIMEOUT
+            }
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw DikcizAccessibilityAutomationException(ERROR_GESTURE_INTERRUPTED, MESSAGE_GESTURE_INTERRUPTED)
+        }
+    }
+
+    /**
+     * Taps, holds and double taps: one stroke per press along its drift path. A
+     * stroke moves at constant speed, which is fine for a few pixels of roll.
+     */
+    private fun discreteGesture(plan: DikcizTouchPlan, width: Int, height: Int): GestureDescription {
+        val builder = GestureDescription.Builder()
+        plan.pointers.forEach { pointer ->
+            val path = Path()
+            pointer.samples.forEachIndexed { index, sample ->
+                val x = clampCoordinate(sample.x, width)
+                val y = clampCoordinate(sample.y, height)
+                if (index == 0) path.moveTo(x, y) else if (pointer.moves) path.lineTo(x, y)
+            }
+            val duration = pointer.samples.last().timeMilliseconds.coerceAtLeast(1L)
+            builder.addStroke(GestureDescription.StrokeDescription(path, pointer.startMilliseconds, duration))
+        }
+        return builder.build()
+    }
+
+    /**
+     * Swipes: one GestureDescription per CONTINUOUS_SLICE_MILLISECONDS, each finger
+     * continuing its stroke, so the speed changes along the path the way the plan
+     * says instead of Android's constant speed for a single stroke.
+     */
+    private fun continuousSlices(plan: DikcizTouchPlan, width: Int, height: Int): List<GestureDescription> {
+        val total = plan.totalDurationMilliseconds
+        val boundaries = sliceBoundaries(plan, width, height)
+        val previous = arrayOfNulls<GestureDescription.StrokeDescription>(plan.pointers.size)
+        val slices = ArrayList<GestureDescription>(boundaries.size)
+        for ((sliceStart, sliceEnd) in boundaries.zipWithNext()) {
+            val builder = GestureDescription.Builder()
+            var strokes = 0
+            plan.pointers.forEachIndexed { index, pointer ->
+                val segmentStart = maxOf(sliceStart, pointer.startMilliseconds)
+                val segmentEnd = minOf(sliceEnd, pointer.endMilliseconds)
+                if (segmentEnd <= segmentStart) return@forEachIndexed
+                val path = pathBetween(
+                    pointer,
+                    segmentStart - pointer.startMilliseconds,
+                    segmentEnd - pointer.startMilliseconds,
+                    width,
+                    height,
+                )
+                val continues = pointer.endMilliseconds > sliceEnd
+                val stroke = previous[index]?.continueStroke(path, segmentStart - sliceStart, segmentEnd - segmentStart, continues)
+                    ?: GestureDescription.StrokeDescription(path, segmentStart - sliceStart, segmentEnd - segmentStart, continues)
+                builder.addStroke(stroke)
+                previous[index] = stroke
+                strokes++
+            }
+            if (strokes > 0) slices.add(builder.build())
+        }
+        return slices
+    }
+
+    /**
+     * The path between two slice edges. Android rounds a stroke's first and last
+     * points to whole pixels and continues a stroke only when the new first point
+     * equals the old last point, so both edges sit on whole pixels.
+     */
+    /**
+     * Slice edges about CONTINUOUS_SLICE_MILLISECONDS apart. Android rounds sampled
+     * points to whole pixels and fails a continued gesture that produces no motion
+     * event, so a slice is extended until some finger moves at least one pixel. The
+     * last slice always ends the gesture.
+     */
+    private fun sliceBoundaries(plan: DikcizTouchPlan, width: Int, height: Int): List<Long> {
+        val total = plan.totalDurationMilliseconds
+        val boundaries = mutableListOf(0L)
+        var start = 0L
+        while (start < total) {
+            var end = minOf(total, start + CONTINUOUS_SLICE_MILLISECONDS)
+            while (end < total && plan.pointers.none { movesWholePixel(it, start, end, width, height) }) {
+                end = minOf(total, end + SLICE_EXTENSION_MILLISECONDS)
+            }
+            boundaries.add(end)
+            start = end
+        }
+        return boundaries
+    }
+
+    private fun movesWholePixel(pointer: DikcizPlannedPointer, from: Long, to: Long, width: Int, height: Int): Boolean {
+        if (pointer.endMilliseconds <= from || pointer.startMilliseconds > to) return false
+        // Going down or lifting inside the slice is itself a motion event.
+        if (pointer.startMilliseconds >= from || pointer.endMilliseconds <= to) return true
+        val (startX, startY) = pointAt(pointer, from - pointer.startMilliseconds)
+        val (endX, endY) = pointAt(pointer, to - pointer.startMilliseconds)
+        return snapCoordinate(startX, width) != snapCoordinate(endX, width) ||
+            snapCoordinate(startY, height) != snapCoordinate(endY, height)
+    }
+
+    private fun pathBetween(pointer: DikcizPlannedPointer, from: Long, to: Long, width: Int, height: Int): Path {
+        val path = Path()
+        val (startX, startY) = pointAt(pointer, from)
+        path.moveTo(snapCoordinate(startX, width), snapCoordinate(startY, height))
+        pointer.samples.filter { it.timeMilliseconds in (from + 1) until to }.forEach {
+            path.lineTo(clampCoordinate(it.x, width), clampCoordinate(it.y, height))
+        }
+        val (endX, endY) = pointAt(pointer, to)
+        path.lineTo(snapCoordinate(endX, width), snapCoordinate(endY, height))
+        return path
+    }
+
+    private fun snapCoordinate(value: Float, size: Int): Float = kotlin.math.round(clampCoordinate(value, size))
+
+    /** The planned position at `time` ms after the finger went down. */
+    private fun pointAt(pointer: DikcizPlannedPointer, time: Long): Pair<Float, Float> {
+        val samples = pointer.samples
+        if (time <= samples.first().timeMilliseconds) return samples.first().x to samples.first().y
+        if (time >= samples.last().timeMilliseconds) return samples.last().x to samples.last().y
+        val after = samples.indexOfFirst { it.timeMilliseconds >= time }
+        val a = samples[after - 1]
+        val b = samples[after]
+        val share = (time - a.timeMilliseconds).toFloat() / (b.timeMilliseconds - a.timeMilliseconds)
+        return a.x + (b.x - a.x) * share to a.y + (b.y - a.y) * share
+    }
+
+    private fun clampCoordinate(value: Float, size: Int): Float = value.coerceIn(0f, (size - 1).toFloat())
 
     fun performGlobalAction(actionName: String): JSONObject {
         val action = DikcizAccessibilityGlobalAction.fromPersistedValue(actionName)
@@ -533,12 +688,16 @@ internal object DikcizAccessibilityAutomation {
         val actionIDs = actionList.map { action -> action.id }.toSet()
         return JSONArray().apply {
             DikcizAccessibilityNodeAction.entries.forEach { action ->
-                if (action.androidActionID in actionIDs) {
+                if (action.androidActionID in actionIDs && (!action.usesClipboard || allowsClipboardAction(action))) {
                     put(action.persistedValue)
                 }
             }
         }
     }
+
+    private fun AccessibilityNodeInfo.allowsClipboardAction(action: DikcizAccessibilityNodeAction): Boolean =
+        isEnabled && isFocused && isVisibleToUser && !isPassword &&
+            actionList.any { it.id == action.androidActionID }
 
     private fun AccessibilityNodeInfo.fingerprint(): String {
         return listOf(
@@ -598,6 +757,15 @@ internal object DikcizAccessibilityAutomation {
     private const val KEY_EVENT_TYPE = "eventType"
     private const val KEY_FOCUSABLE = "focusable"
     private const val KEY_GESTURE = "gesture"
+    private const val KEY_HUMANIZED = "humanized"
+    private const val KEY_DURATION_MILLISECONDS = "durationMilliseconds"
+    // Each slice is one dispatch round trip; longer slices mean fewer handoffs while
+    // still letting the speed change several times along a swipe.
+    private const val CONTINUOUS_SLICE_MILLISECONDS = 48L
+    private const val SLICE_EXTENSION_MILLISECONDS = 8L
+    private const val LOG_TAG = "DikcizAccessibility"
+    private const val MILLIMETRES_PER_INCH = 25.4f
+    private const val FALLBACK_DPI = 420f
     private const val KEY_LEFT = "left"
     private const val KEY_NODE_COUNT = "nodeCount"
     private const val KEY_NODE_ID = "nodeId"
@@ -660,49 +828,184 @@ internal object DikcizAccessibilityAutomation {
     )
 }
 
-internal data class DikcizAccessibilityGesture(
-    val snapshotID: String,
-    val kind: DikcizAccessibilityGestureKind,
+private data class DikcizGestureStroke(
     val startX: Int,
     val startY: Int,
     val endX: Int,
     val endY: Int,
-    val durationMilliseconds: Long,
 ) {
-    fun isWithin(widthPixels: Int, heightPixels: Int): Boolean {
-        return widthPixels > 0 && heightPixels > 0 &&
-            startX in 0 until widthPixels && startY in 0 until heightPixels &&
-            endX in 0 until widthPixels && endY in 0 until heightPixels &&
-            durationMilliseconds in DIKCIZ_ACCESSIBILITY_MINIMUM_GESTURE_DURATION_MILLISECONDS..
-                DIKCIZ_ACCESSIBILITY_MAXIMUM_GESTURE_DURATION_MILLISECONDS &&
-            (kind != DikcizAccessibilityGestureKind.Swipe || startX != endX || startY != endY)
+    val moves: Boolean get() = startX != endX || startY != endY
+
+    fun isWithin(width: Int, height: Int): Boolean =
+        startX in 0 until width && startY in 0 until height &&
+            endX in 0 until width && endY in 0 until height
+
+    fun toPath(): Path = Path().apply {
+        moveTo(startX.toFloat(), startY.toFloat())
+        if (moves) lineTo(endX.toFloat(), endY.toFloat())
     }
 
-    fun toPlatformGesture(): GestureDescription {
-        val path = Path().apply {
-            moveTo(startX.toFloat(), startY.toFloat())
-            if (kind == DikcizAccessibilityGestureKind.Swipe) {
-                lineTo(endX.toFloat(), endY.toFloat())
-            }
+    fun toArray(): IntArray = intArrayOf(startX, startY, endX, endY)
+
+    fun writeTo(document: JSONObject, keys: List<String>) {
+        keys.zip(listOf(startX, startY, endX, endY)).forEach { (key, value) ->
+            document.put(key, value)
         }
-        return GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path, GESTURE_START_OFFSET_MILLISECONDS, durationMilliseconds))
-            .build()
-    }
-
-    private companion object {
-        const val GESTURE_START_OFFSET_MILLISECONDS = 0L
     }
 }
 
-internal enum class DikcizAccessibilityGestureKind(
-    val persistedValue: String,
+/**
+ * A requested screen gesture. Humanized gestures (the default) are planned by
+ * DikcizTouchModel; `humanize: false` dispatches the exact straight, fixed-time
+ * gesture that was asked for.
+ */
+internal class DikcizAccessibilityGesture private constructor(
+    val snapshotID: String,
+    val kind: DikcizAccessibilityGestureKind,
+    private val requestedDurationMilliseconds: Long?,
+    val humanize: Boolean,
+    private val targetWidth: Int?,
+    private val targetHeight: Int?,
+    private val first: DikcizGestureStroke,
+    private val second: DikcizGestureStroke?,
 ) {
-    Tap("tap"),
-    Swipe("swipe"),
-    ;
+    val durationMilliseconds: Long get() = requestedDurationMilliseconds ?: kind.defaultDurationMilliseconds
+
+    private val secondTapOffset: Long get() = durationMilliseconds + DOUBLE_TAP_GAP_MILLISECONDS
+
+    /** The exact gesture's length; a humanized plan reports its own. */
+    val totalDurationMilliseconds: Long get() = when (kind) {
+        DikcizAccessibilityGestureKind.DoubleTap -> secondTapOffset + durationMilliseconds
+        else -> durationMilliseconds
+    }
+
+    fun isWithin(width: Int, height: Int): Boolean {
+        if (!first.isWithin(width, height) || second?.isWithin(width, height) == false) return false
+        return when (kind) {
+            DikcizAccessibilityGestureKind.Swipe -> first.moves
+            DikcizAccessibilityGestureKind.DoubleTap -> durationMilliseconds <= DOUBLE_TAP_MAX_PRESS_MILLISECONDS
+            DikcizAccessibilityGestureKind.TwoFingerSwipe -> second != null &&
+                (first.moves || second.moves) &&
+                (first.startX != second.startX || first.startY != second.startY) &&
+                (first.endX != second.endX || first.endY != second.endY)
+            else -> true
+        }
+    }
+
+    fun toPlatformGesture(): GestureDescription {
+        val builder = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(first.toPath(), 0L, durationMilliseconds))
+        if (kind == DikcizAccessibilityGestureKind.DoubleTap) {
+            builder.addStroke(GestureDescription.StrokeDescription(first.toPath(), secondTapOffset, durationMilliseconds))
+        }
+        second?.let {
+            builder.addStroke(GestureDescription.StrokeDescription(it.toPath(), 0L, durationMilliseconds))
+        }
+        return builder.build()
+    }
+
+    fun plan(model: DikcizTouchModel): DikcizTouchPlan {
+        val target = DikcizTouchTarget(first.startX, first.startY, targetWidth, targetHeight)
+        return when (kind) {
+            DikcizAccessibilityGestureKind.Tap -> model.tap(target, requestedDurationMilliseconds)
+            DikcizAccessibilityGestureKind.Hold -> model.hold(target, requestedDurationMilliseconds)
+            DikcizAccessibilityGestureKind.DoubleTap -> model.doubleTap(target, requestedDurationMilliseconds)
+            DikcizAccessibilityGestureKind.Swipe ->
+                model.swipe(first.startX, first.startY, first.endX, first.endY, requestedDurationMilliseconds)
+            DikcizAccessibilityGestureKind.TwoFingerSwipe ->
+                model.twoFingerSwipe(first.toArray(), requireNotNull(second).toArray(), requestedDurationMilliseconds)
+        }
+    }
+
+    fun writeFields(document: JSONObject) {
+        document.put("snapshotId", snapshotID).put("gesture", kind.persistedValue)
+        requestedDurationMilliseconds?.let { document.put(DikcizAccessibilityGestureKind.DURATION_FIELD, it) }
+        if (!humanize) document.put(DikcizAccessibilityGestureKind.HUMANIZE_FIELD, false)
+        targetWidth?.let { document.put(DikcizAccessibilityGestureKind.TARGET_WIDTH_FIELD, it) }
+        targetHeight?.let { document.put(DikcizAccessibilityGestureKind.TARGET_HEIGHT_FIELD, it) }
+        first.writeTo(document, kind.coordinateKeys)
+        second?.writeTo(document, DikcizAccessibilityGestureKind.secondStrokeKeys)
+    }
 
     companion object {
+        private const val DOUBLE_TAP_GAP_MILLISECONDS = 60L
+        private const val DOUBLE_TAP_MAX_PRESS_MILLISECONDS = 100L
+
+        fun fromFields(
+            snapshotID: String,
+            kind: DikcizAccessibilityGestureKind,
+            durationMilliseconds: Long?,
+            humanize: Boolean,
+            targetWidth: Int?,
+            targetHeight: Int?,
+            coordinate: (String) -> Int,
+        ): DikcizAccessibilityGesture {
+            val firstCoordinates = kind.coordinateKeys.map(coordinate)
+            val first = DikcizGestureStroke(
+                firstCoordinates[0],
+                firstCoordinates[1],
+                firstCoordinates.getOrElse(2) { firstCoordinates[0] },
+                firstCoordinates.getOrElse(3) { firstCoordinates[1] },
+            )
+            val second = if (kind == DikcizAccessibilityGestureKind.TwoFingerSwipe) {
+                val (startX, startY, endX, endY) = DikcizAccessibilityGestureKind.secondStrokeKeys.map(coordinate)
+                DikcizGestureStroke(startX, startY, endX, endY)
+            } else {
+                null
+            }
+            return DikcizAccessibilityGesture(
+                snapshotID,
+                kind,
+                durationMilliseconds,
+                humanize,
+                targetWidth.takeIf { kind.acceptsTargetSize },
+                targetHeight.takeIf { kind.acceptsTargetSize },
+                first,
+                second,
+            )
+        }
+    }
+}
+
+private val gesturePointKeys = listOf("x", "y")
+private val gestureSwipeKeys = listOf("startX", "startY", "endX", "endY")
+
+internal enum class DikcizAccessibilityGestureKind(
+    val persistedValue: String,
+    val coordinateKeys: List<String>,
+    val defaultDurationMilliseconds: Long,
+) {
+    Tap("tap", gesturePointKeys, 100L),
+    Hold("hold", gesturePointKeys, 650L),
+    DoubleTap("doubleTap", gesturePointKeys, 60L),
+    Swipe("swipe", gestureSwipeKeys, 520L),
+    TwoFingerSwipe("twoFingerSwipe", gestureSwipeKeys, 520L),
+    ;
+
+    /** Point gestures may name the touched element's size so landings stay inside it. */
+    val acceptsTargetSize: Boolean get() = coordinateKeys == gesturePointKeys
+
+    /** Coordinate fields every request of this kind must carry. */
+    val fields: Set<String> get() = if (this == TwoFingerSwipe) {
+        (coordinateKeys + secondStrokeKeys).toSet()
+    } else {
+        coordinateKeys.toSet()
+    }
+
+    /** Fields a request of this kind may add. */
+    val optionalFields: Set<String> get() = if (acceptsTargetSize) {
+        setOf(DURATION_FIELD, HUMANIZE_FIELD, TARGET_WIDTH_FIELD, TARGET_HEIGHT_FIELD)
+    } else {
+        setOf(DURATION_FIELD, HUMANIZE_FIELD)
+    }
+
+    companion object {
+        const val DURATION_FIELD = "durationMilliseconds"
+        const val HUMANIZE_FIELD = "humanize"
+        const val TARGET_WIDTH_FIELD = "targetWidth"
+        const val TARGET_HEIGHT_FIELD = "targetHeight"
+        val secondStrokeKeys = listOf("secondStartX", "secondStartY", "secondEndX", "secondEndY")
+
         fun fromPersistedValue(value: String): DikcizAccessibilityGestureKind? {
             return entries.firstOrNull { gesture -> gesture.persistedValue == value }
         }
@@ -742,7 +1045,12 @@ internal enum class DikcizAccessibilityNodeAction(
     ScrollBackward("scrollBackward", AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD),
     SetText("setText", AccessibilityNodeInfo.ACTION_SET_TEXT, true),
     Select("select", AccessibilityNodeInfo.ACTION_SELECT),
+    Copy("copy", AccessibilityNodeInfo.ACTION_COPY),
+    Paste("paste", AccessibilityNodeInfo.ACTION_PASTE),
     ;
+
+    val usesClipboard: Boolean
+        get() = this == Copy || this == Paste
 
     companion object {
         fun fromPersistedValue(value: String): DikcizAccessibilityNodeAction? {

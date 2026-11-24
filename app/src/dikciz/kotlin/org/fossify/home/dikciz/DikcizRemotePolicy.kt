@@ -226,6 +226,8 @@ internal object DikcizRemotePolicy {
                 } == true)
             }
             "dikciz_call_control" -> callActions(access).let { it.isNotEmpty() && (request == null || request.optString(KEY_ACTION) in it) }
+            "dikciz_accessibility_action" -> general && (request == null ||
+                DikcizAccessibilityNodeAction.fromPersistedValue(request.optString(KEY_ACTION))?.usesClipboard != true)
             "dikciz_app_action" -> PERMISSION_APPS_LAUNCH in access.permissions && (request == null || request.optString(KEY_ACTION) in APP_ACTIONS)
             "dikciz_file_manage" -> PERMISSION_FILES_READ in access.permissions && (request == null || request.optString(KEY_ACTION) in FILE_ACTIONS)
             "dikciz_search_query", "dikciz_search_read" -> request == null || request.optString("collection", DOCS_COLLECTION) in setOf(DOCS_COLLECTION, TOOLS_COLLECTION) || SEARCH_READ in access.permissions
@@ -251,6 +253,9 @@ internal object DikcizRemotePolicy {
                 "dikciz_content_batch" -> properties.getJSONObject("operations").getJSONObject("items")
                     .getJSONObject("properties").getJSONObject("resource").put("enum", JSONArray(resources(access, true).sorted()))
                 "dikciz_call_control" -> properties.getJSONObject(KEY_ACTION).put("enum", JSONArray(callActions(access).sorted()))
+                "dikciz_accessibility_action" -> properties.getJSONObject(KEY_ACTION).put("enum", JSONArray(
+                    DikcizAccessibilityNodeAction.entries.filterNot { it.usesClipboard }.map { it.persistedValue },
+                ))
                 "dikciz_app_action" -> properties.getJSONObject(KEY_ACTION).put("enum", JSONArray(APP_ACTIONS.sorted()))
                 "dikciz_file_manage" -> properties.getJSONObject(KEY_ACTION).put("enum", JSONArray(FILE_ACTIONS.sorted()))
             }

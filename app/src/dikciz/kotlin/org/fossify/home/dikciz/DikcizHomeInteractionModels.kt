@@ -66,6 +66,7 @@ internal data class ActiveWidgetResize(
 internal data class PendingWidgetMove(
     val widget: HomeWidget,
     val widgetView: View,
+    val pressTarget: View,
     val initialRawX: Float,
     val initialRawY: Float,
     val longPressRunnable: Runnable,

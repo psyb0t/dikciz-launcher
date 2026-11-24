@@ -6,7 +6,7 @@ import org.json.JSONObject
 /** Finite choices for older definitions whose descriptions predate enum schemas. */
 internal object DikcizCommandChoices {
     private val fields = mapOf(
-        "accessibilityAction" to mapOf("action" to listOf("click", "longClick", "focus", "clearFocus", "scrollForward", "scrollBackward", "setText", "select")),
+        "accessibilityAction" to mapOf("action" to DikcizAccessibilityNodeAction.entries.map { it.persistedValue }),
         "appAction" to mapOf("action" to listOf("launch", "addShortcut", "appInfo", "uninstall", "forceStop")),
         "contentWrite" to mapOf("operation" to listOf("create", "update", "delete")),
         "callControl" to mapOf("action" to listOf("state", "place", "answer", "end")),

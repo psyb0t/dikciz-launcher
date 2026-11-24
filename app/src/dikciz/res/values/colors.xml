@@ -11,7 +11,7 @@
     <color name="dikciz_drawer_surface">#15171d</color>
     <color name="dikciz_foreground">#f2f2f2</color>
     <color name="dikciz_muted_foreground">#afb3bc</color>
-    <color name="dikciz_pressed_overlay">#26FFC43D</color>
+    <color name="dikciz_pressed_overlay">#44FFC43D</color>
     <color name="dikciz_resize_outline">#5ea8ff</color>
     <color name="dikciz_grid_guide">#595ea8ff</color>
     <color name="dikciz_resize_rejected">#ff6b6b</color>

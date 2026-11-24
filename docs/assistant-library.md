@@ -115,8 +115,8 @@ The library allows 512 files, 128 instruction entries, 12 directory levels, 64 K
 ## Manage instructions on the phone
 
 <div class="docs-gallery">
-<figure><img width="280" src="{{ "/images/automation-workbench/library.png" | relative_url }}" alt="Instruction manager with an inspection skill, read-only device agent and persistent rule"><figcaption>Owner instructions and built-in authoring guides.</figcaption></figure>
-<figure><img width="280" src="{{ "/images/automation-workbench/editor.png" | relative_url }}" alt="Complete Markdown skill editor with its name, description, validation and save controls"><figcaption>Edit and validate the complete instruction.</figcaption></figure>
+<figure><img width="280" src="images/automation-workbench/library.png" alt="Instruction manager with an inspection skill, read-only device agent and persistent rule"><figcaption>Owner instructions and built-in authoring guides.</figcaption></figure>
+<figure><img width="280" src="images/automation-workbench/editor.png" alt="Complete Markdown skill editor with its name, description, validation and save controls"><figcaption>Edit and validate the complete instruction.</figcaption></figure>
 </div>
 
 The manager lists skills, agents and rules with enabled, disabled, invalid and built-in states. Tap an owner item to edit the complete Markdown file. **New instruction** offers the three kinds. **Validate** checks the instruction format without saving; provider compatibility and agent token budgets are checked when an agent starts its turn. **Save** validates and atomically replaces the file. Errors keep the text in place. Rotation preserves an open draft. The item's **More** menu holds enable/disable and confirmed deletion. Deleting the instruction preserves its supporting files. Disabling adds `.disabled` to its filename, excluding it from subsequent model rounds. Re-enabling validates it and rejects duplicate identities.

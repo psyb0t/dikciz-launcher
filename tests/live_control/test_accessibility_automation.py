@@ -1,5 +1,7 @@
 """Cross-app Android accessibility automation through both local control planes."""
 
+import uuid
+
 from . import *
 from .accessibility_support import has_settings_destination, wait_for_settings_destination
 
@@ -430,14 +432,23 @@ def test_accessibility_service_inspects_and_acts_on_a_real_external_android_wind
         updated_snapshot = wait_for_accessibility_snapshot(websocket_control)
         assert updated_snapshot[AUTOMATION.KEY_SNAPSHOT_ID] != websocket_snapshot[AUTOMATION.KEY_SNAPSHOT_ID]
         time.sleep(ACCESSIBILITY_SNAPSHOT_EXPIRY_WAIT_SECONDS)
-        for _ in range(ACCESSIBILITY_MAXIMUM_SNAPSHOT_COUNT):
-            assert_accessibility_snapshot(
-                AUTOMATION.request(websocket_control, AUTOMATION.TYPE_ACCESSIBILITY_SNAPSHOT),
+        # Queue the burst so client round trips do not consume the five-second snapshot lifetime.
+        request_ids = [str(uuid.uuid4()) for _ in range(ACCESSIBILITY_MAXIMUM_SNAPSHOT_COUNT + 1)]
+        for request_id in request_ids:
+            AUTOMATION.send_frame(
+                websocket_control,
+                AUTOMATION.FRAME_OPCODE_TEXT,
+                json.dumps({
+                    AUTOMATION.KEY_REQUEST_ID: request_id,
+                    AUTOMATION.KEY_TYPE: AUTOMATION.TYPE_ACCESSIBILITY_SNAPSHOT,
+                }).encode("utf-8"),
             )
-        _, snapshot_limit_error = AUTOMATION.request_error_with_id(
-            websocket_control,
-            AUTOMATION.TYPE_ACCESSIBILITY_SNAPSHOT,
-        )
+        for request_id in request_ids[:-1]:
+            response = AUTOMATION.receive_response(websocket_control, request_id)
+            assert response[AUTOMATION.KEY_TYPE] == AUTOMATION.TYPE_RESULT
+            assert_accessibility_snapshot(response["result"])
+        snapshot_limit_error = AUTOMATION.receive_response(websocket_control, request_ids[-1])
+        assert snapshot_limit_error[AUTOMATION.KEY_TYPE] == AUTOMATION.TYPE_ERROR
         assert snapshot_limit_error[AUTOMATION.KEY_CODE] == ACCESSIBILITY_ERROR_SNAPSHOT_LIMIT
         html_back_result = AUTOMATION.request(
             websocket_control,

@@ -14,7 +14,7 @@ Agenda and alarms shows upcoming Android calendar entries and the next alarm And
 
 Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), complete [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Dikciz apps > Agenda and alarms**.
 
-<img src="{{ '/images/screens/custom-app-agenda.png' | relative_url }}" alt="Dikciz Agenda and alarms showing the upcoming events and next alarm sections" width="300" loading="lazy">
+<img src="images/screens/custom-app-agenda.png" alt="Dikciz Agenda and alarms showing the upcoming events and next alarm sections" width="300" loading="lazy">
 
 - Grant Calendar access, then tap **Refresh agenda**. The agenda reads the events Android exposes to Dikciz.
 - Use **Open calendar** to create or edit an event in the Android calendar app.

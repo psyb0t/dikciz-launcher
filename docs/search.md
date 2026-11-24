@@ -1,7 +1,7 @@
 ---
 title: "Offline search"
 description: "Search documentation, recipes and live tool schemas offline with SQLite ranking, keyword aliases and typo correction, or index owner collections."
-permalink: /search/
+permalink: /offline-search/
 nav_order: 7
 parent: "Remote control"
 ---

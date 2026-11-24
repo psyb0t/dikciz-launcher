@@ -235,11 +235,7 @@ internal object DikcizAutomationDebugger {
             is DikcizLuaAutomationAction.NotificationControl -> value.put("actionToken", "[REDACTED]")
             is DikcizLuaAutomationAction.AccessibilityAction -> value.put("snapshotId", action.snapshotID).put("nodeId", action.nodeID).put("action", action.action).put("text", action.text ?: JSONObject.NULL)
             is DikcizLuaAutomationAction.AccessibilityGlobalAction -> value.put("action", action.action.persistedValue)
-            is DikcizLuaAutomationAction.AccessibilityGesture -> action.gesture.let {
-                value.put("snapshotId", it.snapshotID).put("gesture", it.kind.persistedValue).put("durationMilliseconds", it.durationMilliseconds)
-                if (it.kind == DikcizAccessibilityGestureKind.Tap) value.put("x", it.startX).put("y", it.startY)
-                else value.put("startX", it.startX).put("startY", it.startY).put("endX", it.endX).put("endY", it.endY)
-            }
+            is DikcizLuaAutomationAction.AccessibilityGesture -> action.gesture.writeFields(value)
             DikcizLuaAutomationAction.LockDevice -> Unit
         }
         return value

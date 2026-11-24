@@ -1,0 +1,37 @@
+/* Dikciz-only page blocks. Shared colors and type come from theme.css. */
+
+.docs-routes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.docs-routes > div {
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: var(--ifm-background-surface-color);
+}
+
+.docs-routes h2 {
+  margin-top: 0;
+  font-size: 1.15rem;
+}
+
+.docs-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.docs-gallery img {
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 0.75rem;
+}
+
+.markdown img {
+  max-width: 100%;
+  height: auto;
+}

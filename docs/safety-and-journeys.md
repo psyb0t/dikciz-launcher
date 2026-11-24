@@ -41,7 +41,7 @@ The warning pulses an alarm tone and vibration and uses an installed offline Eng
 
 `sosStatus.warning` reports whether a warning episode is active, the observed presentation, attached unlocked-screen visibility, remaining seconds, requested audio/vibration, alarm volume and speech state. These are execution observations, not proof that a person heard the alert. The same presentation runs for manual triggers, missed check-ins and the grace interval before subsequent configured updates. API/native cancellation stops future sends and warning resources. A message already submitted cannot be recalled. Ordinary geofences and route recording stay quiet and continue when only SOS is cancelled.
 
-<img src="{{ "/images/companion/sos-warning.png" | relative_url }}" alt="SOS countdown card with remaining seconds and a large Cancel SOS button" width="360">
+<img src="images/companion/sos-warning.png" alt="SOS countdown card with remaining seconds and a large Cancel SOS button" width="360">
 
 The warning card above was captured on the isolated emulator before cancellation.
 

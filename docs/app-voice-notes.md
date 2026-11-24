@@ -14,7 +14,7 @@ Voice notes records microphone audio and keeps it in the app's local files. Open
 
 Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), complete [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Dikciz apps > Voice notes**.
 
-<img src="{{ '/images/screens/custom-app-voice-saved.png' | relative_url }}" alt="Voice notes showing a saved recording and its playback control" width="300" loading="lazy">
+<img src="images/screens/custom-app-voice-saved.png" alt="Voice notes showing a saved recording and its playback control" width="300" loading="lazy">
 
 1. Tap **Record voice note** and grant microphone access if Android asks. Tap Record again if the permission request interrupted the first attempt.
 2. Tap **Stop and save**. Leaving the app stops recording. Reopen Voice notes to finish a pending save.

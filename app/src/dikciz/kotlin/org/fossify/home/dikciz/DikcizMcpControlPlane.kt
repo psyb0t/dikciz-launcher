@@ -1546,7 +1546,7 @@ internal class DikcizMcpControlPlane(
             ToolDefinition("dikciz_automation_service_sync", "Sync Dikciz automation service", "Re-evaluate the current automation policy and ask the private Android service to reload its public configuration.", emptyList(), false),
             ToolDefinition("dikciz_automation_status", "Read Dikciz automation status", "Read typed automation capabilities, event requirements, available sensors, and relevant Android access state.", emptyList(), true),
             ToolDefinition("dikciz_automation_trigger", "Trigger Dikciz automation script", "Queue one fixed manual event for an enabled configured script with a matching policy and subscription.", listOf(scriptIDArgument()), false),
-            ToolDefinition("dikciz_automation_dispatch", "Dispatch Dikciz actions", "Run the same typed action array used by an HTML widget or Lua script.", listOf(sourceWidgetAddressArgument(), actionsArgument()), false),
+            ToolDefinition("dikciz_automation_dispatch", "Dispatch Dikciz actions", "Run the same typed action array used by an HTML widget or Lua script. Action fields: dikciz://docs/guides/actions-state; Accessibility actions and humanized gestures: dikciz://docs/guides/actions-ui.", listOf(sourceWidgetAddressArgument(), actionsArgument()), false),
             ToolDefinition(TOOL_CONTROL_STATUS, "Read Dikciz control status", "Read the complete local command contract, limits, transports, and safe-mode state.", emptyList(), true),
             ToolDefinition(TOOL_REMOTE_AUTH_STATUS, "Read remote auth status", "Read remote WebSocket and MCP bearer-auth state without exposing its verifier.", emptyList(), true),
             ToolDefinition(TOOL_REMOTE_AUTH_ENABLE, "Enable remote bearer auth", "Require the existing phone-configured remote bearer credential on both remote control planes.", emptyList(), false),
@@ -1713,7 +1713,7 @@ internal class DikcizMcpControlPlane(
 
         private fun accessibilityActionArgument(): ToolArgument = ToolArgument(
             DikcizAutomationControlPlane.KEY_ACTION,
-            "Supported node action: click, longClick, focus, clearFocus, scrollForward, scrollBackward, setText, or select.",
+            "Node action from the snapshot. Copy and paste use the Android clipboard and require a focused node.",
             SCHEMA_TYPE_STRING,
             true,
             maximum = DikcizAutomationControlPlane.MAXIMUM_ACCESSIBILITY_ACTION_CHARACTERS,

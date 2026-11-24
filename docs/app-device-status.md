@@ -14,7 +14,7 @@ Device status puts battery, storage, memory and CPU measurements on one screen. 
 
 Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), complete [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Dikciz apps > Device status**.
 
-<img src="{{ '/images/screens/custom-app-device-status.png' | relative_url }}" alt="Device status showing battery, process CPU history, storage and memory" width="300" loading="lazy">
+<img src="images/screens/custom-app-device-status.png" alt="Device status showing battery, process CPU history, storage and memory" width="300" loading="lazy">
 
 Read the gauges and CPU history, then expand **Device details** for the additional values Android exposes. Process CPU is the Dikciz process. System CPU and per-core data depend on the device and Android restrictions. An unavailable counter is shown as unavailable. The screen pauses polling when hidden.
 

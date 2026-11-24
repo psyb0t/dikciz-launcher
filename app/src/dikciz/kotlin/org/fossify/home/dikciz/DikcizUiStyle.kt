@@ -2,6 +2,7 @@ package org.fossify.home.dikciz
 
 import android.app.AlertDialog
 import android.content.res.ColorStateList
+import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.view.View
@@ -20,15 +21,22 @@ internal object DikcizUiStyle {
     const val ERROR = 0xFFFFA6A0.toInt()
     private const val EDGE = 0xFF3C4336.toInt()
     private const val RIPPLE = 0x44F6C85F
+    private const val PRIMARY_RIPPLE = 0x33000000
 
     fun button(view: Button, primary: Boolean = false) {
         val density = view.resources.displayMetrics.density
         fun dp(value: Int) = (value * density).toInt()
         view.backgroundTintList = null
-        view.background = RippleDrawable(ColorStateList.valueOf(RIPPLE), GradientDrawable().apply {
+        val roundedSurface = GradientDrawable().apply {
             cornerRadius = dp(12).toFloat()
-            setColor(if (primary) ACCENT else android.graphics.Color.TRANSPARENT)
-        }, null)
+            setColor(if (primary) ACCENT else Color.TRANSPARENT)
+        }
+        val rippleMask = GradientDrawable().apply {
+            cornerRadius = roundedSurface.cornerRadius
+            setColor(Color.WHITE)
+        }
+        val rippleColor = if (primary) PRIMARY_RIPPLE else RIPPLE
+        view.background = RippleDrawable(ColorStateList.valueOf(rippleColor), roundedSurface, rippleMask)
         view.isAllCaps = false
         view.textSize = 16f
         view.gravity = if (primary) android.view.Gravity.CENTER else

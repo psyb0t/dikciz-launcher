@@ -468,7 +468,7 @@ Lua returns one status plus an `actions` array. The matching policy capability m
 | `notificationControl` | Invoke a supported notification action token. |
 | `lockDevice` | Lock the screen after the owner enables Dikciz Device Administration. |
 | `accessibilityAction` | Act on a fresh bounded Accessibility snapshot node. |
-| `accessibilityGesture` | Send a bounded tap or swipe tied to a fresh Accessibility snapshot. |
+| `accessibilityGesture` | Send a [screen gesture](automation-control.md#cross-app-android-ui) tied to a fresh Accessibility snapshot. |
 | `accessibilityGlobalAction` | Ask Accessibility to perform back, home, recents, notifications, quick settings, lock screen, or screenshot. |
 
 App and activity launch actions use the [shared foreground verification contract](automation-control.md). `launched` means the target package was observed as the active visible window. Missing Accessibility returns `launch_unverified`; a target that never appears returns `launch_not_observed`. A locked device returns `device_locked`. These outcomes also appear in Lua action logs and script run status. Broadcast intents retain their dispatch outcome.

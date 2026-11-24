@@ -2,6 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:focusableInTouchMode="true"
     android:gravity="center_horizontal"
     android:orientation="vertical"
     android:padding="24dp">
@@ -29,4 +30,24 @@
         android:layout_marginTop="24dp"
         android:text="@string/fixture_accessibility_action"
         android:textAllCaps="false" />
+    <TextView
+        android:id="@+id/fixture_accessibility_touch_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <EditText
+        android:id="@+id/fixture_accessibility_copy_source"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="text"
+        android:selectAllOnFocus="true"
+        android:text="@string/fixture_accessibility_copy_text" />
+
+    <EditText
+        android:id="@+id/fixture_accessibility_paste_target"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="text"
+        android:selectAllOnFocus="true"
+        android:text="@string/fixture_accessibility_replace_text" />
 </LinearLayout>

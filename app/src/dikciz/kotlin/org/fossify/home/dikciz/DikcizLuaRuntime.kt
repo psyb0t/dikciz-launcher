@@ -640,47 +640,22 @@ internal class DikcizLuaRuntime {
                         MAXIMUM_ACCESSIBILITY_GESTURE_CHARACTERS,
                     ),
                 ) ?: throw IllegalArgumentException(INVALID_ACTION_TYPE_MESSAGE)
-                when (gestureKind) {
-                    DikcizAccessibilityGestureKind.Tap -> {
-                        requireExactKeys(action, ACCESSIBILITY_TAP_GESTURE_KEYS)
-                        val x = requireGestureCoordinate(action, X_FIELD)
-                        val y = requireGestureCoordinate(action, Y_FIELD)
-                        DikcizLuaAutomationAction.AccessibilityGesture(
-                            DikcizAccessibilityGesture(
-                                snapshotID = requireBoundedString(
-                                    action,
-                                    SNAPSHOT_ID_FIELD,
-                                    MAXIMUM_ACCESSIBILITY_SNAPSHOT_ID_CHARACTERS,
-                                ),
-                                kind = gestureKind,
-                                startX = x,
-                                startY = y,
-                                endX = x,
-                                endY = y,
-                                durationMilliseconds = requireGestureDuration(action),
-                            ),
-                        )
-                    }
-
-                    DikcizAccessibilityGestureKind.Swipe -> {
-                        requireExactKeys(action, ACCESSIBILITY_SWIPE_GESTURE_KEYS)
-                        DikcizLuaAutomationAction.AccessibilityGesture(
-                            DikcizAccessibilityGesture(
-                                snapshotID = requireBoundedString(
-                                    action,
-                                    SNAPSHOT_ID_FIELD,
-                                    MAXIMUM_ACCESSIBILITY_SNAPSHOT_ID_CHARACTERS,
-                                ),
-                                kind = gestureKind,
-                                startX = requireGestureCoordinate(action, START_X_FIELD),
-                                startY = requireGestureCoordinate(action, START_Y_FIELD),
-                                endX = requireGestureCoordinate(action, END_X_FIELD),
-                                endY = requireGestureCoordinate(action, END_Y_FIELD),
-                                durationMilliseconds = requireGestureDuration(action),
-                            ),
-                        )
-                    }
-                }
+                requireExactKeys(action, ACCESSIBILITY_GESTURE_KEYS + gestureKind.fields + gestureKind.optionalFields)
+                val snapshotID = requireBoundedString(
+                    action,
+                    SNAPSHOT_ID_FIELD,
+                    MAXIMUM_ACCESSIBILITY_SNAPSHOT_ID_CHARACTERS,
+                )
+                DikcizLuaAutomationAction.AccessibilityGesture(
+                    DikcizAccessibilityGesture.fromFields(
+                        snapshotID,
+                        gestureKind,
+                        optionalGestureDuration(action),
+                        optionalHumanize(action),
+                        optionalTargetSize(action, DikcizAccessibilityGestureKind.TARGET_WIDTH_FIELD),
+                        optionalTargetSize(action, DikcizAccessibilityGestureKind.TARGET_HEIGHT_FIELD),
+                    ) { field -> requireGestureCoordinate(action, field) },
+                )
             }
 
             ACCESSIBILITY_GLOBAL_ACTION_TYPE -> {
@@ -855,7 +830,27 @@ internal class DikcizLuaRuntime {
         return coordinate.toInt()
     }
 
-    private fun requireGestureDuration(action: LuaTable): Long {
+    private fun optionalHumanize(action: LuaTable): Boolean {
+        val value = action.get(DikcizAccessibilityGestureKind.HUMANIZE_FIELD)
+        if (value.isnil()) return true
+        if (!value.isboolean()) throw IllegalArgumentException(INVALID_ACTION_TYPE_MESSAGE)
+        return value.toboolean()
+    }
+
+    private fun optionalTargetSize(action: LuaTable, field: String): Int? {
+        val value = action.get(field)
+        if (value.isnil()) return null
+        val size = value.checkdouble()
+        if (!size.isFinite() || size != kotlin.math.floor(size) || size < 1.0 ||
+            size > DIKCIZ_ACCESSIBILITY_MAXIMUM_GESTURE_COORDINATE.toDouble()
+        ) {
+            throw IllegalArgumentException(INVALID_ACTION_TYPE_MESSAGE)
+        }
+        return size.toInt()
+    }
+
+    private fun optionalGestureDuration(action: LuaTable): Long? {
+        if (action.get(DURATION_MILLISECONDS_FIELD).isnil()) return null
         val duration = action.get(DURATION_MILLISECONDS_FIELD).checkdouble()
         if (
             !duration.isFinite() ||
@@ -1231,8 +1226,6 @@ internal class DikcizLuaRuntime {
         const val CSS_FIELD = "css"
         const val DELETE_CHARACTER = '\u007f'
         const val DURATION_MILLISECONDS_FIELD = "durationMilliseconds"
-        const val END_X_FIELD = "endX"
-        const val END_Y_FIELD = "endY"
         const val DEBUG_GLOBAL_NAME = "debug"
         const val DEBUG_SET_HOOK_FUNCTION_NAME = "sethook"
         const val EVENT_COALESCING_KEY_FIELD = "coalescingKey"
@@ -1298,8 +1291,6 @@ internal class DikcizLuaRuntime {
         const val SELECT_PAGE_ACTION_TYPE = "selectPage"
         const val SNAPSHOT_ID_FIELD = "snapshotId"
         const val SELECTOR_FIELD = "selector"
-        const val START_X_FIELD = "startX"
-        const val START_Y_FIELD = "startY"
         const val STRING_LIBRARY_NAME = "string"
         const val TABLE_LIBRARY_NAME = "table"
         const val READ_ONLY_LUA_STATE_MESSAGE = "Lua context is read-only"
@@ -1321,8 +1312,6 @@ internal class DikcizLuaRuntime {
         const val VALUE_FIELD = "value"
         const val VALUES_FIELD = "values"
         const val WIDGET_ADDRESS_FIELD = "widgetAddress"
-        const val X_FIELD = "x"
-        const val Y_FIELD = "y"
 
         const val INVALID_EVENT_ACTION_LIST_MESSAGE = "Lua event actions must be an array"
         const val INVALID_CUSTOM_EVENT_NAME_MESSAGE = "Lua custom event name is invalid"
@@ -1365,24 +1354,7 @@ internal class DikcizLuaRuntime {
             TYPE_FIELD,
         )
         val ACCESSIBILITY_GLOBAL_ACTION_KEYS = setOf(ACTION_NAME_FIELD, TYPE_FIELD)
-        val ACCESSIBILITY_TAP_GESTURE_KEYS = setOf(
-            DURATION_MILLISECONDS_FIELD,
-            GESTURE_FIELD,
-            SNAPSHOT_ID_FIELD,
-            TYPE_FIELD,
-            X_FIELD,
-            Y_FIELD,
-        )
-        val ACCESSIBILITY_SWIPE_GESTURE_KEYS = setOf(
-            DURATION_MILLISECONDS_FIELD,
-            END_X_FIELD,
-            END_Y_FIELD,
-            GESTURE_FIELD,
-            SNAPSHOT_ID_FIELD,
-            START_X_FIELD,
-            START_Y_FIELD,
-            TYPE_FIELD,
-        )
+        val ACCESSIBILITY_GESTURE_KEYS = setOf(TYPE_FIELD, GESTURE_FIELD, SNAPSHOT_ID_FIELD)
         val EXPLICIT_INTENT_ACTION_KEYS = setOf(
             ACTION_NAME_FIELD,
             COMPONENT_FIELD,

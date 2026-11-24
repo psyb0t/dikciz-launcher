@@ -90,7 +90,7 @@ These actions are available through the documented Lua/HTML action executor. Lua
 | `mediaControl`, `setMediaVolume` | Control an allowed media session or set integer `levelPercent` (0..100). The volume policy capability is `mediaVolume`. |
 | `notificationControl` | Invoke a supported notification action token. |
 | `lockDevice` | Lock the screen with enabled Device Administration. |
-| `accessibilityAction`, `accessibilityGesture`, `accessibilityGlobalAction` | Act on another app's fresh accessibility state or use supported system navigation actions. |
+| `accessibilityAction`, `accessibilityGesture`, `accessibilityGlobalAction` | Act on another app's fresh accessibility state or use supported system navigation actions. Gestures (`tap`, `hold`, `doubleTap`, `swipe`, `twoFingerSwipe`) are humanized by default; `humanize: false` sends the exact gesture. |
 
 Read [all action fields and policy mappings](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/typed-actions.md) and [typed actions](https://github.com/psyb0t/dikciz-launcher/blob/main/docs/scripting-tutorial.md#return-device-and-launcher-actions-from-lua) for fields, allowed targets and outcomes. SMS can cost money. Notification actions, intents and cross-app interactions can affect other apps; keep them within the user's requested task.
 

@@ -30,6 +30,6 @@ A connected-device foreground notification exposes **Stop all**. Actual profiles
 
 ## Vehicle document
 
-<img src="{{ "/images/companion/vehicle-mocked.png" | relative_url }}" alt="Vehicle console rendering a deterministic adapter fixture" width="280">
+<img src="images/companion/vehicle-mocked.png" alt="Vehicle console rendering a deterministic adapter fixture" width="280">
 
 This rendered WebView uses a deterministic mocked ELM adapter response with fragmented reads. It verifies framing, PID conversion, saved state and presentation. It is not a photograph of a connected car or proof of physical adapter compatibility.

@@ -1,6 +1,8 @@
 package eu.psyb0t.dikciz.fixture;
 
+import android.annotation.TargetApi;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -54,6 +56,7 @@ public final class FixtureRecognitionService extends RecognitionService {
     }
 
     @Override
+    @TargetApi(Build.VERSION_CODES.TIRAMISU)
     public void onCheckRecognitionSupport(Intent intent, SupportCallback callback) {
         String language = intent.getStringExtra(RecognizerIntent.EXTRA_LANGUAGE);
         pending = () -> {
@@ -72,6 +75,7 @@ public final class FixtureRecognitionService extends RecognitionService {
     }
 
     @Override
+    @TargetApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     public void onTriggerModelDownload(
         Intent intent,
         android.content.AttributionSource attributionSource,

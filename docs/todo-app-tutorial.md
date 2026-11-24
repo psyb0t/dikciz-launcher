@@ -12,7 +12,7 @@ Build one complete Dikciz app with a checklist, a JavaScript backend and saved s
 
 The working reference ships as **Dikciz > Dikciz apps > Travel todo**. Its [five source files](https://github.com/psyb0t/dikciz-launcher/tree/main/app/src/dikciz/assets/apps/travel-todo/) are also in this repository. It starts with location monitoring off. No API key, model, messages or calendar writes are involved.
 
-<p><img src="{{ "/images/custom-apps/todo-watching.png" | relative_url }}" alt="Travel todo with the New York location rule enabled and the trip still unchecked" width="280"> <img src="{{ "/images/custom-apps/todo-arrived.png" | relative_url }}" alt="The same app reopened after an emulator GPS entry automatically checked Go to New York" width="280"></p>
+<p><img src="images/custom-apps/todo-watching.png" alt="Travel todo with the New York location rule enabled and the trip still unchecked" width="280"> <img src="images/custom-apps/todo-arrived.png" alt="The same app reopened after an emulator GPS entry automatically checked Go to New York" width="280"></p>
 
 The captures come from the current development build on a private Android emulator. Its location was moved from London to New York through the emulator location fixture. The real Android location callback, native geofence, shared event bus, app backend and persisted state handled the change. This is not a physical trip or a synthetic geofence event.
 
@@ -33,9 +33,9 @@ Open **Dikciz > Dikciz apps > Travel todo**. Check a task manually or scroll dow
 
 To inspect the source, return to **Dikciz > Dikciz apps**, open **More actions** beside Travel todo, then choose **Edit bundle**. The file selector exposes the manifest, HTML, CSS, UI JavaScript and backend source. Switching files preserves the other drafts; Save bundle writes them together. See the [editor and recovery screens](screens.md#apps-and-complete-bundles). Stop an active location watch before editing. Saving preserves whether the app is running or stopped. Open it directly, or choose **Start app** to resume a stopped backend.
 
-<p><img src="{{ "/images/custom-apps/custom-apps.png" | relative_url }}" alt="Native custom-app manager with complete bundles and their controls" width="280"> <img src="{{ "/images/custom-apps/todo-editor.png" | relative_url }}" alt="Complete bundle editor showing the travel app manifest" width="280"></p>
+<p><img src="images/custom-apps/custom-apps.png" alt="Native custom-app manager with complete bundles and their controls" width="280"> <img src="images/custom-apps/todo-editor.png" alt="Complete bundle editor showing the travel app manifest" width="280"></p>
 
-<img src="{{ "/images/custom-apps/todo-checklist.png" | relative_url }}" alt="The checklist after checking Pack my bag and adding Visit a museum through the app UI" width="280">
+<img src="images/custom-apps/todo-checklist.png" alt="The checklist after checking Pack my bag and adding Visit a museum through the app UI" width="280">
 
 ## 2. Understand the five files
 

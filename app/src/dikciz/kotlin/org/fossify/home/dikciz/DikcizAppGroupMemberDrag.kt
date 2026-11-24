@@ -40,6 +40,8 @@ internal class DikcizAppGroupMemberDrag(
 
         fun release() {
             member.isPressed = false
+            member.scaleX = 1f
+            member.scaleY = 1f
             member.parent?.requestDisallowInterceptTouchEvent(false)
             hasTouch = false
             armed = false
@@ -50,6 +52,9 @@ internal class DikcizAppGroupMemberDrag(
         member.setOnLongClickListener {
             if (hasTouch) {
                 armed = true
+                member.isPressed = true
+                member.scaleX = PICKUP_SCALE
+                member.scaleY = PICKUP_SCALE
                 member.parent?.requestDisallowInterceptTouchEvent(true)
             } else {
                 onMenu()
@@ -143,6 +148,7 @@ internal class DikcizAppGroupMemberDrag(
 
     private companion object {
         const val ICON_DP = 48
+        const val PICKUP_SCALE = 1.08f
         const val AVAILABLE_ALPHA = 0.9f
         const val BLOCKED_ALPHA = 0.4f
     }

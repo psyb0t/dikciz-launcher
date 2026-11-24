@@ -1690,6 +1690,7 @@ class DikcizHomeActivity : Activity() {
             )
             isClickable = true
             isLongClickable = true
+            background = getDrawable(R.drawable.dikciz_drawer_row)
             setOnLongClickListener {
                 showWidgetEditActions(widget, widgetView)
                 true
@@ -1703,6 +1704,7 @@ class DikcizHomeActivity : Activity() {
                     widgetView,
                     event,
                     isTopLevel = true,
+                    pressTarget = view,
                     onTap = { view.performClick() },
                 )
             }
@@ -2156,6 +2158,7 @@ class DikcizHomeActivity : Activity() {
         widgetView: View,
         event: MotionEvent,
         isTopLevel: Boolean,
+        pressTarget: View = widgetView,
         onTap: (() -> Unit)? = null,
     ): Boolean {
         if (!isTopLevel || activeWidgetEdit != null || activeWidgetResize != null) {
@@ -2164,7 +2167,7 @@ class DikcizHomeActivity : Activity() {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 setWidgetTouchInterceptionBlocked(widgetView, !requiresHoldToMove(widget))
-                beginPendingWidgetMove(widget, widgetView, event, onTap)
+                beginPendingWidgetMove(widget, widgetView, pressTarget, event, onTap)
                 return true
             }
 
@@ -2224,7 +2227,7 @@ class DikcizHomeActivity : Activity() {
                 }
             }
 
-            MotionEvent.ACTION_CANCEL -> {
+            MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_POINTER_DOWN -> {
                 setWidgetTouchInterceptionBlocked(widgetView, false)
                 activeWidgetMove?.let { activeMove ->
                     if (activeMove.widgetView === widgetView) {
@@ -2257,10 +2260,12 @@ class DikcizHomeActivity : Activity() {
     private fun beginPendingWidgetMove(
         widget: HomeWidget,
         widgetView: View,
+        pressTarget: View,
         event: MotionEvent,
         onTap: (() -> Unit)?,
     ) {
         clearPendingWidgetMove()
+        pressTarget.isPressed = true
         val longPressRunnable = Runnable {
             val pendingMove = pendingWidgetMove ?: return@Runnable
             if (pendingMove.widgetView !== widgetView) {
@@ -2274,24 +2279,20 @@ class DikcizHomeActivity : Activity() {
                 widgetView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                 return@Runnable
             }
-            pendingWidgetMove = null
+            clearPendingWidgetMove(widgetView)
             setWidgetTouchInterceptionBlocked(widgetView, false)
             showWidgetEditActions(widget, widgetView)
         }
         pendingWidgetMove = PendingWidgetMove(
             widget = widget,
             widgetView = widgetView,
+            pressTarget = pressTarget,
             initialRawX = event.rawX,
             initialRawY = event.rawY,
             longPressRunnable = longPressRunnable,
             onTap = onTap,
         )
-        val holdMilliseconds = if (requiresHoldToMove(widget)) {
-            APP_MOVE_HOLD_MILLISECONDS
-        } else {
-            ViewConfiguration.getLongPressTimeout().toLong()
-        }
-        mainHandler.postDelayed(longPressRunnable, holdMilliseconds)
+        mainHandler.postDelayed(longPressRunnable, ViewConfiguration.getLongPressTimeout().toLong())
     }
 
     private fun clearPendingWidgetMove(widgetView: View? = null) {
@@ -2300,6 +2301,7 @@ class DikcizHomeActivity : Activity() {
             return
         }
         mainHandler.removeCallbacks(pendingMove.longPressRunnable)
+        pendingMove.pressTarget.isPressed = false
         if (pendingMove.isMoveReady) {
             pendingMove.widgetView.scaleX = 1f
             pendingMove.widgetView.scaleY = 1f
@@ -3182,6 +3184,7 @@ class DikcizHomeActivity : Activity() {
             if (isEnabled) {
                 isClickable = true
                 isFocusable = true
+                foreground = getDrawable(R.drawable.dikciz_drawer_row)
                 setOnClickListener { showAppGroupContents(widget) }
             }
         }
@@ -3320,6 +3323,7 @@ class DikcizHomeActivity : Activity() {
                 bottomMargin = densityPixels(APP_GROUP_MEMBER_GAP_DP)
             }
             contentDescription = application.label
+            foreground = getDrawable(R.drawable.dikciz_drawer_row)
             addView(ImageView(this@DikcizHomeActivity).apply {
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 setImageDrawable(application.icon)
@@ -3547,6 +3551,9 @@ class DikcizHomeActivity : Activity() {
         }
         view.isClickable = true
         view.isFocusable = true
+        if (view is DikcizAppShortcutTileView) {
+            view.foreground = getDrawable(R.drawable.dikciz_drawer_row)
+        }
         view.setOnClickListener { launchExplicitComponent(component) }
     }
 
@@ -12192,7 +12199,6 @@ class DikcizHomeActivity : Activity() {
         const val WIDGET_ID_FALLBACK_SLUG = "widget"
         const val WIDGET_ID_SEPARATOR = "-"
         const val WIDGET_ID_SEPARATOR_CHARACTER = '-'
-        const val APP_MOVE_HOLD_MILLISECONDS = 1000L
         const val WIDGET_PICKUP_SCALE = 1.08f
         const val WIDGET_MOVE_ELEVATION_DP = 12
         const val WIDGET_TOP_EDGE_MOVE_GESTURE_HEIGHT_DP = 24

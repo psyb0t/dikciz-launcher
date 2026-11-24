@@ -18,8 +18,8 @@ Open **Dikciz > Automation debugger** to follow a dispatched event through its h
 4. For an event, choose **Event payload** to inspect retained data. Choose **Simulate** to test a current script or app against that event.
 
 <div class="docs-gallery">
-<figure><img width="280" src="{{ "/images/automation-workbench/history.png" | relative_url }}" alt="Automation debugger filtered to events with an example device inspection event"><figcaption>Browse retained events.</figcaption></figure>
-<figure><img width="280" src="{{ "/images/automation-workbench/trace.png" | relative_url }}" alt="Event trace linking an example event, its device-check app and a device information command"><figcaption>Follow the event to its handler and commands.</figcaption></figure>
+<figure><img width="280" src="images/automation-workbench/history.png" alt="Automation debugger filtered to events with an example device inspection event"><figcaption>Browse retained events.</figcaption></figure>
+<figure><img width="280" src="images/automation-workbench/trace.png" alt="Event trace linking an example event, its device-check app and a device information command"><figcaption>Follow the event to its handler and commands.</figcaption></figure>
 </div>
 
 A completed record means that execution returned. Verify the operation's own delivery or launch result before claiming an external effect completed. An interrupted record has an uncertain final effect. Do not automatically replay writes after interruption.

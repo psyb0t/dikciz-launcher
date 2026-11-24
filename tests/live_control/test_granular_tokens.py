@@ -24,6 +24,20 @@ def test_granular_tokens_complete_catalogue(token_owner):
     (ARTIFACT_DIRECTORY / "remote-grant-discovery.json").write_text(json.dumps({"permissions": grants}))
 
 
+def test_granular_tokens_accessibility_clipboard(token_owner):
+    legacy, _ = create(token_owner, ["ui.control"])
+    paste, _ = create(token_owner, ["command.accessibilityAction.action.paste"])
+    tool = "dikciz_accessibility_action"
+    legacy_actions = catalogue(legacy)[tool]["inputSchema"]["properties"]["action"]["enum"]
+    assert "copy" not in legacy_actions and "paste" not in legacy_actions
+    paste_actions = catalogue(paste)[tool]["inputSchema"]["properties"]["action"]["enum"]
+    assert paste_actions == ["paste"]
+    arguments = {"snapshotId": str(uuid.uuid4()), "nodeId": "node.0", "action": "paste"}
+    for protocol in PROTOCOLS:
+        call(legacy, "accessibilityAction", arguments, protocol, DENIED)
+        call(paste, "accessibilityAction", arguments | {"action": "copy"}, protocol, DENIED)
+
+
 @pytest.mark.parametrize("protocol", PROTOCOLS)
 def test_granular_tokens_command_and_action(token_owner, protocol):
     token, _ = create(token_owner, ["command.deviceState", "command.fileManage.action.stat"])

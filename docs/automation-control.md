@@ -257,13 +257,64 @@ Enable **Dikciz cross-app automation** in Android's Accessibility settings befor
 
 Each node has a generated path ID such as `node.2.1`, nullable `text`, `contentDescription`, `viewIdResourceName`, finite supported `actions`, state, and screen bounds. A child that contains a visible label can have no action of its own. Walk its generated parent path to find the enclosing clickable row. The snapshot contains at most 256 nodes, descends at most 16 levels, and bounds copied text fields to 512 characters. Dikciz retains at most 32 live snapshot descriptors. The next snapshot request returns `accessibility_snapshot_limit` until a five-second descriptor expires.
 
-`accessibilityAction` and `dikciz_accessibility_action` require `snapshotId`, `nodeId`, and one action: `click`, `longClick`, `focus`, `clearFocus`, `scrollForward`, `scrollBackward`, `setText`, or `select`. `setText` also requires `text`, with a maximum of 8,192 characters. The snapshot ID lasts five seconds. Before acting, Dikciz resolves the current root and node again. It rejects expired or changed windows, including a visible update elsewhere in the captured tree, instead of trusting a retained Android node. An expired descriptor returns `accessibility_snapshot_expired`; a descriptor that still exists but no longer matches its active window returns `accessibility_snapshot_stale`. An accepted action reports `executed`; Android can still return `android_rejected`. If the Accessibility service is unavailable, `accessibility_not_enabled` takes precedence over a retained descriptor's expiry. That result tells an unattended script to report the access problem instead of a stale local snapshot.
+`accessibilityAction` and `dikciz_accessibility_action` use `snapshotId`, `nodeId` and an action from the node's `actions` list. `setText` requires `text`, up to 8,192 characters. Use `copy` for the target app's current selection and `paste` to insert the current Android clipboard at the target app's selection or caret. Both require a visible, enabled, focused node that advertises the action. Password fields are excluded. Copy and Paste take no `text` field and return no clipboard payload. Scope tokens with `command.accessibilityAction.action.copy` or `command.accessibilityAction.action.paste`. The legacy `ui.control` grant alone leaves these actions unavailable. The snapshot ID lasts five seconds. Before acting, Dikciz resolves the current root and node again. It rejects expired or changed windows, including a visible update elsewhere in the captured tree, instead of trusting a retained Android node. An expired descriptor returns `accessibility_snapshot_expired`; a descriptor that still exists but no longer matches its active window returns `accessibility_snapshot_stale`. An accepted action reports `executed`; Android can still return `android_rejected`. If the Accessibility service is unavailable, `accessibility_not_enabled` takes precedence over a retained descriptor's expiry. That result tells an unattended script to report the access problem instead of a stale local snapshot.
 
 A rejected action from an enabled automation script writes the normal action and script-failure records to `/sdcard/Dikciz/logs/`. WebSocket `scriptLogs` and MCP `dikciz_script_logs` return the same bounded projection. When `logging.notifyOnScriptError` is enabled and Android allows notifications, the existing per-script quiet period also applies to rejected actions. A direct WebSocket or MCP action returns its exact synchronous error without creating a background script-error notification.
 
 The focused `make dikciz-test-accessibility-third-party` target installs a separate local Android fixture and proves both remote transports act on its visible native button. It also proves that an update anywhere in the captured fixture tree invalidates an earlier descriptor before another action can report success. A physical-phone run can prove owner-state parity after a clean current install, but direct cross-app actions remain unavailable until the owner enables Accessibility in Android settings.
 
-`automationDispatch` and `dikciz_automation_dispatch` also accept two typed cross-app actions. `accessibilityGesture` requires a current `snapshotId`, a `gesture`, and `durationMilliseconds`. A `tap` supplies integral `x` and `y`. A `swipe` supplies integral `startX`, `startY`, `endX`, and `endY`. Coordinates must be visible screen coordinates. Duration is one through 10,000 milliseconds. Dikciz rechecks the snapshot root before asking Android to run the gesture, then returns `executed`, `gesture_cancelled`, `gesture_timeout`, or `android_rejected`.
+Send a screen gesture with `automationDispatch` over HTTP or WebSocket, or with `dikciz_automation_dispatch` over MCP. Use an existing HTML `sourceWidgetAddress`. Each typed `accessibilityGesture` uses a current `snapshotId` and a `gesture` from the table below. Coordinates are integer screen pixels within the current display. Use a fresh snapshot for each gesture that changes the screen.
+
+| Gesture | Additional fields | Input Android receives |
+| --- | --- | --- |
+| `tap` | `x`, `y` | One short touch near the point. |
+| `hold` | `x`, `y` | One long touch near the point. The target app and Android settings decide when to treat it as a long press. |
+| `doubleTap` | `x`, `y` | Two touches close together, inside Android's double-tap window. |
+| `swipe` | `startX`, `startY`, `endX`, `endY` | One touch path from the start to the end. Choose a short duration for a flick or a longer duration for a slow drag. |
+| `twoFingerSwipe` | `startX`, `startY`, `endX`, `endY`, `secondStartX`, `secondStartY`, `secondEndX`, `secondEndY` | Two paths at once. Move them together for a pinch or apart for a spread. At least one finger must move, and the two starting and ending positions must be distinct. |
+
+Every gesture also takes these optional fields:
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `durationMilliseconds` | See meaning | Integer, 1 through 10,000 ms. For `tap`, `hold` and `doubleTap` it is the press time of each touch, and a `doubleTap` allows 1 through 100 ms. For swipes it is the whole path. A humanized gesture varies a given duration by about 12 percent. Without it, a humanized tap or double-tap press draws its own time, a hold lasts about 650 ms and a swipe or two-finger swipe about 520 ms, each varied the same way. |
+| `humanize` | `true` | `false` sends the exact gesture: a stationary press on the point for the full duration, straight lines at constant speed, and a fixed 60 ms gap between the two touches of a `doubleTap`. `durationMilliseconds` then defaults to 100 ms for a tap, 650 ms for a hold, 60 ms per double-tap press, 520 ms for a swipe and 520 ms for a two-finger swipe. |
+| `targetWidth`, `targetHeight` | None | `tap`, `hold` and `doubleTap` only. The touched element's size in pixels, for example from a snapshot node's `bounds`. With both set, a humanized touch lands inside the element. Without them, it lands within about 2 mm of the point. |
+
+A humanized gesture follows measurements of real people instead of replaying exact numbers. The figures come from the [Touchalytics](https://www.mariofrank.net/touchalytics/) raw touch data, fitted by [`scripts/fit-dikciz-touch-model.py`](https://github.com/psyb0t/dikciz-launcher/blob/main/scripts/fit-dikciz-touch-model.py):
+
+- A tap presses for about 90 ms. Most fall between 40 and 280 ms, and none reach 400 ms, where Android starts a long press. It lands scattered around the point and slightly below the centre of its target, and rolls under a millimetre in about a third of presses. A hold always rolls slightly, as a resting finger does.
+- The two touches of a `doubleTap` land near each other, about 110 ms apart. Touchalytics has no double taps, so this gap is chosen to sit inside Android's double-tap window rather than fitted.
+- A swipe bows sideways by about 5 percent of its length, with a small tremor. Its speed rises and falls a few times, peaks about a third of the way through, and is usually still above zero when the finger lands and when it lifts. It ends within about a millimetre of the requested end.
+- The second finger of a `twoFingerSwipe` goes down up to 30 ms after the first.
+
+Planned points that would fall off the display are kept on its edge. Each launcher process draws its own touch habits once, so its gestures vary around one consistent hand rather than the whole population. Android still marks every gesture as injected by an accessibility service and reports a fixed pressure and contact size, so humanizing does not hide that the input came from automation. A receiving app that checks those signals will still see it.
+
+The result reports `humanized` and the planned `durationMilliseconds`. Dikciz rechecks the active window just before dispatch. `executed` reports Android's completion callback. Inspect the destination app to verify effects such as scrolling or zoom. Android can cancel an in-flight gesture when another touch takes over. Other outcomes include `gesture_cancelled`, `gesture_timeout`, `android_rejected` and `accessibility_gesture_invalid`. Set a client timeout above the gesture duration, especially when using the full 10 seconds or batching actions.
+
+The touch-check fixture in [`tests/configurable-widget-provider`](https://github.com/psyb0t/dikciz-launcher/tree/main/tests/configurable-widget-provider) logs every touch it receives as a `DikcizTouchTrace` line. [`scripts/score-dikciz-touch.py`](https://github.com/psyb0t/dikciz-launcher/blob/main/scripts/score-dikciz-touch.py) reads those lines and reports the scripted-input signs it finds: ruler-straight or constant-speed swipes, taps on one pixel or on a target's exact centre, repeated durations, and one double-tap gap repeated exactly. The focused live test sends the same session with `humanize: false`, which the scorer must flag, and again humanized, which it must pass.
+
+For example, POST the following body to the plain HTTP endpoint at `/v1/automation` after taking an `accessibilitySnapshot`. Substitute a unique request UUID, an existing widget address and the returned snapshot ID.
+
+```json
+{
+  "requestId": "00000000-0000-4000-8000-000000000001",
+  "type": "automationDispatch",
+  "sourceWidgetAddress": "1H1V-example",
+  "actions": [
+    {
+      "type": "accessibilityGesture",
+      "snapshotId": "snapshot-from-accessibilitySnapshot",
+      "gesture": "hold",
+      "x": 300,
+      "y": 600,
+      "targetWidth": 240,
+      "targetHeight": 120,
+      "durationMilliseconds": 800
+    }
+  ]
+}
+```
 
 `accessibilityGlobalAction` takes one `action`: `back`, `home`, `recents`, `notifications`, `quickSettings`, `lockScreen`, or `takeScreenshot`. Android decides whether a particular global action is currently available. Dikciz returns its actual result. Accessibility does not provide arbitrary hardware key injection.
 

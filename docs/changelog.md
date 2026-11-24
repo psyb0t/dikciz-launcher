@@ -7,6 +7,17 @@ nav_order: 10
 
 # Changelog
 
+## [0.37.0] - 2026-11-24
+
+- Send humanized Accessibility gestures by default. Taps scatter around the point and vary their press time, swipes curve and change speed, and double taps keep a varied gap. Timing and shape follow pooled measurements from the Touchalytics touch dataset. Send `humanize: false` for the previous exact gesture.
+- Make `durationMilliseconds` optional on gestures. Pass `targetWidth` and `targetHeight` with a tap, hold or double tap so a humanized touch lands inside the element. Each gesture result reports `humanized` and the planned duration.
+- Copy the selected text of a focused node or paste the Android clipboard into it with the `copy` and `paste` Accessibility actions. Scoped remote tokens cannot use them.
+- See a highlight when you touch an app shortcut, app group member, page dot or launcher control. Pick up an app shortcut after Android's Touch & hold delay instead of a fixed second.
+- Check gesture traces with `scripts/score-dikciz-touch.py`. It flags straight, constant-speed or repeated touches recorded by the test fixture.
+- Build the documentation site with Docusaurus. Page addresses stay the same except the offline search guide, which moved to `/offline-search/`.
+
+Clients that depend on exact gesture coordinates or timing should send `humanize: false`.
+
 ## [0.36.0] - 2026-11-22
 
 - Set the Impact Response countdown from 5 to 120 seconds. The default is 20 seconds. Cancel during the countdown to resume monitoring through the original armed deadline.

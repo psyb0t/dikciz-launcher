@@ -62,3 +62,12 @@ __pycache__/
 
 # Local agent and editor settings.
 *.local.json
+
+# Docusaurus site build (scripts/prepare-docs-site.py and make docs-build)
+/website/.assets/
+/website/.content/
+/website/.corepack/
+/website/.docusaurus/
+/website/.pnpm-store/
+/website/build/
+/website/node_modules/

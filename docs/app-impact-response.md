@@ -15,7 +15,7 @@ Impact Response watches for a possible hard impact using your phone's linear acc
 Impact Response ships inside Dikciz Launcher and opens disarmed. Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), follow [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Dikciz apps > Impact response**.
 
 <figure>
-  <img src="{{ '/images/screens/custom-app-impact-response.png' | relative_url }}" alt="Impact Response open and disarmed, with the emergency contact, motion threshold and countdown settings" width="300" loading="lazy">
+  <img src="images/screens/custom-app-impact-response.png" alt="Impact Response open and disarmed, with the emergency contact, motion threshold and countdown settings" width="300" loading="lazy">
   <figcaption>Fresh setup with monitoring disarmed.</figcaption>
 </figure>
 

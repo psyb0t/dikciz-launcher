@@ -82,7 +82,7 @@ Impact Response opens disarmed. Save an exact contact, review Android access, an
 
 Travel todo is a working reference. Use the checklist normally, or grant location access and explicitly choose **Watch New York**. A matching GPS event checks off the trip even with the UI closed. Read [the full walkthrough](todo-app-tutorial.md) before changing the destination or event. Installation and opening do not start its location watch.
 
-<img src="{{ "/images/custom-apps/custom-apps.png" | relative_url }}" alt="Custom apps manager with bundled source-editable apps" width="320">
+<img src="images/custom-apps/custom-apps.png" alt="Custom apps manager with bundled source-editable apps" width="320">
 
 ## Add apps and widgets
 
@@ -124,7 +124,7 @@ If the page has no free grid rectangle, Dikciz shows a refusal. It does not plac
 
 Newly added items return to normal interaction without an editing outline. Choose Move or Resize from their edit actions when you want to change their placement.
 
-Hold a native app shortcut or app group still for one second, then drag it to move. A swipe before that deadline cancels the move. Hold and release to open edit actions. Long press a native widget, or the top move handle of an HTML widget, for **Move**, **Resize**, **Edit**, **Appearance**, **Fit content**, **Lock**, and **Delete**. The available actions depend on the item type. HTML widgets keep the top 24Dp for moving, while their content keeps normal taps and scrolling. Long press anywhere in the HTML content or background for the same whole-widget controls.
+Touch a native app shortcut or app group to see it highlight. Hold still until it lifts, then drag to move it. Dikciz follows Android's **Touch & hold delay**. A quick swipe keeps its normal navigation behavior. Hold and release to open edit actions. Long press a native widget, or the top move handle of an HTML widget, for **Move**, **Resize**, **Edit**, **Appearance**, **Fit content**, **Lock**, and **Delete**. The available actions depend on the item type. HTML widgets keep the top 24Dp for moving, while their content keeps normal taps and scrolling. Long press anywhere in the HTML content or background for the same whole-widget controls.
 
 ![Widget action sheet](images/user-guide/11-widget-actions.png)
 

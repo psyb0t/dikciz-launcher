@@ -71,6 +71,9 @@ internal class DikcizPageIndicatorView @JvmOverloads constructor(
     private val inactiveDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = context.getColor(R.color.dikciz_muted_foreground)
     }
+    private val pressedDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = context.getColor(R.color.dikciz_brand_cheese)
+    }
     private val mainHandler = Handler(Looper.getMainLooper())
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val pageTitles = mutableListOf<String>()
@@ -141,14 +144,21 @@ internal class DikcizPageIndicatorView @JvmOverloads constructor(
             return
         }
         val first = firstVisibleDot()
+        val pressedIndex = if (isPressed) nearestDotIndex(initialMainAxisCoordinate()) else null
         repeat(visibleDotCount()) { position ->
             val index = first + position
             val isSelected = index == selectedPageIndex
+            val isTargetPressed = index == pressedIndex
+            val paint = when {
+                isTargetPressed -> pressedDotPaint
+                isSelected -> activeDotPaint
+                else -> inactiveDotPaint
+            }
             canvas.drawCircle(
                 dotXCoordinate(position),
                 dotYCoordinate(position),
-                if (isSelected) activeDotRadius() else inactiveDotRadius(),
-                if (isSelected) activeDotPaint else inactiveDotPaint,
+                if (isSelected || isTargetPressed) activeDotRadius() else inactiveDotRadius(),
+                paint,
             )
         }
     }
@@ -224,6 +234,8 @@ internal class DikcizPageIndicatorView @JvmOverloads constructor(
         isLongPressHandled = false
         isPageSelectionRequested = false
         isTrackingTouch = true
+        isPressed = true
+        invalidate()
         parent?.requestDisallowInterceptTouchEvent(true)
         reportInteraction(PageIndicatorAction.TouchDown, selectedPageIndex)
         mainHandler.postDelayed(longPressRunnable, ViewConfiguration.getLongPressTimeout().toLong())
@@ -235,6 +247,10 @@ internal class DikcizPageIndicatorView @JvmOverloads constructor(
             return true
         }
         mainHandler.removeCallbacks(longPressRunnable)
+        if (isPressed) {
+            isPressed = false
+            invalidate()
+        }
         parent?.requestDisallowInterceptTouchEvent(true)
         val distance = mainAxisCoordinate(event) - initialMainAxisCoordinate()
         if (!isPageSelectionRequested && abs(distance) >= pageSwitchThreshold()) {
@@ -417,6 +433,8 @@ internal class DikcizPageIndicatorView @JvmOverloads constructor(
         isLongPressHandled = false
         isPageSelectionRequested = false
         isTrackingTouch = false
+        isPressed = false
+        invalidate()
         parent?.requestDisallowInterceptTouchEvent(false)
     }
 

@@ -254,7 +254,7 @@ WebView invocation: `await dikciz.command("accessibilityAction", fields)`. Headl
 
 | Parameter | Required | Type | Default | Definition and bounds |
 | --- | --- | --- | --- | --- |
-| `action` | Yes | `string` | `Not declared` | Supported node action: click, longClick, focus, clearFocus, scrollForward, scrollBackward, setText, or select. {"enum": ["click", "longClick", "focus", "clearFocus", "scrollForward", "scrollBackward", "setText", "select"], "maximum": 32} |
+| `action` | Yes | `string` | `Not declared` | Node action from the snapshot. Copy and paste use the Android clipboard and require a focused node. {"enum": ["click", "longClick", "focus", "clearFocus", "scrollForward", "scrollBackward", "setText", "select", "copy", "paste"], "maximum": 32} |
 | `autoRequestPermissions` | No | `boolean` | `false` | Show owner permission recovery when required. Defaults to false; explicit permission-request tools always ask. Never grants access or retries an operation. |
 | `nodeId` | Yes | `string` | `Not declared` | Node ID from the same accessibility snapshot. {"maximum": 128} |
 | `snapshotId` | Yes | `string` | `Not declared` | Opaque snapshot ID returned by dikciz_accessibility_snapshot. {"maximum": 36} |
@@ -278,7 +278,7 @@ WebView invocation: `await dikciz.command("accessibilityAction", fields)`. Headl
     },
     "action": {
       "type": "string",
-      "description": "Supported node action: click, longClick, focus, clearFocus, scrollForward, scrollBackward, setText, or select.",
+      "description": "Node action from the snapshot. Copy and paste use the Android clipboard and require a focused node.",
       "maximum": 32,
       "enum": [
         "click",
@@ -288,7 +288,9 @@ WebView invocation: `await dikciz.command("accessibilityAction", fields)`. Headl
         "scrollForward",
         "scrollBackward",
         "setText",
-        "select"
+        "select",
+        "copy",
+        "paste"
       ]
     },
     "text": {
@@ -1587,7 +1589,7 @@ WebView invocation: `await dikciz.command("audioPlayback", fields)`. Headless Ja
 
 ## dikciz_automation_dispatch
 
-Run the same typed action array used by an HTML widget or Lua script.
+Run the same typed action array used by an HTML widget or Lua script. Action fields: dikciz://docs/guides/actions-state; Accessibility actions and humanized gestures: dikciz://docs/guides/actions-ui.
 
 Ordinary command: `automationDispatch`. [Token scope definitions](token-permissions.md#automationdispatch). [Result envelope and task guides](developer-manual.md#result-contract).
 

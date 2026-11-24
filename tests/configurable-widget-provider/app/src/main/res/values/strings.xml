@@ -12,4 +12,7 @@
     <string name="fixture_accessibility_title">External accessibility fixture</string>
     <string name="fixture_accessibility_action_count">External action count: %1$d</string>
     <string name="fixture_accessibility_action">Complete external action</string>
+    <string name="fixture_accessibility_copy_text">Dikciz fixture café</string>
+    <string name="fixture_accessibility_replace_text">Replace this</string>
+    <string name="fixture_accessibility_touch_count">External touch count: %1$d</string>
 </resources>

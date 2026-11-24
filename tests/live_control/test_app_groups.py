@@ -22,6 +22,8 @@ CLOCK_COMPONENT = "com.google.android.deskclock/com.android.deskclock.DeskClock"
 APP_WIDGET_TYPE_NAME = "app"
 APP_GROUP_WIDGET_TYPE_NAME = "appGroup"
 WIDGET_SETTLE_SECONDS = 2.0
+ANDROID_DEFAULT_HOLD_SECONDS = 0.65
+QUICK_SWIPE_MILLISECONDS = 120
 FIRST_COLUMN = 0
 SECOND_COLUMN = 1
 
@@ -103,6 +105,7 @@ def drag_widget_onto(source_title: str, target_title: str) -> None:
     direct_hold_then_drag(
         center(source),
         (center(target)[0], center(source)[1]),
+        hold_seconds=ANDROID_DEFAULT_HOLD_SECONDS,
     )
     time.sleep(WIDGET_SETTLE_SECONDS)
 
@@ -117,6 +120,16 @@ def test_dropping_an_app_tile_on_another_builds_one_group(
             app_widget(SECOND_APP_WIDGET_ID, CLOCK_TILE_TITLE, CLOCK_COMPONENT, SECOND_COLUMN),
         ],
     )
+
+    original = group_page_widgets(websocket_control)
+    source = center(physical_description_bounds(
+        WIDGET_MOVE_HANDLE_DESCRIPTION.format(CLOCK_TILE_TITLE),
+    ))
+    target = center(physical_description_bounds(
+        WIDGET_MOVE_HANDLE_DESCRIPTION.format(SETTINGS_TILE_TITLE),
+    ))
+    direct_swipe(source, target, QUICK_SWIPE_MILLISECONDS)
+    assert group_page_widgets(websocket_control) == original
 
     drag_widget_onto(CLOCK_TILE_TITLE, SETTINGS_TILE_TITLE)
 

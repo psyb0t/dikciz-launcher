@@ -206,45 +206,26 @@ internal object DikcizAutomationActionDocument {
                 val gestureKind = DikcizAccessibilityGestureKind.fromPersistedValue(
                     requireString(action, FIELD_GESTURE, MAXIMUM_ACCESSIBILITY_GESTURE_CHARACTERS),
                 ) ?: throw IllegalArgumentException(MESSAGE_INVALID_ACTION)
+                requireAllowedKeys(
+                    action,
+                    ACCESSIBILITY_GESTURE_KEYS + gestureKind.fields + gestureKind.optionalFields,
+                    ACCESSIBILITY_GESTURE_KEYS + gestureKind.fields,
+                )
                 val snapshotID = requireString(
                     action,
                     FIELD_SNAPSHOT_ID,
                     MAXIMUM_ACCESSIBILITY_SNAPSHOT_ID_CHARACTERS,
                 )
-                val durationMilliseconds = requireGestureDuration(action)
-                when (gestureKind) {
-                    DikcizAccessibilityGestureKind.Tap -> {
-                        requireExactKeys(action, ACCESSIBILITY_TAP_GESTURE_KEYS)
-                        val x = requireGestureCoordinate(action, FIELD_X)
-                        val y = requireGestureCoordinate(action, FIELD_Y)
-                        DikcizLuaAutomationAction.AccessibilityGesture(
-                            DikcizAccessibilityGesture(
-                                snapshotID = snapshotID,
-                                kind = gestureKind,
-                                startX = x,
-                                startY = y,
-                                endX = x,
-                                endY = y,
-                                durationMilliseconds = durationMilliseconds,
-                            ),
-                        )
-                    }
-
-                    DikcizAccessibilityGestureKind.Swipe -> {
-                        requireExactKeys(action, ACCESSIBILITY_SWIPE_GESTURE_KEYS)
-                        DikcizLuaAutomationAction.AccessibilityGesture(
-                            DikcizAccessibilityGesture(
-                                snapshotID = snapshotID,
-                                kind = gestureKind,
-                                startX = requireGestureCoordinate(action, FIELD_START_X),
-                                startY = requireGestureCoordinate(action, FIELD_START_Y),
-                                endX = requireGestureCoordinate(action, FIELD_END_X),
-                                endY = requireGestureCoordinate(action, FIELD_END_Y),
-                                durationMilliseconds = durationMilliseconds,
-                            ),
-                        )
-                    }
-                }
+                DikcizLuaAutomationAction.AccessibilityGesture(
+                    DikcizAccessibilityGesture.fromFields(
+                        snapshotID,
+                        gestureKind,
+                        optionalGestureDuration(action),
+                        optionalHumanize(action),
+                        optionalTargetSize(action, DikcizAccessibilityGestureKind.TARGET_WIDTH_FIELD),
+                        optionalTargetSize(action, DikcizAccessibilityGestureKind.TARGET_HEIGHT_FIELD),
+                    ) { field -> requireGestureCoordinate(action, field) },
+                )
             }
 
             ACTION_ACCESSIBILITY_GLOBAL_ACTION -> {
@@ -270,7 +251,8 @@ internal object DikcizAutomationActionDocument {
         return value.toInt()
     }
 
-    private fun requireGestureDuration(action: JSONObject): Long {
+    private fun optionalGestureDuration(action: JSONObject): Long? {
+        if (!action.has(FIELD_DURATION_MILLISECONDS)) return null
         val duration = action.opt(FIELD_DURATION_MILLISECONDS) as? Number
             ?: throw IllegalArgumentException(MESSAGE_INVALID_ACTION)
         val value = duration.toDouble()
@@ -281,6 +263,23 @@ internal object DikcizAutomationActionDocument {
                 value == floor(value),
         ) { MESSAGE_INVALID_ACTION }
         return value.toLong()
+    }
+
+    private fun optionalHumanize(action: JSONObject): Boolean {
+        if (!action.has(DikcizAccessibilityGestureKind.HUMANIZE_FIELD)) return true
+        return action.opt(DikcizAccessibilityGestureKind.HUMANIZE_FIELD) as? Boolean
+            ?: throw IllegalArgumentException(MESSAGE_INVALID_ACTION)
+    }
+
+    private fun optionalTargetSize(action: JSONObject, field: String): Int? {
+        if (!action.has(field)) return null
+        val size = action.opt(field) as? Number ?: throw IllegalArgumentException(MESSAGE_INVALID_ACTION)
+        val value = size.toDouble()
+        require(
+            value.isFinite() && value == floor(value) &&
+                value in MINIMUM_TARGET_SIZE..DIKCIZ_ACCESSIBILITY_MAXIMUM_GESTURE_COORDINATE.toDouble(),
+        ) { MESSAGE_INVALID_ACTION }
+        return value.toInt()
     }
 
     private fun requireWidgetAddress(action: JSONObject, limits: DikcizLimits): String {
@@ -542,9 +541,8 @@ internal object DikcizAutomationActionDocument {
     private const val FIELD_COMPONENT = "component"
     private const val FIELD_CSS = "css"
     private const val FIELD_EVENT = "event"
-    private const val FIELD_END_X = "endX"
-    private const val FIELD_END_Y = "endY"
     private const val FIELD_DURATION_MILLISECONDS = "durationMilliseconds"
+    private const val MINIMUM_TARGET_SIZE = 1.0
     private const val FIELD_GESTURE = "gesture"
     private const val FIELD_HTML = "html"
     private const val FIELD_INTENT_TYPE = "intentType"
@@ -558,8 +556,6 @@ internal object DikcizAutomationActionDocument {
     private const val FIELD_STATE = "state"
     private const val FIELD_EVENT_SUBSCRIPTIONS = HomeConfigStore.HTML_EVENT_SUBSCRIPTIONS_KEY
     private const val FIELD_ITEM_STATES = DikcizHtmlWidgetStateStore.ITEM_STATES_FIELD
-    private const val FIELD_START_X = "startX"
-    private const val FIELD_START_Y = "startY"
     private const val FIELD_SNAPSHOT_ID = "snapshotId"
     private const val FIELD_SELECTOR = "selector"
     private const val FIELD_RECIPIENT = "recipient"
@@ -569,8 +565,6 @@ internal object DikcizAutomationActionDocument {
     private const val FIELD_VALUE = "value"
     private const val FIELD_VALUES = "values"
     private const val FIELD_WIDGET_ADDRESS = "widgetAddress"
-    private const val FIELD_X = "x"
-    private const val FIELD_Y = "y"
     private const val MAXIMUM_ACTION_COUNT = 8
     private const val MAXIMUM_DOM_ATTRIBUTE_COUNT = 16
     private const val MAXIMUM_DOM_PATCH_FIELDS = 5
@@ -627,24 +621,7 @@ internal object DikcizAutomationActionDocument {
         FIELD_TYPE,
     )
     private val ACCESSIBILITY_GLOBAL_ACTION_KEYS = setOf(FIELD_ACTION, FIELD_TYPE)
-    private val ACCESSIBILITY_TAP_GESTURE_KEYS = setOf(
-        FIELD_DURATION_MILLISECONDS,
-        FIELD_GESTURE,
-        FIELD_SNAPSHOT_ID,
-        FIELD_TYPE,
-        FIELD_X,
-        FIELD_Y,
-    )
-    private val ACCESSIBILITY_SWIPE_GESTURE_KEYS = setOf(
-        FIELD_DURATION_MILLISECONDS,
-        FIELD_END_X,
-        FIELD_END_Y,
-        FIELD_GESTURE,
-        FIELD_SNAPSHOT_ID,
-        FIELD_START_X,
-        FIELD_START_Y,
-        FIELD_TYPE,
-    )
+    private val ACCESSIBILITY_GESTURE_KEYS = setOf(FIELD_TYPE, FIELD_GESTURE, FIELD_SNAPSHOT_ID)
     private val EXPLICIT_INTENT_KEYS = setOf(FIELD_ACTION, FIELD_COMPONENT, FIELD_INTENT_TYPE, FIELD_TYPE)
     private val EXPLICIT_INTENT_REQUIRED_KEYS = setOf(FIELD_COMPONENT, FIELD_INTENT_TYPE, FIELD_TYPE)
     private val EMIT_EVENT_KEYS = setOf(FIELD_COALESCING_KEY, FIELD_EVENT, FIELD_PAYLOAD, FIELD_TYPE)

@@ -2,6 +2,8 @@ package org.fossify.home.dikciz
 
 import android.content.Context
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.InsetDrawable
+import android.graphics.drawable.LayerDrawable
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
@@ -85,22 +87,14 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
             iconResourceID = R.drawable.dikciz_icon_route_app_drawer,
             descriptionResourceID = R.string.dikciz_launcher_control_app_drawer,
         ) { onAppDrawerRequested?.invoke() }
-        chatButton = Button(context).apply {
-            background = context.getDrawable(R.drawable.dikciz_control_pill)
-            gravity = Gravity.CENTER
-            minWidth = densityPixels(CONTROL_SIZE_DP)
-            minimumWidth = densityPixels(CONTROL_SIZE_DP)
-            minHeight = densityPixels(CONTROL_SIZE_DP)
-            minimumHeight = densityPixels(CONTROL_SIZE_DP)
-            setPadding(densityPixels(HORIZONTAL_PADDING_DP), 0, densityPixels(HORIZONTAL_PADDING_DP), 0)
-            setTextColor(context.getColor(R.color.dikciz_brand_cheese))
-            textSize = 11f
-            val icon = context.getDrawable(R.drawable.dikciz_chat_cheese)?.mutate()
-            icon?.setBounds(0, 0, densityPixels(CHAT_ICON_DP), densityPixels(CHAT_ICON_DP))
-            setCompoundDrawablesRelative(icon, null, null, null)
-            contentDescription = "Open Dikciz chat"
-            setOnClickListener { onChatRequested?.invoke() }
-        }
+        chatButton = createPillButton(
+            iconResourceID = R.drawable.dikciz_chat_cheese,
+            descriptionResourceID = R.string.dikciz_chat_open,
+            iconSizeDp = CHAT_ICON_DP,
+        ) { onChatRequested?.invoke() }
+        chatButton.setTextColor(context.getColor(R.color.dikciz_brand_cheese))
+        chatButton.textSize = CHAT_UNREAD_TEXT_SP
+        chatButton.compoundDrawablePadding = densityPixels(CHAT_UNREAD_GAP_DP)
         addView(appDrawerButton, pillLayoutParameters())
         addView(pageSearchButton, pillLayoutParameters())
         addView(chatButton, pillLayoutParameters())
@@ -109,7 +103,11 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
 
     fun setChatUnread(count: Int) {
         chatButton.text = if (count == 0) "" else count.coerceAtMost(99).toString()
-        chatButton.contentDescription = "Open Dikciz chat. $count unread"
+        chatButton.contentDescription = if (count == 0) {
+            context.getString(R.string.dikciz_chat_open)
+        } else {
+            context.getString(R.string.dikciz_chat_open_unread, count)
+        }
     }
 
     fun setControlsVisible(areControlsVisible: Boolean) {
@@ -120,10 +118,14 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
         iconResourceID: Int,
         descriptionResourceID: Int,
         iconTintColorResourceID: Int = NO_TINT,
+        iconSizeDp: Int = CONTROL_ICON_SIZE_DP,
         onSelected: () -> Unit,
     ): Button {
         return Button(context).apply {
-            background = context.getDrawable(R.drawable.dikciz_control_pill)
+            backgroundTintList = null
+            val surface = requireNotNull(context.getDrawable(R.drawable.dikciz_control_pill))
+            val feedback = requireNotNull(context.getDrawable(R.drawable.dikciz_drawer_row))
+            background = InsetDrawable(LayerDrawable(arrayOf(surface, feedback)), densityPixels(CONTROL_INSET_DP))
             gravity = Gravity.CENTER
             minHeight = densityPixels(CONTROL_SIZE_DP)
             minimumHeight = densityPixels(CONTROL_SIZE_DP)
@@ -137,7 +139,7 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
             )
             contentDescription = context.getString(descriptionResourceID)
             setCompoundDrawablesRelative(
-                pillIcon(iconResourceID, iconTintColorResourceID),
+                pillIcon(iconResourceID, iconTintColorResourceID, iconSizeDp),
                 null,
                 null,
                 null,
@@ -156,9 +158,9 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
      * unchanged. A multi-colour mark such as the brand mark passes no tint, because a
      * tint would flatten it to one solid shape.
      */
-    private fun pillIcon(iconResourceID: Int, tintColorResourceID: Int): Drawable? {
+    private fun pillIcon(iconResourceID: Int, tintColorResourceID: Int, iconSizeDp: Int): Drawable? {
         return context.getDrawable(iconResourceID)?.mutate()?.apply {
-            val iconSizePixels = densityPixels(CONTROL_ICON_SIZE_DP)
+            val iconSizePixels = densityPixels(iconSizeDp)
             setBounds(NO_SIZE, NO_SIZE, iconSizePixels, iconSizePixels)
             if (tintColorResourceID != NO_TINT) {
                 setTint(context.getColor(tintColorResourceID))
@@ -175,9 +177,12 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
     }
 
     private companion object {
-        const val CHAT_ICON_DP = 26
+        const val CHAT_ICON_DP = 20
+        const val CHAT_UNREAD_TEXT_SP = 11f
+        const val CHAT_UNREAD_GAP_DP = 3
         const val CONTROL_SIZE_DP = 48
-        const val CONTROL_ICON_SIZE_DP = 18
+        const val CONTROL_INSET_DP = 8
+        const val CONTROL_ICON_SIZE_DP = 16
         const val HORIZONTAL_PADDING_DP = 8
         const val NO_SIZE = 0
         const val NO_TINT = 0

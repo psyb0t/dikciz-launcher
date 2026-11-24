@@ -47,4 +47,4 @@ The archive format uses AES-256-GCM with a fresh 16-byte salt and 12-byte nonce,
 
 ## On the phone
 
-<img src="{{ "/images/operations/backups.png" | relative_url }}" alt="Backup and restore with a passphrase, optional provider keys and a separate preview action." width="280">
+<img src="images/operations/backups.png" alt="Backup and restore with a passphrase, optional provider keys and a separate preview action." width="280">

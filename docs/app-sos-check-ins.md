@@ -14,7 +14,7 @@ SOS and check-ins can text selected contacts after an explicit SOS trigger or a 
 
 Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), complete [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Dikciz apps > SOS and check-ins**.
 
-<img src="{{ '/images/screens/custom-app-sos.png' | relative_url }}" alt="SOS and check-ins app with contact and plan controls" width="300" loading="lazy">
+<img src="images/screens/custom-app-sos.png" alt="SOS and check-ins app with contact and plan controls" width="300" loading="lazy">
 
 1. Add exact contact numbers and save a plan. Preview the message and verify the recipients.
 2. Review Android SMS and notification access. Grant location access if you want the plan to include your location.
