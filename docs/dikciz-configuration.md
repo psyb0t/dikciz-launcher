@@ -210,6 +210,8 @@ Adding an app places an `app` tile in the first free grid cell, row-major from t
 
 An app tile draws its icon as the largest square the cell allows, measured against the narrower side, with the icon and its label centred in the cell as a pair. Resizing the tile resizes the icon with it.
 
+Home drag drops, swaps and grouping save on a background worker. The item remains at its release position until the atomic write completes. The save reloads the latest configuration and rejects a source or target whose placement changed or became locked during the drag. Group merges also reject changed app contents. A failed save returns the item to its stored position and shows the error. Other configuration fields remain intact. The worker finishes queued writes when its activity is destroyed.
+
 Dropping one app tile onto another makes an `appGroup` holding both, in drop order, at the target's cell. The group opens as a grid of its member icons. Tap a member to launch it. Hold and drag a member to an empty home cell, or hold and release it for **Move to page** or **Remove**. Moving it out saves the new shortcut and the updated group together. The source stays intact when a drop is cancelled, blocked, or the group is locked. Reducing a group to a single member replaces the group with a plain `app` widget for the survivor under its app label, keeping the cell and the widget ID, so a script addressing that widget keeps working. A group is never saved with fewer than two members.
 
 An `app` widget stores one flattened Android `component` and one `displayStyle`:

@@ -82,10 +82,11 @@ def direct_hold_then_drag(
     start: tuple[int, int],
     end: tuple[int, int],
     hold_seconds: float = 1.1,
+    hover_seconds: float = 0,
 ) -> None:
     device_command(
         f"input motionevent DOWN {start[0]} {start[1]} && sleep {hold_seconds} "
-        f"&& input motionevent MOVE {end[0]} {end[1]} "
+        f"&& input motionevent MOVE {end[0]} {end[1]} && sleep {hover_seconds} "
         f"&& input motionevent UP {end[0]} {end[1]}",
     )
 

@@ -1,0 +1,8 @@
+--- emulator-entrypoint.sh
++++ emulator-entrypoint.sh
+@@ -189 +189 @@
+-emulator \
++/opt/VirtualGL/bin/vglrun -d egl emulator \
+@@ -197 +197 @@
+-	-gpu swiftshader_indirect \
++	-gpu host \

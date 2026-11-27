@@ -601,7 +601,7 @@ def capture_app_group(connection: socket.socket) -> None:
     target = physical_description_bounds(
         WIDGET_MOVE_HANDLE_DESCRIPTION.format(STARTER_ANDROID_SETTINGS_TITLE),
     )
-    direct_hold_then_drag(center(source), (center(target)[0], center(source)[1]))
+    direct_hold_then_drag(center(source), (center(target)[0], center(source)[1]), hover_seconds=0.5)
     saved = current_configuration(connection)
     group_page = next(page for page in saved["launcher"]["home"]["pages"] if page["id"] == STARTER_NOTES_PAGE_ID)
     assert len(group_page["widgets"]) == 1 and group_page["widgets"][0]["type"] == "appGroup"
@@ -735,3 +735,7 @@ def test_capture_user_guide_context_menu_refresh(websocket_control):
 
 def test_capture_user_guide_page_creation_refresh(websocket_control):
     capture_page_creation(websocket_control)
+
+
+def test_capture_user_guide_grid_guides(websocket_control):
+    capture_widget_actions_and_grid_guides(websocket_control)

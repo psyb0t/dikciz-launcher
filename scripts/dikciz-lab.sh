@@ -11,6 +11,76 @@ SHARED_MCP_PORT=19102
 FORWARD_ARTIFACT_DIRECTORY=/artifacts
 DIKCIZ_TEST_SELECTOR_PATTERN='^test_[A-Za-z0-9_]+$'
 
+DIKCIZ_LAB_GRAPHICS_DIRECTORY="$REPOSITORY_DIR/.android-lab/graphics"
+export DIKCIZ_LAB_GRAPHICS_DIRECTORY
+if [[ -f "$DIKCIZ_LAB_GRAPHICS_DIRECTORY/enabled" ]]; then
+    mkdir --parents "$LAB_STATE_DIRECTORY"
+    # The pinned lab hardcodes its renderer. Patch a generated copy, never the image.
+    entrypoint_temporary="$(mktemp "$LAB_STATE_DIRECTORY/emulator-entrypoint.XXXXXX")"
+    patch --batch --silent --fuzz=0 --output "$entrypoint_temporary" \
+        "$TOOL_ROOT/scripts/emulator-entrypoint.sh" \
+        "$REPOSITORY_DIR/scripts/android-lab-renderer.patch" || {
+        log ERROR "could not prepare the pinned Android Lab renderer override"
+        exit 1
+    }
+    chmod 0755 "$entrypoint_temporary"
+    if [[ -f "$LAB_STATE_DIRECTORY/emulator-entrypoint.sh" ]] &&
+        cmp --silent "$entrypoint_temporary" "$LAB_STATE_DIRECTORY/emulator-entrypoint.sh"; then
+        rm -- "$entrypoint_temporary"
+    else
+        mv -- "$entrypoint_temporary" "$LAB_STATE_DIRECTORY/emulator-entrypoint.sh"
+    fi
+    compose() {
+        docker compose --project-name "$COMPOSE_PROJECT_NAME" \
+            --file "$TOOL_ROOT/docker-compose.yml" \
+            --file "$REPOSITORY_DIR/scripts/android-lab-renderer.compose.yml" "$@"
+    }
+fi
+
+configure_lab_graphics() {
+    local mode="$1"
+    if compose ps --status running --services | grep -Fx emulator >/dev/null; then
+        log ERROR "Stop the private lab with make stop before changing its renderer"
+        return 1
+    fi
+    mkdir --parents "$DIKCIZ_LAB_GRAPHICS_DIRECTORY"
+    if [[ "$mode" == software ]]; then
+        if [[ -f "$DIKCIZ_LAB_GRAPHICS_DIRECTORY/enabled" ]]; then
+            rm -- "$DIKCIZ_LAB_GRAPHICS_DIRECTORY/enabled"
+        fi
+        log INFO "private lab will use the pinned software renderer on its next start"
+        return
+    fi
+    [[ "${ANDROID_LAB_VERSION:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+        log ERROR "ANDROID_LAB_VERSION must be the pinned semantic version"
+        return 1
+    }
+    docker image inspect "android-lab:$ANDROID_LAB_VERSION" >/dev/null || {
+        log ERROR "the pinned local tool image must exist before GPU preparation"
+        return 1
+    }
+    docker run --rm --network none --read-only --cap-drop ALL \
+        --security-opt no-new-privileges:true --gpus all \
+        --entrypoint /usr/bin/true "android-lab:$ANDROID_LAB_VERSION" || {
+        log ERROR "Docker NVIDIA GPU support is required before enabling this renderer"
+        return 1
+    }
+    docker build --file "$REPOSITORY_DIR/scripts/lab-graphics/Dockerfile" \
+        --build-arg "ANDROID_LAB_VERSION=$ANDROID_LAB_VERSION" \
+        --output "type=local,dest=$DIKCIZ_LAB_GRAPHICS_DIRECTORY/runtime" \
+        "$REPOSITORY_DIR/scripts/lab-graphics" || {
+        log ERROR "could not build the pinned GPU runtime"
+        return 1
+    }
+    [[ -s "$DIKCIZ_LAB_GRAPHICS_DIRECTORY/runtime/lib/libvglfaker.so" &&
+        -x "$DIKCIZ_LAB_GRAPHICS_DIRECTORY/runtime/bin/vglrun" ]] || {
+        log ERROR "GPU build did not produce the required runtime"
+        return 1
+    }
+    printf '%s\n' nvidia >"$DIKCIZ_LAB_GRAPHICS_DIRECTORY/enabled"
+    log INFO "private lab will use NVIDIA rendering on its next start"
+}
+
 automation_smoke() {
     local -a mutation_arguments=()
     if ! compose ps --status running --services | grep -Fx forward >/dev/null; then
@@ -256,6 +326,8 @@ reset_dikciz() {
 
 android_lab_extension_command() {
     case "$1" in
+    dikciz-lab-gpu) configure_lab_graphics nvidia ;;
+    dikciz-lab-software) configure_lab_graphics software ;;
     dikciz-storage-access) grant_dikciz_storage_access ;;
     dikciz-control-ready) wait_for_running_dikciz_control_planes ;;
     automation-smoke) automation_smoke ;;

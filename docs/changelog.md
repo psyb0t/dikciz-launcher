@@ -7,6 +7,16 @@ nav_order: 10
 
 # Changelog
 
+## [0.37.1] - 2026-11-27
+
+- Follow the finger continuously while dragging a Home item. Show grid dots and a landing outline, then animate the item into its final cell.
+- Wait for a deliberate hover before grouping app shortcuts. Keep an extracted app icon under the pointer after its group closes.
+- Slide cached pages in the direction selected on either page rail, preserving their position when navigation reverses.
+- Save drag drops, swaps and grouping off the UI thread. Reject placement conflicts and changed locks, show save errors, and finish queued writes when the activity closes.
+- Cache grid geometry and remove synchronous debug-log writes when a drag crosses cells. Keep drag start, completion, cancellation and final placement logs.
+- Limit app shortcut labels to two lines with an ellipsis. Accessibility keeps the full app name.
+- Add optional NVIDIA rendering for the private emulator with `make lab-gpu`. Use `make lab-software` to select the original renderer. Both commands require a stopped lab.
+
 ## [0.37.0] - 2026-11-24
 
 - Send humanized Accessibility gestures by default. Taps scatter around the point and vary their press time, swipes curve and change speed, and double taps keep a varied gap. Timing and shape follow pooled measurements from the Touchalytics touch dataset. Send `humanize: false` for the previous exact gesture.

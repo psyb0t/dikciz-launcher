@@ -71,3 +71,7 @@ __pycache__/
 /website/.pnpm-store/
 /website/build/
 /website/node_modules/
+
+# Local release notes and JVM scratch
+/PREPPLAN.md
+/[?]/

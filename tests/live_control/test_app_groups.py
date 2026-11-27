@@ -6,6 +6,8 @@ merging. Both run the real drag on the real device and read the saved public
 configuration back through the control plane.
 """
 
+import base64
+
 from . import *
 
 
@@ -24,6 +26,7 @@ APP_GROUP_WIDGET_TYPE_NAME = "appGroup"
 WIDGET_SETTLE_SECONDS = 2.0
 ANDROID_DEFAULT_HOLD_SECONDS = 0.65
 QUICK_SWIPE_MILLISECONDS = 120
+FOLDER_HOVER_SECONDS = 0.5
 FIRST_COLUMN = 0
 SECOND_COLUMN = 1
 
@@ -106,8 +109,44 @@ def drag_widget_onto(source_title: str, target_title: str) -> None:
         center(source),
         (center(target)[0], center(source)[1]),
         hold_seconds=ANDROID_DEFAULT_HOLD_SECONDS,
+        hover_seconds=FOLDER_HOVER_SECONDS,
     )
     time.sleep(WIDGET_SETTLE_SECONDS)
+
+
+def test_app_groups_drag_tracks_subcell_motion_and_settles_without_saving_a_move(
+    websocket_control: socket.socket,
+) -> None:
+    apply_group_page(
+        websocket_control,
+        [app_widget(FIRST_APP_WIDGET_ID, SETTINGS_TILE_TITLE, SETTINGS_COMPONENT, FIRST_COLUMN)],
+    )
+    original = group_page_widgets(websocket_control)
+    semantic_id = "widget:" + FIRST_APP_WIDGET_ID
+    snapshot = AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SNAPSHOT)
+    original_bounds = AUTOMATION.require_node(snapshot, semantic_id)["bounds"]
+    start_x, start_y = center(original_bounds)
+    pitch_x, pitch_y = native_grid_cell_pitch()
+    delta_x, delta_y = pitch_x // 3, pitch_y // 3
+    end_x, end_y = start_x + delta_x, start_y + delta_y
+    device_command(
+        f"input motionevent DOWN {start_x} {start_y} && sleep {ANDROID_DEFAULT_HOLD_SECONDS} "
+        f"&& input motionevent MOVE {end_x} {end_y}"
+    )
+    try:
+        snapshot = AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SNAPSHOT)
+        moved_bounds = AUTOMATION.require_node(snapshot, semantic_id)["bounds"]
+        moved_x, moved_y = center(moved_bounds)
+        assert abs(moved_x - start_x - delta_x) <= 2, moved_bounds
+        assert abs(moved_y - start_y - delta_y) <= 2, moved_bounds
+        run_device_operation("screenshot")
+        shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "grid-motion-subcell.png")
+    finally:
+        device_command(f"input motionevent UP {end_x} {end_y}")
+    time.sleep(WIDGET_SETTLE_SECONDS)
+    assert group_page_widgets(websocket_control) == original
+    snapshot = AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SNAPSHOT)
+    assert AUTOMATION.require_node(snapshot, semantic_id)["bounds"] == original_bounds
 
 
 def test_dropping_an_app_tile_on_another_builds_one_group(
@@ -129,6 +168,9 @@ def test_dropping_an_app_tile_on_another_builds_one_group(
         WIDGET_MOVE_HANDLE_DESCRIPTION.format(SETTINGS_TILE_TITLE),
     ))
     direct_swipe(source, target, QUICK_SWIPE_MILLISECONDS)
+    assert group_page_widgets(websocket_control) == original
+
+    direct_hold_then_drag(source, target, hold_seconds=ANDROID_DEFAULT_HOLD_SECONDS)
     assert group_page_widgets(websocket_control) == original
 
     drag_widget_onto(CLOCK_TILE_TITLE, SETTINGS_TILE_TITLE)
@@ -153,7 +195,12 @@ def test_dropping_a_group_on_an_app_tile_trades_their_cells(
         ],
     )
 
+    device_command(f"dumpsys gfxinfo {DIKCIZ_DEBUG_PACKAGE} reset")
     drag_widget_onto(GROUP_WIDGET_TITLE, CLOCK_TILE_TITLE)
+    (ARTIFACT_DIRECTORY / "grid-motion-rendering.txt").write_text(
+        device_command(f"dumpsys gfxinfo {DIKCIZ_DEBUG_PACKAGE} framestats"),
+        encoding="utf-8",
+    )
 
     # A group never merges into an app tile. Both widgets survive, swapped.
     widgets = group_page_widgets(websocket_control)
@@ -249,3 +296,63 @@ def test_launcher_touch_drags_folder_member_to_an_empty_home_cell(
     wait_for_physical_description_bounds(WIDGET_MOVE_HANDLE_DESCRIPTION.format(SETTINGS_TILE_TITLE))
     extracted = next(widget for widget in group_page_widgets(websocket_control) if widget["component"] == SETTINGS_COMPONENT)
     assert extracted["cell"]["column"] == SECOND_COLUMN and extracted["cell"]["row"] == 0
+
+
+def test_app_groups_continuous_drag_persists_the_landing_cell(websocket_control):
+    apply_group_page(
+        websocket_control,
+        [app_widget(FIRST_APP_WIDGET_ID, SETTINGS_TILE_TITLE, SETTINGS_COMPONENT, FIRST_COLUMN)],
+    )
+    source = center(physical_description_bounds(
+        WIDGET_MOVE_HANDLE_DESCRIPTION.format(SETTINGS_TILE_TITLE),
+    ))
+    pitch_x, _ = native_grid_cell_pitch()
+    target_column = 3
+    target_x = source[0] + target_column * pitch_x
+    device_command(f"dumpsys gfxinfo {DIKCIZ_DEBUG_PACKAGE} reset")
+    device_command(f"input draganddrop {source[0]} {source[1]} {target_x} {source[1]} 1200")
+    time.sleep(WIDGET_SETTLE_SECONDS)
+    widgets = group_page_widgets(websocket_control)
+    assert len(widgets) == 1
+    assert widgets[0]["cell"]["column"] == target_column, widgets
+    assert widgets[0]["cell"]["row"] == 0, widgets
+    (ARTIFACT_DIRECTORY / "grid-motion-continuous-rendering.txt").write_text(
+        device_command(f"dumpsys gfxinfo {DIKCIZ_DEBUG_PACKAGE} framestats"),
+        encoding="utf-8",
+    )
+
+
+def test_app_groups_drop_rejects_malformed_storage_without_overwriting_it(
+    websocket_control: socket.socket,
+) -> None:
+    apply_group_page(
+        websocket_control,
+        [app_widget(FIRST_APP_WIDGET_ID, SETTINGS_TILE_TITLE, SETTINGS_COMPONENT, FIRST_COLUMN)],
+    )
+    valid = current_configuration(websocket_control)
+    semantic_id = "widget:" + FIRST_APP_WIDGET_ID
+    original_bounds = AUTOMATION.require_node(
+        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SNAPSHOT), semantic_id,
+    )["bounds"]
+    source_x, source_y = center(physical_description_bounds(
+        WIDGET_MOVE_HANDLE_DESCRIPTION.format(SETTINGS_TILE_TITLE),
+    ))
+    pitch_x, _ = native_grid_cell_pitch()
+    target_x = source_x + 3 * pitch_x
+    path = f"/sdcard/Dikciz/pages/{GROUP_PAGE_ID}/widgets/{FIRST_APP_WIDGET_ID}.json"
+    try:
+        device_command(
+            f"input motionevent DOWN {source_x} {source_y} "
+            f"&& sleep {ANDROID_DEFAULT_HOLD_SECONDS} "
+            f"&& input motionevent MOVE {target_x} {source_y} "
+            f"&& printf '{{' > {path} "
+            f"&& input motionevent UP {target_x} {source_y}"
+        )
+        time.sleep(WIDGET_SETTLE_SECONDS)
+        raw = AUTOMATION.request(websocket_control, "fileRead", path=path)
+        assert base64.b64decode(raw["dataBase64"]) == b"{", raw
+        snapshot = AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SNAPSHOT)
+        assert AUTOMATION.require_node(snapshot, semantic_id)["bounds"] == original_bounds
+    finally:
+        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_CONFIG_REPLACE, config=valid)
+    assert group_page_widgets(websocket_control)[0]["cell"]["column"] == FIRST_COLUMN

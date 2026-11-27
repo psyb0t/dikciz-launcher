@@ -1,0 +1,11 @@
+--- a/server/backend.cpp
++++ b/server/backend.cpp
+@@ -609 +609 @@
+-				return EGL_TRUE;
++				return Success;
+@@ -614 +614 @@
+-				return EGL_TRUE;
++				return Success;
+@@ -619 +619 @@
+-				return EGL_TRUE;
++				return Success;

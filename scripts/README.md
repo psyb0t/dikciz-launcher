@@ -8,6 +8,7 @@ These scripts connect the Dikciz checkout to Android Lab, exercise the control p
 | --- | --- |
 | `install-android-lab.sh` | Fetch the installer from the pinned Android Lab tag and build missing local images after explicit SDK license acceptance. |
 | `dikciz-lab.sh` | Android Lab extension for storage access, control readiness, smoke tests, clean installs, and shared-emulator pytest. Android Lab supplies its device and Compose functions. |
+| `lab-graphics/`, `android-lab-renderer.*` | Optional NVIDIA renderer runtime and reviewed patches for the pinned private emulator. See [rendering](../docs/source-development.md#rendering-and-frame-measurements). |
 | `dikciz-test-real.sh` | Controller for a separately configured physical phone, including focused acceptance, clean installation, and inspection modes. |
 | `dikciz-control.py` | WebSocket commands and events, MCP discovery and tools, plain HTTP commands, chunked binary uploads/downloads, screenshots and UI dumps. |
 | `test-dikciz-automation.py`, `test-dikciz-mcp.py` | Protocol probes, assertions, optional mutation checks, and helpers reused by live tests. |

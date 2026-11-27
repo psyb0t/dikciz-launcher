@@ -23,6 +23,27 @@ Open `http://127.0.0.1:61326/vnc.html?autoconnect=true&resize=scale` for the pri
 
 `make help` lists every operation. `make status` inspects the stack. `make stop` stops the private lab and preserves its disk. Tool containers use up to ten CPUs; set `ANDROID_LAB_TOOL_CPU_LIMIT` and `ANDROID_LAB_GRADLE_MAX_WORKERS` for a smaller budget.
 
+## Rendering and frame measurements
+
+The default lab uses software graphics. On a Linux x86_64 host with an NVIDIA GPU and a working NVIDIA Container Toolkit, enable hardware rendering for the private emulator:
+
+```bash
+make stop
+make lab-gpu
+make dikciz-run
+```
+
+`lab-gpu` builds a checksum-verified VirtualGL runtime with a reviewed upstream EGL fix. It keeps the pinned Android Lab images, private display, full phone resolution, CPU limit and loopback-only viewer. The helper libraries and renderer selection stay in `.android-lab/graphics/`. It does not install host drivers or mount the host desktop. The first preparation needs internet access for build dependencies. Changing renderers requires stopping the lab first. To select the original software path again, run `make stop`, `make lab-software`, then `make dikciz-run`. Preparation failure does not enable GPU rendering.
+
+Measure a real drag with the current debug APK:
+
+```bash
+make dikciz-test-existing-apk \
+  DIKCIZ_TEST_SELECTOR=test_app_groups_continuous_drag_persists_the_landing_cell
+```
+
+The test checks the saved cell and writes `grid-motion-continuous-rendering.txt` in the shared lab artifacts directory. It contains Android's `dumpsys gfxinfo framestats`, including missed deadlines and frame stages. Compare repeated samples at the same resolution and resource limits. Software rendering, CPU throttling and host contention can delay frame completion even when the app's UI thread is fast. These emulator measurements do not establish physical-phone frame rates. The [graphics helper](https://github.com/psyb0t/dikciz-launcher/tree/main/scripts/lab-graphics) documents its dependency pins and compatibility patch.
+
 ## Recovery drills
 
 ```bash

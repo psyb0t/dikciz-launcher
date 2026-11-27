@@ -7,6 +7,7 @@ from .test_app_groups import (
     apply_group_page, app_widget, group_page_widgets,
     FIRST_APP_WIDGET_ID, SECOND_APP_WIDGET_ID, SETTINGS_TILE_TITLE, CLOCK_TILE_TITLE,
     SETTINGS_COMPONENT, CLOCK_COMPONENT, FIRST_COLUMN, SECOND_COLUMN,
+    FOLDER_HOVER_SECONDS,
 )
 
 REMOVAL_DEADLINE_SECONDS = 6
@@ -36,8 +37,8 @@ def test_app_list_and_hold_package_removal_is_live(websocket_control):
             uninstall_configurable_provider_fixture(package)
 
 
-@pytest.mark.parametrize("hold_seconds,should_group", [(0, False), (0.55, False), (1.15, True)])
-def test_app_list_and_hold_requires_one_second(websocket_control, hold_seconds, should_group):
+@pytest.mark.parametrize("hold_seconds,should_group", [(0, False), (0.12, False), (0.65, True)])
+def test_app_list_and_hold_requires_android_hold_and_folder_hover(websocket_control, hold_seconds, should_group):
     apply_group_page(websocket_control, [
         app_widget(FIRST_APP_WIDGET_ID, SETTINGS_TILE_TITLE, SETTINGS_COMPONENT, FIRST_COLUMN),
         app_widget(SECOND_APP_WIDGET_ID, CLOCK_TILE_TITLE, CLOCK_COMPONENT, SECOND_COLUMN),
@@ -47,7 +48,12 @@ def test_app_list_and_hold_requires_one_second(websocket_control, hold_seconds, 
     if hold_seconds == 0:
         direct_swipe(source, (target[0], source[1]), 180)
     else:
-        direct_hold_then_drag(source, (target[0], source[1]), hold_seconds)
+        direct_hold_then_drag(
+            source,
+            (target[0], source[1]),
+            hold_seconds,
+            hover_seconds=FOLDER_HOVER_SECONDS,
+        )
     time.sleep(1)
     widgets = group_page_widgets(websocket_control)
     if should_group:

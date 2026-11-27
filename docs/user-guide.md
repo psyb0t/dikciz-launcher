@@ -128,13 +128,13 @@ Touch a native app shortcut or app group to see it highlight. Hold still until i
 
 ![Widget action sheet](images/user-guide/11-widget-actions.png)
 
-While moving or resizing, the grid stays visible. Drops and resize handles snap to whole cells. A collision is rejected and does not change the saved layout.
+While moving, the item follows your finger continuously. Small grid dots and a landing outline show where it will settle when you release it. Placement and resizing snap to whole cells. A collision keeps the last valid placement. Page changes slide horizontally or vertically in the direction selected on the page rail.
 
 ![Move grid](images/user-guide/12-move-grid.png)
 
 ![Resize grid](images/user-guide/13-resize-grid.png)
 
-Drop one app shortcut on another to make an app group. Tap a group to open it, then tap a member to launch it. Hold a member and drag it beyond the group onto an empty home cell. The group clears out of the way as you drag. Dropping back into the group or onto an occupied cell leaves everything in place. Hold and release a member for **Move to page** or **Remove**. A group with one member becomes a normal shortcut again.
+Hold one app shortcut over another until the target grows and you feel a vibration, then release to make an app group. Passing across an icon briefly keeps the shortcuts separate. Tap a group to open it, then tap a member to launch it. Hold a member and drag it beyond the group onto an empty home cell. The group clears out of the way as you drag. Once the group clears, keep dragging to an empty home cell. Dropping onto an occupied cell leaves everything in place. Hold and release a member for **Move to page** or **Remove**. A group with one member becomes a normal shortcut again.
 
 ![App group](images/user-guide/10-app-group.png)
 

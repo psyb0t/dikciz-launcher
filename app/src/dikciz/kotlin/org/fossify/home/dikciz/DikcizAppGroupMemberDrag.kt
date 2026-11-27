@@ -42,6 +42,8 @@ internal class DikcizAppGroupMemberDrag(
             member.isPressed = false
             member.scaleX = 1f
             member.scaleY = 1f
+            member.translationX = 0f
+            member.translationY = 0f
             member.parent?.requestDisallowInterceptTouchEvent(false)
             hasTouch = false
             armed = false
@@ -74,13 +76,17 @@ internal class DikcizAppGroupMemberDrag(
                     if (maxOf(abs(event.rawX - startX), abs(event.rawY - startY)) > touchSlop) {
                         dragging = true
                     }
-                    if (dragging) updatePreview(icon, event.rawX, event.rawY)
+                    if (dragging) {
+                        member.translationX = event.rawX - startX
+                        member.translationY = event.rawY - startY
+                        updatePreview(icon, event.rawX, event.rawY)
+                    }
                     true
                 }
                 MotionEvent.ACTION_UP -> {
                     val wasArmed = armed
                     val moved = dragging
-                    val leftFolder = moved && isOutsideFolder(event.rawX, event.rawY)
+                    val leftFolder = moved && (shadow != null || isOutsideFolder(event.rawX, event.rawY))
                     release()
                     if (leftFolder && canDrop(event.rawX, event.rawY)) onDrop(event.rawX, event.rawY)
                     if (wasArmed && !moved) onMenu()
@@ -104,10 +110,7 @@ internal class DikcizAppGroupMemberDrag(
     }
 
     private fun updatePreview(icon: Drawable, x: Float, y: Float) {
-        if (!isOutsideFolder(x, y)) {
-            clearPreview()
-            return
-        }
+        if (shadow == null && !isOutsideFolder(x, y)) return
         val preview = shadow ?: startPreview(icon) ?: return
         host.getLocationOnScreen(location)
         val left = (x - location[0] - iconSize / 2f).roundToInt()

@@ -33,6 +33,7 @@ import android.provider.Settings
 import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
+import android.text.TextUtils
 import android.util.Base64
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
@@ -62,6 +63,7 @@ import android.widget.TextView
 import android.widget.Toast
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
+import androidx.core.view.doOnLayout
 import androidx.health.connect.client.PermissionController
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -161,6 +163,7 @@ class DikcizHomeActivity : Activity() {
     private var activeWidgetResize: ActiveWidgetResize? = null
     private var activeWidgetResizeGesture: WidgetResizeGesture? = null
     private var activeWidgetMove: ActiveWidgetMove? = null
+    private var isWidgetDropPending = false
     private var armedWidgetMoveID: String? = null
     private var activeDialog: AlertDialog? = null
     private var pendingWidgetMove: PendingWidgetMove? = null
@@ -458,7 +461,8 @@ class DikcizHomeActivity : Activity() {
         controlConfigFileObservers.clear()
         mainHandler.removeCallbacks(pollControlConfigurationRunnable)
         mainHandler.removeCallbacks(restartControlPlanesRunnable)
-        configurationPollExecutor.shutdownNow()
+        // A queued drop must finish its atomic write after activity destruction.
+        configurationPollExecutor.shutdown()
         mainHandler.removeCallbacks(retryControlPlaneStartRunnable)
         DikcizClipboardMonitor.stop()
         DikcizAutomationEventBus.setHtmlDomPatchListener(applicationContext, null)
@@ -1042,6 +1046,11 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun reloadConfiguration(showFatalError: Boolean) {
+        if (isWidgetDropPending) {
+            mainHandler.removeCallbacks(reloadConfigurationRunnable)
+            mainHandler.postDelayed(reloadConfigurationRunnable, CONFIGURATION_RELOAD_DEBOUNCE_MS)
+            return
+        }
         dikcizLogger.debug(
             EVENT_CONFIGURATION_RELOAD_STARTED,
             mapOf(FIELD_FATAL_ON_FAILURE to showFatalError),
@@ -1192,7 +1201,9 @@ class DikcizHomeActivity : Activity() {
         pendingHtmlContentFits.clear()
         activeWidgetResize = null
         activeWidgetResizeGesture = null
+        activeWidgetMove?.let(::cancelWidgetMove)
         activeWidgetMove = null
+        widgetContainer.dropPreviewCell = null
         widgetContainer.isGridGuideVisible = false
         clearPendingWidgetMove()
         clearCachedPageCanvases()
@@ -1232,15 +1243,59 @@ class DikcizHomeActivity : Activity() {
         pendingHtmlContentFits.clear()
         activeWidgetResize = null
         activeWidgetResizeGesture = null
+        activeWidgetMove?.let(::cancelWidgetMove)
         activeWidgetMove = null
+        widgetContainer.dropPreviewCell = null
         widgetContainer.isGridGuideVisible = false
         clearPendingWidgetMove()
+        val previousCanvas = widgetContainer
+        val previousPage = configuration.pages.firstOrNull { page ->
+            cachedPageCanvases[page.id] === previousCanvas
+        }
         val pageCanvas = cachedPageCanvases[selectedPage.id]
             ?: createCachedPageCanvas(configuration, selectedPage)
+        val previousTranslationX = previousCanvas.translationX
+        val previousTranslationY = previousCanvas.translationY
+        val destinationWasVisible = pageCanvas.visibility == View.VISIBLE
+        val destinationTranslationX = pageCanvas.translationX
+        val destinationTranslationY = pageCanvas.translationY
         cachedPageCanvases.values.forEach { canvas ->
+            canvas.animate().cancel()
+            canvas.translationX = 0f
+            canvas.translationY = 0f
             canvas.visibility = if (canvas === pageCanvas) View.VISIBLE else View.INVISIBLE
         }
         widgetContainer = pageCanvas
+        if (previousCanvas !== pageCanvas && previousPage != null && previousCanvas.width > 0) {
+            val horizontal = previousPage.position.column != selectedPage.position.column
+            val direction = if (horizontal) {
+                (selectedPage.position.column - previousPage.position.column).compareTo(0)
+            } else {
+                (selectedPage.position.row - previousPage.position.row).compareTo(0)
+            }
+            val offsetX = if (horizontal) direction * pageCanvasHost.width.toFloat() else 0f
+            val offsetY = if (horizontal) 0f else direction * pageCanvasHost.height.toFloat()
+            previousCanvas.visibility = View.VISIBLE
+            previousCanvas.translationX = previousTranslationX
+            previousCanvas.translationY = previousTranslationY
+            pageCanvas.translationX = if (destinationWasVisible) destinationTranslationX else offsetX
+            pageCanvas.translationY = if (destinationWasVisible) destinationTranslationY else offsetY
+            pageCanvas.animate()
+                .translationX(0f).translationY(0f)
+                .setDuration(PAGE_TRANSITION_DURATION_MILLISECONDS)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+            previousCanvas.animate()
+                .translationX(-offsetX).translationY(-offsetY)
+                .setDuration(PAGE_TRANSITION_DURATION_MILLISECONDS)
+                .setInterpolator(DecelerateInterpolator())
+                .withEndAction {
+                    if (widgetContainer !== previousCanvas) previousCanvas.visibility = View.INVISIBLE
+                    previousCanvas.translationX = 0f
+                    previousCanvas.translationY = 0f
+                }
+                .start()
+        }
         providerAutomationViews.clear()
         cachedPageAutomationViews.values.forEach { views ->
             views.keys.forEach(automationViews::remove)
@@ -3331,6 +3386,7 @@ class DikcizHomeActivity : Activity() {
             addView(TextView(this@DikcizHomeActivity).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
                 maxLines = APP_GROUP_MEMBER_LABEL_LINES
+                ellipsize = TextUtils.TruncateAt.END
                 text = application.label
                 setTextColor(getColor(R.color.dikciz_foreground))
             })
@@ -3512,6 +3568,8 @@ class DikcizHomeActivity : Activity() {
             }
             addView(TextView(this@DikcizHomeActivity).apply {
                 text = widget.title
+                maxLines = APP_GROUP_MEMBER_LABEL_LINES
+                ellipsize = TextUtils.TruncateAt.END
                 setTextColor(getColor(R.color.dikciz_foreground))
                 gravity = Gravity.CENTER_HORIZONTAL
                 dikcizStyleRenderer.applyTextStyle(this, style)
@@ -10803,6 +10861,7 @@ class DikcizHomeActivity : Activity() {
         initialRawX: Float,
         initialRawY: Float,
     ): Boolean {
+        if (isWidgetDropPending) return false
         val page = homeConfiguration?.selectedPage() ?: return false
         if (page.widgets.none { it.id == widget.id }) {
             dikcizLogger.warn(
@@ -10824,6 +10883,7 @@ class DikcizHomeActivity : Activity() {
             )
             return false
         }
+        view.animate().cancel()
         val bounds = widgetContainer.cellBounds(widget.cell)
         activeWidgetMove = ActiveWidgetMove(
             widgetID = widget.id,
@@ -10845,7 +10905,10 @@ class DikcizHomeActivity : Activity() {
         )
         view.bringToFront()
         view.elevation = densityPixels(WIDGET_MOVE_ELEVATION_DP).toFloat()
+        view.scaleX = WIDGET_PICKUP_SCALE
+        view.scaleY = WIDGET_PICKUP_SCALE
         widgetContainer.isGridGuideVisible = true
+        widgetContainer.dropPreviewCell = widget.cell
         dikcizLogger.info(
             EVENT_WIDGET_MOVE_STARTED,
             mapOf(FIELD_WIDGET_ID to widget.id),
@@ -10864,12 +10927,14 @@ class DikcizHomeActivity : Activity() {
     ) {
         activeMove.lastRawX = rawX
         activeMove.lastRawY = rawY
+        activeMove.widgetView.translationX = activeMove.initialTranslationX + rawX - activeMove.initialRawX
+        activeMove.widgetView.translationY = activeMove.initialTranslationY + rawY - activeMove.initialRawY
         updateWidgetMove(activeMove)
     }
 
     /**
-     * Snaps the drag to whole cells. A candidate that leaves the page or collides keeps the
-     * last legal target, so the preview never shows an illegal placement.
+     * Updates the landing cell while the dragged view follows the pointer independently.
+     * A collision preserves the last legal placement.
      */
     private fun updateWidgetMove(activeMove: ActiveWidgetMove) {
         val page = homeConfiguration?.selectedPage() ?: return
@@ -10886,7 +10951,7 @@ class DikcizHomeActivity : Activity() {
         }
         clearWidgetSwapPreview(activeMove)
         val candidate = moveCandidateCell(activeMove)
-        if (candidate == activeMove.targetCell) {
+        if (candidate == activeMove.targetCell && activeMove.targetFailure == null) {
             return
         }
         val placement = DikcizGridLayoutEngine.moveCandidate(
@@ -10904,14 +10969,6 @@ class DikcizHomeActivity : Activity() {
         setWidgetMoveRejected(activeMove, false)
         activeMove.targetCell = candidate
         applyWidgetMovePreview(activeMove)
-        dikcizLogger.debug(
-            EVENT_WIDGET_MOVE_TARGET_CHANGED,
-            mapOf(
-                FIELD_COLUMN to candidate.column,
-                FIELD_ROW to candidate.row,
-                FIELD_WIDGET_ID to activeMove.widgetID,
-            ),
-        )
     }
 
     /**
@@ -10935,14 +10992,24 @@ class DikcizHomeActivity : Activity() {
         if (groupedComponents(source, target) == null) {
             return false
         }
-        if (activeMove.combineTargetID != target.id) {
+        if (activeMove.combineHoverTargetID != target.id) {
             clearWidgetCombinePreview(activeMove)
-            activeMove.combineTargetID = target.id
-            automationViews[widgetSemanticID(target.id)]?.apply {
-                scaleX = WIDGET_COMBINE_TARGET_SCALE
-                scaleY = WIDGET_COMBINE_TARGET_SCALE
+            activeMove.combineHoverTargetID = target.id
+            val armMerge = Runnable {
+                if (activeWidgetMove === activeMove && activeMove.combineHoverTargetID == target.id) {
+                    activeMove.combineTargetID = target.id
+                    activeMove.widgetView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    automationViews[widgetSemanticID(target.id)]?.animate()
+                        ?.scaleX(WIDGET_COMBINE_TARGET_SCALE)?.scaleY(WIDGET_COMBINE_TARGET_SCALE)
+                        ?.setDuration(WIDGET_FEEDBACK_DURATION_MILLISECONDS)?.start()
+                }
             }
+            activeMove.combineHoverRunnable = armMerge
+            mainHandler.postDelayed(armMerge, WIDGET_COMBINE_HOVER_MILLISECONDS)
         }
+        clearWidgetSwapPreview(activeMove)
+        activeMove.targetCell = activeMove.initialCell
+        widgetContainer.dropPreviewCell = target.cell
         activeMove.targetFailure = null
         setWidgetMoveRejected(activeMove, false)
         return true
@@ -10951,6 +11018,7 @@ class DikcizHomeActivity : Activity() {
     /** Returns a merge target to its own size once the pointer leaves it. */
     private fun clearWidgetCombinePreview(activeMove: ActiveWidgetMove) {
         restoreWidgetCombineScale(activeMove)
+        activeMove.combineHoverTargetID = null
         activeMove.combineTargetID = null
     }
 
@@ -10962,8 +11030,11 @@ class DikcizHomeActivity : Activity() {
      * be saved.
      */
     private fun restoreWidgetCombineScale(activeMove: ActiveWidgetMove) {
-        val targetID = activeMove.combineTargetID ?: return
+        activeMove.combineHoverRunnable?.let(mainHandler::removeCallbacks)
+        activeMove.combineHoverRunnable = null
+        val targetID = activeMove.combineHoverTargetID ?: return
         automationViews[widgetSemanticID(targetID)]?.apply {
+            animate().cancel()
             scaleX = NO_SCALE_CHANGE
             scaleY = NO_SCALE_CHANGE
         }
@@ -10993,12 +11064,12 @@ class DikcizHomeActivity : Activity() {
         if (activeMove.swapPartnerID != target.id) {
             clearWidgetSwapPreview(activeMove)
             activeMove.swapPartnerID = target.id
+            translateWidgetToCell(target.id, target.cell, activeMove.initialCell)
         }
         activeMove.targetFailure = null
         setWidgetMoveRejected(activeMove, false)
         activeMove.targetCell = target.cell
         applyWidgetMovePreview(activeMove)
-        translateWidgetToCell(target.id, target.cell, activeMove.initialCell)
         return true
     }
 
@@ -11006,10 +11077,9 @@ class DikcizHomeActivity : Activity() {
     private fun clearWidgetSwapPreview(activeMove: ActiveWidgetMove) {
         val partnerID = activeMove.swapPartnerID ?: return
         activeMove.swapPartnerID = null
-        automationViews[widgetSemanticID(partnerID)]?.apply {
-            translationX = NO_TRANSLATION_X
-            translationY = NO_TRANSLATION_Y
-        }
+        automationViews[widgetSemanticID(partnerID)]?.animate()
+            ?.translationX(NO_TRANSLATION_X)?.translationY(NO_TRANSLATION_Y)
+            ?.setDuration(WIDGET_FEEDBACK_DURATION_MILLISECONDS)?.start()
     }
 
     private fun translateWidgetToCell(
@@ -11020,8 +11090,12 @@ class DikcizHomeActivity : Activity() {
         val view = automationViews[widgetSemanticID(widgetID)] ?: return
         val from = widgetContainer.cellBounds(fromCell)
         val to = widgetContainer.cellBounds(toCell)
-        view.translationX = (to.left - from.left).toFloat()
-        view.translationY = (to.top - from.top).toFloat()
+        view.animate()
+            .translationX((to.left - from.left).toFloat())
+            .translationY((to.top - from.top).toFloat())
+            .setDuration(WIDGET_FEEDBACK_DURATION_MILLISECONDS)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
     }
 
     /** The grid cell the dragging finger is currently over. */
@@ -11041,8 +11115,8 @@ class DikcizHomeActivity : Activity() {
         val draggedY = activeMove.initialBounds.y +
             (activeMove.lastRawY - activeMove.initialRawY).roundToInt()
         val (column, row) = widgetContainer.cellAt(
-            draggedX + widgetContainer.paddingLeft,
-            draggedY + widgetContainer.paddingTop,
+            draggedX + widgetContainer.paddingLeft + activeMove.initialBounds.width / (2 * activeMove.initialCell.columnSpan),
+            draggedY + widgetContainer.paddingTop + activeMove.initialBounds.height / (2 * activeMove.initialCell.rowSpan),
         )
         val cell = activeMove.initialCell
         return cell.copy(
@@ -11057,91 +11131,141 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun applyWidgetMovePreview(activeMove: ActiveWidgetMove) {
-        val targetBounds = widgetContainer.cellBounds(activeMove.targetCell)
-        activeMove.widgetView.translationX =
-            (targetBounds.left - activeMove.initialBounds.x).toFloat()
-        activeMove.widgetView.translationY =
-            (targetBounds.top - activeMove.initialBounds.y).toFloat()
+        widgetContainer.dropPreviewCell = activeMove.targetCell
     }
 
     private fun finishWidgetMove(activeMove: ActiveWidgetMove) {
-        if (activeWidgetMove !== activeMove) {
-            return
+        if (activeWidgetMove !== activeMove) return
+        val releaseX = activeMove.widgetView.left + activeMove.widgetView.translationX
+        val releaseY = activeMove.widgetView.top + activeMove.widgetView.translationY
+        val configuration = homeConfiguration ?: return
+        val page = configuration.selectedPage() ?: return
+        val source = page.findWidget(activeMove.widgetID) ?: return
+        val swapID = activeMove.swapPartnerID
+        val combineTarget = activeMove.combineTargetID?.let(page::findWidget)
+        val components = combineTarget?.let { groupedComponents(source, it) }
+        val groupTitle = getString(R.string.dikciz_app_group_default_title)
+        val groupID = if (combineTarget is AppGroupHomeWidget) combineTarget.id else {
+            if (components != null) newWidgetID(groupTitle) else null
         }
         resetWidgetMovePreview(activeMove)
         activeWidgetMove = null
-        if (persistWidgetSwap(activeMove)) {
+        activeMove.targetFailure?.let(::showGridFailureMessage)
+        if (isSafeMode || page.locked || source.locked || isWidgetDropPending) return
+        if (components != null && groupID == null) return
+        if (swapID == null && components == null && activeMove.targetCell == activeMove.initialCell) {
+            settleDroppedWidget(activeMove.widgetID, releaseX, releaseY)
             return
         }
-        if (combineDroppedAppWidget(activeMove)) {
-            return
+        isWidgetDropPending = true
+        // Keep the dropped item under the finger until the durable write completes.
+        activeMove.widgetView.translationX = releaseX - activeMove.widgetView.left
+        activeMove.widgetView.translationY = releaseY - activeMove.widgetView.top
+        configurationPollExecutor.execute {
+            val result = runCatching {
+                homeConfigStore.withConfigurationLock {
+                    val current = homeConfigStore.loadOrCreate()
+                    val currentPage = current.pages.firstOrNull { it.id == page.id }
+                        ?: throw HomeConfigException("The moved item's page no longer exists")
+                    val currentSource = currentPage.findWidget(source.id)
+                        ?: throw HomeConfigException("The moved item no longer exists")
+                    if (currentPage.locked || currentSource.locked || currentSource.cell != activeMove.initialCell) {
+                        throw HomeConfigException("The moved item changed while it was being dragged")
+                    }
+                    val updatedPage = when {
+                        swapID != null -> {
+                            val partner = currentPage.findWidget(swapID)
+                                ?: throw HomeConfigException("The swap target no longer exists")
+                            if (partner.locked || partner.cell != page.findWidget(swapID)?.cell) {
+                                throw HomeConfigException("The swap target changed while dragging")
+                            }
+                            currentPage.withSwappedWidgetCells(source.id, swapID)
+                        }
+                        combineTarget != null && components != null && groupID != null -> {
+                            val target = currentPage.findWidget(combineTarget.id)
+                                ?: throw HomeConfigException("The group target no longer exists")
+                            if (target.locked || target != combineTarget || currentSource != source) {
+                                throw HomeConfigException("The group target changed while dragging")
+                            }
+                            currentPage.withCombinedAppGroup(
+                                source.id, target.id, groupID, groupTitle, components,
+                            )
+                        }
+                        else -> currentPage.moveWidget(source.id, activeMove.targetCell)
+                    }
+                    val updated = current.replacePage(page.id) { updatedPage }
+                    homeConfigStore.save(updated)
+                    val event = when {
+                        swapID != null -> EVENT_WIDGET_CELLS_SWAPPED
+                        components != null && combineTarget is AppGroupHomeWidget -> EVENT_APP_GROUP_MEMBER_ADDED
+                        components != null -> EVENT_APP_GROUP_CREATED
+                        else -> EVENT_WIDGET_MOVED
+                    }
+                    val fields: Map<String, Any> = when {
+                        swapID != null -> mapOf(
+                            FIELD_WIDGET_ID to source.id,
+                            FIELD_TARGET_WIDGET_ID to swapID,
+                        )
+                        components != null -> mapOf(
+                            FIELD_WIDGET_ID to checkNotNull(groupID),
+                            FIELD_APP_GROUP_MEMBER_COUNT to components.size,
+                        )
+                        else -> mapOf(
+                            FIELD_WIDGET_ID to source.id,
+                            FIELD_COLUMN to activeMove.targetCell.column,
+                            FIELD_ROW to activeMove.targetCell.row,
+                        )
+                    }
+                    dikcizLogger.info(event, fields)
+                    updated
+                }
+            }
+            result.exceptionOrNull()?.let { exception ->
+                dikcizLogger.error(EVENT_CONFIGURATION_SAVE_FAILED, mapOf(
+                    FIELD_ERROR_CLASS to exception::class.java.simpleName,
+                    FIELD_ERROR_SUMMARY to exception.message.orEmpty(),
+                ))
+            }
+            mainHandler.post {
+                isWidgetDropPending = false
+                if (isDestroyed || isFinishing) return@post
+                result.fold(
+                    onSuccess = { updated ->
+                        if (homeConfiguration !== configuration) {
+                            reloadConfiguration(false)
+                            return@fold
+                        }
+                        cleanupRemovedProviderWidgets(configuration, updated)
+                        homeConfiguration = updated
+                        syncAutomationService(updated)
+                        if (configurationFileObservers.isNotEmpty()) replaceConfigurationObservers(updated)
+                        renderConfiguration()
+                        if (components == null) settleDroppedWidget(source.id, releaseX, releaseY)
+                    },
+                    onFailure = { exception ->
+                        activeMove.widgetView.animate()
+                            .translationX(activeMove.initialTranslationX)
+                            .translationY(activeMove.initialTranslationY)
+                            .setDuration(WIDGET_FEEDBACK_DURATION_MILLISECONDS).start()
+                        Toast.makeText(this, exception.message, Toast.LENGTH_LONG).show()
+                    },
+                )
+            }
         }
-        persistWidgetMove(activeMove)
     }
 
-    /** Commits the cell trade the drag was previewing, if it was offering one. */
-    private fun persistWidgetSwap(activeMove: ActiveWidgetMove): Boolean {
-        val partnerID = activeMove.swapPartnerID ?: return false
-        activeMove.swapPartnerID = null
-        val didSwap = updateSelectedPage { page ->
-            page.withSwappedWidgetCells(activeMove.widgetID, partnerID)
+    private fun settleDroppedWidget(widgetID: String, releaseX: Float, releaseY: Float) {
+        val view = automationViews[widgetSemanticID(widgetID)] ?: return
+        view.doOnLayout {
+            if (!view.isAttachedToWindow || activeWidgetMove?.widgetView === view) return@doOnLayout
+            view.translationX = releaseX - view.left
+            view.translationY = releaseY - view.top
+            view.animate()
+                .translationX(0f).translationY(0f)
+                .setDuration(WIDGET_FEEDBACK_DURATION_MILLISECONDS)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
         }
-        if (!didSwap) {
-            return false
-        }
-        dikcizLogger.info(
-            EVENT_WIDGET_CELLS_SWAPPED,
-            mapOf(
-                FIELD_WIDGET_ID to activeMove.widgetID,
-                FIELD_TARGET_WIDGET_ID to partnerID,
-            ),
-        )
-        return true
-    }
-
-    /**
-     * Turns a drop onto another app tile into one app group.
-     *
-     * A collision normally refuses the move. Dropping one app tile onto another,
-     * or onto a group, is the launcher gesture for grouping instead, so this runs
-     * before the ordinary move is saved and consumes the drop when it applies.
-     */
-    private fun combineDroppedAppWidget(activeMove: ActiveWidgetMove): Boolean {
-        val page = homeConfiguration?.selectedPage() ?: return false
-        if (page.locked) {
-            return false
-        }
-        val source = page.findWidget(activeMove.widgetID) ?: return false
-        val targetID = activeMove.combineTargetID ?: return false
-        val target = page.findWidget(targetID) ?: return false
-        if (source.locked || target.locked) {
-            return false
-        }
-        val components = groupedComponents(source, target) ?: return false
-        activeMove.combineTargetID = null
-        val wasGroup = target is AppGroupHomeWidget
-        val groupTitle = getString(R.string.dikciz_app_group_default_title)
-        val groupID = if (wasGroup) target.id else newWidgetID(groupTitle) ?: return false
-        val didCombine = updateSelectedPage { currentPage ->
-            currentPage.withCombinedAppGroup(
-                sourceID = activeMove.widgetID,
-                targetID = target.id,
-                groupID = groupID,
-                groupTitle = groupTitle,
-                components = components,
-            )
-        }
-        if (!didCombine) {
-            return false
-        }
-        dikcizLogger.info(
-            if (wasGroup) EVENT_APP_GROUP_MEMBER_ADDED else EVENT_APP_GROUP_CREATED,
-            mapOf(
-                FIELD_WIDGET_ID to groupID,
-                FIELD_APP_GROUP_MEMBER_COUNT to components.size,
-            ),
-        )
-        return true
     }
 
     private fun cancelWidgetMove(activeMove: ActiveWidgetMove) {
@@ -11158,11 +11282,15 @@ class DikcizHomeActivity : Activity() {
 
     private fun resetWidgetMovePreview(activeMove: ActiveWidgetMove) {
         widgetContainer.isGridGuideVisible = false
+        widgetContainer.dropPreviewCell = null
         restoreWidgetCombineScale(activeMove)
+        activeMove.widgetView.scaleX = NO_SCALE_CHANGE
+        activeMove.widgetView.scaleY = NO_SCALE_CHANGE
         activeMove.widgetView.elevation = NO_ELEVATION
         setWidgetMoveRejected(activeMove, false)
         homeConfiguration?.selectedPage()?.widgets?.forEach { widget ->
             automationViews[widgetSemanticID(widget.id)]?.apply {
+                animate().cancel()
                 translationX = if (widget.id == activeMove.widgetID) {
                     activeMove.initialTranslationX
                 } else {
@@ -11173,29 +11301,6 @@ class DikcizHomeActivity : Activity() {
                 } else {
                     NO_TRANSLATION_Y
                 }
-            }
-        }
-    }
-
-    private fun persistWidgetMove(activeMove: ActiveWidgetMove): Boolean {
-        activeMove.targetFailure?.let { failure ->
-            showGridFailureMessage(failure)
-        }
-        if (activeMove.targetCell == activeMove.initialCell) {
-            return true
-        }
-        return updateSelectedPage { page ->
-            page.moveWidget(activeMove.widgetID, activeMove.targetCell)
-        }.also { didMove ->
-            if (didMove) {
-                dikcizLogger.info(
-                    EVENT_WIDGET_MOVED,
-                    mapOf(
-                        FIELD_COLUMN to activeMove.targetCell.column,
-                        FIELD_ROW to activeMove.targetCell.row,
-                        FIELD_WIDGET_ID to activeMove.widgetID,
-                    ),
-                )
             }
         }
     }
@@ -11923,7 +12028,6 @@ class DikcizHomeActivity : Activity() {
         const val EVENT_WIDGET_MOVE_CANCELLED = "widget_move_cancelled"
         const val EVENT_WIDGET_MOVE_POINTER_UPDATED = "widget_move_pointer_updated"
         const val EVENT_WIDGET_MOVE_STARTED = "widget_move_started"
-        const val EVENT_WIDGET_MOVE_TARGET_CHANGED = "widget_move_target_changed"
         const val EVENT_WIDGET_MOVED = "widget_moved"
         const val EVENT_WIDGET_CELLS_SWAPPED = "widget_cells_swapped"
         const val EVENT_APP_GROUP_MEMBER_ADDED = "app_group_member_added"
@@ -12060,6 +12164,9 @@ class DikcizHomeActivity : Activity() {
         const val SCREEN_LOCATION_X = 0
         const val SCREEN_LOCATION_Y = 1
         const val WIDGET_COMBINE_TARGET_SCALE = 1.12F
+        const val WIDGET_COMBINE_HOVER_MILLISECONDS = 350L
+        const val WIDGET_FEEDBACK_DURATION_MILLISECONDS = 120L
+        const val PAGE_TRANSITION_DURATION_MILLISECONDS = 220L
         const val NO_WIDGET_LOCK_CHANGES = 0
         const val HTML_WIDGET_PREVIEW_ORIGIN = "https://appassets.androidplatform.net"
         const val HTML_WIDGET_PREVIEW_DOCUMENT = "preview.html"

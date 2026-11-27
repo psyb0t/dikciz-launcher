@@ -143,7 +143,7 @@ GID := $(shell id -g)
 DOCKER_SOCKET := /var/run/docker.sock
 DOCKER_GID := $(shell stat -c '%g' $(DOCKER_SOCKET) 2>/dev/null || echo 0)
 
-export ANDROID_PROJECT GRADLE_TASK
+export ANDROID_LAB_VERSION ANDROID_PROJECT GRADLE_TASK
 export ANDROID_LAB_FORWARD_HOST_PORT ANDROID_LAB_FORWARD_DEVICE_PORT
 export ANDROID_LAB_MCP_HOST_PORT ANDROID_LAB_MCP_DEVICE_PORT
 export ANDROID_LAB_VNC_HOST_PORT
@@ -201,6 +201,7 @@ DEV_RUN_DIND := docker run --rm --init \
 	-e DOCKER_HOST=unix:///var/run/docker.sock \
 	-e ANDROID_LAB_WORKSPACE="$(CURDIR)" \
 	-e ANDROID_LAB_EXTENSION=scripts/dikciz-lab.sh \
+	-e ANDROID_LAB_VERSION \
 	-e ANDROID_LAB_COMPOSE_PROJECT \
 	-e ANDROID_LAB_ACCESSIBILITY_SERVICE_CLASS=org.fossify.home.dikciz.DikcizAccessibilityAutomationService \
 	-e HOME=/tmp \
@@ -326,8 +327,11 @@ app-test: gradle ## Run the default Fossify-compatible local Kotlin tests
 app-lint: GRADLE_TASK := :app:lintCoreDebug
 app-lint: gradle ## Run Android lint for the default Fossify-compatible debug variant
 
-lint: ensure-dev-image dikciz-search-docs-check docs-recipes-check docs-check ## Check scripts and run Android lint for minified Dikciz
+.PHONY: lint-scripts
+lint-scripts: ensure-dev-image ## Check shell formatting, shellcheck and Python syntax
 	@$(DEV_RUN) bash scripts/lint.sh
+
+lint: lint-scripts dikciz-search-docs-check docs-recipes-check docs-check ## Check scripts and run Android lint for minified Dikciz
 	@$(MAKE) --no-print-directory gradle GRADLE_TASK=:app:lintDikcizMinified
 
 .PHONY: dikciz-search-docs dikciz-search-docs-check dikciz-search-docs-test
@@ -363,6 +367,13 @@ audit-compose: dev-image ## Validate the private Compose isolation contract
 	@$(DEV_RUN) android-lab check
 
 image: emulator-ready ## Verify both required local lab images
+
+.PHONY: lab-gpu lab-software
+lab-gpu: ensure-dev-image ## Prepare NVIDIA rendering for the stopped private lab
+	@$(DEV_RUN_DIND) android-lab dikciz-lab-gpu
+
+lab-software: ensure-dev-image ## Select software rendering for the stopped private lab
+	@$(DEV_RUN_DIND) android-lab dikciz-lab-software
 
 run: emulator-ready ## Start the private Android emulator with loopback-only web VNC
 	@$(DEV_RUN_DIND) android-lab start

@@ -110,6 +110,8 @@ internal data class ActiveWidgetMove(
      * showing the refusal a plain collision shows.
      */
     var combineTargetID: String? = null,
+    var combineHoverTargetID: String? = null,
+    var combineHoverRunnable: Runnable? = null,
 )
 
 /**

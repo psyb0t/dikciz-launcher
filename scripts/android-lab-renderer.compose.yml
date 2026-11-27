@@ -1,0 +1,21 @@
+services:
+  emulator:
+    environment:
+      NVIDIA_DRIVER_CAPABILITIES: graphics,display,utility
+      LD_LIBRARY_PATH: /opt/VirtualGL/lib
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - type: bind
+        source: ${ANDROID_LAB_STATE_DIRECTORY}/emulator-entrypoint.sh
+        target: /usr/local/bin/android-lab-emulator
+        read_only: true
+      - type: bind
+        source: ${DIKCIZ_LAB_GRAPHICS_DIRECTORY}/runtime
+        target: /opt/VirtualGL
+        read_only: true

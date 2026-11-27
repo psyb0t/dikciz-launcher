@@ -3,6 +3,7 @@ package org.fossify.home.dikciz
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.View
@@ -47,11 +48,19 @@ internal class DikcizPageGridLayout @JvmOverloads constructor(
             invalidate()
         }
 
+    var dropPreviewCell: DikcizGridRectangle? = null
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
     private val guidePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = context.getColor(R.color.dikciz_grid_guide)
         style = Paint.Style.STROKE
     }
     private val guideRectangle = RectF()
+    private val guidePath = Path()
 
     init {
         // A ViewGroup skips onDraw until it is told it has something of its own to paint.
@@ -132,7 +141,24 @@ internal class DikcizPageGridLayout @JvmOverloads constructor(
         }
         val densityScale = resources.displayMetrics.density
         val cornerRadius = GUIDE_CORNER_RADIUS_DP * densityScale
+        guidePaint.style = Paint.Style.FILL
+        canvas.drawPath(guidePath, guidePaint)
+        val preview = dropPreviewCell ?: return
+        val bounds = cellBounds(preview)
+        guideRectangle.set(
+            (paddingLeft + bounds.left).toFloat(),
+            (paddingTop + bounds.top).toFloat(),
+            (paddingLeft + bounds.left + bounds.width).toFloat(),
+            (paddingTop + bounds.top + bounds.height).toFloat(),
+        )
+        guidePaint.style = Paint.Style.STROKE
         guidePaint.strokeWidth = GUIDE_STROKE_WIDTH_DP * densityScale
+        canvas.drawRoundRect(guideRectangle, cornerRadius, cornerRadius, guidePaint)
+    }
+
+    override fun onLayout(isChanged: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        guidePath.rewind()
+        val densityScale = resources.displayMetrics.density
         for (column in 0 until grid.columns) {
             for (row in 0 until grid.rows) {
                 val bounds = DikcizGridLayoutEngine.pixelBounds(
@@ -153,12 +179,14 @@ internal class DikcizPageGridLayout @JvmOverloads constructor(
                     (paddingLeft + bounds.left + bounds.width).toFloat(),
                     (paddingTop + bounds.top + bounds.height).toFloat(),
                 )
-                canvas.drawRoundRect(guideRectangle, cornerRadius, cornerRadius, guidePaint)
+                guidePath.addCircle(
+                    guideRectangle.centerX(),
+                    guideRectangle.centerY(),
+                    GUIDE_DOT_RADIUS_DP * densityScale,
+                    Path.Direction.CW,
+                )
             }
         }
-    }
-
-    override fun onLayout(isChanged: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         forEachVisibleChild { child, layoutParams ->
             child.layout(
                 layoutParams.resolvedLeft,
@@ -219,6 +247,7 @@ internal class DikcizPageGridLayout @JvmOverloads constructor(
 
     private companion object {
         const val NO_SIZE = 0
+        const val GUIDE_DOT_RADIUS_DP = 1.5F
         const val GUIDE_CORNER_RADIUS_DP = 6F
         const val GUIDE_STROKE_WIDTH_DP = 1F
     }
