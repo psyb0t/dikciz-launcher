@@ -54,7 +54,8 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
         provider = if (isAnthropic) LLMProvider.Anthropic else LLMProvider.OpenAI,
         id = profile.getString("model").ifBlank { "discovery" },
         capabilities = listOf(LLMCapability.Completion, LLMCapability.Tools, LLMCapability.Temperature,
-            LLMCapability.OpenAIEndpoint.Completions, LLMCapability.Vision.Image, LLMCapability.Thinking),
+            LLMCapability.OpenAIEndpoint.Completions, LLMCapability.Thinking) +
+            listOfNotNull(LLMCapability.Vision.Image.takeIf { profile.optBoolean(DikcizChatSettings.VISION) }),
         contextLength = profile.getLong("contextTokens"),
         maxOutputTokens = profile.getLong("maxOutputTokens"),
     )
@@ -118,7 +119,7 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
         var finishReason: String? = null
         var ended = false
         val offeredTools = if (withTools) tools else emptyList()
-        val normalized = DikcizChatToolArguments.forProvider(messages).let {
+        val normalized = DikcizChatToolArguments.forProvider(if (profile.optBoolean(DikcizChatSettings.VISION)) messages else textOnly(messages)).let {
             if (isAnthropic) groupAnthropicToolResults(it) else it
         }
         val boundRequest = if (isAnthropic && model.id in DikcizChatAnthropicPrefix.MODELS) {
@@ -224,6 +225,18 @@ internal class DikcizChatProvider(private val profile: JSONObject) : AutoCloseab
             }
         }
         flush()
+    }
+
+    private fun textOnly(messages: List<Message>): List<Message> = messages.map { message ->
+        if (message !is Message.User) return@map message
+        val omitted = MessagePart.Text("[Image omitted for this text-only model.]")
+        message.copy(parts = message.parts.map { part ->
+            when (part) {
+                is MessagePart.Attachment -> omitted
+                is MessagePart.Tool.Result -> part.copy(parts = part.parts.map { if (it is MessagePart.Attachment) omitted else it })
+                else -> part
+            }
+        })
     }
 
     private fun openAIImages(messages: List<Message>): List<Message> {

@@ -29,6 +29,9 @@ internal class DikcizChatModelLimits(context: Context) {
     fun selection(current: JSONObject, requested: JSONObject, limits: JSONObject): JSONObject {
         val result = JSONObject(requested.toString())
         if (requested.opt("model") !is String || requested.getString("model").isBlank()) return result
+        if (requested.getString("model") != current.optString("model") && !result.has(DikcizChatSettings.VISION)) {
+            result.put(DikcizChatSettings.VISION, false)
+        }
         val context = positive(limits.opt("contextTokens"))
         val maximumOutput = positive(limits.opt("maxOutputTokens"))
         if (context == null && maximumOutput == null) return result

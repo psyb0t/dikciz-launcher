@@ -224,6 +224,7 @@ internal data class AppGroupHomeWidget(
 ) : HomeWidget
 
 internal object AppGroupLimits {
+    const val MINIMUM_COMPONENTS = 1
     const val MAXIMUM_COMPONENTS = 32
     const val PREVIEW_COMPONENTS = 4
 }

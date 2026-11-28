@@ -435,7 +435,7 @@ WebView invocation: `await dikciz.command("activityRead", fields)`. Headless Jav
 
 ## dikciz_add_widget
 
-Place one new top-level item in the first fitting free cells of the named page, or the selected page when pageId is absent. Returns the saved address. Rejects locked or full pages without writing. Use dikciz_widget_move and dikciz_widget_resize for placement afterwards.
+Place one new item in the first fitting free cells of pageId, or the selected page when omitted. For appGroup, pass components from dikciz_app_catalogue and an optional title. Returns the saved address and cell. Rejects locked or full pages without writing.
 
 Ordinary command: `addWidget`. [Token scope definitions](token-permissions.md#addwidget). [Result envelope and task guides](developer-manual.md#result-contract).
 
@@ -444,7 +444,9 @@ WebView invocation: `await dikciz.command("addWidget", fields)`. Headless JavaSc
 | Parameter | Required | Type | Default | Definition and bounds |
 | --- | --- | --- | --- | --- |
 | `autoRequestPermissions` | No | `boolean` | `false` | Show owner permission recovery when required. Defaults to false; explicit permission-request tools always ask. Never grants access or retries an operation. |
+| `components` | No | `array` | `Not declared` | Required for appGroup. Unique Android component strings from dikciz_app_catalogue, in display order. {"minItems": 1, "maxItems": 32} |
 | `pageId` | No | `string` | `Not declared` | Stable Dikciz page ID from dikciz_snapshot. {"maximum": 256} |
+| `title` | No | `string` | `Not declared` | Optional appGroup label. Omit it to use the default label. {"maxLength": 8192} |
 | `widgetType` | Yes | `string` | `Not declared` | Item type to create: html, appGroup, or scriptDashboard. {"maximum": 256} |
 
 
@@ -462,6 +464,21 @@ WebView invocation: `await dikciz.command("addWidget", fields)`. Headless JavaSc
       "type": "string",
       "description": "Stable Dikciz page ID from dikciz_snapshot.",
       "maximum": 256
+    },
+    "title": {
+      "type": "string",
+      "description": "Optional appGroup label. Omit it to use the default label.",
+      "maxLength": 8192
+    },
+    "components": {
+      "type": "array",
+      "description": "Required for appGroup. Unique Android component strings from dikciz_app_catalogue, in display order.",
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      },
+      "minItems": 1,
+      "maxItems": 32
     },
     "autoRequestPermissions": {
       "type": "boolean",
@@ -3350,7 +3367,7 @@ WebView invocation: `await dikciz.command("cameraVideoRecord", fields)`. Headles
 
 ## dikciz_chat
 
-Manage the on-device Dikciz assistant. Actions: status, profiles, profileSave, models, create, list, read, rename, settings, configure, delete, send, task, stop, subscribe, show, hide, fullscreen. A send is queued, not proof of completion. Poll read/status. Profile reads never return API keys. Save a connection without a model, discover its models, then configure each conversation with independent model and token settings. settings reads effective values and modelLimits. Selecting a known model fills context defaults and clamps the reply reserve; explicit token fields win. models exposes known context/output/input ceilings and limitsSource, using provider metadata before the bundled catalog. Unknown models keep manual budgets. configure patches settings and optionally changes profileId. Changing providers retains read-only access and resets other overrides. settings.agent selects an installed named agent from assistantLibrary and reloads its instructions and narrowed tool access each turn. settings.readOnly defaults to false; true hides mutating tools and blocks their execution and permission prompts. subscribe replaces the conversation's event rules; each rule has id, subscription (canonical automation event subscription) and instructions. show/hide/fullscreen control the chat panel independently of the agent. task starts widget creation (task:widget, text required) or a read-only screen explanation (task:explainScreen, optional text), with conversationId and requestKey. Screen tasks hide chat, capture the display and reopen chat. Read the chat MCP guide for fields and examples.
+Manage the on-device Dikciz assistant. Actions: status, profiles, profileSave, models, create, list, read, rename, settings, configure, delete, send, task, stop, subscribe, show, hide, fullscreen. A send is queued, not proof of completion. Poll read/status. Profile reads never return API keys. Save a connection without a model, discover its models, then configure each conversation with independent model and token settings. settings reads effective values and modelLimits. Selecting a known model fills context defaults and clamps the reply reserve; explicit token fields win. models exposes known context/output/input ceilings and limitsSource, using provider metadata before the bundled catalog. Unknown models keep manual budgets. configure patches settings and optionally changes profileId. Changing providers retains read-only access and resets other overrides. settings.agent selects an installed named agent from assistantLibrary and reloads its instructions and narrowed tool access each turn. settings.readOnly defaults to false; true hides mutating tools and blocks their execution and permission prompts. subscribe replaces the conversation's event rules; each rule has id, subscription (canonical automation event subscription) and instructions. show/hide/fullscreen control the chat panel independently of the agent. task starts widget creation (task:widget, text required) or a read-only screen explanation (task:explainScreen, optional text), with conversationId and requestKey. Screen tasks read the accessibility tree. Set settings.supportsVision to true to include screenshots. Read the chat MCP guide for fields and examples.
 
 Ordinary command: `chatControl`. [Token scope definitions](token-permissions.md#chatcontrol). [Result envelope and task guides](developer-manual.md#result-contract).
 

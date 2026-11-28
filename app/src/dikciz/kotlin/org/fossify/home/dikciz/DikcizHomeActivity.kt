@@ -9,10 +9,12 @@ import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.ActivityNotFoundException
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -63,6 +65,7 @@ import android.widget.TextView
 import android.widget.Toast
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
+import androidx.core.content.ContextCompat
 import androidx.core.view.doOnLayout
 import androidx.health.connect.client.PermissionController
 import android.webkit.WebResourceRequest
@@ -82,6 +85,8 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.sqrt
 import kotlin.math.roundToInt
 import org.fossify.home.BuildConfig
 import org.fossify.home.R
@@ -98,6 +103,26 @@ class DikcizHomeActivity : Activity() {
     private enum class ScriptDashboardRunStatusField {
         Status,
         LastRun,
+    }
+
+    private class AppGroupTile(context: Context, val widget: AppGroupHomeWidget) : LinearLayout(context) {
+        val preview = FrameLayout(context)
+        val unavailable = TextView(context)
+        var applications: List<DikcizLaunchableApp> = emptyList()
+    }
+
+    private val appGroupPackageReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val packageName = intent.data?.schemeSpecificPart ?: return
+            if (intent.getBooleanExtra(Intent.EXTRA_REPLACING, false) && intent.action != Intent.ACTION_PACKAGE_REPLACED) return
+            cachedPageAutomationViews.values.forEach { views ->
+                views.values.filterIsInstance<AppGroupTile>().forEach { tile ->
+                    if (tile.widget.components.any { ComponentName.unflattenFromString(it)?.packageName == packageName }) {
+                        refreshAppGroupTile(tile)
+                    }
+                }
+            }
+        }
     }
 
     private lateinit var appDrawer: DikcizAppDrawerView
@@ -363,6 +388,18 @@ class DikcizHomeActivity : Activity() {
         DikcizChatRuntime.get(applicationContext).observe(chatBadgeObserver)
         DikcizAutomationEventBus.setHtmlDomPatchListener(applicationContext, ::patchRenderedHtmlDom)
         DikcizDeviceAccessActivity.attachHost(automationInstanceID, ::publishAutomationUIRendered)
+        ContextCompat.registerReceiver(
+            this,
+            appGroupPackageReceiver,
+            IntentFilter().apply {
+                addAction(Intent.ACTION_PACKAGE_ADDED)
+                addAction(Intent.ACTION_PACKAGE_REMOVED)
+                addAction(Intent.ACTION_PACKAGE_CHANGED)
+                addAction(Intent.ACTION_PACKAGE_REPLACED)
+                addDataScheme("package")
+            },
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         dikcizLogger.info(EVENT_ACTIVITY_CREATED)
     }
 
@@ -457,6 +494,7 @@ class DikcizHomeActivity : Activity() {
     }
 
     override fun onDestroy() {
+        unregisterReceiver(appGroupPackageReceiver)
         DikcizChatRuntime.get(applicationContext).unobserve(chatBadgeObserver)
         DikcizChatRuntime.get(applicationContext).detachMcp(automationInstanceID)
         DikcizDeviceAccessActivity.detachHost(automationInstanceID)
@@ -609,7 +647,9 @@ class DikcizHomeActivity : Activity() {
         launcherControl.onControlsRequested = ::showLauncherControlSheet
         launcherControl.onPageSearchRequested = ::showPageSearchSheet
         launcherControl.onAppDrawerRequested = { openAppDrawer(DRAWER_SOURCE_CONTROL) }
-        launcherControl.onChatRequested = { startActivity(Intent(this, DikcizChatActivity::class.java)) }
+        launcherControl.onChatRequested = { unread ->
+            startActivity(Intent(this, DikcizChatActivity::class.java).putExtra(EXTRA_UNREAD_CHATS, unread))
+        }
         bindAppDrawer()
         pageScrollView.setOnTouchListener { view, event ->
             if (isSafeMode) {
@@ -3386,16 +3426,10 @@ class DikcizHomeActivity : Activity() {
         style: DikcizStyle,
         isEnabled: Boolean,
     ) {
-        val applications = appGroupApplications(widget)
-        val folder = LinearLayout(this).apply {
+        val folder = AppGroupTile(this, widget).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            contentDescription = getString(
-                R.string.dikciz_app_group_content_description,
-                widget.title,
-                applications.size,
-            )
-            createAppGroupPreview(applications, widget).let(::addView)
+            addView(preview)
             addView(TextView(this@DikcizHomeActivity).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -3408,6 +3442,11 @@ class DikcizHomeActivity : Activity() {
                 setTextColor(getColor(R.color.dikciz_foreground))
                 dikcizStyleRenderer.applyTextStyle(this, style)
             })
+            addView(unavailable.apply {
+                text = getString(R.string.dikciz_app_group_unavailable)
+                setTextColor(getColor(R.color.dikciz_muted_foreground))
+                dikcizStyleRenderer.applyTextStyle(this, style)
+            })
             this.isEnabled = isEnabled
             if (isEnabled) {
                 isClickable = true
@@ -3416,25 +3455,45 @@ class DikcizHomeActivity : Activity() {
                 setOnClickListener { showAppGroupContents(widget) }
             }
         }
-        container.addView(folder.also { view ->
-            registerAutomationView(appGroupSemanticID(widget.id), view)
-        })
-        if (applications.isEmpty()) {
-            container.addView(TextView(this).apply {
-                text = getString(R.string.dikciz_app_group_unavailable)
-                setTextColor(getColor(R.color.dikciz_muted_foreground))
-                dikcizStyleRenderer.applyTextStyle(this, style)
-            })
+        refreshAppGroupTile(folder)
+        container.addView(folder)
+        registerAutomationView(appGroupSemanticID(widget.id), folder)
+    }
+
+    private fun refreshAppGroupTile(tile: AppGroupTile) {
+        tile.applications = resolveAppGroupMembers(tile.widget.components)
+        tile.contentDescription = getString(
+            R.string.dikciz_app_group_content_description,
+            tile.widget.title,
+            tile.applications.size,
+        )
+        tile.preview.removeAllViews()
+        tile.preview.addView(createAppGroupPreview(tile.applications))
+        tile.unavailable.visibility = if (tile.applications.isEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private fun resolveAppGroupMembers(components: List<String>): List<DikcizLaunchableApp> {
+        return try {
+            DikcizAppCatalogue.groupMembers(packageManager, packageName, components)
+        } catch (exception: SecurityException) {
+            dikcizLogger.warn(
+                EVENT_APP_CATALOGUE_LOAD_REJECTED,
+                mapOf(FIELD_ERROR_CLASS to exception::class.java.simpleName),
+            )
+            emptyList()
         }
     }
 
-    private fun createAppGroupPreview(
-        applications: List<DikcizLaunchableApp>,
-        widget: AppGroupHomeWidget,
-    ): LinearLayout {
+    private fun createAppGroupPreview(applications: List<DikcizLaunchableApp>): LinearLayout {
         return LinearLayout(this).apply {
+            val size = densityPixels(APP_GROUP_PREVIEW_SIZE_DP)
+            layoutParams = FrameLayout.LayoutParams(size, size, Gravity.CENTER)
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(DikcizUiStyle.SURFACE)
+            }
             applications.take(AppGroupLimits.PREVIEW_COMPONENTS).chunked(APP_GROUP_PREVIEW_COLUMNS)
                 .forEach { row ->
                     addView(LinearLayout(this@DikcizHomeActivity).apply {
@@ -3449,7 +3508,7 @@ class DikcizHomeActivity : Activity() {
                                     R.string.dikciz_app_widget_icon_content_description,
                                     application.label,
                                 )
-                                setImageDrawable(appShortcutIcon(application.component, widget.id))
+                                setImageDrawable(copyAppGroupIcon(application.icon))
                             })
                         }
                     })
@@ -3457,26 +3516,25 @@ class DikcizHomeActivity : Activity() {
         }
     }
 
-    /**
-     * The installed apps a group names, in the order the group stores them.
-     *
-     * A component is matched in both its short and its full flattened form,
-     * because the public files accept either and a member written by hand would
-     * otherwise vanish from the group without saying why.
-     */
-    private fun appGroupApplications(widget: AppGroupHomeWidget): List<DikcizLaunchableApp> {
-        val applicationsByComponent = mutableMapOf<String, DikcizLaunchableApp>()
-        launchableApps().forEach { application ->
-            applicationsByComponent[application.component.flattenToShortString()] = application
-            applicationsByComponent[application.component.flattenToString()] = application
-        }
-        return widget.components.mapNotNull(applicationsByComponent::get)
-    }
+    private fun copyAppGroupIcon(icon: Drawable): Drawable =
+        icon.constantState?.newDrawable(resources)?.mutate() ?: icon
 
     private fun showAppGroupContents(widget: AppGroupHomeWidget) {
         val configuration = homeConfiguration ?: return
         val page = configuration.selectedPage() ?: return
-        val applications = appGroupApplications(widget)
+        val semanticID = appGroupSemanticID(widget.id)
+        val tile = cachedPageAutomationViews[page.id]?.get(semanticID) as? AppGroupTile ?: return
+        val applications = tile.applications
+        val visibleArea = Rect().also(pageCanvasHost::getWindowVisibleDisplayFrame)
+        val margin = densityPixels(APP_GROUP_PANEL_MARGIN_DP)
+        visibleArea.inset(margin, margin)
+        if (visibleArea.isEmpty) return
+        val memberSpace = densityPixels(APP_GROUP_MEMBER_SIZE_DP + 2 * APP_GROUP_MEMBER_GAP_DP)
+        val maxColumns = ((visibleArea.width() - 2 * standardPadding()) / memberSpace).coerceAtLeast(1)
+        val columns = ceil(sqrt(applications.size.toDouble())).toInt().coerceIn(1, maxColumns)
+        val desiredWidth = (columns * memberSpace + 2 * standardPadding())
+            .coerceAtLeast(densityPixels(APP_GROUP_PANEL_MINIMUM_WIDTH_DP))
+            .coerceAtMost(visibleArea.width())
         lateinit var dialog: AlertDialog
         val drag = if (page.locked || widget.locked || isSafeMode) {
             null
@@ -3496,7 +3554,7 @@ class DikcizHomeActivity : Activity() {
                 addView(createPanelSubtitle(getString(R.string.dikciz_app_group_unavailable)))
                 return@apply
             }
-            applications.chunked(APP_GROUP_MEMBER_COLUMNS).forEach { row ->
+            applications.chunked(columns).forEach { row ->
                 addView(LinearLayout(this@DikcizHomeActivity).apply {
                     gravity = Gravity.CENTER_HORIZONTAL
                     row.forEach { application ->
@@ -3513,20 +3571,50 @@ class DikcizHomeActivity : Activity() {
             .setNegativeButton(R.string.dikciz_dialog_close, null)
             .setPositiveButton(R.string.dikciz_widget_edit) { _, _ -> showEditAppGroupDialog(widget) }
             .create()
+        dialog.window?.setWindowAnimations(0)
+        dialog.setCanceledOnTouchOutside(true)
         showActiveDialog(
             dialog,
             onShown = {
-                registerAutomationView(appGroupSemanticID(widget.id), contents)
-                publishAutomationUIRendered()
+                positionAppGroupPanel(dialog, tile, visibleArea, desiredWidth)
+                registerAutomationView(semanticID, contents)
             },
             onDismiss = {
                 drag?.clearPreview()
-                automationViews.keys.removeAll { key ->
-                    key.startsWith(appGroupSemanticID(widget.id))
-                }
-                publishAutomationUIRendered()
+                automationViews.keys.removeAll { it.startsWith("$semanticID$SEMANTIC_APP_GROUP_MEMBER_SEPARATOR") }
+                if (automationViews[semanticID] === contents) registerAutomationView(semanticID, tile)
             },
         )
+    }
+
+    private fun positionAppGroupPanel(dialog: AlertDialog, tile: View, area: Rect, width: Int) {
+        val window = dialog.window ?: return
+        val decor = window.decorView
+        decor.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(area.height(), View.MeasureSpec.AT_MOST),
+        )
+        val height = decor.measuredHeight.coerceIn(1, area.height())
+        val anchor = IntArray(2).also(tile::getLocationOnScreen)
+        val tileX = anchor[0] + tile.width / 2
+        val tileY = anchor[1] + tile.height / 2
+        val left = (tileX - width / 2).coerceIn(area.left, area.right - width)
+        val top = (tileY - height / 2).coerceIn(area.top, area.bottom - height)
+        window.attributes = window.attributes.apply {
+            gravity = Gravity.CENTER
+            x = left + width / 2 - area.centerX()
+            y = top + height / 2 - area.centerY()
+            this.width = width
+            this.height = height
+        }
+        decor.pivotX = (tileX - left).toFloat()
+        decor.pivotY = (tileY - top).toFloat()
+        decor.scaleX = APP_GROUP_PANEL_OPEN_SCALE
+        decor.scaleY = APP_GROUP_PANEL_OPEN_SCALE
+        decor.animate().scaleX(1f).scaleY(1f)
+            .setDuration(APP_GROUP_PANEL_ANIMATION_MS)
+            .setInterpolator(startupBrandInterpolator)
+            .start()
     }
 
     private fun createAppGroupMember(
@@ -3537,6 +3625,7 @@ class DikcizHomeActivity : Activity() {
         onSelected: () -> Unit,
     ): View {
         val component = application.component.flattenToShortString()
+        val icon = copyAppGroupIcon(application.icon)
         return DikcizAppShortcutTileView(
             this,
             densityPixels(APP_SHORTCUT_ICON_LABEL_GAP_DP),
@@ -3554,7 +3643,7 @@ class DikcizHomeActivity : Activity() {
             foreground = getDrawable(R.drawable.dikciz_drawer_row)
             addView(ImageView(this@DikcizHomeActivity).apply {
                 scaleType = ImageView.ScaleType.FIT_CENTER
-                setImageDrawable(application.icon)
+                setImageDrawable(icon)
             })
             addView(TextView(this@DikcizHomeActivity).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
@@ -3569,7 +3658,7 @@ class DikcizHomeActivity : Activity() {
             }
             drag?.bind(
                 member = this,
-                icon = application.icon,
+                icon = icon,
                 onMenu = { showAppGroupMemberMenu(pageID, widget, application) },
                 onDrop = { x, y ->
                     appGroupDropCell(pageID, x, y)?.let { cell ->
@@ -3669,9 +3758,8 @@ class DikcizHomeActivity : Activity() {
         extractedComponent: String,
         maxLength: Int,
     ): String? {
-        val survivor = group.components.singleOrNull { it != extractedComponent }
-            ?.let(ComponentName::unflattenFromString) ?: return null
-        return appGroupApplications(group).firstOrNull { it.component == survivor }
+        val survivor = group.components.singleOrNull { it != extractedComponent } ?: return null
+        return resolveAppGroupMembers(listOf(survivor)).firstOrNull()
             ?.label?.take(maxLength)?.trim()?.takeIf(String::isNotEmpty)
     }
 
@@ -4686,14 +4774,18 @@ class DikcizHomeActivity : Activity() {
             throw gridFailure(placement.failure)
         }
         val cell = (placement as DikcizGridPlacement.Placed).rectangle
-        val widget = buildAutomationWidget(widgetType, cell)
+        val widget = buildAutomationWidget(widgetType, cell, command.request)
         if (!insertAutomationWidget(page.id, widget)) {
             throw automationFailure(MESSAGE_WIDGET_INSERTION_FAILED)
         }
         val savedPage = homeConfiguration?.pages?.first { candidate -> candidate.id == page.id }
             ?: throw automationFailure(MESSAGE_CONFIGURATION_UNAVAILABLE)
         val savedWidget = savedPage.widgets.first { candidate -> candidate.id == widget.id }
-        return DikcizWebWidgetContext.widgetDocument(savedPage, savedWidget)
+        return DikcizWebWidgetContext.widgetDocument(savedPage, savedWidget).also { document ->
+            if (savedWidget is AppGroupHomeWidget) {
+                document.put(KEY_GROUP_COMPONENTS, org.json.JSONArray(savedWidget.components))
+            }
+        }
     }
 
     /**
@@ -4807,7 +4899,7 @@ class DikcizHomeActivity : Activity() {
     private fun automationWidgetSpan(widgetType: String): DikcizGridSpan {
         return when (widgetType) {
             AUTOMATION_WIDGET_TYPE_HTML -> DikcizWidgetSpans.HTML
-            AUTOMATION_WIDGET_TYPE_APP_GROUP -> DikcizWidgetSpans.APP_GROUP
+            DikcizAutomationControlPlane.WIDGET_TYPE_APP_GROUP -> DikcizWidgetSpans.APP_GROUP
             AUTOMATION_WIDGET_TYPE_SCRIPT_DASHBOARD -> DikcizWidgetSpans.SCRIPT_DASHBOARD
             else -> throw automationFailure(MESSAGE_UNSUPPORTED_WIDGET_TYPE)
         }
@@ -4816,8 +4908,9 @@ class DikcizHomeActivity : Activity() {
     private fun buildAutomationWidget(
         widgetType: String,
         cell: DikcizGridRectangle,
+        request: JSONObject,
     ): HomeWidget {
-        val title = automationWidgetTitle(widgetType)
+        val title = request.optString(DikcizAutomationControlPlane.KEY_TITLE, automationWidgetTitle(widgetType))
         val widgetID = newWidgetID(title) ?: throw automationFailure(MESSAGE_WIDGET_ID_UNAVAILABLE)
         return when (widgetType) {
             AUTOMATION_WIDGET_TYPE_HTML -> HtmlHomeWidget(
@@ -4828,13 +4921,16 @@ class DikcizHomeActivity : Activity() {
                 cell = cell,
             )
 
-            AUTOMATION_WIDGET_TYPE_APP_GROUP -> AppGroupHomeWidget(
-                id = widgetID,
-                title = title,
-                components = emptyList(),
-                enabled = true,
-                cell = cell,
-            )
+            DikcizAutomationControlPlane.WIDGET_TYPE_APP_GROUP -> {
+                val components = request.getJSONArray(DikcizAutomationControlPlane.KEY_COMPONENTS)
+                AppGroupHomeWidget(
+                    id = widgetID,
+                    title = title,
+                    components = (0 until components.length()).map(components::getString),
+                    enabled = true,
+                    cell = cell,
+                )
+            }
 
             AUTOMATION_WIDGET_TYPE_SCRIPT_DASHBOARD -> ScriptDashboardHomeWidget(
                 id = widgetID,
@@ -4850,7 +4946,7 @@ class DikcizHomeActivity : Activity() {
     private fun automationWidgetTitle(widgetType: String): String {
         return when (widgetType) {
             AUTOMATION_WIDGET_TYPE_HTML -> getString(R.string.dikciz_html_widget_default_title)
-            AUTOMATION_WIDGET_TYPE_APP_GROUP -> getString(R.string.dikciz_app_group_default_title)
+            DikcizAutomationControlPlane.WIDGET_TYPE_APP_GROUP -> getString(R.string.dikciz_app_group_default_title)
             AUTOMATION_WIDGET_TYPE_SCRIPT_DASHBOARD ->
                 getString(R.string.dikciz_script_dashboard_widget_title)
 
@@ -12437,11 +12533,15 @@ class DikcizHomeActivity : Activity() {
         const val SEMANTIC_STARTUP_VERSION = "startup:version"
         const val APP_SHORTCUT_BUTTON_ICON_GAP_DP = 8
         const val APP_SHORTCUT_ICON_LABEL_GAP_DP = 4
-        const val APP_GROUP_ICON_SIZE_DP = 24
-        const val APP_GROUP_MEMBER_COLUMNS = 3
-        const val APP_GROUP_MEMBER_SIZE_DP = 84
-        const val APP_GROUP_MEMBER_GAP_DP = 6
-        const val APP_GROUP_MEMBER_LABEL_LINES = 1
+        const val APP_GROUP_ICON_SIZE_DP = 18
+        const val APP_GROUP_PREVIEW_SIZE_DP = 50
+        const val APP_GROUP_MEMBER_SIZE_DP = 76
+        const val APP_GROUP_MEMBER_GAP_DP = 4
+        const val APP_GROUP_MEMBER_LABEL_LINES = 2
+        const val APP_GROUP_PANEL_MARGIN_DP = 8
+        const val APP_GROUP_PANEL_MINIMUM_WIDTH_DP = 216
+        const val APP_GROUP_PANEL_OPEN_SCALE = 0.82f
+        const val APP_GROUP_PANEL_ANIMATION_MS = 200L
         const val SINGLE_APP_GROUP_MEMBER = 1
         const val APP_GROUP_PREVIEW_COLUMNS = 2
         const val COMMAND_SHEET_APP_ICON_GAP_DP = 8
@@ -12611,7 +12711,6 @@ class DikcizHomeActivity : Activity() {
         const val KEY_Y = "y"
         const val MESSAGE_APP_UNAVAILABLE = "app widget target is unavailable"
         const val MESSAGE_APP_WIDGET_REQUIRED = "semantic ID must name an app widget"
-        const val AUTOMATION_WIDGET_TYPE_APP_GROUP = "appGroup"
         const val AUTOMATION_WIDGET_TYPE_HTML = "html"
         const val AUTOMATION_WIDGET_TYPE_SCRIPT_DASHBOARD = "scriptDashboard"
         const val FIELD_WIDGET_TYPE = "widget_type"

@@ -57,6 +57,8 @@ import org.fossify.home.dikciz.DikcizChatColors.FOREGROUND
 import org.fossify.home.dikciz.DikcizChatColors.MUTED
 import org.fossify.home.R
 
+internal const val EXTRA_UNREAD_CHATS = "showUnreadChats"
+
 internal class DikcizChatActivity : Activity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private lateinit var runtime: DikcizChatRuntime
@@ -111,7 +113,8 @@ internal class DikcizChatActivity : Activity() {
         markwon = Markwon.builder(this).usePlugin(TablePlugin.create(this)).usePlugin(StrikethroughPlugin.create()).build()
         conversationID = savedInstanceState?.getString("conversationId") ?: intent.getStringExtra("conversationId")
         needsInitialConversation = savedInstanceState == null && conversationID == null
-        pane = Pane.entries.firstOrNull { it.name == savedInstanceState?.getString("chatPane") } ?: Pane.CONVERSATION
+        pane = Pane.entries.firstOrNull { it.name == savedInstanceState?.getString("chatPane") } ?: if (intent.getBooleanExtra(EXTRA_UNREAD_CHATS, false)) Pane.HISTORY else Pane.CONVERSATION
+        needsInitialConversation = needsInitialConversation && pane == Pane.CONVERSATION
         fullScreen = savedInstanceState?.getBoolean("fullScreen") ?: intent.getBooleanExtra("fullScreen", false)
         sheetProgress = if (fullScreen) 1f else 0f
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
@@ -378,6 +381,7 @@ internal class DikcizChatActivity : Activity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_UNREAD_CHATS, false)) openPane(Pane.HISTORY)
         intent.getStringExtra("conversationId")?.takeIf(String::isNotBlank)?.let { selectConversation(it) }
         settleSheet(intent.getBooleanExtra("fullScreen", fullScreen), animate = false)
     }
@@ -463,6 +467,10 @@ internal class DikcizChatActivity : Activity() {
 
     private fun returnToChat() {
         val previous = pane
+        if (previous == Pane.HISTORY && conversationID == null && intent.getBooleanExtra(EXTRA_UNREAD_CHATS, false)) {
+            finish()
+            return
+        }
         dismissKeyboard()
         pane = Pane.CONVERSATION
         val selected = runtime.attachActivity(this, conversationID)

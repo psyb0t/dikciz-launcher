@@ -156,7 +156,7 @@ Known model metadata can fill token limits. Unknown models need manual values. M
 
 Start with **Read-only phone access** enabled in model settings. Ask the assistant to inspect battery state and explain the result. Read-only mode hides write tools and independently blocks direct write calls in the executor. A model cannot bypass it with an argument. Permission prompts, app launches, shell commands and messaging are writes, so arrange needed grants yourself before this exercise.
 
-For a separate writable exercise, disable read-only while idle and use **Make me a widget** on the spare page. Describe a small note or status widget. Inspect the resulting document and tool results; generation can fail or leave a partial result. **Explain this screen** hides chat, captures the display and accessibility tree, and sends them to an image-capable model. That turn is read-only even in a writable conversation, without changing its saved access setting.
+For a separate writable exercise, disable read-only while idle and use **Make me a widget** on the spare page. Describe a small note or status widget. Inspect the resulting document and tool results; generation can fail or leave a partial result. **Explain this screen** hides chat, reads the accessibility tree and includes a screenshot when **Supports vision** is enabled, and sends them to an image-capable model. That turn is read-only even in a writable conversation, without changing its saved access setting.
 
 Chat streams Markdown. Scroll up to inspect earlier messages; use **Latest** to resume following output. Hidden work appears in a progress notification. Tap it to return to the exact conversation, or use **Stop** to cancel active and queued work. Completed phone actions remain completed. The quiet **Open chat** notification opens the panel over another app when Android access and notification settings permit it.
 
@@ -166,7 +166,7 @@ An event rule can wake a conversation while chat is closed. Configure one only a
 
 ### Chat screens
 
-<p><a href="images/tutorial/chat-conversations.png"><img src="images/tutorial/chat-conversations.png" alt="Switch between independent conversations." width="280"></a><br>Switch between independent conversations.</p>
+<p><a href="images/tutorial/chat-conversations.png"><img src="images/tutorial/chat-conversations.png" alt="Find unread conversations at the top and tap one to read its replies." width="280"></a><br>Find unread conversations at the top and tap one to read its replies.</p>
 
 <p><a href="images/tutorial/chat-event-rules.png"><img src="images/tutorial/chat-event-rules.png" alt="An event rule can wake this conversation for a scoped read-only task." width="280"></a><br>An event rule can wake this conversation for a scoped read-only task.</p>
 
@@ -184,7 +184,7 @@ An event rule can wake a conversation while chat is closed. Configure one only a
 
 <p><a href="images/tutorial/chat-model-dropdown.png"><img src="images/tutorial/chat-model-dropdown.png" alt="Choose a discovered model from the provider catalogue. Names here are demonstration models." width="280"></a><br>Choose a discovered model from the provider catalogue. Names here are demonstration models.</p>
 
-<p><a href="images/tutorial/chat-model-settings.png"><img src="images/tutorial/chat-model-settings.png" alt="Set read-only access, total context and the reserved reply/output budget." width="280"></a><br>Set read-only access, total context and the reserved reply/output budget.</p>
+<p><a href="images/tutorial/chat-model-settings.png"><img src="images/tutorial/chat-model-settings.png" alt="Set read-only access, tool filters and token budgets." width="280"></a><br>Set read-only access, tool filters and token budgets.</p>
 
 <p><a href="images/tutorial/chat-sheet-half.png"><img src="images/tutorial/chat-sheet-half.png" alt="Half-screen chat renders streamed Markdown." width="280"></a><br>Half-screen chat renders streamed Markdown.</p>
 

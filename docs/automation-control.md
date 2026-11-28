@@ -28,7 +28,7 @@ Open **Dikciz > Skills, agents & rules** to manage owner instructions. `assistan
 
 ## On-device assistant
 
-`chatControl` and MCP `dikciz_chat` manage the same provider connections, per-conversation model/token settings, queue, event rules and panel used by the native cheese button. Sends report queue state; poll the transcript and actual tool outcomes. The agent discovers and invokes existing MCP handlers in process. The shared `task` action offers widget creation on the current page and read-only screen explanation with automatic chat dismissal and display capture. See [chat setup, actions and context budgets](embedded-chat.md).
+`chatControl` and MCP `dikciz_chat` manage the same provider connections, per-conversation model/token settings, queue, event rules and panel used by the native cheese button. Sends report queue state; poll the transcript and actual tool outcomes. The agent discovers and invokes existing MCP handlers in process. The shared `task` action offers widget creation on the current page and read-only screen explanation with automatic chat dismissal and display capture. See [chat setup, actions and context budgets](embedded-chat.md). Use `configure` with `settings.supportsVision` to include screenshot images. The default sends accessibility text.
 
 `assistantLibrary`, MCP `dikciz_assistant_library`, lists skill/agent/rule metadata or reads a relative file under `/sdcard/Dikciz/assistant/`. It shares the executor across ordinary bindings and requires the corresponding read grant for remote tokens. The built-in `phone_library` and `phone_agent` tools support on-demand instructions and restricted delegation. See [skills, agents and rules](assistant-library.md).
 
@@ -218,7 +218,7 @@ A `launched` outcome and `verified: true` require the target package to remain t
 Native taps use the same observer asynchronously and log the terminal `activity_launch_observed` record with a unique `launch_id`. Lua and direct typed activity actions return the same terminal outcome vocabulary. Broadcast dispatch remains an acceptance result because it does not open an activity. Android-owned result flows, including widget binding, keep their own result callbacks.
 
 
-On the device an app group is made by dropping one app tile onto another, not from the widget picker. Automation still builds one directly: `addWidget` takes `appGroup`, and `configReplace` accepts a group with its `components` listed.
+Group app tiles on the device by dropping one onto another. To create a populated group in one call, look up exact component strings with `appCatalogue` and pass them to `addWidget` with `widgetType: "appGroup"`. A whole layout import through `configReplace` can also include groups.
 
 The native app drawer uses this same catalogue and action runtime. Open it with **All Android apps**, through launcher controls or by swiping up from the bottom 140 dp of Home. Search matches app labels and package names without regard to case. Tap a row to launch its app. Open its overflow or long press the row for the other app actions.
 
@@ -384,6 +384,8 @@ A native page is one fixed viewport and does not grow, so on a normal home `scro
 ## Placement commands
 
 `addWidget` creates one top-level item and selects its page. Pass `widgetType` as `html`, `appGroup`, or `scriptDashboard`. Optional `pageId` targets a specific page. Omit it to use the current page. The command uses the first fitting free cells, reading left to right and then down. Use `widgetMove` and `widgetResize` for specific placement. A missing or locked page returns `page_not_found` or `page_locked` without inserting a widget.
+
+For `appGroup`, supply `components` as an ordered array of 1 to 32 unique Android component strings and an optional `title`. Each component string must fit in 512 characters. Omitting the title uses the default group label. `components` and `title` apply only to app groups. The result includes the saved `components`, `memberCount`, `address` and `cell`. Existing widgets keep their cells. To target main Home even when viewing another page, take `pageId` from `homeGet` at `pages.home.id`.
 
 App shortcuts keep the existing `appAction` route with `addShortcut`, and Android provider widgets keep the native picker because Android owns their binding step.
 

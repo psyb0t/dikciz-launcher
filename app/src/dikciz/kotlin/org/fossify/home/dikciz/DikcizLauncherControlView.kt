@@ -67,7 +67,8 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
     val appDrawerButton: Button
     val controlButton: Button
     val chatButton: Button
-    var onChatRequested: (() -> Unit)? = null
+    var onChatRequested: ((Boolean) -> Unit)? = null
+    private var hasUnreadChats = false
 
     init {
         orientation = HORIZONTAL
@@ -91,7 +92,7 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
             iconResourceID = R.drawable.dikciz_chat_cheese,
             descriptionResourceID = R.string.dikciz_chat_open,
             iconSizeDp = CHAT_ICON_DP,
-        ) { onChatRequested?.invoke() }
+        ) { onChatRequested?.invoke(hasUnreadChats) }
         chatButton.setTextColor(context.getColor(R.color.dikciz_brand_cheese))
         chatButton.textSize = CHAT_UNREAD_TEXT_SP
         chatButton.compoundDrawablePadding = densityPixels(CHAT_UNREAD_GAP_DP)
@@ -102,6 +103,7 @@ internal class DikcizLauncherControlView @JvmOverloads constructor(
     }
 
     fun setChatUnread(count: Int) {
+        hasUnreadChats = count > 0
         chatButton.text = if (count == 0) "" else count.coerceAtMost(99).toString()
         chatButton.contentDescription = if (count == 0) {
             context.getString(R.string.dikciz_chat_open)

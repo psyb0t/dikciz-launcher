@@ -101,20 +101,24 @@ internal class LocalSearchIndex(context: Context) : SQLiteOpenHelper(
         offset: Int,
         readOnly: Boolean,
         fuzzy: Boolean,
+        allowedIDs: Set<String>? = null,
     ): Page {
+        if (allowedIDs?.isEmpty() == true) return Page(emptyList(), 0, emptyMap())
+        val scope = allowedIDs.orEmpty().sorted().toTypedArray()
+        val scopeClause = if (scope.isEmpty()) "" else " AND d.identifier IN (${scope.joinToString(",") { "?" }})"
         val rawTokens = tokens(query).distinct()
         val terms = rawTokens.filterNot(STOP_WORDS::contains).ifEmpty { rawTokens }.take(MAXIMUM_QUERY_TERMS)
         if (terms.isEmpty()) return Page(emptyList(), 0, emptyMap())
-        val corrections = if (fuzzy) corrections(collection, terms, readOnly) else emptyMap()
+        val corrections = if (fuzzy) corrections(collection, terms, readOnly, scopeClause, scope) else emptyMap()
         val expansions = terms.flatMap { listOf(it) + corrections[it].orEmpty() }.distinct()
         // Query syntax is never accepted from callers. Only normalized alphanumeric tokens reach MATCH.
         val expression = expansions.joinToString(" OR ") { term ->
             "\"" + term + (if (term.length >= PREFIX_MINIMUM) "*" else "") + "\""
         }
         val statistics = readableDatabase.rawQuery(
-            """SELECT COUNT(*),AVG(title_length),AVG(body_length),AVG(aliases_length) FROM documents
-                WHERE collection=? AND (CAST(? AS INTEGER)=0 OR read_only=1)""",
-            arrayOf(collection, if (readOnly) "1" else "0"),
+            """SELECT COUNT(*),AVG(title_length),AVG(body_length),AVG(aliases_length) FROM documents d
+                WHERE d.collection=? AND (CAST(? AS INTEGER)=0 OR d.read_only=1)$scopeClause""",
+            arrayOf(collection, if (readOnly) "1" else "0", *scope),
         ).use { cursor ->
             cursor.moveToFirst()
             Statistics(cursor.getInt(0), DoubleArray(COLUMN_WEIGHTS.size) { cursor.getDouble(it + 1).coerceAtLeast(1.0) })
@@ -123,8 +127,8 @@ internal class LocalSearchIndex(context: Context) : SQLiteOpenHelper(
             """SELECT d.identifier,d.title,d.body,d.aliases,d.uri,d.payload,d.read_only,
                 matchinfo(search_text,'pcnalx') FROM search_text
                 JOIN documents d ON d.rowid=search_text.docid
-                WHERE search_text MATCH ? AND d.collection=? AND (CAST(? AS INTEGER)=0 OR d.read_only=1)""",
-            arrayOf(expression, collection, if (readOnly) "1" else "0"),
+                WHERE search_text MATCH ? AND d.collection=? AND (CAST(? AS INTEGER)=0 OR d.read_only=1)$scopeClause""",
+            arrayOf(expression, collection, if (readOnly) "1" else "0", *scope),
         ).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
@@ -152,13 +156,19 @@ internal class LocalSearchIndex(context: Context) : SQLiteOpenHelper(
         return Page(hits.drop(offset).take(limit), hits.size, corrections)
     }
 
-    private fun corrections(collection: String, terms: List<String>, readOnly: Boolean): Map<String, List<String>> {
+    private fun corrections(
+        collection: String,
+        terms: List<String>,
+        readOnly: Boolean,
+        scopeClause: String,
+        scope: Array<String>,
+    ): Map<String, List<String>> {
         val access = if (readOnly) "1" else "0"
         val missing = terms.filter { term ->
             term.length >= FUZZY_MINIMUM && !readableDatabase.rawQuery(
                 """SELECT 1 FROM vocabulary v JOIN documents d ON d.rowid=v.document_id
-                    WHERE v.term GLOB ? AND d.collection=? AND (CAST(? AS INTEGER)=0 OR d.read_only=1) LIMIT 1""",
-                arrayOf(term + "*", collection, access),
+                    WHERE v.term GLOB ? AND d.collection=? AND (CAST(? AS INTEGER)=0 OR d.read_only=1)$scopeClause LIMIT 1""",
+                arrayOf(term + "*", collection, access, *scope),
             ).use { it.moveToFirst() }
         }
         if (missing.isEmpty()) return emptyMap()
@@ -167,8 +177,8 @@ internal class LocalSearchIndex(context: Context) : SQLiteOpenHelper(
         val words = readableDatabase.rawQuery(
             """SELECT DISTINCT v.term FROM vocabulary v JOIN documents d ON d.rowid=v.document_id
                 WHERE d.collection=? AND (CAST(? AS INTEGER)=0 OR d.read_only=1) AND length(v.term) BETWEEN CAST(? AS INTEGER) AND CAST(? AS INTEGER)
-                ORDER BY v.term""",
-            arrayOf(collection, access, minimumLength.toString(), maximumLength.toString()),
+                $scopeClause ORDER BY v.term""",
+            arrayOf(collection, access, minimumLength.toString(), maximumLength.toString(), *scope),
         ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.getString(0)) } }
         return buildMap {
             for (term in missing) {

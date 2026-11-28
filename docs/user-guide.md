@@ -136,7 +136,7 @@ Moving a shortcut keeps the other widgets running. Moving or resizing an HTML wi
 
 ![Resize grid](images/user-guide/13-resize-grid.png)
 
-Hold one app shortcut over another until the target grows and you feel a vibration, then release to make an app group. Passing across an icon briefly keeps the shortcuts separate. Tap a group to open it, then tap a member to launch it. Hold a member and drag it beyond the group onto an empty home cell. The group clears out of the way as you drag. Once the group clears, keep dragging to an empty home cell. Dropping onto an occupied cell leaves everything in place. Hold and release a member for **Move to page** or **Remove**. A group with one member becomes a normal shortcut again.
+Hold one app shortcut over another until the target grows and you feel a vibration, then release to make an app group. Passing across an icon briefly keeps the shortcuts separate. Tap a group to open a panel anchored to its tile. Tap an app to launch it. Tap outside the panel or press Back to close it. Use **Edit** to change its name or apps. Hold a member and drag it beyond the group onto an empty home cell. The group clears out of the way as you drag. Once the group clears, keep dragging to an empty home cell. Dropping onto an occupied cell leaves everything in place. Hold and release a member for **Move to page** or **Remove**. A group with one member becomes a normal shortcut again.
 
 ![App group](images/user-guide/10-app-group.png)
 

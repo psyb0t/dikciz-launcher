@@ -10,6 +10,7 @@ import pytest
 
 from . import test_chat_agent as agent
 from .configuration import append_empty_page
+from .test_accessibility_automation import wait_for_accessibility_snapshot
 from .test_native_data import PROTOCOLS, native_call
 from .ui import direct_enter_text, direct_hide_keyboard, direct_tap, wait_for_physical_button_bounds, wait_for_physical_description_bounds, wait_for_physical_text_bounds
 
@@ -81,21 +82,23 @@ def test_chat_quick_tasks_widget_persists(websocket_control, provider_endpoint, 
 def test_chat_quick_tasks_screen_capture_and_read_only(websocket_control, provider_endpoint, entrypoint, provider):
     endpoint, script, records = provider_endpoint
     _, identifier = agent.conversation(endpoint, provider)
+    vision = entrypoint != "http"
+    agent.chat("configure", conversationId=identifier, settings={"supportsVision": vision})
     script.update(text="The fixture shows Android settings.", tools=[("dikciz_restart", {})])
     try:
         agent.emulator_dikciz_accessibility_set(True)
         agent.device_command(f"appops set {agent.DIKCIZ_DEBUG_PACKAGE} SYSTEM_ALERT_WINDOW allow")
         native_call("http", "intent", {"intentType": "activity", "action": "android.settings.SETTINGS"})
-        time.sleep(0.5)
+        wait_for_accessibility_snapshot(websocket_control)
         agent.chat("show", conversationId=identifier)
         direct_tap(wait_for_physical_description_bounds("Chat options"))
-        wait_for_physical_description_bounds("Explain this screen")
+        wait_for_physical_text_bounds("Explain this screen")
         key = str(uuid.uuid4())
         queued = task(identifier, "explainScreen", entrypoint, key, text="Explain this settings screen.")
         rows = agent.wait_turn(identifier)
         first = records[0]["body"]
         contents = [part for message in first["messages"] for part in message.get("content", []) if isinstance(part, dict)]
-        assert any(part.get("type") in ("image", "image_url") for part in contents)
+        assert any(part.get("type") in ("image", "image_url") for part in contents) == vision
         serialized = json.dumps(first)
         assert "com.android.settings" in serialized
         assert "Chat options list" not in serialized
@@ -105,6 +108,14 @@ def test_chat_quick_tasks_screen_capture_and_read_only(websocket_control, provid
         assert agent.chat("settings", conversationId=identifier)["settings"]["readOnly"] is False
         wait_for_physical_description_bounds("Chat message")
         assert agent.chat("status")["visible"] is True
+        if vision:
+            agent.chat("configure", conversationId=identifier, settings={"supportsVision": False})
+            script.update(tools=[], text="Follow-up complete.")
+            agent.send(identifier, "Continue using text.")
+            agent.wait_turn(identifier)
+            replay = json.dumps(records[-1]["body"]["messages"])
+            assert "Image omitted for this text-only model" in replay
+            assert "data:image" not in replay and '"type": "base64"' not in replay
         count = len(records)
         assert task(identifier, "explainScreen", entrypoint, key, text="Explain this settings screen.")["turn_id"] == queued["turn_id"]
         assert len(records) == count
@@ -234,6 +245,53 @@ def test_chat_home_group_count_in_one_read(websocket_control, provider_endpoint)
         group = results[0]["structuredContent"]["pages"][page_id]["widgets"]["fixture-group"]
         assert group["memberCount"] == len(components)
         assert native_call("mcp", "widgetGet", {"widgetAddress": address})["components"] == components
+    finally:
+        agent.cleanup(identifier)
+        native_call("http", "configReplace", {"config": original})
+
+
+def test_chat_agentic_creates_native_group_with_one_write(websocket_control, provider_endpoint):
+    original = native_call("http", "configGet")["config"]
+    configured = agent.fixture_document()
+    page_id = "chat-group-" + uuid.uuid4().hex[:8]
+    append_empty_page(configured, page_id, "Group target", 7, 7)
+    configured["launcher"]["home"]["homePageId"] = page_id
+    endpoint, script, records = provider_endpoint
+    _, identifier = agent.conversation(endpoint, "openai")
+    group_title = "Settings apps"
+
+    component = "com.android.settings/com.android.settings.Settings"
+    script.update(wrapper_calls=[
+        ("dikciz_app_catalogue", {}),
+        ("dikciz_add_widget", {
+            "widgetType": "appGroup", "pageId": page_id, "title": group_title, "components": [component],
+        }),
+    ], text="Saved the settings app group.")
+    try:
+        native_call("http", "configReplace", {"config": configured})
+        before = native_call("http", "configGet")["config"]["launcher"]["home"]["pages"]
+        agent.send(identifier, "Group the settings apps on my main Home.")
+        rows = agent.wait_turn(identifier)
+        results = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
+        assert len(records) == 3
+        assert len(results) == 2
+        assert all(not result.get("isError") for result in results)
+        assert component in {app["component"] for app in results[0]["structuredContent"]["apps"]}
+        created = results[-1]["structuredContent"]
+        assert created["title"] == group_title
+        assert created["type"] == "appGroup"
+        assert created["memberCount"] == 1
+        tool = next(
+            tool["function"] for tool in records[0]["body"]["tools"]
+            if tool["function"]["name"] == "dikciz_add_widget"
+        )
+        assert tool["parameters"]["properties"]["components"]["items"]["type"] == "string"
+        after = native_call("http", "configGet")["config"]["launcher"]["home"]["pages"]
+        assert after[:-1] == before[:-1]
+        group = after[-1]["widgets"][0]
+        assert group["components"] == created["components"]
+        assert group["cell"] == created["cell"]
+        assert len(after[-1]["widgets"]) == 1
     finally:
         agent.cleanup(identifier)
         native_call("http", "configReplace", {"config": original})

@@ -7,6 +7,14 @@ nav_order: 10
 
 # Changelog
 
+## [0.38.0] - 2026-11-28
+
+- Chat model settings include Supports vision. Explain this screen reads the accessibility tree for text-only models and adds a screenshot for vision models.
+- Tap the launcher chat badge to see which conversations have unread replies. Unread chats appear first with individual counts.
+- Chat searches only the tools its current access permits. Tune shows tool filters, and stopped turns identify which budget ended tool use. File, shell and command job tools accept typed arguments directly in chat.
+- App folders expand from the tapped tile using icons already loaded with the page. Tap outside or press Back to close the folder.
+- Create a named native app group with its selected apps in one Home command. The saved group uses the first fitting free cells and leaves existing items in place.
+
 ## [0.37.4] - 2026-11-28
 
 - Keep chat connected to its tools when Android recreates Home. Wait for the new connection before continuing an active turn.

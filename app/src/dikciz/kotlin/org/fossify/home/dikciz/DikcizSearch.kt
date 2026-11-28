@@ -84,6 +84,34 @@ internal class DikcizSearch private constructor(context: Context, private val lo
         }
     }
 
+    @Synchronized
+    fun searchToolContracts(request: JSONObject, catalogue: JSONArray): JSONObject {
+        DikcizNativeCommands.validate(TYPE_QUERY, request)
+        ensureBuiltIns()
+        val tools = (0 until catalogue.length()).map(catalogue::getJSONObject).associateBy { it.getString("name") }
+        val query = request.getString(KEY_QUERY)
+        val limit = request.optInt(KEY_LIMIT, DEFAULT_LIMIT)
+        val offset = request.optInt(KEY_OFFSET, 0)
+        val exactID = query.trim().takeIf { it.startsWith("dikciz_") && ID.matches(it) }
+        val exact = exactID?.let { index.read(COLLECTION_TOOLS, it, false) }
+        val allowed = if (exact == null) tools.keys else tools.keys.intersect(setOf(exact.id))
+        val page = index.search(
+            COLLECTION_TOOLS, query, limit, offset, false, request.optBoolean(KEY_FUZZY, true), allowed,
+        )
+        val items = JSONArray(page.hits.map { hit ->
+            val tool = tools.getValue(hit.document.id)
+            documentJson(hit.document, false, false)
+                .put("tool", tool).put("score", hit.score)
+                .put("excerpt", tool.getString("description").take(MAXIMUM_EXCERPT))
+        })
+        val hasMore = offset.toLong() + limit < page.total
+        return JSONObject().put(KEY_ITEMS, items).put(KEY_LIMIT, limit).put(KEY_OFFSET, offset)
+            .put("total", page.total).put("hasMore", hasMore)
+            .put("nextOffset", if (hasMore) offset + limit else JSONObject.NULL)
+            .put(KEY_COLLECTION, COLLECTION_TOOLS).put("corrections", JSONObject(page.corrections))
+            .put("engine", ENGINE)
+    }
+
     private fun ensureScopedTools(access: DikcizRemoteAccess) {
         val tools = DikcizRemotePolicy.filterCatalogue(DikcizMcpControlPlane.toolCatalogue(false), access).getJSONArray("tools")
         val documents = (0 until tools.length()).map {

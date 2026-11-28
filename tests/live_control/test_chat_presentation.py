@@ -89,12 +89,22 @@ def test_chat_presentation_history_switch_search_unread_and_actions(websocket_co
         history_row(first_title, "1 unread")
         before_read = agent.chat("read", conversationId=first)["conversation"]
         assert before_read["unread"] == 1
+        agent.send(second, "Add a reading suggestion.")
+        agent.wait_turn(second)
+        history_row(second_title, "1 unread")
+        hide_chat()
+        agent.device_command("input keyevent KEYCODE_HOME")
+        direct_tap(wait_for_physical_description_bounds("Open Dikciz chat. 2 unread"))
+        wait_for_physical_text_bounds("Conversations")
+        history_row(first_title, "1 unread")
+        assert agent.chat("read", conversationId=first)["conversation"]["unread"] == 1
         capture("chat-history.png")
         direct_tap(history_row(first_title))
         wait_for_physical_text_bounds("Pack the raincoat.")
         wait_for_physical_description_text(CHAT_COMPOSER, first_draft)
         after_read = agent.chat("read", conversationId=first)["conversation"]
         assert after_read["unread"] == 0
+        assert agent.chat("read", conversationId=second)["conversation"]["unread"] == 1
         assert after_read["updated"] == before_read["updated"]
 
         open_chat_history()
@@ -167,6 +177,9 @@ def test_chat_presentation_history_landscape_large_text(websocket_control, provi
     _, second = agent.conversation(provider_endpoint[0])
     try:
         agent.chat("rename", conversationId=second, title="Garden sketch")
+        provider_endpoint[1]["text"] = "Plant mint."
+        agent.send(second, "Suggest a herb.")
+        agent.wait_turn(second)
         agent.device_command("cmd window user-rotation lock 1")
         wait_for_chat_window("landscape", "1.0")
         emulator_font_scale_set(EMULATOR_DEVICE_FONT_SCALE_PERCENT_ENLARGED)
@@ -180,6 +193,7 @@ def test_chat_presentation_history_landscape_large_text(websocket_control, provi
         assert bounds["bottom"] - bounds["top"] >= minimum_target
         open_chat_history()
         wait_for_physical_text_bounds("New chat")
+        history_row("Garden sketch", "1 unread")
         capture("chat-history-landscape.png")
         direct_tap(history_row("Garden sketch"))
         wait_for_physical_text_bounds("Garden sketch")

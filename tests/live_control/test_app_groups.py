@@ -9,6 +9,7 @@ configuration back through the control plane.
 import base64
 
 from . import *
+from .test_native_data import PROTOCOLS, native_call
 
 
 GROUP_PAGE_ID = "groups"
@@ -29,6 +30,7 @@ QUICK_SWIPE_MILLISECONDS = 120
 FOLDER_HOVER_SECONDS = 0.5
 FIRST_COLUMN = 0
 SECOND_COLUMN = 1
+GROUP_PREFERRED_COLUMN_SPAN = 2
 
 
 def app_widget(widget_id: str, title: str, component: str, column: int) -> dict[str, Any]:
@@ -95,6 +97,64 @@ def group_page_widgets(connection: socket.socket) -> list[dict[str, Any]]:
     widgets = page["widgets"]
     assert isinstance(widgets, list)
     return widgets
+
+
+@pytest.mark.parametrize("protocol", PROTOCOLS)
+def test_add_widget_populated_app_group(
+    websocket_control: socket.socket,
+    protocol: str,
+) -> None:
+    existing_widget = app_widget(FIRST_APP_WIDGET_ID, SETTINGS_TILE_TITLE, SETTINGS_COMPONENT, FIRST_COLUMN)
+    apply_group_page(websocket_control, [existing_widget])
+    initial_widgets = group_page_widgets(websocket_control)
+    fields = {"widgetType": APP_GROUP_WIDGET_TYPE_NAME, "pageId": GROUP_PAGE_ID}
+
+    invalid_arguments = (
+        {},
+        {"components": None},
+        {"components": []},
+        {"components": [1]},
+        {"components": ["not-a-component"]},
+        {"components": [SETTINGS_COMPONENT, "com.android.settings/com.android.settings.Settings"]},
+        {"components": [SETTINGS_COMPONENT] * 33},
+        {"components": [SETTINGS_COMPONENT], "title": ""},
+        {"widgetType": "html", "components": [SETTINGS_COMPONENT]},
+    )
+    for invalid in invalid_arguments:
+        native_call(protocol, "addWidget", {**fields, **invalid}, error="validation_failed")
+
+    assert group_page_widgets(websocket_control) == initial_widgets
+    components = [SETTINGS_COMPONENT, CLOCK_COMPONENT]
+    created = native_call(protocol, "addWidget", {**fields, "title": GROUP_WIDGET_TITLE, "components": components})
+    assert created["type"] == APP_GROUP_WIDGET_TYPE_NAME
+    assert created["title"] == GROUP_WIDGET_TITLE
+    assert created["components"] == components
+    assert created["cell"] == {
+        "column": SECOND_COLUMN, "row": 0, "columnSpan": GROUP_PREFERRED_COLUMN_SPAN, "rowSpan": 1,
+    }
+    assert created["memberCount"] == len(components)
+
+    widgets = group_page_widgets(websocket_control)
+    assert len(widgets) == len(initial_widgets) + 1
+    groups = [widget for widget in widgets if widget["id"] == created["id"]]
+    assert len(groups) == 1
+    assert [widget for widget in widgets if widget["id"] != created["id"]] == initial_widgets
+    group = groups[0]
+    assert group["title"] == GROUP_WIDGET_TITLE
+    assert group["cell"] == created["cell"]
+    assert group["components"] == components
+
+    path = f"/sdcard/Dikciz/pages/{GROUP_PAGE_ID}/widgets/{created['id']}.json"
+    stored = native_call(protocol, "fileRead", {"path": path})
+    persisted = json.loads(base64.b64decode(stored["dataBase64"]))
+    assert persisted["components"] == components
+    assert persisted["cell"] == created["cell"]
+
+    if protocol == "mcp":
+        snapshot = AUTOMATION.request(websocket_control, AUTOMATION.TYPE_SNAPSHOT)
+        AUTOMATION.require_node(snapshot, "widget:" + created["id"])
+        run_device_operation("screenshot")
+        shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "populated-app-group.png")
 
 
 def drag_widget_onto(source_title: str, target_title: str) -> None:
@@ -239,7 +299,46 @@ def test_tapping_an_app_tile_launches_its_app(
     wait_for_selected_page(websocket_control, GROUP_PAGE_ID)
 
 
-def test_launcher_touch_drags_folder_member_to_an_empty_home_cell(
+def test_app_groups_open_at_tile_and_refresh_after_package_changes(
+    websocket_control: socket.socket,
+) -> None:
+    apply_group_page(websocket_control, [app_group_widget(FIRST_COLUMN)])
+    original = group_page_widgets(websocket_control)
+    group_id = f"widget:{GROUP_WIDGET_ID}:app-group"
+    clock_id = f"{group_id}:member:{CLOCK_COMPONENT}"
+    tile = physical_description_bounds(WIDGET_MOVE_HANDLE_DESCRIPTION.format(GROUP_WIDGET_TITLE))
+    _, row_pitch = native_grid_cell_pitch()
+    outside = (center(tile)[0], center(tile)[1] + 4 * row_pitch)
+
+    direct_tap_at(*center(tile))
+    AUTOMATION.wait_for_node(websocket_control, clock_id, present=True)
+    settings = wait_for_physical_description_bounds(SETTINGS_TILE_TITLE)
+    assert center(settings)[1] < center(tile)[1] + 2 * row_pitch
+    run_device_operation("screenshot")
+    shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "app-group-anchored.png")
+
+    direct_tap_at(*outside)
+    AUTOMATION.wait_for_node(websocket_control, clock_id, present=False)
+    AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId=group_id)
+    AUTOMATION.wait_for_node(websocket_control, clock_id, present=True)
+    device_command("input keyevent KEYCODE_BACK")
+    AUTOMATION.wait_for_node(websocket_control, clock_id, present=False)
+
+    clock_package = CLOCK_COMPONENT.split("/", 1)[0]
+    device_command(f"pm disable-user --user 0 {clock_package}")
+    try:
+        wait_for_physical_description_bounds(f"{GROUP_WIDGET_TITLE} app group, 1 available apps")
+        AUTOMATION.request(websocket_control, AUTOMATION.TYPE_TAP, semanticId=group_id)
+        wait_for_physical_description_bounds(SETTINGS_TILE_TITLE)
+        AUTOMATION.wait_for_node(websocket_control, clock_id, present=False)
+        device_command("input keyevent KEYCODE_BACK")
+    finally:
+        device_command(f"pm enable --user 0 {clock_package}")
+    wait_for_physical_description_bounds(f"{GROUP_WIDGET_TITLE} app group, 2 available apps")
+    assert group_page_widgets(websocket_control) == original
+
+
+def test_app_groups_drag_member_to_an_empty_home_cell(
     websocket_control: socket.socket,
 ) -> None:
     apply_group_page(
@@ -253,8 +352,9 @@ def test_launcher_touch_drags_folder_member_to_an_empty_home_cell(
     occupied = center(physical_description_bounds(
         WIDGET_MOVE_HANDLE_DESCRIPTION.format(CLOCK_TILE_TITLE),
     ))
-    pitch, _ = native_grid_cell_pitch()
-    empty = (occupied[0] + pitch, occupied[1])
+    pitch_x, pitch_y = native_grid_cell_pitch()
+    target_row = 3
+    empty = (occupied[0] + pitch_x, occupied[1] + target_row * pitch_y)
 
     direct_tap_at(*center(physical_description_bounds(
         WIDGET_MOVE_HANDLE_DESCRIPTION.format(GROUP_WIDGET_TITLE),
@@ -283,7 +383,9 @@ def test_launcher_touch_drags_folder_member_to_an_empty_home_cell(
     assert by_id[GROUP_WIDGET_ID]["cell"]["column"] == FIRST_COLUMN
     assert by_id[SECOND_APP_WIDGET_ID] == original[1]
     extracted = next(widget for widget in by_id.values() if widget["component"] == SETTINGS_COMPONENT)
-    assert extracted["cell"] == {"column": SECOND_COLUMN + 1, "row": 0, "columnSpan": 1, "rowSpan": 1}
+    assert extracted["cell"] == {
+        "column": SECOND_COLUMN + 1, "row": target_row, "columnSpan": 1, "rowSpan": 1,
+    }
     run_device_operation("screenshot")
     shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / "folder-drag-after.png")
 

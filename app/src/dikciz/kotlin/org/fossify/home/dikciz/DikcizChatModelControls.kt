@@ -16,6 +16,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import org.json.JSONArray
 import org.json.JSONObject
 import org.fossify.home.dikciz.DikcizChatColors.FOREGROUND
 import org.fossify.home.dikciz.DikcizChatColors.MUTED
@@ -135,11 +136,23 @@ internal class DikcizChatModelControls(
         val id = conversation() ?: return
         command(JSONObject().put("action", "settings").put("conversationId", id)) { result ->
             if (conversation() != id) return@command
-            settingsDialog(id, result.getJSONObject("settings"), result.getString("protocol"), result.getJSONObject("modelLimits"))
+            settingsDialog(
+                id,
+                result.getJSONObject("settings"),
+                result.getJSONObject("overrides"),
+                result.getString("protocol"),
+                result.getJSONObject("modelLimits"),
+            )
         }
     }
 
-    private fun settingsDialog(id: String, initial: JSONObject, protocol: String, initialLimits: JSONObject) {
+    private fun settingsDialog(
+        id: String,
+        initial: JSONObject,
+        overrides: JSONObject,
+        protocol: String,
+        initialLimits: JSONObject,
+    ) {
         val body = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)) }
         val readOnly = CheckBox(activity).apply {
             text = "Read-only phone access"
@@ -149,10 +162,41 @@ internal class DikcizChatModelControls(
         }
         body.addView(readOnly)
         body.addView(TextView(activity).apply {
-            text = "Hide and block phone changes, shell execution and permission prompts. Chat history still saves."
+            text = "Read-only blocks changes and commands. Tool filters below apply independently."
             setTextColor(MUTED)
             textSize = 12f
         })
+        val vision = CheckBox(activity).apply {
+            text = "Supports vision"
+            setTextColor(FOREGROUND)
+            isChecked = initial.getBoolean(DikcizChatSettings.VISION)
+        }
+        body.addView(vision)
+        val allowKey = DikcizChatSettings.KEY_TOOL_ALLOWLIST
+        val denyKey = DikcizChatSettings.KEY_TOOL_DENYLIST
+        val allowlist = CheckBox(activity).apply {
+            text = "Restrict to listed tools"
+            setTextColor(FOREGROUND)
+            isChecked = overrides.has(allowKey)
+        }
+        body.addView(allowlist)
+        val allow = toolFilterInput("Allowed phone tools", overrides.optJSONArray(allowKey)).apply {
+            isEnabled = allowlist.isChecked
+            hint = "Exact tool names. An empty list blocks all phone tools."
+        }
+        body.addView(allow)
+        allowlist.setOnCheckedChangeListener { _, checked -> allow.isEnabled = checked }
+        val deny = toolFilterInput("Blocked phone tools", overrides.optJSONArray(denyKey)).apply {
+            hint = "Exact tool names to block"
+        }
+        body.addView(deny)
+        val inherited = DikcizChatSettings.TOOL_FILTER_FIELDS.filter { initial.has(it) && !overrides.has(it) }
+        if (inherited.isNotEmpty() || initial.optString("agent").isNotBlank()) {
+            body.addView(TextView(activity).apply {
+                text = "Provider and named-agent restrictions may still apply."
+                setTextColor(MUTED)
+            })
+        }
         val inputs = linkedMapOf<String, EditText>()
         val fields = listOf(
             "model" to "Model ID",
@@ -213,6 +257,7 @@ internal class DikcizChatModelControls(
                 val model = text.toString()
                 if (model == previousModel) return
                 previousModel = model
+                vision.isChecked = model == initial.optString("model") && initial.getBoolean(DikcizChatSettings.VISION)
                 val known = limits.describe(protocol, model, modelRows[model])
                 showLimits(known)
                 val current = JSONObject(initial.toString())
@@ -229,6 +274,12 @@ internal class DikcizChatModelControls(
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val settings = JSONObject().put(DikcizChatSettings.KEY_READ_ONLY, readOnly.isChecked)
+                    .put(DikcizChatSettings.VISION, vision.isChecked)
+                if (allowlist.isChecked) settings.put(allowKey, toolFilterNames(allow))
+                else if (overrides.has(allowKey)) settings.put(allowKey, JSONObject.NULL)
+                val denied = toolFilterNames(deny)
+                if (denied.length() > 0) settings.put(denyKey, denied)
+                else if (overrides.has(denyKey)) settings.put(denyKey, JSONObject.NULL)
                 for ((name, input) in inputs) {
                     val text = input.text.toString()
                     if (name !in NUMBER_FIELDS) {
@@ -249,11 +300,24 @@ internal class DikcizChatModelControls(
         DikcizUiStyle.dialog(dialog)
     }
 
+    private fun toolFilterInput(label: String, names: JSONArray?): EditText = EditText(activity).apply {
+        contentDescription = label
+        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        minHeight = dp(48)
+        setText(names?.let { values -> (0 until values.length()).joinToString("\n", transform = values::getString) }.orEmpty())
+        setTextColor(FOREGROUND)
+    }
+
+    private fun toolFilterNames(input: EditText): JSONArray = JSONArray(
+        input.text.toString().split(TOOL_FILTER_SEPARATOR).filter(String::isNotBlank).distinct(),
+    )
+
     private fun dp(value: Int): Int = (value * activity.resources.displayMetrics.density).toInt()
 
     private companion object {
         private const val MODEL_SURFACE = 0xFF22231F.toInt()
         const val MINIMUM_DROPDOWN_WIDTH_DP = 240
+        val TOOL_FILTER_SEPARATOR = Regex("[\\s,]+")
         val NUMBER_FIELDS = setOf("contextTokens", "maxOutputTokens", "summaryOutputTokens", "thinkingTokens", "maximumRounds", "timeoutMilliseconds", "safetyMarginTokens")
         val CHOICES = mapOf(
             "compaction" to arrayOf("drop-oldest", "summarize"),

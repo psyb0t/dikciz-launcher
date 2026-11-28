@@ -171,7 +171,7 @@ internal class DikcizChatHistoryView(
             entries.isNullOrEmpty() -> "No saved conversations yet"
             else -> "No conversations match your search"
         }
-        adapter.rows = matches
+        adapter.rows = matches.sortedByDescending { it.unread > 0 }
         adapter.notifyDataSetChanged()
     }
 
@@ -196,13 +196,26 @@ internal class DikcizChatHistoryView(
             setTextColor(DikcizUiStyle.MUTED)
         }
         private val row = LinearLayout(context).apply {
-            orientation = VERTICAL
+            orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             minimumHeight = dp(64)
             isFocusable = true
             setPaddingRelative(dp(12), dp(8), dp(4), dp(8))
-            addView(title)
-            addView(details)
+            addView(LinearLayout(context).apply {
+                orientation = VERTICAL
+                addView(title)
+                addView(details)
+            }, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        }
+        private val unreadBadge = TextView(context).apply {
+            setTextColor(Color.BLACK)
+            typeface = Typeface.DEFAULT_BOLD
+            textSize = 14f
+            gravity = Gravity.CENTER
+            minimumWidth = dp(26)
+            setPaddingRelative(dp(6), dp(2), dp(6), dp(2))
+            background = surface(DikcizUiStyle.ACCENT, 14)
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
         private val overflow = icon(R.drawable.dikciz_icon_overflow, "Chat actions") {}
 
@@ -213,6 +226,7 @@ internal class DikcizChatHistoryView(
             details.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             ViewCompat.setScreenReaderFocusable(row, true)
             addView(row, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(unreadBadge)
             addView(overflow, LayoutParams(dp(48), dp(48)))
         }
 
@@ -226,6 +240,9 @@ internal class DikcizChatHistoryView(
                     entry.updated, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS,
                 ).toString())
             }.joinToString(" · ")
+            unreadBadge.visibility = if (entry.unread > 0) View.VISIBLE else View.GONE
+            unreadBadge.text = entry.unread.toString()
+            title.typeface = if (entry.unread > 0) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
             title.text = entry.title
             title.setTextColor(if (isCurrent) DikcizUiStyle.ACCENT else DikcizUiStyle.FOREGROUND)
             details.text = metadata

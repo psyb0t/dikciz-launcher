@@ -21,6 +21,14 @@ internal object DikcizChatCoreTools {
         "dikciz_script_logs",
         "dikciz_config_get",
         "dikciz_config_replace",
+        "dikciz_file_list",
+        "dikciz_file_read",
+        "dikciz_file_write",
+        "dikciz_shell",
+        "dikciz_job_start",
+        "dikciz_jobs_list",
+        "dikciz_job_status",
+        "dikciz_job_cancel",
         "dikciz_custom_apps_list",
         "dikciz_custom_app_read",
         "dikciz_custom_app_install",
@@ -38,7 +46,9 @@ internal object DikcizChatCoreTools {
             val required = required(schema)
             ToolDescriptor(
                 tool.getString("name"),
-                tool.getString("description"),
+                if (tool.getString("name") == "dikciz_shell") {
+                    "Run a phone command in Android sh. Chat defaults to root false. Set root true only when the owner explicitly requests root. Inspect exitCode and output; use a job for long commands."
+                } else tool.getString("description"),
                 requiredParameters = parameters.filter { it.name in required },
                 optionalParameters = parameters.filterNot { it.name in required },
             )

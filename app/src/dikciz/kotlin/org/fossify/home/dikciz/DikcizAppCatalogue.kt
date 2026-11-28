@@ -17,9 +17,29 @@ internal object DikcizAppCatalogue {
     fun load(
         packageManager: PackageManager,
         launcherPackageName: String,
+    ): List<DikcizLaunchableApp> = load(packageManager, launcherPackageName, null, emptySet())
+
+    fun groupMembers(
+        packageManager: PackageManager,
+        launcherPackageName: String,
+        savedComponents: List<String>,
+    ): List<DikcizLaunchableApp> {
+        val components = savedComponents.mapNotNull(ComponentName::unflattenFromString)
+        val applications = components.groupBy { it.packageName }.flatMap { (packageName, members) ->
+            load(packageManager, launcherPackageName, packageName, members.toSet())
+        }.associateBy(DikcizLaunchableApp::component)
+        return components.mapNotNull(applications::get)
+    }
+
+    private fun load(
+        packageManager: PackageManager,
+        launcherPackageName: String,
+        packageFilter: String?,
+        components: Set<ComponentName>,
     ): List<DikcizLaunchableApp> {
         val launcherIntent = Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
+            if (packageFilter != null) setPackage(packageFilter)
         }
         return packageManager.queryIntentActivities(launcherIntent, PackageManager.MATCH_ALL)
             .asSequence()
@@ -28,13 +48,17 @@ internal object DikcizAppCatalogue {
                 if (activityInfo.packageName == launcherPackageName) {
                     return@mapNotNull null
                 }
+                val component = ComponentName(activityInfo.packageName, activityInfo.name)
+                if (components.isNotEmpty() && component !in components) {
+                    return@mapNotNull null
+                }
                 val label = resolveInfo.loadLabel(packageManager).toString().trim()
                 if (label.isEmpty()) {
                     return@mapNotNull null
                 }
                 DikcizLaunchableApp(
                     label = label,
-                    component = ComponentName(activityInfo.packageName, activityInfo.name),
+                    component = component,
                     icon = resolveInfo.loadIcon(packageManager),
                 )
             }

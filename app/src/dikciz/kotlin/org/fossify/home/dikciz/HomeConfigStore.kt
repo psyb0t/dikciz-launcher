@@ -1962,9 +1962,9 @@ internal class HomeConfigStore(
         context: String,
         limits: DikcizLimits,
     ): List<String> {
-        if (length() !in MINIMUM_APP_GROUP_COMPONENTS..AppGroupLimits.MAXIMUM_COMPONENTS) {
+        if (length() !in AppGroupLimits.MINIMUM_COMPONENTS..AppGroupLimits.MAXIMUM_COMPONENTS) {
             throw HomeConfigException(
-                "$context.$COMPONENTS_KEY must contain $MINIMUM_APP_GROUP_COMPONENTS through " +
+                "$context.$COMPONENTS_KEY must contain ${AppGroupLimits.MINIMUM_COMPONENTS} through " +
                     "${AppGroupLimits.MAXIMUM_COMPONENTS} Android components",
             )
         }
@@ -2554,7 +2554,7 @@ internal class HomeConfigStore(
     }
 
     private fun validateAppGroup(widget: AppGroupHomeWidget, limits: DikcizLimits) {
-        if (widget.components.size !in MINIMUM_APP_GROUP_COMPONENTS..AppGroupLimits.MAXIMUM_COMPONENTS) {
+        if (widget.components.size !in AppGroupLimits.MINIMUM_COMPONENTS..AppGroupLimits.MAXIMUM_COMPONENTS) {
             throw HomeConfigException("widget ${widget.id} has an invalid app group component count")
         }
         val components = mutableSetOf<String>()
@@ -3263,7 +3263,7 @@ internal class HomeConfigStore(
         private const val HARD_MAXIMUM_IDENTIFIER_CHARACTERS = 256
         private const val HARD_MAXIMUM_PAGE_COUNT = 256
         private const val HARD_MAXIMUM_TEXT_CHARACTERS = 1_000_000
-        private const val HARD_MAXIMUM_TITLE_CHARACTERS = 8_192
+        const val HARD_MAXIMUM_TITLE_CHARACTERS = 8_192
         private const val HARD_MAXIMUM_WIDGET_COUNT = 1_024
         private const val HOME_NAMESPACE_KEY = "home"
         private const val HOME_PAGE_ID_KEY = "homePageId"
@@ -3321,7 +3321,6 @@ internal class HomeConfigStore(
         private const val FIRST_SCRIPT_ARCHIVE_INDEX = 1
         private const val MINIMUM_COMPONENT_CHARACTERS = 1
         private const val MINIMUM_APP_WIDGET_ID = 1
-        private const val MINIMUM_APP_GROUP_COMPONENTS = 1
         private const val MINIMUM_AUTOMATION_ALARM_INTERVAL_MILLISECONDS = 60_000L
         private const val MINIMUM_AUTOMATION_HEALTH_REFRESH_INTERVAL_MILLISECONDS = 900_000L
         private const val MINIMUM_AUTOMATION_INTERVAL_MILLISECONDS = 0L

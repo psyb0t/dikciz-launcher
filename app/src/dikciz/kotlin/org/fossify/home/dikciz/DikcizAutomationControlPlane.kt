@@ -1,5 +1,6 @@
 package org.fossify.home.dikciz
 
+import android.content.ComponentName
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -550,6 +551,43 @@ internal class DikcizAutomationControlPlane(
         }
     }
 
+    private fun validateAddWidget(request: JSONObject) {
+        val widgetType = request.requireBoundedString(KEY_WIDGET_TYPE, MAXIMUM_SEMANTIC_ID_CHARACTERS)
+        if (request.has(KEY_PAGE_ID)) request.requireBoundedString(KEY_PAGE_ID, MAXIMUM_SEMANTIC_ID_CHARACTERS)
+        if (widgetType != WIDGET_TYPE_APP_GROUP) {
+            if (request.has(KEY_COMPONENTS) || request.has(KEY_TITLE)) {
+                throw DikcizAutomationRequestException(
+                    ERROR_VALIDATION_FAILED,
+                    "components and title are only valid for appGroup",
+                )
+            }
+            return
+        }
+        if (request.has(KEY_TITLE)) {
+            val title = request.requireBoundedString(KEY_TITLE, HomeConfigStore.HARD_MAXIMUM_TITLE_CHARACTERS)
+            if ('\u0000' in title) throw DikcizAutomationRequestException(ERROR_VALIDATION_FAILED, "invalid app group title")
+        }
+        val components = request.requireArray(KEY_COMPONENTS)
+        if (components.length() !in AppGroupLimits.MINIMUM_COMPONENTS..AppGroupLimits.MAXIMUM_COMPONENTS) {
+            throw DikcizAutomationRequestException(
+                ERROR_VALIDATION_FAILED,
+                "components must contain ${AppGroupLimits.MINIMUM_COMPONENTS} to ${AppGroupLimits.MAXIMUM_COMPONENTS} Android components",
+            )
+        }
+        val memberNames = mutableSetOf<ComponentName>()
+        for (index in 0 until components.length()) {
+            val component = components.opt(index)
+            val name = (component as? String)
+                ?.takeIf { it.length <= MAXIMUM_COMPONENT_CHARACTERS && it.none(Char::isISOControl) }
+                ?.let(ComponentName::unflattenFromString)
+                ?.takeIf { it.packageName.isNotBlank() && it.className.isNotBlank() }
+                ?: throw DikcizAutomationRequestException(ERROR_VALIDATION_FAILED, "components[$index] must be an Android component")
+            if (!memberNames.add(name)) {
+                throw DikcizAutomationRequestException(ERROR_VALIDATION_FAILED, "components[$index] is a duplicate")
+            }
+        }
+    }
+
     private fun validateCommand(request: JSONObject, commandType: String) {
         if (commandType in DikcizNativeCommands.FIELDS) {
             DikcizNativeCommands.validate(commandType, request, true)
@@ -570,10 +608,7 @@ internal class DikcizAutomationControlPlane(
             -> request.requireBoundedString(KEY_SEMANTIC_ID, MAXIMUM_SEMANTIC_ID_CHARACTERS)
 
             TYPE_SELECT_PAGE -> request.requireBoundedString(KEY_PAGE_ID, MAXIMUM_SEMANTIC_ID_CHARACTERS)
-            TYPE_ADD_WIDGET -> {
-                request.requireBoundedString(KEY_WIDGET_TYPE, MAXIMUM_SEMANTIC_ID_CHARACTERS)
-                if (request.has(KEY_PAGE_ID)) request.requireBoundedString(KEY_PAGE_ID, MAXIMUM_SEMANTIC_ID_CHARACTERS)
-            }
+            TYPE_ADD_WIDGET -> validateAddWidget(request)
 
             TYPE_GRID_SET -> {
                 request.requireBoundedInt(
@@ -1230,6 +1265,7 @@ internal class DikcizAutomationControlPlane(
         const val KEY_MESSAGE = "message"
         const val KEY_NODE_ID = "nodeId"
         const val KEY_COMPONENT = "component"
+        const val KEY_COMPONENTS = "components"
         const val KEY_PAGE_ID = "pageId"
         const val KEY_QUERY = "query"
         const val KEY_PROTOCOL_VERSION = "protocolVersion"
@@ -1257,6 +1293,8 @@ internal class DikcizAutomationControlPlane(
         const val KEY_ROW_SPAN = "rowSpan"
         const val KEY_WIDGET_ADDRESS = "widgetAddress"
         const val KEY_WIDGET_TYPE = "widgetType"
+        const val KEY_TITLE = "title"
+        const val WIDGET_TYPE_APP_GROUP = "appGroup"
         const val KEY_NODES = "nodes"
         const val KEY_FOUND = "found"
         const val KEY_NODE = "node"
@@ -1416,7 +1454,9 @@ internal class DikcizAutomationControlPlane(
             TYPE_DIAGNOSTICS to setOf(KEY_REQUEST_ID, KEY_TYPE),
             TYPE_HOME_GET to setOf(KEY_REQUEST_ID, KEY_TYPE),
             TYPE_WIDGET_GET to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_WIDGET_ADDRESS),
-            TYPE_ADD_WIDGET to setOf(KEY_REQUEST_ID, KEY_TYPE, KEY_WIDGET_TYPE, KEY_PAGE_ID),
+            TYPE_ADD_WIDGET to setOf(
+                KEY_REQUEST_ID, KEY_TYPE, KEY_WIDGET_TYPE, KEY_PAGE_ID, KEY_TITLE, KEY_COMPONENTS,
+            ),
             TYPE_GRID_SET to setOf(
                 KEY_REQUEST_ID,
                 KEY_TYPE,

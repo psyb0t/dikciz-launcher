@@ -75,3 +75,6 @@ __pycache__/
 # Local release notes and JVM scratch
 /PREPPLAN.md
 /[?]/
+
+# Local provider credential
+/.zai

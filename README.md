@@ -8,43 +8,30 @@
 
 *yes, it's dick cheese*
 
-Dikciz is a programmable Android home screen. Build pages from HTML widgets, native app shortcuts and Android widgets, write Lua or background JavaScript automations, and control your phone through WebSocket, MCP or HTTP over USB, Wi-Fi or Tailscale.
+Dikciz is a programmable Android launcher based on [Fossify Launcher](https://github.com/FossifyOrg/Launcher). Its Home pages combine native shortcuts, app folders, Android widgets and editable HTML widgets. Lua and JavaScript automate phone events. The optional assistant and remote clients use the same phone tools over [MCP](https://modelcontextprotocol.io/), HTTP or WebSocket.
 
-Your home lives in editable files under `/sdcard/Dikciz/`. The signed release includes scripting, inspection and remote control. Ordinary launcher control needs neither a debug build nor root. Android permissions govern access to the rest of the phone.
+Home layout, widget source and scripts live in editable files under `/sdcard/Dikciz/`. The signed APK includes the programmable features. Android permissions control access to other apps and hardware.
 
 ## Who this is for
 
-**TL;DR: Your phone, your controls.** Dikciz is for developers, tinkerers and anyone who wants to program their phone: build a home screen in HTML/CSS/JavaScript, automate events with Lua or JavaScript, and let their own AI use the phone through MCP.
+For Android users who want to build their own home screen, write small apps and automations, or give an assistant access to specific phone tools. Also for goblins who want their phone to say "peen goes in vageen", flash the torch like Christmas and play alien noises.
 
-Also for goblins who want their phone to say "peen goes in vageen", flash the torch like Christmas and play alien noises. Speech, audio, lights and SMS are programmable too. Build something useful, something ridiculous, or both.
-
-You choose the model provider, scripts, permissions and network access. The built-in assistant and external clients use the same phone tools. Android's permission and hardware limits still apply.
+[Install the APK](#install-it) to use it. [Build from source](#run-it) to work on the launcher.
 
 <p align="center">
-<img src="docs/images/user-guide/01-first-launch.png" alt="Home with live London weather, Android app icons, native dock and the cheese chat control" width="280">
+<img src="docs/images/user-guide/01-first-launch.png" alt="Home with live London weather, Android shortcuts and the cheese chat control" width="280">
 <img src="docs/images/user-guide/05-goblin-page.png" alt="Goblin control with speech, alien sounds, torch pulses and live outdoor weather" width="280">
 </p>
-<p align="center">
-<img src="docs/images/user-guide/03-insights-page.png" alt="Tools with upcoming calendar entries and a saved voice note" width="280">
-<img src="docs/images/user-guide/04-device-page.png" alt="Device with battery, memory, storage and CPU charts" width="280">
-</p>
 
-Current four-page starter on the emulator, with live London weather, sample calendar entries, a saved voice note and a configured battery level. Device counters reflect what Android exposes to the app.
+These are two of the four starter pages. **Tools** has an agenda and voice notes. **Device** shows battery, CPU, memory and storage. [See the full starter home](https://psyb0t.github.io/dikciz-launcher/starter-home/).
 
 ## Contents
 
-| Start here | Details |
+| Use Dikciz | Build and connect |
 | --- | --- |
-| [Who this is for](#who-this-is-for) | [What you can build](#what-the-home-supports), [AI chat](#chat-with-your-phone) |
-| [Bundled apps](#bundled-apps) | Screenshots and guides for the six included apps. |
-| [Build your first app](#build-your-first-app) | [GPS todo walkthrough](https://psyb0t.github.io/dikciz-launcher/todo-app-tutorial/) |
-| [Bundled widgets and scripts](#bundled-widgets-and-scripts) | [Complete catalog](https://psyb0t.github.io/dikciz-launcher/starter-home/) |
-| [Install](#install-it) | [Home features](#what-the-home-supports), [navigation](#navigate-and-manage-the-home) |
-| [On-device chat](#chat-with-your-phone) | [Provider setup, tools and event rules](https://psyb0t.github.io/dikciz-launcher/embedded-chat/) |
-| [Configuration](#configure-it) | [Remote control](#inspect-and-control-it-remotely), [Android capabilities](#android-capabilities), [logs](#logs-and-failure-reporting) |
-| [Build and run](#run-it) | [Fossify updates](#fossify-source-updates), [verification](#verification) |
-| [Activity and backups](#activity-recovery-and-backups) | [Operations](https://psyb0t.github.io/dikciz-launcher/operations/), [encrypted restore](https://psyb0t.github.io/dikciz-launcher/backups/), [live images and speech](https://psyb0t.github.io/dikciz-launcher/visual-streams/) |
-| [Documentation](#documentation) | [Agent integrations](#agent-integrations), [upstream](#upstream) |
+| [Install](#install-it), [navigate Home](#navigate-and-manage-the-home), [configure it](#configure-it) | [Build from source](#run-it), [Fossify source updates](#fossify-source-updates), [verification](#verification) |
+| [Bundled apps](#bundled-apps), [widgets and scripts](#bundled-widgets-and-scripts), [chat](#chat-with-your-phone) | [Build your first app](#build-your-first-app), [remote control](#inspect-and-control-it-remotely), [agent integrations](#agent-integrations) |
+| [Safety and devices](#safety-journeys-and-devices), [activity and backups](#activity-recovery-and-backups) | [Documentation](#documentation), [Android capabilities](#android-capabilities), [licenses](#upstream) |
 
 ## Install it
 
@@ -65,21 +52,16 @@ Release packages use `eu.psyb0t.dikciz.launcher`; debug packages use `eu.psyb0t.
 
 ## What the home supports
 
-- Native pages arranged across two axes, each with a fixed grid, stable identity and configurable layout.
-- Local HTML, CSS and JavaScript widgets with persistent state, events and the `window.dikciz` bridge.
-- [Custom apps](https://psyb0t.github.io/dikciz-launcher/custom-apps/) with complete editable HTML/CSS/JavaScript interfaces, Lua or JavaScript backends, independent state, event subscriptions and native timers.
-- Native app shortcuts, app groups and third-party Android AppWidget providers.
-- Lua and [background JavaScript](https://psyb0t.github.io/dikciz-launcher/background-javascript/) scripts with event subscriptions, typed actions, owner command access and a native script dashboard. Enable only trusted scripts; their command access includes files and shell.
-- Themes, fonts, wallpaper, widget appearance, editing locks and a chosen Android Home destination.
-- Semantic UI inspection, screenshots, logs, configuration editing and device actions through the remote APIs.
-
-The starter combines everyday launcher controls with programmable widgets. **Home** has clock/weather, app icons ranked by optional usage history, and native Phone, Camera, Settings and app-store shortcuts along the bottom. **Tools** has agenda and voice notes. **Device** has a live battery gauge, memory/storage bars and CPU charts. Tap the home quick actions for a short torch pulse sequence or speech; neither starts automatically. Each HTML document remains separately editable. The HTML library offers complete editable WebView templates, including system metrics and BTC/USD with economic news. Save customized documents to reuse them. Six Lua examples start disabled, including GPS London announcements, outdoor heat commentary and speed warnings. The **Goblin** page adds tap-operated speech, torch pulses and alien sounds. The [complete bundled catalog](https://psyb0t.github.io/dikciz-launcher/starter-home/#complete-bundled-widget-catalog) describes every template and script. See the [starter home guide](https://psyb0t.github.io/dikciz-launcher/starter-home/).
+- Home pages with editable grids, native shortcuts and folders, Android widgets, themes, fonts and wallpapers.
+- HTML widgets and [custom apps](https://psyb0t.github.io/dikciz-launcher/custom-apps/) with editable HTML, CSS and JavaScript, saved state and phone events.
+- Lua and [background JavaScript](https://psyb0t.github.io/dikciz-launcher/background-javascript/) for rules that react to events and timers. Enabled scripts can call phone tools, including files and shell.
+- UI inspection, screenshots, logs and configuration editing over the [remote APIs](#inspect-and-control-it-remotely).
 
 ## Bundled widgets and scripts
 
-The nineteen complete HTML templates cover **Time and weather**, **Most used apps**, **Agenda**, **Voice notes**, **Device status**, **Goblin control**, **Home dashboard**, **System dashboard**, **Live sensors**, **BTC and economic news**, **Clock and search**, **Find an app**, **Quick note**, **Android app settings**, **Android display settings**, **Lock screen**, **Post a notification**, **Dikciz diagnostics** and **Vehicle console**. Add copies from the widget picker and edit their full HTML, CSS, JavaScript and saved state. The [complete catalog](https://psyb0t.github.io/dikciz-launcher/starter-home/#complete-bundled-widget-catalog) explains every template and its data sources.
+Add a widget from the picker, then edit its HTML, CSS, JavaScript and state. The [bundled catalog](https://psyb0t.github.io/dikciz-launcher/starter-home/#complete-bundled-widget-catalog) lists all 19 templates, including weather, an app launcher, live sensors, BTC/USD and a vehicle console.
 
-Six Lua examples ship disabled: **Low battery reminder**, **Unplug at 80 percent**, **Lock screen on demand**, **Goblin London**, **Goblin heat** and **Goblin speed**. The goblin rules announce London arrival, complain above 35 Celsius outdoors, and yell above 80 km/h GPS speed. Their saved cooldowns and rearm thresholds prevent constant repetition. The Goblin page lets you preview the voices, say "peen goes in vageen", flash the torch and play synthesized alien sounds. Enable scripts individually in Settings; read [triggers, permissions and weather setup](https://psyb0t.github.io/dikciz-launcher/starter-home/#optional-lua-utilities).
+Six example Lua scripts ship disabled. They cover battery reminders, locking the screen, announcing arrival in London, reacting to hot weather and warning about GPS speed. [See setup and triggers](https://psyb0t.github.io/dikciz-launcher/starter-home/#optional-lua-utilities).
 
 ## Navigate and manage the home
 
@@ -89,11 +71,9 @@ The [illustrated user guide](https://psyb0t.github.io/dikciz-launcher/user-guide
 
 ## Chat with your phone
 
-Tap the cheese beside the launcher controls to open the assistant. Tap **Chats** to search, resume or start a conversation. Each chat keeps its own draft.
+Tap the cheese beside the launcher controls. Use **Chats** to resume a conversation and **Chat options** to connect an OpenAI-compatible or Anthropic-compatible provider. Each conversation chooses its own model, reasoning level and token budget.
 
-Open **Chat options** to add an OpenAI-compatible or Anthropic-compatible provider and select a model. Each conversation keeps its own model, token budget and reasoning settings. The assistant uses the same phone MCP tools as external agents. Read-only mode hides mutating tools and blocks direct write calls in the executor. The panel streams Markdown, expands from half screen, and can hide while the agent uses another app. Its quiet **Open chat** notification also opens it over any app while the assistant is idle. Event rules can wake a conversation in the background. A live notification shows its activity, reopens the exact chat on a tap and offers **Stop**. SQLite keeps full transcripts; choose old-exchange trimming or summary compaction with an output reserve.
-
-In **Chat options**, use **Make me a widget** to generate a complete widget on the current page, or **Explain this screen** to capture the screen behind chat and ask for a read-only explanation. Install [skills, named agents and rules](https://psyb0t.github.io/dikciz-launcher/assistant-library/) in `/sdcard/Dikciz/assistant/` for on-demand procedures, isolated specialist conversations and editable owner instructions. Agents inherit access restrictions. Read [chat setup and controls](https://psyb0t.github.io/dikciz-launcher/embedded-chat/).
+The assistant can make widgets, explain the screen or react to saved event rules. Read-only mode blocks writes. When chat is in the background, its notification shows progress and offers **Stop**. [Set up chat and its tools](https://psyb0t.github.io/dikciz-launcher/embedded-chat/) or add [skills, named agents and rules](https://psyb0t.github.io/dikciz-launcher/assistant-library/) under `/sdcard/Dikciz/assistant/`.
 
 ## Safety, journeys and devices
 
@@ -117,7 +97,7 @@ Open **Settings**, **Safety, journeys and devices** for inactive contact plans, 
 
 ## Build your first app
 
-Open **Dikciz > Dikciz apps > Travel todo** for a complete editable app. Add tasks, then opt into **Watch New York**. An accurate GPS entry checks off **Go to New York**, even while its UI is closed. A custom event can check off another task. The [step-by-step tutorial](https://psyb0t.github.io/dikciz-launcher/todo-app-tutorial/) explains every source file, permission, event and saved-state change; the [complete reference source](app/src/dikciz/assets/apps/travel-todo/) ships in the APK.
+Open **Dikciz > Apps > Travel todo** for a complete editable app. Add tasks, then opt into **Watch New York**. An accurate GPS entry checks off **Go to New York**, even while its UI is closed. A custom event can check off another task. The [step-by-step tutorial](https://psyb0t.github.io/dikciz-launcher/todo-app-tutorial/) explains every source file, permission, event and saved-state change; the [complete reference source](app/src/dikciz/assets/apps/travel-todo/) ships in the APK.
 
 <p align="center">
 <img src="docs/images/custom-apps/todo-watching.png" alt="Travel todo waiting for a GPS entry near New York" width="280">
@@ -132,47 +112,33 @@ Use the [configuration guide](https://psyb0t.github.io/dikciz-launcher/dikciz-co
 
 ## Inspect and control it remotely
 
-WebSocket carries commands and persistent events. Streamable HTTP MCP exposes the same command target as tools. Plain HTTP accepts JSON commands at `/v1/automation` on the MCP port. Both default to `127.0.0.1` on the phone, reachable by phone apps and ADB forwarding. For direct access without USB:
+WebSocket carries commands and live events on port `19001`. Streamable HTTP MCP and JSON commands share port `19002`. The listeners start on the phone's loopback address. Use ADB forwarding over USB or connect directly over a private network.
 
-1. Connect the phone and controlling computer to the same reachable private network or Tailscale network. Its access policy must allow **computer to phone** traffic on TCP `19001` and `19002`. Being online or answering a Tailscale tunnel ping does not prove application access.
-2. On the phone, open **Settings**, **Automation**, **Configure remote bearer authentication**. Set and enable a password. Create a [named access token](https://psyb0t.github.io/dikciz-launcher/remote-access-tokens/) with specific grants for each client. The client reads its credential from `DIKCIZ_REMOTE_BEARER_TOKEN`; keep it in your secret environment, outside command arguments.
-3. Open **Configure control ports**, set **Listen address** to `0.0.0.0`, and save. The [public configuration file](https://psyb0t.github.io/dikciz-launcher/dikciz-configuration/#control-ports) offers the same setting. Both listeners restart automatically when their endpoints change.
-4. Connect from the controlling computer using the phone's reachable hostname or IP and its device ports. `0.0.0.0` is a bind address, not a client destination.
+For Wi-Fi or Tailscale access, open **Settings**, **Automation**, **Configure remote bearer authentication**. Enable authentication and create a [token with the grants your client needs](https://psyb0t.github.io/dikciz-launcher/remote-access-tokens/). In **Configure control ports**, set the listen address to `0.0.0.0`. Connect to the phone's private hostname or IP. The listeners restart after you save. Use a trusted private network or encrypted VPN because the listeners serve plain HTTP and WebSocket. [Full connection walkthrough](https://psyb0t.github.io/dikciz-launcher/automation-control/#connect-without-usb).
 
-The supplied Python client has no third-party dependencies. Run it from a checkout, replacing `phone.example` with your phone's hostname or IP:
+From the checkout, set `DIKCIZ_REMOTE_BEARER_TOKEN` in the client environment and replace `phone.example` with the phone's hostname:
 
 ```bash
-python3 scripts/dikciz-control.py websocket controlStatus --host phone.example --port 19001 --pretty
 python3 scripts/dikciz-control.py mcp-tools --host phone.example --port 19002 --pretty
-python3 scripts/dikciz-control.py mcp dikciz_snapshot --host phone.example --port 19002 --pretty
 ```
 
-| Connection | WebSocket | Streamable HTTP MCP | HTTP commands |
-| --- | --- | --- | --- |
-| Direct private network | `ws://phone.example:19001/v1/automation` | `http://phone.example:19002/mcp` | `http://phone.example:19002/v1/automation` |
-| Lab ADB forwards after `make dikciz-run` | `ws://127.0.0.1:19101/v1/automation` | `http://127.0.0.1:19102/mcp` | `http://127.0.0.1:19102/v1/automation` |
+| API | Endpoint |
+| --- | --- |
+| WebSocket | `ws://phone.example:19001/v1/automation` |
+| Streamable HTTP MCP | `http://phone.example:19002/mcp` |
+| HTTP commands | `http://phone.example:19002/v1/automation` |
 
-Configure your MCP client's Streamable HTTP URL and bearer header, then discover the server and list tools. Use `dikciz_search_query` to find relevant guides and recipes offline, then read the returned URI. Search collection `tools` for installed schemas. The same [SQLite search service](https://psyb0t.github.io/dikciz-launcher/offline-search/) supports explicitly indexed owner collections without an embedding model. `dikciz://docs/index` remains the browsable MCP guide index. The [resource guide](https://psyb0t.github.io/dikciz-launcher/mcp-resources/) covers discovery and CLI reads. Direct access needs no USB, ADB or emulator. The endpoints do not provide TLS themselves; use a trusted private network or an encrypted VPN. `0.0.0.0` listens on all IPv4 interfaces, including Wi-Fi, subject to network routing and filtering.
-
-The [connection walkthrough](https://psyb0t.github.io/dikciz-launcher/automation-control/#connect-without-usb) covers setup, troubleshooting and ADB alternatives. Both protocols reject browser origins outside HTTP or HTTPS loopback pages. Native clients can omit `Origin`. Network access, bearer authentication and Android permissions are separate checks. Shell commands request root by default; pass `root: false` for Dikciz's app sandbox. Commands accept `autoRequestPermissions: true` to show owner review when Android access is missing. Use `requestDeviceAccess` or MCP `dikciz_request_device_access` to ask for one capability directly; responses report permission state, notification delivery and instructions. See [permission requests](https://psyb0t.github.io/dikciz-launcher/automation-control/#request-missing-android-access).
-
-Browse and transfer any files Android lets Dikciz access, upload standalone APKs and request installation, or run Android shell commands and read their output and exit status. Shell commands default to a 30-second timeout and accept per-request timeout and output-size options. Android controls installation permission and confirmation. The [files, APKs and shell guide](https://psyb0t.github.io/dikciz-launcher/files-and-apks/) covers commands, binary transfers and final installation status.
-
-Inspect the actual serving package and version with `deviceInfo`, inspect another installed package with `packageInfo`, and use `restart` for an acknowledged launcher restart that preserves configuration and reconnects without killing the process. `launcherHandoff` switches between installed release and debug controllers after checking target access. `displayScreenshot` captures other apps through enabled Accessibility on Android 11+. The [remote device guide](https://psyb0t.github.io/dikciz-launcher/remote-device-control/) covers these controls, port-conflict recovery and which operations require Android access or root.
-
-Use [direct Android data commands](https://psyb0t.github.io/dikciz-launcher/native-device-control/) for contact lookup and edits, SMS history and tracked sends, calendars, call history, SIM selection and own phone numbers, clipboard, current location, notifications, media sessions and device state. They call Android APIs without navigating other apps. Discover resources and grants with `nativeDataStatus`; Android still enforces permissions and app roles.
+Start with the [command reference](https://psyb0t.github.io/dikciz-launcher/command-reference/) or search help on the phone with `dikciz_search_query`. Use the [remote device guide](https://psyb0t.github.io/dikciz-launcher/remote-device-control/) for version checks, screenshots and restart, and the [files guide](https://psyb0t.github.io/dikciz-launcher/files-and-apks/) for transfers, APKs and shell commands.
 
 ## Android capabilities
 
-Direct commands cover sensors, location/geocoding, JPEG capture, microphone recording and [live PCM streaming](https://psyb0t.github.io/dikciz-launcher/microphone-streams/), audio playback, speech synthesis/recognition, torch, vibration and selected settings. Bluetooth supports discovery, pairing requests, RFCOMM and GATT transactions; NFC supports tag discovery, NDEF and raw transactions; USB supports owner access and transfers. Wi-Fi supports cached and requested scans with freshness metadata. File management, notification replies and durable jobs use the same command target. All ordinary bindings share the same executor and Android access. [Hardware controls](https://psyb0t.github.io/dikciz-launcher/hardware-controls/), [speech recognition](https://psyb0t.github.io/dikciz-launcher/speech-recognition/) and the [command reference](https://psyb0t.github.io/dikciz-launcher/command-reference/) document fields and results. The [Android access reference](https://psyb0t.github.io/dikciz-launcher/android-access/) maps features to grants and execution limits. The [public SDK bridge](https://psyb0t.github.io/dikciz-launcher/android-sdk/) adds pinned class/overload discovery, typed invocation, handles and callbacks, with both read-only protections. The [coverage table](https://psyb0t.github.io/dikciz-launcher/capability-coverage/) states dedicated coverage and platform restrictions. A catalogue entry does not imply permission or tested hardware support.
+Phone tools cover contacts, SMS, call history, calendars, notifications, location, sensors, camera, audio, speech, Bluetooth, NFC, USB and Wi-Fi. Calls use Android APIs and remain subject to Android permissions and hardware support. [Find the right tool and its access requirements](https://psyb0t.github.io/dikciz-launcher/capability-coverage/). The [SDK bridge](https://psyb0t.github.io/dikciz-launcher/android-sdk/) exposes additional Android SDK classes and methods.
 
 ## Activity, recovery and backups
 
-Open **Dikciz > Automation debugger** to browse persistent event, handler and command traces and simulate current Lua/JavaScript without phone effects. **Dikciz > Skills, agents & rules** manages owner instructions. Four built-in authoring/debugging guides let the assistant create and validate its own skills, agents and rules through shared tools. Read the [debugger guide](https://psyb0t.github.io/dikciz-launcher/automation-debugger/) and [instruction manager](https://psyb0t.github.io/dikciz-launcher/assistant-library/#manage-instructions-on-the-phone).
+Browse events and test rules in **Dikciz > Automation debugger**. Open **Settings > Activity & resources** for command history, resource usage and controls to pause background work. [Debugger guide](https://psyb0t.github.io/dikciz-launcher/automation-debugger/) · [Activity guide](https://psyb0t.github.io/dikciz-launcher/operations/).
 
-Open **Settings**, **Activity & resources** for command history, caller identity, outcomes and measured process resource use. Pause scripts, HTML widgets, chat event rules or live captures from there. Metadata excludes command arguments and results. The [operations guide](https://psyb0t.github.io/dikciz-launcher/operations/) covers measurement limits, cancellation and the visual rule editor.
-
-[Encrypted backups](https://psyb0t.github.io/dikciz-launcher/backups/) preserve home assets, widget state, scripts, custom-app source/state/files/runtime, assistant skills/agents/rules, conversations and provider settings, with optional API keys. Preview before replacing data; remote authentication and listener settings stay on the destination. [Live images and speech](https://psyb0t.github.io/dikciz-launcher/visual-streams/) adds camera/display JPEG streams, provider partial transcripts and recorded-file transcription. Event history and acknowledged consumer cursors persist across restarts.
+[Encrypted backups](https://psyb0t.github.io/dikciz-launcher/backups/) can save Home, scripts, apps, assistant instructions and chat history. Preview the data before restoring it.
 
 ## Logs and failure reporting
 
@@ -199,30 +165,17 @@ Run `make lint` for script, website and minified Android lint checks, then use t
 
 ## Documentation
 
-Start with the [documentation index](https://psyb0t.github.io/dikciz-launcher/) for every guide and the [coverage table](https://psyb0t.github.io/dikciz-launcher/capability-coverage/) for implemented and remaining capabilities.
-
-| Guide | Covers |
+| I want to | Read |
 | --- | --- |
-| [Recipes](https://psyb0t.github.io/dikciz-launcher/recipes/) | Short event, installation, screen and streaming procedures. |
-| [Developer manual](https://psyb0t.github.io/dikciz-launcher/developer-manual/) | Runtime selection, JavaScript/Lua API references, phone commands and complete token grants. |
-| [Tutorial](https://psyb0t.github.io/dikciz-launcher/tutorial/) | Illustrated setup, editable home, AI chat, remote control, events, hardware and SDK calls. |
-| [Screens](https://psyb0t.github.io/dikciz-launcher/screens/) | Illustrated app, assistant, token, backup, activity and companion workflows. |
-| [User guide](https://psyb0t.github.io/dikciz-launcher/user-guide/) | Installation, Android access, navigation and native editing, with screenshots. |
-| [Offline search](https://psyb0t.github.io/dikciz-launcher/offline-search/) | Ranked docs, recipes, live schemas, aliases, typo correction and persistent owner collections. |
-| [On-device chat](https://psyb0t.github.io/dikciz-launcher/embedded-chat/) | Provider profiles, streaming Markdown, conversations, context budgets and event-driven agents. |
-| [Configuration](https://psyb0t.github.io/dikciz-launcher/dikciz-configuration/) | Public files, validation, reload behavior, themes and logs. |
-| [Scripting](https://psyb0t.github.io/dikciz-launcher/scripting-tutorial/) | Lua, background JavaScript, HTML, events, policies and typed actions. |
-| [GPS todo tutorial](https://psyb0t.github.io/dikciz-launcher/todo-app-tutorial/) | Build a complete event-driven app, with editable source and a working location rule. |
-| [Custom apps](https://psyb0t.github.io/dikciz-launcher/custom-apps/) | Complete UI/backend bundles, app-local state, native timers, urgent modals and editable SOS. |
-| [Access tokens](https://psyb0t.github.io/dikciz-launcher/remote-access-tokens/) | Named client credentials, grants, revocation and filtered discovery. |
-| [Automation control](https://psyb0t.github.io/dikciz-launcher/automation-control/) | Direct connections, ADB forwarding, authentication, WebSocket, MCP and HTTP. |
-| [Files, APKs and shell](https://psyb0t.github.io/dikciz-launcher/files-and-apks/) | Browse, upload, download, install APKs and read CLI results. |
-| [Dikciz source](app/src/dikciz/README.md) | Product architecture and implementation boundaries. |
-| [Scripts](scripts/README.md), [tests](tests/README.md), [contributing](CONTRIBUTING.md) | Build tooling, verification and change boundaries. |
+| Set up the phone and arrange Home | [Illustrated user guide](https://psyb0t.github.io/dikciz-launcher/user-guide/) |
+| Learn by building | [Tutorials](https://psyb0t.github.io/dikciz-launcher/tutorial/) · [Recipes](https://psyb0t.github.io/dikciz-launcher/recipes/) |
+| Edit saved files or write code | [Configuration](https://psyb0t.github.io/dikciz-launcher/dikciz-configuration/) · [Developer manual](https://psyb0t.github.io/dikciz-launcher/developer-manual/) |
+| Connect a client or inspect a request | [Automation control](https://psyb0t.github.io/dikciz-launcher/automation-control/) · [Command reference](https://psyb0t.github.io/dikciz-launcher/command-reference/) |
+| Find a guide or contribute code | [All documentation](https://psyb0t.github.io/dikciz-launcher/) · [Contributing](CONTRIBUTING.md) |
 
 ## Agent integrations
 
-The [Dikciz Launcher skill](.agents/skills/dikciz-launcher/SKILL.md) covers installation and operation. Claude Code and Codex manifests under `.agents/` package those instructions. The server runs in your installed Android APK; supply its reachable `/mcp` URL and bearer password. Connect Codex directly, or load the local Claude plugin from this checkout:
+The [Dikciz Launcher skill](.agents/skills/dikciz-launcher/SKILL.md) covers installation and operation. Claude Code and Codex manifests under `.agents/` package those instructions. The server runs in your installed Android APK; supply its reachable `/mcp` URL and an access token. Connect Codex directly, or load the local Claude plugin from this checkout:
 
 ```bash
 codex mcp add dikciz --url http://phone.example:19002/mcp --bearer-token-env-var DIKCIZ_REMOTE_BEARER_TOKEN
@@ -233,6 +186,4 @@ The [agent integration guide](https://psyb0t.github.io/dikciz-launcher/agent-int
 
 ## Upstream
 
-Image recognition bundles Google ML Kit SDKs and models with separate [terms and metrics disclosure](https://psyb0t.github.io/dikciz-launcher/dependency-licenses/).
-
-Dikciz is based on [Fossify Launcher](https://github.com/FossifyOrg/Launcher) and distributed under the [GNU General Public License v3.0](LICENSE).
+Dikciz and its Fossify base are distributed under the [GNU General Public License v3.0](LICENSE). Bundled Google ML Kit models have separate [terms and metrics disclosures](https://psyb0t.github.io/dikciz-launcher/dependency-licenses/).

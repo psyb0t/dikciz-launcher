@@ -672,7 +672,7 @@ def test_chat_agent_documentation_resources(websocket_control):
 def test_chat_agent_screenshot_is_a_provider_image(websocket_control, provider_endpoint, provider):
     endpoint, script, records = provider_endpoint
     script["tools"] = [("dikciz_screenshot", {})]
-    _, identifier = conversation(endpoint, provider)
+    _, identifier = conversation(endpoint, provider, supportsVision=True)
     try:
         send(identifier, "Inspect the fixture screen")
         rows = wait_turn(identifier)
@@ -1417,6 +1417,167 @@ def test_chat_authoring_ends_repeated_invalid_calls(websocket_control, provider_
         assert_tool_pairing(records[-1]["body"])
     finally:
         cleanup(identifier)
+
+
+def test_chat_agentic_filters_before_pagination(websocket_control, provider_endpoint):
+    endpoint, script, records = provider_endpoint
+    _, identifier = conversation(endpoint, "anthropic", maximumRounds=10)
+    allowlist = ["dikciz_config_get", "dikciz_home_get"]
+    chat("configure", conversationId=identifier, settings={"toolAllowlist": allowlist})
+    script.update(wrapper_calls=[
+        ("phone_tools", {"query": ""}),
+        ("phone_search", {"collection": "tools", "query": "dikciz_config_get", "limit": "1"}),
+        ("phone_search", {"collection": "tools", "query": "dikciz_config_get", "limit": "1", "offset": "1"}),
+        ("phone_tools", {"query": "dikciz_config_replace"}),
+        ("phone_tools", {"query": "dikciz_shell"}),
+        ("dikciz_shell", {"command": "printf should-not-run"}),
+    ], text="The saved tool filters block the requested change.")
+    try:
+        send(identifier, "Find the tool to change the saved Home layout.")
+        rows = wait_turn(identifier)
+        result = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
+        assert len(result) == 5
+        assert {tool["name"] for tool in result[0]["tools"]} == set(allowlist)
+        assert result[0]["total"] == 2 and result[0]["nextOffset"] is None
+        assert [item["id"] for item in result[1]["items"]] == [allowlist[0]]
+        assert result[2]["items"] == [] and result[2]["total"] == 1
+        for missing in result[3:]:
+            assert missing["tools"] == [] and missing["total"] == 0
+            assert missing["hasMore"] is False and missing["nextOffset"] is None
+        first = records[0]["body"]
+        tool_names = {tool["name"] for tool in first["tools"]}
+        assert "dikciz_shell" not in tool_names and "dikciz_config_replace" not in tool_names
+        system = first["system"]
+        if isinstance(system, list):
+            system = "".join(part["text"] for part in system)
+        assert '"hasWriteTools":false' in system and '"turnReadOnly":false' in system
+        assert any(
+            block.get("code") == "empty_tool_search" for block in json.loads(rows[-1]["blocks"])
+        )
+        assert not records[-1]["body"].get("tools")
+        chat("configure", conversationId=identifier, settings={"toolAllowlist": None})
+        assert "toolAllowlist" not in chat("settings", conversationId=identifier)["settings"]
+    finally:
+        cleanup(identifier)
+
+
+def test_chat_agentic_shell_and_job_followup(websocket_control, provider_endpoint):
+    endpoint, script, records = provider_endpoint
+    _, identifier = conversation(endpoint, "anthropic", maximumRounds=5)
+    command = {"type": "shell", "command": "printf fixture-job"}
+    job_key = "chat-fixture-" + uuid.uuid4().hex
+
+    def status_arguments(body):
+        result = next(part for message in body["messages"] for part in message.get("content", [])
+                      if isinstance(part, dict) and part.get("tool_use_id") == "fixture-call-1")
+        job_id = json.loads(result["content"][0]["text"])["structuredContent"]["jobId"]
+        deadline = time.monotonic() + TURN_TIMEOUT
+        while native_call("http", "jobStatus", {"jobId": job_id})["state"] in ("queued", "running"):
+            assert time.monotonic() < deadline
+            time.sleep(0.1)
+        return {"jobId": job_id}
+
+    script.update(wrapper_calls=[
+        ("dikciz_shell", {"command": "printf fixture-shell"}),
+        ("dikciz_job_start", {"command": command, "idempotencyKey": job_key}),
+        ("dikciz_job_status", status_arguments),
+    ], text="Both commands completed.")
+    try:
+        send(identifier, "Run two fixture commands and verify their results.")
+        rows = wait_turn(identifier)
+        results = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
+        shell = results[0]["structuredContent"]
+        job = results[2]["structuredContent"]
+        assert shell["exitCode"] == 0 and shell["output"] == "fixture-shell"
+        assert shell["executionScope"] == "app_sandbox"
+        assert job["state"] == "completed" and job["outcomeKnown"]
+        assert job["response"]["result"]["output"] == "fixture-job"
+        assert job["response"]["result"]["executionScope"] == "app_sandbox"
+        assert job["jobId"] == results[1]["structuredContent"]["jobId"]
+        assert {tool["name"] for tool in records[0]["body"]["tools"]} >= {
+            "dikciz_shell", "dikciz_job_start", "dikciz_job_status", "dikciz_file_read",
+        }
+        assert "3 model rounds" in json.dumps(records[2]["body"]["system"])
+        assert_tool_pairing(records[-1]["body"])
+    finally:
+        cleanup(identifier)
+
+
+def test_chat_agentic_blocks_direct_shell_and_jobs_in_read_only(websocket_control, provider_endpoint):
+    endpoint, script, records = provider_endpoint
+    _, identifier = conversation(endpoint, "anthropic", readOnly=True)
+    script.update(wrapper_calls=[
+        ("dikciz_shell", {"command": "printf should-not-run"}),
+        ("dikciz_job_start", {
+            "command": {"type": "shell", "command": "printf should-not-run"},
+            "idempotencyKey": "readonly-" + uuid.uuid4().hex,
+        }),
+    ], text="The turn is read-only.")
+    try:
+        send(identifier, "Check read-only enforcement.")
+        rows = wait_turn(identifier)
+        results = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
+        assert len(results) == 2
+        assert all(result["structuredContent"]["code"] == "read_only_violation" for result in results)
+        names = {tool["name"] for tool in records[0]["body"]["tools"]}
+        assert "dikciz_shell" not in names and "dikciz_job_start" not in names
+    finally:
+        cleanup(identifier)
+
+
+def test_chat_agentic_rejects_a_denied_nested_job_command(websocket_control, provider_endpoint):
+    endpoint, script, _ = provider_endpoint
+    _, identifier = conversation(endpoint, "anthropic", toolAllowlist=["dikciz_job_start"])
+    script.update(wrapper_calls=[("dikciz_job_start", {
+        "command": {"type": "shell", "command": "printf should-not-run"},
+        "idempotencyKey": "denied-" + uuid.uuid4().hex,
+    })], text="The nested command is outside this chat's tool scope.")
+    try:
+        send(identifier, "Check the nested command restriction.")
+        rows = wait_turn(identifier)
+        result = next(json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool")
+        assert result["code"] == "agent_tool_denied"
+        assert "jobId" not in result
+    finally:
+        cleanup(identifier)
+
+
+@pytest.mark.parametrize("landscape", [False, True])
+def test_chat_agentic_tune_shows_and_clears_tool_filters(websocket_control, provider_endpoint, landscape):
+    endpoint, _, _ = provider_endpoint
+    _, identifier = conversation(endpoint)
+    try:
+        chat("configure", conversationId=identifier, settings={"toolAllowlist": ["dikciz_home_get"]})
+        if landscape:
+            emulator_font_scale_set(130)
+            emulator_device_orientation_set("landscape")
+            wait_chat_ready()
+        chat("show", conversationId=identifier)
+        direct_tap(wait_for_physical_description_bounds("Chat options"))
+        direct_tap(wait_for_physical_description_bounds("Chat model settings"))
+        direct_tap(wait_for_physical_text_bounds("Supports vision"))
+        restriction = wait_for_physical_text_bounds("Restrict to listed tools")
+        run_device_operation("screenshot")
+        artifact = "chat-tool-filters-landscape.png" if landscape else "chat-tool-filters.png"
+        shutil.copyfile(ARTIFACT_DIRECTORY / "screenshot.png", ARTIFACT_DIRECTORY / artifact)
+        direct_tap(restriction)
+        direct_tap(wait_for_physical_button_bounds("Save"))
+        deadline = time.monotonic() + TURN_TIMEOUT
+        while True:
+            settings = chat("settings", conversationId=identifier)["settings"]
+            if "toolAllowlist" not in settings:
+                break
+            assert time.monotonic() < deadline, settings
+            time.sleep(0.1)
+        assert settings["readOnly"] is False
+        assert settings["supportsVision"] is True
+        chat("configure", conversationId=identifier, settings={"model": "other-model"})
+        assert chat("settings", conversationId=identifier)["settings"]["supportsVision"] is False
+    finally:
+        cleanup(identifier)
+        if landscape:
+            emulator_device_orientation_set("portrait")
+            emulator_font_scale_set(100)
 
 
 def test_chat_authoring_bounds_a_parallel_tool_batch(websocket_control, provider_endpoint):

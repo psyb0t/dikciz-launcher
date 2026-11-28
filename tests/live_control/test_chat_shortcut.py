@@ -51,9 +51,10 @@ def test_chat_shortcut_opens_over_another_app(websocket_control, provider_endpoi
         agent.run_device_operation("screenshot")
         shutil.copyfile(agent.ARTIFACT_DIRECTORY / "screenshot.png", agent.ARTIFACT_DIRECTORY / ("chat-shortcut-configured.png" if configured else "chat-shortcut-first-run.png"))
         if configured:
+            agent.chat("configure", conversationId=identifier, settings={"supportsVision": True})
             script.update(text="The captured app is Android Settings.")
             direct_tap(wait_for_physical_description_bounds("Chat options"))
-            direct_tap(wait_for_physical_description_bounds("Explain this screen"))
+            direct_tap(wait_for_physical_text_bounds("Explain this screen"))
             agent.wait_turn(identifier)
             body = records[0]["body"]
             assert "com.android.settings" in json.dumps(body)

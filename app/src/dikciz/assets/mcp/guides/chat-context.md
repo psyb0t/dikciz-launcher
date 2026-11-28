@@ -14,7 +14,7 @@ reasoning:auto leaves provider defaults. OpenAI explicit efforts are sent as rea
 
 Stop cancels generation. Timeout/max-round exhaustion is visible in failed messages. Completed tool effects are not rolled back. After process death active/executing messages become interrupted; uncertain tool effects are never replayed automatically. Poll read/status and inspect actual results before continuing.
 
-Anthropic thinking signatures, omitted-text blocks and redacted blocks are preserved for tool continuations and later turns. Opaque thinking stays opaque. Screenshot images use each provider's supported content format.
+Anthropic thinking signatures, omitted-text blocks and redacted blocks are preserved for tool continuations and later turns. Opaque thinking stays opaque. Toggle supportsVision in Tune. Off by default, it omits images from requests and uses accessibility text for screen explanations.
 
 Later turns retain failed, cancelled and interrupted owner requests and completed tool outcomes under either context policy. Unrecorded tool outcomes receive a matching tool_outcome_unknown result for context, never automatic execution. Inspect actual state before retrying a side effect. Pending later requests are excluded from the current context.
 

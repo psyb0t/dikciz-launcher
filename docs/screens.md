@@ -128,7 +128,7 @@ Tap the cheese beside the Home controls. Drag or tap the top handle to switch he
 
 <p><a href="images/screens/chat-progress-notification.png"><img src="images/screens/chat-progress-notification.png" alt="Working notification and Stop" width="280"></a><br>Working notification and Stop.</p>
 
-<p><a href="images/screens/conversations.png"><img src="images/screens/conversations.png" alt="Searchable conversation history with a New chat action" width="280"></a><br>Search or resume a saved conversation.</p>
+<p><a href="images/screens/conversations.png"><img src="images/screens/conversations.png" alt="Searchable conversation history with a New chat action" width="280"></a><br>Unread conversations appear first with a count beside each title.</p>
 
 <p><a href="images/screens/conversation-actions.png"><img src="images/screens/conversation-actions.png" alt="Conversation management" width="280"></a><br>Conversation management.</p>
 
@@ -175,7 +175,7 @@ Choose **Add provider** from the empty chat, or open **Chat options** and **Prov
 
 <p><a href="images/screens/chat-model-dropdown.png"><img src="images/screens/chat-model-dropdown.png" alt="Model discovery and selection" width="280"></a><br>Model discovery and selection.</p>
 
-<p><a href="images/screens/chat-model-settings.png"><img src="images/screens/chat-model-settings.png" alt="Context, output and read-only settings" width="280"></a><br>Context, output and read-only settings.</p>
+<p><a href="images/screens/chat-model-settings.png"><img src="images/screens/chat-model-settings.png" alt="Model settings showing an active tool allowlist with read-only off" width="280"></a><br>Read-only access, tool filters and token budgets.</p>
 
 <p><a href="images/screens/chat-model-lower.png"><img src="images/screens/chat-model-lower.png" alt="Tool rounds, timeout, safety margin and system instructions" width="280"></a><br>Scroll the model form for tool rounds, turn timeout, context safety margin and additional system instructions.</p>
 

@@ -163,7 +163,13 @@ internal class DikcizChatStore(private val context: Context) : SQLiteOpenHelper(
         val initial = JSONObject(provider.toString())
         overrides.keys().forEach { name -> initial.put(name, overrides.get(name)) }
         val requested = modelLimits.selection(initial, patch, limits(provider, patch.optString("model", initial.optString("model"))))
-        requested.keys().forEach { name -> overrides.put(name, requested.get(name)) }
+        requested.keys().forEach { name ->
+            if (requested.isNull(name) && name in DikcizChatSettings.TOOL_FILTER_FIELDS) {
+                overrides.remove(name)
+            } else {
+                overrides.put(name, requested.get(name))
+            }
+        }
         DikcizChatSettings.resolve(provider, overrides)
         updateConversation(id, ContentValues().apply { put("profile_id", selected); put("settings", overrides.toString()) })
         return conversation(id)

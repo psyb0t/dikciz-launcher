@@ -1,11 +1,11 @@
 # Assistant tool contracts and access
 
-The embedded assistant receives typed native tools for common widget, automation and custom app work. Use their advertised parameters directly. The same executor checks access and validates calls from chat, MCP, HTTP and WebSocket.
+The embedded assistant receives typed tools for Home, files, shell commands, command jobs, scripts and custom apps. Use their advertised parameters directly. The same executor checks access and validates calls from chat, MCP, HTTP and WebSocket.
 
 For other tools and documentation, the assistant has these wrappers:
 
 - `phone_tools`: required string `query`, optional decimal string `offset`. Empty query lists tools; nonempty queries rank tasks and identifiers with aliases and typo correction. Follow `hasMore`/`nextOffset` only when needed.
-- `phone_search`: required string `query`, optional string `collection` (default `docs`) and decimal strings `limit`/`offset`. Returns ranked excerpts, exact IDs and URIs. Collection `tools` returns current permitted schemas.
+- `phone_search`: required string `query`, optional string `collection` (default `docs`) and decimal strings `limit`/`offset`. Returns ranked excerpts, exact IDs and URIs. Collection `tools` ranks and pages permitted schemas. An empty result with hasMore false ends discovery for that scope.
 - `phone_call`: required string `name` and string `arguments_json`. Discover the exact native name first. The string contains a strict JSON object matching the native `inputSchema`, including all required fields, types, enums and nested objects. Send `"{}"` for a no-argument tool.
 - `phone_skill`: required string `name`. Loads an enabled skill's exact text, directory and revision.
 - `phone_library`: action list or read. Read takes an exact relative path, including paths to supporting files.
@@ -15,6 +15,10 @@ For other tools and documentation, the assistant has these wrappers:
 
 Discovery does not execute an operation. Reuse installed contracts while the build and access context remain unchanged. Rediscover after an APK or access change, or a contract rejection. Search for the relevant procedure instead of walking the entire resource catalog. Rejected native calls include `toolContract` when that tool is currently exposed. Follow its actual `inputSchema`; the original error and permission recovery remain available. Unexposed or unknown tools return discovery guidance. Correction does not automatically execute or retry anything. Check uncertain side effects before retrying. A tool_result_too_large receipt preserves the original outcome. Read a narrower target or smaller page.
 
-Each model request has current launcher access context. `conversationReadOnly` is the saved setting; `turnReadOnly` is the executor restriction for this turn. `reason` distinguishes `conversation_setting`, `screen_explanation`, `turn_started_read_only` and `writable_conversation`. `writeAccessResumesNextTurn` means the saved conversation permits writes but this turn retains a temporary restriction. A screen task does not change saved settings. Treat current context as authoritative over old assistant claims; do not tell an owner to enable writes when their conversation already allows them. Android grants are separate and must be checked through actual tool results.
+Each model request has current launcher access context. `conversationReadOnly` is the saved setting; `turnReadOnly` is the executor restriction for this turn. `reason` distinguishes `conversation_setting`, `read_only_task`, `turn_started_read_only` and `writable_conversation`. `writeAccessResumesNextTurn` means the saved conversation permits writes but this turn retains a temporary restriction. A screen task does not change saved settings. Treat current context as authoritative over old assistant claims; do not tell an owner to enable writes when their conversation already allows them. Android grants are separate and must be checked through actual tool results.
+
+Tune shows independent allowlist and denylist overrides. Clear an override with null in chat configure. An empty allowlist blocks phone actions. Documentation search remains available. Current context reports effective filters and hasWriteTools. Do not search for alternate paths around these filters.
+
+Chat shell defaults to Android sh with app permissions. Set root true only on explicit request. For longer commands, use the returned command job ID to check state and output. Nested commands in jobs share the same chat access. Use remaining rounds to verify outcomes.
 
 Each call rechecks trusted saved access. A configure patch containing only settings:{"readOnly":true} can restrict an active turn immediately; other configuration changes require stopping it first. Model arguments cannot relax access.

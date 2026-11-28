@@ -1076,6 +1076,8 @@ internal class DikcizMcpControlPlane(
         val maximum: Int? = null,
         val defaultValue: Int? = null,
         val maximumLength: Int? = null,
+        val items: JSONObject? = null,
+        val itemCount: IntRange? = null,
     ) {
         fun toJson(): JSONObject {
             val value = JSONObject().put(KEY_TYPE, type).put(KEY_DESCRIPTION, description)
@@ -1083,6 +1085,8 @@ internal class DikcizMcpControlPlane(
             maximum?.let { value.put(KEY_MAXIMUM, it) }
             defaultValue?.let { value.put(KEY_SCHEMA_DEFAULT, it) }
             maximumLength?.let { value.put(KEY_SCHEMA_MAX_LENGTH, it) }
+            items?.let { value.put("items", it) }
+            itemCount?.let { value.put("minItems", it.first).put("maxItems", it.last) }
             return value
         }
     }
@@ -1442,6 +1446,8 @@ internal class DikcizMcpControlPlane(
             DikcizAutomationControlPlane.TYPE_ADD_WIDGET to setOf(
                 DikcizAutomationControlPlane.KEY_WIDGET_TYPE,
                 DikcizAutomationControlPlane.KEY_PAGE_ID,
+                DikcizAutomationControlPlane.KEY_TITLE,
+                DikcizAutomationControlPlane.KEY_COMPONENTS,
             ),
             DikcizAutomationControlPlane.TYPE_GRID_SET to setOf(
                 DikcizAutomationControlPlane.KEY_COLUMNS,
@@ -1575,7 +1581,15 @@ internal class DikcizMcpControlPlane(
             ToolDefinition("dikciz_diagnostics", "Read Dikciz diagnostics", "Read local control-plane diagnostics.", emptyList(), true),
             ToolDefinition("dikciz_widget_get", "Read Dikciz widget", "Read one widget by its stable H/V widget address.", listOf(widgetAddressArgument()), true),
             ToolDefinition(TOOL_GRID_SET, "Set Dikciz page grid", "Replace the page grid used by every page. Reflow widget rectangles to fit, relocate collisions and remove overflow items in saved order. Return the saved grid and evictedWidgets with pageId/id records. Evicting app shortcuts leaves their apps installed.", listOf(gridColumnsArgument(), gridRowsArgument(), gridGapArgument(), gridOuterPaddingArgument()), false),
-            ToolDefinition(TOOL_ADD_WIDGET, "Add Dikciz widget", "Place one new top-level item in the first fitting free cells of the named page, or the selected page when pageId is absent. Returns the saved address. Rejects locked or full pages without writing. Use dikciz_widget_move and dikciz_widget_resize for placement afterwards.", listOf(widgetTypeArgument(), pageIDArgument().copy(isRequired = false)), false),
+            ToolDefinition(
+                TOOL_ADD_WIDGET,
+                "Add Dikciz widget",
+                "Place one new item in the first fitting free cells of pageId, or the selected page when omitted. " +
+                    "For appGroup, pass components from dikciz_app_catalogue and an optional title. " +
+                    "Returns the saved address and cell. Rejects locked or full pages without writing.",
+                listOf(widgetTypeArgument(), pageIDArgument().copy(isRequired = false), groupTitleArgument(), groupComponentsArgument()),
+                false,
+            ),
             ToolDefinition(TOOL_WIDGET_MOVE, "Move Dikciz widget", "Move one widget to an explicit grid rectangle. Rejects with grid_collision or grid_bounds and writes nothing.", listOf(widgetAddressArgument(), cellArgument()), false),
             ToolDefinition(TOOL_WIDGET_RESIZE, "Resize Dikciz widget", "Resize one widget to an explicit grid rectangle. Rejects with grid_collision or grid_bounds and writes nothing.", listOf(widgetAddressArgument(), cellArgument()), false),
             ToolDefinition(TOOL_HTML_WIDGET_RENDERER_CRASH, "Test HTML renderer recovery", "Crash one rendered HTML widget through Android's documented WebView test URL, then report the normal renderer-loss recovery through local logs.", listOf(widgetAddressArgument()), false),
@@ -1808,6 +1822,24 @@ internal class DikcizMcpControlPlane(
             SCHEMA_TYPE_STRING,
             true,
             maximum = DikcizAutomationControlPlane.MAXIMUM_SEMANTIC_ID_CHARACTERS,
+        )
+
+        private fun groupTitleArgument(): ToolArgument = ToolArgument(
+            DikcizAutomationControlPlane.KEY_TITLE,
+            "Optional appGroup label. Omit it to use the default label.",
+            SCHEMA_TYPE_STRING,
+            false,
+            maximumLength = HomeConfigStore.HARD_MAXIMUM_TITLE_CHARACTERS,
+        )
+
+        private fun groupComponentsArgument(): ToolArgument = ToolArgument(
+            DikcizAutomationControlPlane.KEY_COMPONENTS,
+            "Required for appGroup. Unique Android component strings from dikciz_app_catalogue, in display order.",
+            SCHEMA_TYPE_ARRAY,
+            false,
+            items = JSONObject().put(KEY_TYPE, SCHEMA_TYPE_STRING)
+                .put(KEY_SCHEMA_MAX_LENGTH, DikcizAutomationControlPlane.MAXIMUM_COMPONENT_CHARACTERS),
+            itemCount = AppGroupLimits.MINIMUM_COMPONENTS..AppGroupLimits.MAXIMUM_COMPONENTS,
         )
 
         private fun cellArgument(): ToolArgument = ToolArgument(

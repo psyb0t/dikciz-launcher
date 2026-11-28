@@ -384,7 +384,7 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
                     val endpoint = awaitOwnerMcp()
                     val currentReadOnly = readOnly || requestedReadOnly || store.effectiveProfile(id).getBoolean(DikcizChatSettings.KEY_READ_ONLY)
                     endpoint.call(method, params, currentReadOnly)
-                }, ::changed, logger, ::captureTaskScreen, ::reportActivity, library,
+                }, ::changed, logger, ::captureTaskScreen, ::reportActivity, library, DikcizSearch.get(context, logger),
                     agentInstructions = agent?.body.orEmpty(), allowedTools = allowedTools, deniedTools = deniedTools).run(queued, profile)
             }
         } catch (exception: TimeoutCancellationException) {
@@ -423,7 +423,7 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
         }
     }
 
-    private suspend fun captureTaskScreen(): JSONObject {
+    private suspend fun captureTaskScreen(supportsVision: Boolean): JSONObject {
         reportActivity("Reading the screen")
         withContext(Dispatchers.Main) { activity.get()?.finish() }
         withTimeout(SCREEN_HIDE_TIMEOUT_MILLISECONDS) {
@@ -431,6 +431,11 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
         }
         delay(SCREEN_TRANSITION_MILLISECONDS)
         val call = awaitOwnerMcp().call
+        if (!supportsVision) {
+            val snapshot = call("tools/call", JSONObject().put("name", "dikciz_accessibility_snapshot").put("arguments", JSONObject()), true)
+            if (snapshot.optBoolean("isError")) DikcizNativeCommands.failure("screen_capture_failed", "Screen capture failed. Enable Dikciz cross-app automation to read the accessibility tree.")
+            return snapshot
+        }
         val screenshot = call("tools/call", JSONObject().put("name", "dikciz_display_screenshot").put("arguments", JSONObject()), true)
         if (screenshot.optBoolean("isError")) {
             DikcizNativeCommands.failure("screen_capture_failed", "Screen capture failed. Enable Dikciz cross-app automation in Android Accessibility settings and retry. Secure windows and Android screenshot limits still apply.")
