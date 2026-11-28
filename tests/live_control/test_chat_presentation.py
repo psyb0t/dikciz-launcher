@@ -9,15 +9,193 @@ from . import test_chat_agent as agent
 from .test_chat_agent import provider_endpoint
 from .test_chat_background import chat_notification_access, active_notification, hide_chat, ACTIVE_TITLE, LONG_RESPONSE
 from .ui import (
-    center, direct_enter_text, direct_swipe, direct_tap,
+    center, direct_enter_text, direct_hide_keyboard, direct_swipe, direct_tap,
     node_bounds, physical_description_text, physical_nodes,
     wait_for_physical_description_bounds, wait_for_physical_text_bounds,
 )
+
+CHAT_HISTORY = "Chats"
+CHAT_COMPOSER = "Chat message"
+CHAT_TITLE_FIELD = "Conversation title"
+CHAT_SEARCH = "Search chats"
 
 
 def capture(name):
     agent.run_device_operation("screenshot")
     shutil.copyfile(agent.ARTIFACT_DIRECTORY / "screenshot.png", agent.ARTIFACT_DIRECTORY / name)
+
+
+def history_row(title, state=""):
+    prefix = f"Open {title},"
+    deadline = time.monotonic() + agent.TURN_TIMEOUT
+    while time.monotonic() < deadline:
+        for node in physical_nodes():
+            label = node.get("content-desc", "")
+            if label.startswith(prefix) and state in label:
+                return node_bounds(node)
+        time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
+    raise AssertionError(f"History did not show {title!r} with {state!r}")
+
+
+def open_chat_history():
+    direct_tap(wait_for_physical_description_bounds(CHAT_HISTORY))
+    wait_for_physical_text_bounds("Conversations")
+
+
+def test_chat_presentation_history_switch_search_unread_and_actions(websocket_control, provider_endpoint):
+    endpoint, script, records = provider_endpoint
+    _, first = agent.conversation(endpoint)
+    _, second = agent.conversation(endpoint)
+    first_title = "Weekend plans"
+    second_title = "Reading list"
+    first_draft = "Bring a raincoat"
+    second_draft = "Read another chapter"
+    gate = threading.Event()
+    previous_keyboard = agent.device_command("settings get secure show_ime_with_hard_keyboard").strip()
+    try:
+        agent.device_command("settings put secure show_ime_with_hard_keyboard 1")
+        agent.chat("rename", conversationId=first, title=first_title)
+        agent.chat("rename", conversationId=second, title=second_title)
+        agent.chat("show", conversationId=first)
+        wait_for_physical_text_bounds(first_title)
+        direct_enter_text(wait_for_physical_description_bounds(CHAT_COMPOSER), first_draft, description=CHAT_COMPOSER)
+
+        open_chat_history()
+        history_row(first_title, "Current chat")
+        assert not any(node.get("content-desc") == CHAT_COMPOSER for node in physical_nodes())
+        assert records == []
+        assert not script.get("model_requests")
+        direct_enter_text(wait_for_physical_description_bounds(CHAT_SEARCH), "Missing title", description=CHAT_SEARCH)
+        wait_for_physical_text_bounds("No conversations match your search")
+        direct_tap(wait_for_physical_description_bounds("Clear chat search"))
+        direct_enter_text(wait_for_physical_description_bounds(CHAT_SEARCH), "reading", description=CHAT_SEARCH)
+        direct_hide_keyboard()
+        wait_for_physical_text_bounds("Conversations")
+        assert not any(node.get("content-desc", "").startswith(f"Open {first_title},") for node in physical_nodes())
+        direct_tap(history_row(second_title))
+        wait_for_physical_text_bounds(second_title)
+        direct_enter_text(wait_for_physical_description_bounds(CHAT_COMPOSER), second_draft, description=CHAT_COMPOSER)
+        open_chat_history()
+        direct_tap(history_row(first_title))
+        wait_for_physical_description_text(CHAT_COMPOSER, first_draft)
+
+        script.update(text="Pack the raincoat.", text_gate=gate)
+        agent.send(first, "What should I pack?")
+        wait_for_physical_description_bounds("Stop agent turn")
+        open_chat_history()
+        history_row(first_title, "In progress")
+        gate.set()
+        agent.wait_turn(first)
+        history_row(first_title, "1 unread")
+        before_read = agent.chat("read", conversationId=first)["conversation"]
+        assert before_read["unread"] == 1
+        capture("chat-history.png")
+        direct_tap(history_row(first_title))
+        wait_for_physical_text_bounds("Pack the raincoat.")
+        wait_for_physical_description_text(CHAT_COMPOSER, first_draft)
+        after_read = agent.chat("read", conversationId=first)["conversation"]
+        assert after_read["unread"] == 0
+        assert after_read["updated"] == before_read["updated"]
+
+        open_chat_history()
+        direct_tap(wait_for_physical_description_bounds(f"Actions for {second_title}"))
+        direct_tap(wait_for_physical_text_bounds("Delete"))
+        wait_for_physical_text_bounds(f'Delete "{second_title}"?')
+        direct_tap(wait_for_physical_text_bounds("Cancel"))
+        history_row(second_title)
+        direct_tap(wait_for_physical_description_bounds(f"Actions for {second_title}"))
+        direct_tap(wait_for_physical_text_bounds("Rename"))
+        direct_tap(wait_for_physical_description_bounds(CHAT_TITLE_FIELD))
+        agent.device_command("input keycombination KEYCODE_CTRL_LEFT KEYCODE_A")
+        agent.device_command("input text Books")
+        direct_hide_keyboard()
+        direct_tap(wait_for_physical_text_bounds("Save"))
+        history_row("Books")
+        history_row(first_title, "Current chat")
+        direct_tap(wait_for_physical_description_bounds("Back to chat"))
+        wait_for_physical_description_text(CHAT_COMPOSER, first_draft)
+        direct_tap(wait_for_physical_description_bounds("Expand chat"))
+        wait_for_physical_description_bounds("Collapse chat")
+        open_chat_history()
+        direct_tap(history_row("Books"))
+        wait_for_physical_description_bounds("Collapse chat")
+        wait_for_physical_description_text(CHAT_COMPOSER, second_draft)
+
+        gate.clear()
+        agent.send(second, "Wait for cancellation.")
+        direct_tap(wait_for_physical_description_bounds("Stop agent turn"))
+        agent.wait_turn(second, "cancelled")
+
+        open_chat_history()
+        direct_tap(wait_for_physical_description_bounds("Actions for Books"))
+        direct_tap(wait_for_physical_text_bounds("Delete"))
+        wait_for_physical_text_bounds('Delete "Books"?')
+        direct_tap(wait_for_physical_button_bounds("Delete"))
+        deadline = time.monotonic() + agent.TURN_TIMEOUT
+        while time.monotonic() < deadline:
+            remaining = {row["id"] for row in agent.chat("list")["items"]}
+            if second not in remaining:
+                break
+            time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
+        assert first in remaining and second not in remaining
+        history_row(first_title)
+    finally:
+        gate.set()
+        if previous_keyboard == "null":
+            agent.device_command("settings delete secure show_ime_with_hard_keyboard")
+        else:
+            agent.device_command("settings put secure show_ime_with_hard_keyboard " + previous_keyboard)
+        agent.cleanup(first)
+        if second in {row["id"] for row in agent.chat("list")["items"]}:
+            agent.cleanup(second)
+
+
+def wait_for_chat_window(orientation, font_scale):
+    expected_rotation = {"portrait": "ROTATION_0", "landscape": "ROTATION_90"}[orientation]
+    deadline = time.monotonic() + agent.TURN_TIMEOUT
+    while time.monotonic() < deadline:
+        lines = agent.device_command("dumpsys window").splitlines()
+        config = next((line for line in lines if "mGlobalConfiguration={" in line), "")
+        if f"mGlobalConfiguration={{{font_scale} " in config and f"mDisplayRotation={expected_rotation}" in config:
+            return
+        time.sleep(CONTROL_PLANE_RETRY_INTERVAL_SECONDS)
+    raise AssertionError(f"Android did not apply {orientation} at {font_scale} text scale")
+
+
+def test_chat_presentation_history_landscape_large_text(websocket_control, provider_endpoint):
+    _, first = agent.conversation(provider_endpoint[0])
+    _, second = agent.conversation(provider_endpoint[0])
+    try:
+        agent.chat("rename", conversationId=second, title="Garden sketch")
+        agent.device_command("cmd window user-rotation lock 1")
+        wait_for_chat_window("landscape", "1.0")
+        emulator_font_scale_set(EMULATOR_DEVICE_FONT_SCALE_PERCENT_ENLARGED)
+        wait_for_chat_window("landscape", "1.3")
+        agent.wait_chat_ready()
+        agent.chat("show", conversationId=first)
+        wait_for_physical_text_bounds("Fixture conversation")
+        bounds = wait_for_physical_description_bounds(CHAT_HISTORY)
+        minimum_target = int(48 * device_density_scale())
+        assert bounds["right"] - bounds["left"] >= minimum_target
+        assert bounds["bottom"] - bounds["top"] >= minimum_target
+        open_chat_history()
+        wait_for_physical_text_bounds("New chat")
+        capture("chat-history-landscape.png")
+        direct_tap(history_row("Garden sketch"))
+        wait_for_physical_text_bounds("Garden sketch")
+        wait_for_physical_description_bounds(CHAT_COMPOSER)
+    finally:
+        try:
+            agent.device_command("cmd window user-rotation lock 0")
+            wait_for_chat_window("portrait", "1.3")
+        finally:
+            emulator_font_scale_set(EMULATOR_DEVICE_FONT_SCALE_PERCENT_BASELINE)
+        wait_for_chat_window("portrait", "1.0")
+        agent.wait_chat_ready()
+        agent.chat("hide")
+        agent.wait_chat_ready()
+        for identifier in (first, second):
+            agent.chat("delete", conversationId=identifier)
 
 
 def expand_working_notification():
@@ -63,7 +241,7 @@ def test_chat_presentation_sheet_keyboard_and_notification(websocket_control, pr
         tune = wait_for_physical_description_bounds("Chat model settings")
         assert model["right"] <= tune["left"]
         capture("chat-sheet-options.png")
-        direct_tap(wait_for_physical_description_bounds("Chat options"))
+        direct_tap(wait_for_physical_description_bounds("Back to chat"))
         expand = wait_for_physical_description_bounds("Expand chat")
         x, y = center(expand)
         distance = 2 * (expand["bottom"] - expand["top"])
@@ -78,15 +256,13 @@ def test_chat_presentation_sheet_keyboard_and_notification(websocket_control, pr
         expand = wait_for_physical_description_bounds("Expand chat")
         assert not agent.chat("status")["fullScreen"]
         assert wait_for_physical_description_bounds("Chat messages") == half
-        direct_tap(expand)
-        wait_for_physical_description_bounds("Collapse chat")
-        assert agent.chat("status")["fullScreen"]
         agent.device_command("settings put secure show_ime_with_hard_keyboard 1")
         before = wait_for_physical_description_bounds("Chat message")
         direct_enter_text(before, "Draft stays here", description="Chat message")
         after = wait_for_physical_description_bounds("Chat message")
         assert after["bottom"] < before["bottom"]
         assert physical_description_text("Chat message") == "Draft stays here"
+        assert not agent.chat("status")["fullScreen"]
         capture("chat-sheet-keyboard.png")
         agent.device_command("input keyevent KEYCODE_HOME")
         wait_for_physical_description_bounds("Open Dikciz launcher controls")
@@ -124,7 +300,7 @@ def test_chat_presentation_sheet_keyboard_and_notification(websocket_control, pr
     agent.chat("show")
     wait_for_physical_description_bounds("Empty chat")
     assert not any(node.get("content-desc") == "Stop agent turn" for node in physical_nodes())
-    assert physical_description_text("Chat agent status") == "Ready"
+    wait_for_physical_text_bounds("Start a conversation")
     capture("chat-sheet-empty.png")
     agent.chat("hide")
 
@@ -141,8 +317,8 @@ def test_chat_presentation_reviews_destination_before_switching(websocket_contro
     created = None
 
     def review():
-        direct_tap(wait_for_physical_description_bounds("Choose conversation"))
-        direct_tap(wait_for_physical_text_bounds("Manage"))
+        if not any(node.get("content-desc") == "Back to chat" for node in physical_nodes()):
+            direct_tap(wait_for_physical_description_bounds("Chat options"))
         direct_tap(wait_for_physical_text_bounds("Change provider"))
         direct_tap(wait_for_physical_text_bounds("Provider review fixture"))
 

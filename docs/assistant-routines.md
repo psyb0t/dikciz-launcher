@@ -8,7 +8,7 @@ parent: "Tutorial"
 
 # Assistant routines
 
-Built-in routines provide repeatable read-only tasks using an existing conversation and saved provider. List them with `assistantRoutines`, inspect exact instructions with `assistantRoutinePreview`, or select **Run a routine** in the chat conversation menu.
+Built-in routines provide repeatable read-only tasks using an existing conversation and saved provider. List them with `assistantRoutines`, inspect exact instructions with `assistantRoutinePreview`, or select **Run a routine** in **Chat options**.
 
 | ID | Reads |
 | --- | --- |

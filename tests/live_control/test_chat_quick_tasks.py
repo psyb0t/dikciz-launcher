@@ -11,7 +11,7 @@ import pytest
 from . import test_chat_agent as agent
 from .configuration import append_empty_page
 from .test_native_data import PROTOCOLS, native_call
-from .ui import direct_enter_text, direct_hide_keyboard, direct_tap, wait_for_physical_button_bounds, wait_for_physical_description_bounds
+from .ui import direct_enter_text, direct_hide_keyboard, direct_tap, wait_for_physical_button_bounds, wait_for_physical_description_bounds, wait_for_physical_text_bounds
 
 websocket_control = agent.websocket_control
 provider_endpoint = agent.provider_endpoint
@@ -98,7 +98,7 @@ def test_chat_quick_tasks_screen_capture_and_read_only(websocket_control, provid
         assert any(part.get("type") in ("image", "image_url") for part in contents)
         serialized = json.dumps(first)
         assert "com.android.settings" in serialized
-        assert "Choose conversation" not in serialized
+        assert "Chat options list" not in serialized
         results = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
         assert results[0]["isError"] is True
         assert results[0]["structuredContent"]["code"] == "read_only_violation"
@@ -149,7 +149,7 @@ def test_chat_quick_tasks_native_buttons(websocket_control, provider_endpoint):
     try:
         agent.chat("show", conversationId=identifier)
         direct_tap(wait_for_physical_description_bounds("Chat options"))
-        direct_tap(wait_for_physical_description_bounds("Make me a widget"))
+        direct_tap(wait_for_physical_text_bounds("Make me a widget"))
         direct_enter_text(wait_for_physical_description_bounds("Widget request"), "Create a fixture note widget.")
         direct_hide_keyboard()
         direct_tap(wait_for_physical_button_bounds("Create"))
@@ -157,7 +157,8 @@ def test_chat_quick_tasks_native_buttons(websocket_control, provider_endpoint):
         assert json.loads(rows[0]["blocks"])[0]["task"]["kind"] == "widget"
         agent.run_device_operation("screenshot")
         shutil.copyfile(agent.ARTIFACT_DIRECTORY / "screenshot.png", agent.ARTIFACT_DIRECTORY / "chat-quick-tasks.png")
-        direct_tap(wait_for_physical_description_bounds("Explain this screen"))
+        direct_tap(wait_for_physical_description_bounds("Chat options"))
+        direct_tap(wait_for_physical_text_bounds("Explain this screen"))
         rows = agent.wait_turn(identifier, "failed")
         assert any(json.loads(row["blocks"])[0].get("task", {}).get("kind") == "explainScreen" for row in rows if row["role"] == "user")
     finally:

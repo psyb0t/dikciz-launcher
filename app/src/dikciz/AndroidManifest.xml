@@ -278,6 +278,7 @@
 
         <activity
             android:name=".dikciz.DikcizChatActivity"
+            android:enableOnBackInvokedCallback="true"
             android:exported="false"
             android:launchMode="singleTask"
             android:taskAffinity="${applicationId}.chat"

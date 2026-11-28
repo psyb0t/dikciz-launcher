@@ -416,7 +416,7 @@ def test_chat_agent_panel_markdown_and_modes(websocket_control, provider_endpoin
         wait_turn(identifier)
         chat("show", conversationId=identifier)
         wait_for_physical_description_bounds("Chat message")
-        wait_for_physical_description_text("Chat agent status", "Your phone assistant · tap Settings to configure a provider")
+        wait_for_physical_text_bounds("Fixture conversation")
         nodes = physical_nodes()
         text = "\n".join(node.get("text", "") for node in nodes)
         assert "Bold text" in text and "**Bold text**" not in text
@@ -719,6 +719,7 @@ def test_chat_agent_provider_settings_native_ui(websocket_control, provider_endp
     try:
         device_command("settings put secure show_ime_with_hard_keyboard 1")
         chat("show", conversationId=identifier)
+        direct_tap(wait_for_physical_description_bounds("Chat options"))
         direct_tap(wait_for_physical_description_bounds("Chat provider settings"))
         direct_tap(wait_for_physical_button_bounds("Add provider"))
         direct_tap(wait_for_physical_description_bounds("Provider template"))
@@ -759,10 +760,10 @@ def test_chat_agent_deleting_visible_conversation_clears_panel(websocket_control
         deleted = True
         device_command("input keyevent KEYCODE_HOME")
         chat("show")
-        wait_for_physical_description_bounds("Chat message")
+        wait_for_physical_description_bounds("Empty chat")
         assert chat("status")["visible"]
         assert identifier not in {row["id"] for row in chat("list")["items"]}
-        direct_tap(wait_for_physical_description_bounds("Choose conversation"))
+        direct_tap(wait_for_physical_description_bounds("Chats"))
         wait_for_physical_text_bounds("Conversations")
         device_command("input keyevent KEYCODE_BACK")
     finally:

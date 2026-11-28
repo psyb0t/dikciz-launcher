@@ -111,7 +111,7 @@ Open the Dikciz mark, then **Dikciz apps**. Tap an app row to open it. Home leav
 
 ## Assistant and conversations
 
-Tap the cheese beside the Home controls. Drag or tap the top handle to switch heights. The composer stays above the keyboard and saves a draft for each conversation. Tap **Chat options** for model controls and quick tasks. Scroll up to read earlier messages. **Latest** resumes following the stream. The conversation title opens saved conversations, Events and Manage. The working notification reopens its conversation or stops remaining work. See [embedded chat](embedded-chat.md) for tool execution and cancellation.
+Tap the cheese beside the Home controls. Drag or tap the top handle to switch heights. The composer stays above the keyboard and saves a draft for each conversation. **Chats** opens searchable history. Tap a row to resume it, use its menu to rename or delete it, or choose **New chat**. **Chat options** opens model controls, quick tasks, event rules and provider profiles. Scroll up to read earlier messages. **Latest** resumes following the stream. The working notification reopens its conversation or stops remaining work. See [embedded chat](embedded-chat.md) for tool execution and cancellation.
 
 <details>
 <summary>View the screens</summary>
@@ -128,7 +128,7 @@ Tap the cheese beside the Home controls. Drag or tap the top handle to switch he
 
 <p><a href="images/screens/chat-progress-notification.png"><img src="images/screens/chat-progress-notification.png" alt="Working notification and Stop" width="280"></a><br>Working notification and Stop.</p>
 
-<p><a href="images/screens/conversations.png"><img src="images/screens/conversations.png" alt="Conversation picker" width="280"></a><br>Conversation picker.</p>
+<p><a href="images/screens/conversations.png"><img src="images/screens/conversations.png" alt="Searchable conversation history with a New chat action" width="280"></a><br>Search or resume a saved conversation.</p>
 
 <p><a href="images/screens/conversation-actions.png"><img src="images/screens/conversation-actions.png" alt="Conversation management" width="280"></a><br>Conversation management.</p>
 
@@ -158,7 +158,7 @@ Tap the cheese beside the Home controls. Drag or tap the top handle to switch he
 
 ## Providers, models and access
 
-Open the chat settings icon and choose **Add provider**. OpenAI and Anthropic templates fill the protocol and base URL. **Custom** accepts your compatible host. Enter your own API key and save the connection. Open **Chat options** to select a model. **Tune** opens that conversation's context, output, compaction and reasoning settings. See [provider setup](embedded-chat.md#connect-a-provider).
+Choose **Add provider** from the empty chat, or open **Chat options** and **Provider profiles**. OpenAI and Anthropic templates fill the protocol and base URL. **Custom** accepts your compatible host. Enter your own API key and save the connection. Open **Chat options** to select a model. **Tune** opens that conversation's context, output, compaction and reasoning settings. See [provider setup](embedded-chat.md#connect-a-provider).
 
 <details>
 <summary>View the screens</summary>

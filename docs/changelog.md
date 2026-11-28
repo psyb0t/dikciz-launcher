@@ -7,6 +7,11 @@ nav_order: 10
 
 # Changelog
 
+## [0.37.3] - 2026-11-28
+
+- Open **Chats** to search and resume saved conversations, start a new chat, or rename and delete a specific conversation. Returning from history keeps the draft and panel height. Unread replies clear when their transcript opens.
+- Use the full reading column for assistant replies and open **Chat options** for models, providers, tasks and events. Typing uses the available space above the keyboard. Running turns show progress and **Stop** above the composer.
+
 ## [0.37.2] - 2026-11-28
 
 - Keep HTML widgets running when you drop a shortcut, move or resize a widget, or return to a cached Home page. Unfinished input and changes made inside the widget survive.

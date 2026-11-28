@@ -144,10 +144,10 @@ Add native app shortcuts or Android provider widgets through the same page contr
 
 Tap the cheese beside the launcher controls. The chat opens as a half-screen panel; expand it when you need more room.
 
-1. Open the header gear and **Add provider**.
+1. Tap **Add provider**, or find it under **Chat options** and **Provider profiles**.
 2. Choose **OpenAI**, **Anthropic** or **Custom**. The first two fill the standard host and protocol. Custom accepts your own compatible base URL.
 3. Enter the API key and save. Keys are stored separately with Android Keystore encryption and omitted from reads.
-4. Create a conversation using that provider. Open **Chat options** and choose **Chat model** from the API-backed list. If discovery cannot list a private model, enter its exact ID under **Tune**.
+4. Create a conversation using that provider. Open **Chat options** and choose **Chat model** from the API-backed list. If discovery cannot list a private model, enter its exact ID under **Tune**. Tap **Chats** to search and resume older conversations.
 5. Review the context size, maximum output, reasoning and access setting for this conversation. Several conversations can share one provider connection while using different models and budgets.
 
 The current OpenAI-compatible protocol is streaming Chat Completions; Anthropic-compatible uses streaming Messages. A provider template does not make every model or API feature compatible. Read [provider settings](embedded-chat.md#connect-a-provider) before choosing an endpoint that only supports another protocol.

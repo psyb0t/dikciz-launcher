@@ -74,7 +74,7 @@ def test_chat_background_progress_reopen_and_stop(websocket_control, provider_en
                   tools=[("dikciz_shell", {"root": False, "command": "sleep 8", "timeoutMilliseconds": 15000})])
     try:
         agent.chat("show", conversationId=other)
-        wait_for_physical_description_bounds("Choose conversation")
+        wait_for_physical_description_bounds("Chats")
         hide_chat()
         agent.chat("send", protocol=entrypoint, conversationId=identifier,
                    text="Run the fixture command and explain the result.", requestKey=str(uuid.uuid4()))
@@ -84,8 +84,8 @@ def test_chat_background_progress_reopen_and_stop(websocket_control, provider_en
         agent.device_command("cmd statusbar expand-notifications")
         wait_for_physical_text_bounds("Stop")
         direct_tap(wait_for_physical_text_bounds(ACTIVE_TITLE))
-        wait_for_physical_description_bounds("Choose conversation")
-        wait_for_physical_description_text("Choose conversation", title)
+        wait_for_physical_description_bounds("Chats")
+        wait_for_physical_text_bounds(title)
         assert agent.chat("status")["visible"] is True
         agent.run_device_operation("screenshot")
         shutil.copyfile(agent.ARTIFACT_DIRECTORY / "screenshot.png", agent.ARTIFACT_DIRECTORY / ("chat-background-open-" + provider + "-" + entrypoint + ".png"))

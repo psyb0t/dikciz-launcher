@@ -57,7 +57,7 @@ def test_chat_shortcut_opens_over_another_app(websocket_control, provider_endpoi
             agent.wait_turn(identifier)
             body = records[0]["body"]
             assert "com.android.settings" in json.dumps(body)
-            assert "Choose conversation" not in json.dumps(body)
+            assert "Chat options list" not in json.dumps(body)
             contents = [part for message in body["messages"] for part in message.get("content", []) if isinstance(part, dict)]
             assert any(part.get("type") == "image_url" for part in contents)
             assert agent.chat("settings", conversationId=identifier)["settings"]["readOnly"] is False

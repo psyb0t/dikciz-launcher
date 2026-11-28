@@ -113,11 +113,11 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
     }
 
     fun attachActivity(screen: DikcizChatActivity, conversationID: String?): String? {
-        val selected = conversationID?.takeIf { id -> store.conversations().any { it.getString("id") == id } }
         activity = WeakReference(screen)
+        visibleConversation = conversationID
+        val selected = conversationID?.takeIf(store::markConversationRead)
         visibleConversation = selected
         selected?.let {
-            store.updateConversation(it, ContentValues().apply { put("unread", 0) })
             DikcizChatService.clearReply(context, it)
         }
         changed()

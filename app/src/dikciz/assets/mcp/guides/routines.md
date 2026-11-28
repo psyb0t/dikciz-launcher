@@ -8,4 +8,4 @@ The whole turn forcibly hides mutating tools and rejects forged writes before ex
 
 assistantRoutineSubscribe needs routineId,conversationId,ruleId,subscription. subscription uses canonical automation events and cooldowns. It preserves other rules. Event runs carry read-only routine metadata and normal background chat notifications/Stop. Manage/removal through chatControl subscribe.
 
-Native chat conversation menu: Run a routine. Morning briefing reads agenda/alarm/readiness; message digest reads bounded unread SMS; travel reads available location/battery/connectivity; device audit reads resource/access/failure data; event report interprets the actual event.
+Open Chat options and choose Run a routine. Morning briefing reads agenda/alarm/readiness; message digest reads bounded unread SMS; travel reads available location/battery/connectivity; device audit reads resource/access/failure data; event report interprets the actual event.

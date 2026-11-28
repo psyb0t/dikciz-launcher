@@ -185,6 +185,11 @@ internal class DikcizChatStore(private val context: Context) : SQLiteOpenHelper(
         writableDatabase.update("conversations", values, "id=?", arrayOf(id))
     }
 
+    fun markConversationRead(id: String): Boolean {
+        val unread = ContentValues().apply { put("unread", 0) }
+        return writableDatabase.update("conversations", unread, "id=?", arrayOf(id)) > 0
+    }
+
     fun deleteConversation(id: String) {
         conversation(id)
         writableDatabase.delete("conversations", "id=?", arrayOf(id))

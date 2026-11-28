@@ -10,7 +10,11 @@ parent: "Tutorial"
 
 Tap the cheese beside the launcher controls to open chat. It starts at half height. Drag the top handle up to expand chat and down to return to half height. Tap the handle to switch heights. Closing the panel leaves a running turn active. Hidden replies and subscribed events add an unread badge; reply notifications reopen the conversation. Android notification access controls whether those notifications appear.
 
-The native panel renders streamed Markdown, including headings, lists, code fences, tables and strikethrough. Tap a reasoning or tool record to expand it. Scrolling up stops automatic scrolling. **Latest** resumes it. The panel resizes above the keyboard. Open **Chat options** (the ellipsis in the header) for model controls and quick tasks. The composer keeps a separate draft for each conversation across switches and reopening. An accepted send clears only the submitted draft. Stop a busy conversation before changing its provider or deleting it.
+The native panel renders streamed Markdown, including headings, lists, code fences, tables and strikethrough. Tap a reasoning or tool record to expand it. Scrolling up stops automatic scrolling. **Latest** resumes it. The panel uses the space above the keyboard while you type and returns to its previous height when the keyboard closes. When a turn runs, its progress and **Stop** appear above the composer.
+
+Tap **Chats** in the header to browse saved conversations. Search their titles or tap a row to resume it. The list shows the current chat, running work and unread replies. A reply stays unread until you open that transcript. **New chat** starts a separate conversation. Use a row's menu to rename or delete it. Back returns to the transcript you were reading. The composer saves a separate draft for each conversation across switches and reopening. An accepted send clears only the submitted draft.
+
+Open **Chat options** (the ellipsis) for model controls, quick tasks, routines, event rules and provider profiles. This screen leaves the transcript and its draft in place. Stop a busy conversation before changing its provider or deleting it.
 
 ## Background activity and Stop
 
@@ -44,9 +48,9 @@ Use `task: "explainScreen"` with an optional `text` question for screen explanat
 
 Follow the [illustrated provider and model setup](screens.md#providers-models-and-access). The [conversation walkthrough](screens.md#assistant-and-conversations) covers header menus, event rules, routines, the keyboard and notification Stop action.
 
-Tap the header gear, then **Add provider**. Choose **OpenAI**, **Anthropic** or **Custom** from **Provider template**. OpenAI and Anthropic fill their standard API base URL and protocol. Custom lets you enter your own HTTP or HTTPS base URL and choose the compatible protocol. Enter the API key and save the connection. Switching templates clears any key typed into the form; existing saved keys still follow the host/protocol retention rules below. Create or select a conversation using that connection, then use the **Chat model** dropdown to choose from its API catalogue. **Refresh chat models** fetches the current list again. Each conversation can choose a different model from the same provider without copying its connection or key. If discovery is unavailable or a private model is not listed, enter its exact ID under **Tune** (model settings). A conversation without a model cannot send messages or enable event rules.
+Tap **Add provider** on the first chat screen, or open **Chat options**, **Provider profiles**, then **Add provider**. Choose **OpenAI**, **Anthropic** or **Custom** from **Provider template**. OpenAI and Anthropic fill their standard API base URL and protocol. Custom lets you enter your own HTTP or HTTPS base URL and choose the compatible protocol. Enter the API key and save the connection. Switching templates clears any key typed into the form; existing saved keys still follow the host/protocol retention rules below. Create or select a conversation using that connection, then open **Chat model** in **Chat options** to fetch and choose from its API catalogue. **Refresh chat models** fetches the current list again. Each conversation can choose a different model from the same provider without copying its connection or key. If discovery is unavailable or a private model is not listed, enter its exact ID under **Tune** (model settings). A conversation without a model can hold drafts but cannot send messages or enable event rules.
 
-To change an existing conversation's provider, tap the conversation title, **Manage**, then **Change provider**. Review the destination before you switch. Later requests can send eligible history, attachments and tool results to that provider. Choose **New conversation** on the review screen to start with an empty history at the new provider.
+To change an existing conversation's provider, open **Chat options**, then **Change provider**. Review the destination before you switch. Later requests can send eligible history, attachments and tool results to that provider. Choose **New conversation** on the review screen to start with an empty history at the new provider.
 
 Model limits come first from provider discovery, then from the bundled exact-ID catalog. OpenAI's Models API does not report token limits, so its documented models use that catalog. Anthropic and compatible hosts can supply context and output metadata directly. Unknown IDs show unavailable limits and keep manual budgets. Discovery follows all bounded model pages. Refreshing discovery or opening a conversation preserves saved budgets. Cached provider limits survive launcher restarts and are invalidated when the connection is edited.
 
@@ -110,7 +114,7 @@ In writable mode, the agent can call `dikciz_chat` to hide its panel, inspect an
 
 ## Event-driven conversations
 
-Open a conversation's **Events** editor or use `subscribe`. Rules replace that conversation's complete rule list. Each has an optional unique ID, a canonical automation `subscription`, and task `instructions`. For example:
+Open **Chat options**, then **Event rules**, or use `subscribe`. Rules replace that conversation's complete rule list. Each has an optional unique ID, a canonical automation `subscription`, and task `instructions`. For example:
 
 ```json
 {

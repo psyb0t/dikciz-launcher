@@ -12,7 +12,7 @@ This guide starts after you have downloaded and installed a Dikciz APK on your A
 
 For a complete editable app, follow [Travel todo](todo-app-tutorial.md). For events, HTML widgets, Lua/JavaScript scripts, and typed actions, start with the [scripting tutorial](scripting-tutorial.md). Read [Dikciz configuration](dikciz-configuration.md) for the editable-file layout and [automation control](automation-control.md) for WebSocket, MCP, and remote-control commands.
 
-Tap the cheese beside the launcher controls to open the [on-device assistant](embedded-chat.md). Configure its provider in chat Settings, create conversations, expand the panel or hide it while the agent works.
+Tap the cheese beside the launcher controls to open the [on-device assistant](embedded-chat.md). **Chats** opens saved conversations and **New chat**. Use **Chat options** for provider profiles, models and quick tasks. Expand the panel or hide it while the agent works.
 
 Use [Screens and guided workflows](screens.md) for complete app management, assistant controls, providers, tokens, backups, permission reviews and device forms.
 

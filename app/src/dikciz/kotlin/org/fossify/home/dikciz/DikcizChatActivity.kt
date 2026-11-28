@@ -1,6 +1,7 @@
 package org.fossify.home.dikciz
 
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
@@ -11,6 +12,7 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.content.res.ColorStateList
 import android.os.Bundle
+import android.os.Build
 import android.text.InputType
 import android.text.TextUtils
 import android.view.Gravity
@@ -29,6 +31,9 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.PopupMenu
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -50,25 +55,43 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.fossify.home.dikciz.DikcizChatColors.FOREGROUND
 import org.fossify.home.dikciz.DikcizChatColors.MUTED
+import org.fossify.home.R
 
 internal class DikcizChatActivity : Activity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private lateinit var runtime: DikcizChatRuntime
     private lateinit var root: FrameLayout
     private lateinit var panel: LinearLayout
+    private lateinit var conversationPane: LinearLayout
+    private lateinit var history: DikcizChatHistoryView
+    private lateinit var optionsPane: LinearLayout
+    private lateinit var conversationOptions: LinearLayout
+    private lateinit var historyButton: Button
+    private lateinit var optionsButton: ImageButton
     private lateinit var sheetHandle: ImageButton
     private lateinit var messages: LinearLayout
     private lateinit var scroll: ChatScrollView
     private lateinit var composer: EditText
     private lateinit var latest: Button
-    private lateinit var title: Button
+    private lateinit var title: TextView
+    private lateinit var modelLabel: TextView
     private lateinit var status: TextView
+    private lateinit var statusRow: LinearLayout
+    private lateinit var sendButton: Button
     private lateinit var stop: Button
-    private lateinit var emptyState: TextView
+    private lateinit var emptyState: ScrollView
+    private lateinit var emptyTitle: TextView
+    private lateinit var emptyMessage: TextView
+    private lateinit var emptyAction: Button
+    private lateinit var composerRow: LinearLayout
     private lateinit var markwon: Markwon
     private lateinit var modelControls: DikcizChatModelControls
-    private lateinit var chatOptions: LinearLayout
-    private var showChatOptions = false
+    private var pane = Pane.CONVERSATION
+    private var keyboardVisible = false
+    private var hasModel = false
+    private var needsInitialConversation = false
+    private var screenResumed = false
+    private var systemBackCallback: OnBackInvokedCallback? = null
     private var loadingDraft = false
     private val drafts by lazy { getSharedPreferences(DIKCIZ_CHAT_DRAFTS, Context.MODE_PRIVATE) }
     private val pendingSends = mutableSetOf<String>()
@@ -87,6 +110,8 @@ internal class DikcizChatActivity : Activity() {
         runtime = DikcizChatRuntime.get(this)
         markwon = Markwon.builder(this).usePlugin(TablePlugin.create(this)).usePlugin(StrikethroughPlugin.create()).build()
         conversationID = savedInstanceState?.getString("conversationId") ?: intent.getStringExtra("conversationId")
+        needsInitialConversation = savedInstanceState == null && conversationID == null
+        pane = Pane.entries.firstOrNull { it.name == savedInstanceState?.getString("chatPane") } ?: Pane.CONVERSATION
         fullScreen = savedInstanceState?.getBoolean("fullScreen") ?: intent.getBooleanExtra("fullScreen", false)
         sheetProgress = if (fullScreen) 1f else 0f
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
@@ -100,52 +125,87 @@ internal class DikcizChatActivity : Activity() {
                 setColor(BACKGROUND)
                 setStroke(dp(1), PANEL_EDGE)
             }
-            setPadding(dp(16), 0, dp(16), dp(12))
+            setPadding(dp(12), 0, dp(12), dp(10))
             isClickable = true
+            isFocusableInTouchMode = true
         }
         root.addView(panel, FrameLayout.LayoutParams(-1, -1, Gravity.BOTTOM))
         sheetHandle = createSheetHandle()
         panel.addView(sheetHandle, LinearLayout.LayoutParams(dp(72), dp(48)).apply {
             gravity = Gravity.CENTER_HORIZONTAL
         })
-        val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        title = button("Dikciz", "Choose conversation") { chooseConversation() }.apply {
-            gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            textSize = 18f
-            typeface = Typeface.DEFAULT_BOLD
-            setSingleLine()
-            ellipsize = TextUtils.TruncateAt.END
-            background = null
-            setTextColor(FOREGROUND)
+        modelControls = DikcizChatModelControls(this, { conversationID }) { request, completed ->
+            command(request, failed = { message ->
+                if (pane == Pane.OPTIONS) showCommandError(message)
+            }, completed = completed)
         }
-        header.addView(title, LinearLayout.LayoutParams(0, dp(48), 1f))
-        header.addView(button("+", "New conversation") { newConversation() }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        header.addView(button("⋯", "Chat options") {
-            showChatOptions = !showChatOptions
-            if (showChatOptions && availableHeight() < dp(300)) {
-                WindowCompat.getInsetsController(window, root).hide(WindowInsetsCompat.Type.ime())
-            }
+        conversationPane = createConversationPane()
+        optionsPane = createOptionsPane()
+        history = DikcizChatHistoryView(
+            context = this,
+            onBack = ::returnToChat,
+            onNew = ::newConversation,
+            onRetry = ::render,
+            onOpen = ::selectConversation,
+            onManage = ::manageConversation,
+        ).apply { setQuery(savedInstanceState?.getString("historyQuery").orEmpty()) }
+        for (page in listOf(conversationPane, history, optionsPane)) {
+            panel.addView(page, LinearLayout.LayoutParams(-1, 0, 1f))
+        }
+        setContentView(root)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
+            keyboardVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
+            view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, keyboard.bottom))
             resize()
-        }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        header.addView(button("⚙", "Chat provider settings") { chooseProfile() }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        header.addView(button("×", "Hide Dikciz chat") { finish() }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        panel.addView(header)
-        status = textView().apply { textSize = 11f; setTextColor(MUTED); contentDescription = "Chat agent status" }
+            insets
+        }
+        root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> resize() }
+        scroll.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> scrollLatest() }
+        showPane()
+        panel.requestFocus()
+    }
 
-        modelControls = DikcizChatModelControls(this, { conversationID }) { request, completed -> command(request, completed = completed) }
-        chatOptions = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        chatOptions.addView(modelControls.view)
-        val tasks = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        tasks.addView(taskButton("Make me a widget") { widgetTask() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(8) })
-        tasks.addView(taskButton("Explain this screen") {
-            startTask(DikcizChatTasks.EXPLAIN_SCREEN, composer.text.toString().ifBlank { DikcizChatTasks.DEFAULT_SCREEN_QUESTION })
-        }, LinearLayout.LayoutParams(0, dp(48), 1f))
-        chatOptions.addView(tasks, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
-        panel.addView(chatOptions)
-        panel.addView(View(this).apply { setBackgroundColor(PANEL_EDGE) },
-            LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(8) })
-        val content = FrameLayout(this)
-        scroll = ChatScrollView(this).apply {
+    private fun createConversationPane() = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        val header = LinearLayout(this@DikcizChatActivity).apply { gravity = Gravity.CENTER_VERTICAL }
+        historyButton = button("Chats", "Chats") { openPane(Pane.HISTORY) }.apply {
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+        }
+        header.addView(historyButton, LinearLayout.LayoutParams(-2, dp(48)).apply { marginEnd = dp(10) })
+        val heading = LinearLayout(this@DikcizChatActivity).apply {
+            orientation = LinearLayout.VERTICAL
+            title = textView().apply {
+                text = "Dikciz"
+                textSize = 17f
+                typeface = Typeface.DEFAULT_BOLD
+                setSingleLine()
+                ellipsize = TextUtils.TruncateAt.END
+                setPadding(0, 0, 0, 0)
+                ViewCompat.setAccessibilityHeading(this, true)
+            }
+            modelLabel = textView().apply {
+                visibility = View.GONE
+                textSize = 12f
+                setTextColor(MUTED)
+                setSingleLine()
+                ellipsize = TextUtils.TruncateAt.END
+                setPadding(0, 0, 0, 0)
+            }
+            addView(title)
+            addView(modelLabel)
+        }
+        header.addView(heading, LinearLayout.LayoutParams(0, -2, 1f))
+        optionsButton = iconButton(R.drawable.dikciz_icon_overflow, "Chat options") { openPane(Pane.OPTIONS) }
+        header.addView(optionsButton, LinearLayout.LayoutParams(dp(48), dp(48)))
+        header.addView(iconButton(R.drawable.dikciz_icon_close, "Hide Dikciz chat") { finish() },
+            LinearLayout.LayoutParams(dp(48), dp(48)))
+        addView(header)
+        addView(divider(), LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(6) })
+        val content = FrameLayout(this@DikcizChatActivity)
+        scroll = ChatScrollView(this@DikcizChatActivity).apply {
             isFillViewport = true
             contentDescription = "Chat messages"
             setPadding(0, dp(8), 0, dp(8))
@@ -158,24 +218,34 @@ internal class DikcizChatActivity : Activity() {
                 updateLatest()
             }
         }
-        messages = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        messages = LinearLayout(this@DikcizChatActivity).apply { orientation = LinearLayout.VERTICAL }
         scroll.addView(messages, FrameLayout.LayoutParams(-1, -2))
         content.addView(scroll, FrameLayout.LayoutParams(-1, -1))
-        emptyState = textView().apply {
-            text = "🧀\nWhat shall we do?\n\nAsk a question, make a widget, or explore your phone."
-            gravity = Gravity.CENTER
-            textSize = 18f
-            setTextColor(MUTED)
-            setPadding(dp(24), dp(16), dp(24), dp(16))
-            contentDescription = "Empty chat"
-        }
+        emptyState = createEmptyState()
         content.addView(emptyState, FrameLayout.LayoutParams(-1, -1))
         latest = button("Latest ↓", "Jump to latest message") { followLatest = true; scrollLatest(); updateLatest() }
         content.addView(latest, FrameLayout.LayoutParams(-2, dp(48), Gravity.BOTTOM or Gravity.END))
-        panel.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
-        panel.addView(status, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4); bottomMargin = dp(4) })
-        val controls = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        composer = EditText(this).apply {
+        addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
+        status = textView().apply {
+            textSize = 13f
+            setTextColor(MUTED)
+            contentDescription = "Chat agent status"
+        }
+        stop = button("Stop", "Stop agent turn") {
+            conversationID?.let { command(JSONObject().put("action", "stop").put("conversationId", it)) }
+        }.apply { setTextColor(ERROR) }
+        statusRow = LinearLayout(this@DikcizChatActivity).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(status, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(stop, LinearLayout.LayoutParams(-2, dp(48)))
+            visibility = View.GONE
+        }
+        addView(statusRow)
+        composerRow = LinearLayout(this@DikcizChatActivity).apply {
+            gravity = Gravity.BOTTOM
+            visibility = View.GONE
+        }
+        composer = EditText(this@DikcizChatActivity).apply {
             hint = "Message Dikciz…"
             textSize = 16f
             minHeight = dp(48)
@@ -184,39 +254,126 @@ internal class DikcizChatActivity : Activity() {
             background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(ASSISTANT_BUBBLE) }
             setPadding(dp(12), dp(8), dp(12), dp(8))
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-            maxLines = 4
+            maxLines = COMPOSER_LINES
+            imeOptions = android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI
         }
-        controls.addView(composer, LinearLayout.LayoutParams(0, -2, 1f))
+        composerRow.addView(composer, LinearLayout.LayoutParams(0, -2, 1f))
         composer.doAfterTextChanged { text ->
             if (loadingDraft) return@doAfterTextChanged
             val id = conversationID ?: return@doAfterTextChanged
             val value = text.toString()
             if (value.isEmpty()) drafts.edit().remove(id).apply()
             else drafts.edit().putString(id, UUID.randomUUID().toString() + "\n" + value).apply()
+            composer.error = null
+            updateSendButton()
         }
-        controls.addView(button("↑", "Send chat message") { send() }.apply {
+        sendButton = button("↑", "Send chat message") { send() }.apply {
+            isEnabled = false
+            DikcizUiStyle.button(this, primary = true)
+            setPadding(0, 0, 0, 0)
             textSize = 24f
-            setTextColor(BACKGROUND)
-            backgroundTintList = ColorStateList.valueOf(ACCENT)
-        }, LinearLayout.LayoutParams(dp(48), dp(48)).apply { leftMargin = dp(8) })
-        stop = button("■", "Stop agent turn") {
-            conversationID?.let { command(JSONObject().put("action", "stop").put("conversationId", it)) }
-        }.apply { setTextColor(ERROR) }
-        controls.addView(stop, LinearLayout.LayoutParams(dp(48), dp(48)).apply { leftMargin = dp(4) })
-        panel.addView(controls)
-        setContentView(root)
-        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
-            view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, keyboard.bottom))
-            insets
+            val states = arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf())
+            setTextColor(ColorStateList(states, intArrayOf(MUTED, BACKGROUND)))
+            background = RippleDrawable(ColorStateList.valueOf(BUTTON_RIPPLE),
+                GradientDrawable().apply {
+                    cornerRadius = dp(12).toFloat()
+                    setColor(ColorStateList(states, intArrayOf(ASSISTANT_BUBBLE, ACCENT)))
+                }, null)
         }
-        root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> resize() }
-        scroll.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> if (followLatest) scrollLatest() }
-        if (conversationID.isNullOrBlank()) conversationID = runtime.store.conversations().firstOrNull()?.getString("id")
-        loadDraft()
-        resize()
+        composerRow.addView(sendButton, LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginStart = dp(8) })
+        addView(composerRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
     }
+
+    private fun createEmptyState() = ScrollView(this).apply {
+        isFillViewport = true
+        visibility = View.GONE
+        contentDescription = "Empty chat"
+        addView(LinearLayout(this@DikcizChatActivity).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(16), dp(10), dp(16), dp(10))
+            addView(ImageView(this@DikcizChatActivity).apply {
+                setImageResource(R.drawable.dikciz_chat_cheese)
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }, LinearLayout.LayoutParams(dp(36), dp(36)))
+            emptyTitle = textView().apply {
+                textSize = 20f
+                gravity = Gravity.CENTER
+                typeface = Typeface.DEFAULT_BOLD
+            }
+            emptyMessage = textView().apply {
+                textSize = 14f
+                gravity = Gravity.CENTER
+                setTextColor(MUTED)
+            }
+            emptyAction = button("New chat", "New chat") { newConversation() }.apply {
+                DikcizUiStyle.button(this, primary = true)
+            }
+            addView(emptyTitle, LinearLayout.LayoutParams(-1, -2))
+            addView(emptyMessage, LinearLayout.LayoutParams(-1, -2))
+            addView(emptyAction, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(8) })
+        })
+    }
+
+    private fun createOptionsPane() = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        ViewCompat.setAccessibilityPaneTitle(this, "Chat options")
+        val header = LinearLayout(this@DikcizChatActivity).apply { gravity = Gravity.CENTER_VERTICAL }
+        header.addView(button("‹", "Back to chat", ::returnToChat).apply { textSize = 26f },
+            LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginEnd = dp(10) })
+        header.addView(textView().apply {
+            text = "Chat options"
+            typeface = Typeface.DEFAULT_BOLD
+            textSize = 20f
+            ViewCompat.setAccessibilityHeading(this, true)
+        })
+        addView(header)
+        addView(divider(), LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(6) })
+        addView(ScrollView(this@DikcizChatActivity).apply {
+            contentDescription = "Chat options list"
+            addView(LinearLayout(this@DikcizChatActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                conversationOptions = LinearLayout(this@DikcizChatActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(optionHeading("Model"))
+                    addView(modelControls.view)
+                    addView(optionHeading("Quick tasks"))
+                    addView(optionButton("Explain this screen") {
+                        startTask(DikcizChatTasks.EXPLAIN_SCREEN,
+                            composer.text.toString().ifBlank { DikcizChatTasks.DEFAULT_SCREEN_QUESTION })
+                    })
+                    addView(optionButton("Make me a widget", ::widgetTask))
+                    addView(optionButton("Run a routine", ::chooseRoutine))
+                    addView(optionHeading("Conversation"))
+                    addView(optionButton("Change provider", ::chooseConversationProvider))
+                    addView(optionButton("Event rules", ::editEvents))
+                }
+                addView(conversationOptions)
+                addView(optionHeading("Connections"))
+                addView(optionButton("Provider profiles", ::chooseProfile).apply {
+                    contentDescription = "Chat provider settings"
+                })
+            })
+        }, LinearLayout.LayoutParams(-1, 0, 1f))
+    }
+
+    private fun optionHeading(label: String) = textView().apply {
+        text = label
+        textSize = 13f
+        setTextColor(MUTED)
+        typeface = Typeface.DEFAULT_BOLD
+        setPadding(dp(12), dp(14), dp(12), dp(4))
+        ViewCompat.setAccessibilityHeading(this, true)
+    }
+
+    private fun optionButton(label: String, action: () -> Unit) = Button(this).apply {
+        text = label
+        DikcizUiStyle.button(this)
+        setOnClickListener { action() }
+        layoutParams = LinearLayout.LayoutParams(-1, -2)
+    }
+
+    private fun divider() = View(this).apply { setBackgroundColor(PANEL_EDGE) }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -227,18 +384,38 @@ internal class DikcizChatActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        screenResumed = true
         runtime.observe(observer)
-        val selected = runtime.attachActivity(this, conversationID)
-        if (conversationID != selected) {
-            conversationID = selected
+        if (pane == Pane.CONVERSATION) {
+            val selected = runtime.attachActivity(this, conversationID)
+            if (selected != conversationID) changeConversation(selected)
+            else loadDraft()
+        } else {
+            runtime.attachActivity(this, null)
             loadDraft()
-            rendered.clear()
-            messages.removeAllViews()
+        }
+        if (needsInitialConversation) {
+            needsInitialConversation = false
+            scope.launch {
+                try {
+                    val initial = withContext(Dispatchers.IO) {
+                        runtime.store.conversations().firstOrNull()?.getString("id")
+                    }
+                    if (initial != null && screenResumed && conversationID == null && pane == Pane.CONVERSATION) {
+                        selectConversation(initial)
+                    }
+                } catch (exception: CancellationException) {
+                    throw exception
+                } catch (_: Exception) {
+                    if (screenResumed && pane == Pane.CONVERSATION) showCommandError("Couldn't load saved conversations.")
+                }
+            }
         }
         render()
     }
 
     override fun onPause() {
+        screenResumed = false
         runtime.unobserve(observer)
         runtime.detachActivity(this)
         super.onPause()
@@ -246,6 +423,9 @@ internal class DikcizChatActivity : Activity() {
 
     override fun onDestroy() {
         sheetAnimation?.cancel()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            systemBackCallback?.let(onBackInvokedDispatcher::unregisterOnBackInvokedCallback)
+        }
         scope.cancel()
         if (::modelControls.isInitialized) modelControls.invalidate()
         super.onDestroy()
@@ -254,7 +434,64 @@ internal class DikcizChatActivity : Activity() {
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("conversationId", conversationID)
         outState.putBoolean("fullScreen", fullScreen)
+        outState.putString("chatPane", pane.name)
+        outState.putString("historyQuery", history.query())
         super.onSaveInstanceState(outState)
+    }
+
+    @SuppressLint("GestureBackNavigation")
+    @Deprecated("Android 13 and newer use the system Back callback.")
+    override fun onBackPressed() {
+        if (pane != Pane.CONVERSATION) {
+            returnToChat()
+            return
+        }
+        @Suppress("DEPRECATION")
+        super.onBackPressed()
+    }
+
+    private fun openPane(destination: Pane) {
+        if (pane == destination) return
+        dismissKeyboard()
+        pane = destination
+        if (destination == Pane.HISTORY) history.setQuery("")
+        runtime.attachActivity(this, null)
+        showPane()
+        if (destination == Pane.HISTORY) history.requestFocus() else panel.requestFocus()
+        render()
+    }
+
+    private fun returnToChat() {
+        val previous = pane
+        dismissKeyboard()
+        pane = Pane.CONVERSATION
+        val selected = runtime.attachActivity(this, conversationID)
+        if (selected != conversationID) changeConversation(selected) else loadDraft()
+        showPane()
+        if (previous == Pane.HISTORY) historyButton.requestFocus() else optionsButton.requestFocus()
+        render()
+    }
+
+    private fun dismissKeyboard() {
+        WindowCompat.getInsetsController(window, root).hide(WindowInsetsCompat.Type.ime())
+        currentFocus?.clearFocus()
+    }
+
+    private fun showPane() {
+        if (pane != Pane.OPTIONS) modelControls.dismissPicker()
+        conversationPane.visibility = if (pane == Pane.CONVERSATION) View.VISIBLE else View.GONE
+        history.visibility = if (pane == Pane.HISTORY) View.VISIBLE else View.GONE
+        optionsPane.visibility = if (pane == Pane.OPTIONS) View.VISIBLE else View.GONE
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            systemBackCallback?.let(onBackInvokedDispatcher::unregisterOnBackInvokedCallback)
+            systemBackCallback = null
+            if (pane != Pane.CONVERSATION) {
+                systemBackCallback = OnBackInvokedCallback(::returnToChat).also {
+                    onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, it)
+                }
+            }
+        }
+        resize()
     }
 
     private fun createSheetHandle(): ImageButton {
@@ -362,8 +599,12 @@ internal class DikcizChatActivity : Activity() {
         runtime.setWindowMode(fullScreen)
         val available = availableHeight()
         val compact = compactHeight(available)
-        val height = compact + ((available - compact) * sheetProgress).roundToInt()
-        chatOptions.visibility = if (showChatOptions && height >= dp(300)) View.VISIBLE else View.GONE
+        val hasSecondaryPane = pane != Pane.CONVERSATION
+        val height = if (hasSecondaryPane || keyboardVisible) available else
+            compact + ((available - compact) * sheetProgress).roundToInt()
+        sheetHandle.visibility = if (hasSecondaryPane || available < dp(MINIMUM_HANDLE_SPACE_DP)) View.GONE else View.VISIBLE
+        val composerLines = if (available < dp(COMPACT_COMPOSER_SPACE_DP)) COMPACT_COMPOSER_LINES else COMPOSER_LINES
+        if (composer.maxLines != composerLines) composer.maxLines = composerLines
         val parameters = panel.layoutParams as FrameLayout.LayoutParams
         if (parameters.height != height) {
             parameters.height = height
@@ -378,36 +619,72 @@ internal class DikcizChatActivity : Activity() {
         scope.launch {
             try {
                 val id = conversationID
+                val currentPane = pane
+                if (currentPane == Pane.HISTORY) {
+                    val entries = withContext(Dispatchers.IO) {
+                        runtime.store.conversations().map { DikcizChatHistoryView.Entry.from(it) }
+                    }
+                    if (pane == currentPane) history.update(entries, conversationID, runtime.progress().conversationID)
+                    return@launch
+                }
                 val state = withContext(Dispatchers.IO) {
                     val conversation = id?.let { runtime.store.conversation(it) }
-                    Triple(conversation, if (id == null) emptyList() else runtime.store.displayMessages(id), id?.let { runtime.store.settings(it).getJSONObject("settings") })
+                    ChatPaneData(
+                        conversation = conversation,
+                        messages = if (id != null && currentPane == Pane.CONVERSATION) runtime.store.displayMessages(id) else emptyList(),
+                        settings = id?.let { runtime.store.settings(it).getJSONObject("settings") },
+                        hasProfiles = id != null || runtime.store.profiles().length() > 0,
+                    )
                 }
-                if (id != conversationID) return@launch
-                title.text = state.first?.getString("title") ?: "Dikciz"
-                modelControls.update(id, state.first?.getString("profile_id"), state.third)
+                if (id != conversationID || pane != currentPane) return@launch
+                val model = state.settings?.optString("model").orEmpty()
+                val readOnly = state.settings?.optBoolean(DikcizChatSettings.KEY_READ_ONLY) == true
+                hasModel = model.isNotBlank()
+                title.text = state.conversation?.getString("title") ?: "Dikciz"
+                modelLabel.text = when {
+                    id == null -> ""
+                    model.isBlank() -> "Choose a model"
+                    readOnly -> "Read-only · $model"
+                    else -> model
+                }
+                modelLabel.visibility = if (id == null) View.GONE else View.VISIBLE
+                modelControls.update(id, state.conversation?.getString("profile_id"), state.settings)
+                conversationOptions.visibility = if (id == null) View.GONE else View.VISIBLE
+                if (currentPane == Pane.OPTIONS) return@launch
                 val progress = runtime.progress()
                 val working = id != null && progress.conversationID == id
-                status.text = (if (state.third?.optBoolean(DikcizChatSettings.KEY_READ_ONLY) == true) "Read-only · " else "") +
-                    if (working) progress.text else "Ready"
+                status.text = if (working) progress.text else ""
+                statusRow.visibility = if (working) View.VISIBLE else View.GONE
                 stop.visibility = if (working) View.VISIBLE else View.GONE
-                emptyState.visibility = if (state.second.isEmpty()) View.VISIBLE else View.GONE
-
+                emptyState.visibility = if (state.messages.isEmpty()) View.VISIBLE else View.GONE
+                scroll.visibility = if (state.messages.isEmpty()) View.INVISIBLE else View.VISIBLE
+                updateEmptyState(id, state.hasProfiles)
+                composerRow.visibility = if (id == null) View.GONE else View.VISIBLE
+                updateSendButton()
                 val anchor = (0 until messages.childCount).map(messages::getChildAt).firstOrNull { it.bottom > scroll.scrollY }
                 val anchorOffset = anchor?.let { scroll.scrollY - it.top } ?: 0
-                for (row in state.second) {
+                for (row in state.messages) {
                     val rowID = row.getLong("id")
                     val view = rendered.getOrPut(rowID) { MessageView().also { messages.addView(it.container) } }
                     view.bind(row)
                 }
                 scroll.post {
+                    if (conversationID != id || pane != Pane.CONVERSATION) return@post
                     if (followLatest) scrollLatest()
-                    else if (!scroll.userDragging && anchor != null) scroll.scrollTo(0, anchor.top + anchorOffset)
+                    else if (!scroll.userDragging && anchor != null && anchor.parent === messages) {
+                        scroll.scrollTo(0, anchor.top + anchorOffset)
+                    }
                     updateLatest()
                 }
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
-                status.text = "Chat could not be loaded: ${exception.javaClass.simpleName}"
+                if (pane == Pane.HISTORY) {
+                    history.showError()
+                } else {
+                    status.text = "Chat could not be loaded: ${exception.javaClass.simpleName}"
+                    statusRow.visibility = View.VISIBLE
+                }
             } finally {
                 rendering = false
                 if (renderAgain) { renderAgain = false; render() }
@@ -415,25 +692,59 @@ internal class DikcizChatActivity : Activity() {
         }
     }
 
+    private fun updateEmptyState(id: String?, hasProfiles: Boolean) {
+        val action = when {
+            id == null && !hasProfiles -> "Add provider"
+            id == null -> "New chat"
+            !hasModel -> "Choose a model"
+            else -> null
+        }
+        emptyTitle.text = when (action) {
+            "Add provider" -> "Connect a provider"
+            "New chat" -> "Start a conversation"
+            "Choose a model" -> "Choose a model"
+            else -> "What's on your mind?"
+        }
+        emptyMessage.text = when (action) {
+            "Add provider" -> "Connect an OpenAI or Anthropic compatible API to start chatting."
+            "New chat" -> "A new chat starts with its own history and draft."
+            "Choose a model" -> "Pick a model for this conversation. You can draft a message now."
+            else -> "Ask a question or give Dikciz a task."
+        }
+        emptyAction.visibility = if (action == null) View.GONE else View.VISIBLE
+        emptyAction.text = action.orEmpty()
+        emptyAction.contentDescription = action
+        emptyAction.setOnClickListener {
+            if (id != null) openPane(Pane.OPTIONS) else newConversation()
+        }
+    }
+
+    private fun updateSendButton() {
+        val enabled = hasModel && conversationID != null && conversationID !in pendingSends && !composer.text.isBlank()
+        sendButton.isEnabled = enabled
+    }
+
     private fun send() {
         val text = composer.text.toString()
-        if (text.isBlank()) return
-        val id = conversationID
-        if (id == null) { newConversation(); return }
+        if (text.isBlank() || !hasModel) return
+        val id = conversationID ?: return
         if (!pendingSends.add(id)) return
+        updateSendButton()
         val submitted = drafts.getString(id, null)
         val requestKey = submitted?.substringBefore('\n') ?: UUID.randomUUID().toString()
         followLatest = true
         command(JSONObject().put("action", "send").put("conversationId", id).put("text", text)
             .put("requestKey", requestKey), failed = {
                 pendingSends.remove(id)
-                showCommandError(it)
+                if (conversationID == id) composer.error = it
+                updateSendButton()
             }) {
             pendingSends.remove(id)
             if (drafts.getString(id, null) == submitted) {
                 drafts.edit().remove(id).apply()
                 if (conversationID == id) loadDraft()
             }
+            updateSendButton()
         }
     }
 
@@ -447,11 +758,13 @@ internal class DikcizChatActivity : Activity() {
         } else record?.substringAfter('\n').orEmpty()
         composer.setText(text)
         composer.setSelection(text.length)
+        composer.error = null
         loadingDraft = false
+        updateSendButton()
     }
 
     private fun widgetTask() {
-        if (conversationID == null) { newConversation(); return }
+        val id = conversationID ?: return
         val input = EditText(this).apply {
             hint = "Describe what your widget should do"
             contentDescription = "Widget request"
@@ -463,12 +776,18 @@ internal class DikcizChatActivity : Activity() {
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 if (input.text.isBlank()) { input.error = "Describe the widget"; return@setOnClickListener }
+                if (conversationID != id) {
+                    input.error = "The conversation changed. Reopen this task."
+                    return@setOnClickListener
+                }
                 val submit = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
                 submit.isEnabled = false
                 startTask(DikcizChatTasks.WIDGET, input.text.toString(), failed = { error ->
                     input.error = error
                     submit.isEnabled = true
-                }) { dialog.dismiss() }
+                }) {
+                    dialog.dismiss()
+                }
             }
         }
         dialog.show()
@@ -485,7 +804,10 @@ internal class DikcizChatActivity : Activity() {
         followLatest = true
         command(JSONObject().put("action", DikcizChatTasks.ACTION).put("task", task)
             .put("conversationId", id).put("text", text).put("requestKey", UUID.randomUUID().toString()),
-            failed, completed)
+            failed) { result ->
+            completed(result)
+            if (task != DikcizChatTasks.EXPLAIN_SCREEN && id == conversationID && pane == Pane.OPTIONS) returnToChat()
+        }
     }
 
     private fun command(
@@ -516,40 +838,63 @@ internal class DikcizChatActivity : Activity() {
             .setPositiveButton("Close", null).show().also(DikcizUiStyle::dialog)
     }
 
-    private fun chooseConversation() {
-        val records = runtime.store.conversations()
-        AlertDialog.Builder(this).setTitle("Conversations")
-            .setItems(records.map { "${it.getString("title")} (${it.getInt("unread")} unread)" }.toTypedArray()) { _, index -> selectConversation(records[index].getString("id")) }
-            .setNeutralButton("Events") { _, _ -> editEvents() }
-            .setPositiveButton("Manage") { _, _ -> manageConversation() }
-            .setNegativeButton("Close", null).show().also(DikcizUiStyle::dialog)
+    private fun manageConversation(entry: DikcizChatHistoryView.Entry, anchor: View) {
+        PopupMenu(this, anchor).apply {
+            menu.add("Rename").setOnMenuItemClickListener {
+                renameConversation(entry)
+                true
+            }
+            menu.add("Delete").setOnMenuItemClickListener {
+                confirmDeleteConversation(entry)
+                true
+            }
+            show()
+        }
     }
 
-    private fun manageConversation() {
-        val id = conversationID ?: return
-        AlertDialog.Builder(this).setTitle("Manage conversation")
-            .setItems(arrayOf("Rename", "Change provider", "Delete", "Run a routine")) { _, action ->
-                when (action) {
-                    0 -> {
-                        val editor = EditText(this).apply { setText(runtime.store.conversation(id).getString("title")) }
-                        AlertDialog.Builder(this).setTitle("Conversation title").setView(editor)
-                            .setPositiveButton("Save") { _, _ -> command(JSONObject().put("action", "rename").put("conversationId", id).put("title", editor.text.toString())) }
-                            .setNegativeButton("Cancel", null).show().also(DikcizUiStyle::dialog)
-                    }
-                    1 -> {
-                        val profiles = runtime.store.profiles()
-                        AlertDialog.Builder(this).setTitle("Conversation provider")
-                            .setItems((0 until profiles.length()).map { profiles.getJSONObject(it).getString("name") }.toTypedArray()) { _, index ->
-                                reviewProviderChange(id, profiles.getJSONObject(index))
-                            }.show().also(DikcizUiStyle::dialog)
-                    }
-                    3 -> chooseRoutine()
-                    2 -> AlertDialog.Builder(this).setTitle("Delete this conversation?")
-                        .setMessage("This removes its transcript and event rules.")
-                        .setPositiveButton("Delete") { _, _ ->
-                            command(JSONObject().put("action", "delete").put("conversationId", id))
-                        }.setNegativeButton("Cancel", null).show().also(DikcizUiStyle::dialog)
+    private fun renameConversation(entry: DikcizChatHistoryView.Entry) {
+        val input = EditText(this).apply {
+            setText(entry.title)
+            contentDescription = "Conversation title"
+            isSingleLine = true
+            setSelectAllOnFocus(true)
+        }
+        val dialog = AlertDialog.Builder(this).setTitle("Rename chat").setView(input)
+            .setPositiveButton("Save", null).setNegativeButton("Cancel", null).create()
+        dialog.setOnShowListener {
+            val save = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            save.setOnClickListener {
+                val name = input.text.toString().trim()
+                if (name.isEmpty()) {
+                    input.error = "Enter a title"
+                    return@setOnClickListener
                 }
+                save.isEnabled = false
+                command(JSONObject().put("action", "rename").put("conversationId", entry.id).put("title", name),
+                    failed = {
+                        input.error = it
+                        save.isEnabled = true
+                    }) { dialog.dismiss() }
+            }
+        }
+        dialog.show()
+        DikcizUiStyle.dialog(dialog)
+    }
+
+    private fun confirmDeleteConversation(entry: DikcizChatHistoryView.Entry) {
+        AlertDialog.Builder(this).setTitle("Delete \"${entry.title}\"?")
+            .setMessage("This permanently removes its messages, draft and event rules.")
+            .setPositiveButton("Delete") { _, _ ->
+                command(JSONObject().put("action", "delete").put("conversationId", entry.id))
+            }.setNegativeButton("Cancel", null).show().also(DikcizUiStyle::dialog)
+    }
+
+    private fun chooseConversationProvider() {
+        val id = conversationID ?: return
+        val profiles = runtime.store.profiles()
+        AlertDialog.Builder(this).setTitle("Conversation provider")
+            .setItems((0 until profiles.length()).map { profiles.getJSONObject(it).getString("name") }.toTypedArray()) { _, index ->
+                reviewProviderChange(id, profiles.getJSONObject(index))
             }.show().also(DikcizUiStyle::dialog)
     }
 
@@ -582,20 +927,41 @@ internal class DikcizChatActivity : Activity() {
     }
 
     private fun selectConversation(id: String) {
-        conversationID = runtime.attachActivity(this, id)
-        loadDraft()
-        rendered.clear(); messages.removeAllViews(); followLatest = true
+        val previousPane = pane
+        val selected = runtime.attachActivity(this, id)
+        if (selected == null) {
+            if (previousPane == Pane.CONVERSATION) runtime.attachActivity(this, conversationID)
+            render()
+            showCommandError("This conversation no longer exists.")
+            return
+        }
+        dismissKeyboard()
+        pane = Pane.CONVERSATION
+        if (selected != conversationID) changeConversation(selected) else loadDraft()
+        if (previousPane != Pane.CONVERSATION) showPane()
+        panel.requestFocus()
         render()
     }
 
     internal fun onConversationDeleted(id: String) {
-        if (conversationID != id) return
-        conversationID = null
-        loadDraft()
-        rendered.clear()
-        messages.removeAllViews()
+        if (conversationID != id) {
+            if (pane == Pane.HISTORY) render()
+            return
+        }
+        changeConversation(null)
         runtime.attachActivity(this, null)
         render()
+    }
+
+    private fun changeConversation(id: String?) {
+        conversationID = id
+        hasModel = false
+        rendered.clear()
+        messages.removeAllViews()
+        followLatest = true
+        scroll.scrollTo(0, 0)
+        updateLatest()
+        loadDraft()
     }
 
     private fun newConversation() {
@@ -721,20 +1087,47 @@ internal class DikcizChatActivity : Activity() {
             setText(runtime.store.conversation(id).getString("subscriptions"))
             contentDescription = "Conversation event rules JSON"
         }
-        AlertDialog.Builder(this).setTitle("Event rules")
+        val dialog = AlertDialog.Builder(this).setTitle("Event rules")
             .setMessage("Each rule has subscription and instructions. Example: [{\"subscription\":{\"event\":\"example.check\",\"minimumIntervalMilliseconds\":60000},\"instructions\":\"Report the event details\"}]")
-            .setView(editor).setPositiveButton("Save") { _, _ ->
-                try { command(JSONObject().put("action", "subscribe").put("conversationId", id).put("rules", JSONArray(editor.text.toString()))) }
-                catch (_: org.json.JSONException) { status.text = "Event rules must be a JSON array" }
-            }.setNegativeButton("Cancel", null).show().also(DikcizUiStyle::dialog)
+            .setView(editor).setPositiveButton("Save", null).setNegativeButton("Cancel", null).create()
+        dialog.setOnShowListener {
+            val save = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            save.setOnClickListener {
+                val rules = try {
+                    JSONArray(editor.text.toString())
+                } catch (_: org.json.JSONException) {
+                    editor.error = "Event rules must be a JSON array"
+                    return@setOnClickListener
+                }
+                save.isEnabled = false
+                command(JSONObject().put("action", "subscribe").put("conversationId", id).put("rules", rules),
+                    failed = {
+                        editor.error = it
+                        save.isEnabled = true
+                    }) { dialog.dismiss() }
+            }
+        }
+        dialog.show()
+        DikcizUiStyle.dialog(dialog)
     }
 
     private fun updateLatest() { latest.visibility = if (followLatest) View.GONE else View.VISIBLE }
-    private fun scrollLatest() { scroll.post { if (followLatest && !scroll.userDragging) scroll.scrollTo(0, messages.height) } }
+    private fun scrollLatest() {
+        if (!followLatest || pane != Pane.CONVERSATION) return
+        val id = conversationID
+        scroll.post {
+            if (id == conversationID && pane == Pane.CONVERSATION && followLatest && !scroll.userDragging) {
+                scroll.scrollTo(0, messages.height)
+            }
+        }
+    }
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
     private fun textView() = TextView(this).apply { setTextColor(FOREGROUND); textSize = 16f; setLineSpacing(dp(3).toFloat(), 1f); setPadding(0, dp(4), 0, dp(4)) }
     private fun button(label: String, description: String, action: () -> Unit) = Button(this).apply {
-        text = label; contentDescription = description; minWidth = 0; minimumWidth = 0
+        text = label
+        contentDescription = description
+        minWidth = dp(48)
+        minimumWidth = dp(48)
         isAllCaps = false
         minimumHeight = dp(48)
         setSingleLine()
@@ -746,21 +1139,20 @@ internal class DikcizChatActivity : Activity() {
         setOnClickListener { action() }
     }
 
-    private fun taskButton(label: String, action: () -> Unit) = button(label, label, action).apply {
-        setTextColor(FOREGROUND)
-        background = RippleDrawable(ColorStateList.valueOf(BUTTON_RIPPLE),
-            GradientDrawable().apply {
-                cornerRadius = dp(10).toFloat()
-                setColor(BACKGROUND)
-                setStroke(dp(1), PANEL_EDGE)
-            }, null)
+    private fun iconButton(resource: Int, description: String, action: () -> Unit) = ImageButton(this).apply {
+        setImageResource(resource)
+        contentDescription = description
+        background = RippleDrawable(ColorStateList.valueOf(BUTTON_RIPPLE), null,
+            GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(Color.WHITE) })
+        setOnClickListener { action() }
     }
 
     private inner class MessageView {
-        val container = LinearLayout(this@DikcizChatActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(4), dp(6), dp(4), dp(6)) }
-        private val label = textView().apply { textSize = 11f; setTextColor(ACCENT); container.addView(this) }
+        val container = LinearLayout(this@DikcizChatActivity).apply { orientation = LinearLayout.VERTICAL }
+        private val label = textView().apply { textSize = 12f; setTextColor(MUTED); container.addView(this) }
         private val blocks = mutableListOf<TextView>()
         private var previous = ""
+        private var ownerStyle: Boolean? = null
         fun bind(row: JSONObject) {
             val encoded = row.getString("blocks") + row.getString("state")
             if (previous == encoded) return
@@ -770,9 +1162,21 @@ internal class DikcizChatActivity : Activity() {
             val role = if (isOwner && entries.optJSONObject(0)?.optString("source") == "event") "Event" else if (isOwner) "You" else if (row.getString("role") == "tool") "Phone tool" else "Dikciz"
             val state = row.getString("state")
             label.text = if (state == "complete") role else "$role · $state"
-            container.background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(if (isOwner) OWNER_BUBBLE else ASSISTANT_BUBBLE) }
-            container.setPadding(dp(12), dp(8), dp(12), dp(8))
-            container.layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(if (isOwner) dp(24) else 0, dp(4), if (isOwner) 0 else dp(12), dp(4)) }
+            if (ownerStyle != isOwner) {
+                ownerStyle = isOwner
+                container.background = GradientDrawable().apply {
+                    cornerRadius = dp(16).toFloat()
+                    setColor(if (isOwner) OWNER_BUBBLE else Color.TRANSPARENT)
+                }
+                val horizontal = dp(if (isOwner) 12 else 4)
+                container.setPaddingRelative(horizontal, dp(6), horizontal, dp(6))
+                container.layoutParams = LinearLayout.LayoutParams(-1, -2).apply {
+                    marginStart = if (isOwner) dp(32) else 0
+                    topMargin = dp(4)
+                    bottomMargin = dp(4)
+                }
+            }
+            while (blocks.size > entries.length()) container.removeView(blocks.removeAt(blocks.lastIndex))
             for (index in 0 until entries.length()) {
                 val entry = entries.getJSONObject(index)
                 val view = blocks.getOrNull(index) ?: textView().also {
@@ -784,7 +1188,11 @@ internal class DikcizChatActivity : Activity() {
                     view.setTextIsSelectable(true)
                     markwon.setMarkdown(view, text)
                 } else if (kind == "tool" || kind == "toolResult" || kind == "reasoning") {
-                    view.typeface = Typeface.MONOSPACE; view.textSize = 12f; view.setTextColor(MUTED)
+                    view.typeface = Typeface.MONOSPACE
+                    view.textSize = 13f
+                    view.setTextColor(MUTED)
+                    view.minimumHeight = dp(48)
+                    view.gravity = Gravity.CENTER_VERTICAL
                     val label = if (kind == "reasoning") "Reasoning" else if (kind == "toolResult") {
                         "Result · " + entry.optString("name", "Phone tool").removePrefix("dikciz_").replace('_', ' ')
                     } else {
@@ -795,6 +1203,7 @@ internal class DikcizChatActivity : Activity() {
                     }
                     val expanded = view.tag == true
                     view.text = if (expanded) "$label\n$text" else "$label ▸"
+                    ViewCompat.setStateDescription(view, if (expanded) "Expanded" else "Collapsed")
                     view.setOnClickListener { view.tag = view.tag != true; previous = ""; bind(row) }
                 } else {
                     view.text = text; view.setTextColor(ERROR)
@@ -827,6 +1236,15 @@ internal class DikcizChatActivity : Activity() {
 
     private data class ProviderTemplate(val label: String, val protocol: String?, val baseUrl: String?)
 
+    private data class ChatPaneData(
+        val conversation: JSONObject?,
+        val messages: List<JSONObject>,
+        val settings: JSONObject?,
+        val hasProfiles: Boolean,
+    )
+
+    private enum class Pane { CONVERSATION, HISTORY, OPTIONS }
+
     private companion object {
         val PROVIDER_TEMPLATES = listOf(
             ProviderTemplate("OpenAI", "openai", "https://api.openai.com/v1"),
@@ -843,6 +1261,10 @@ internal class DikcizChatActivity : Activity() {
         const val BUTTON_RIPPLE = 0x44F6C85F
         const val SHEET_SWIPE_DISTANCE_DP = 28
         const val SHEET_SETTLE_MILLISECONDS = 180L
+        const val MINIMUM_HANDLE_SPACE_DP = 240
+        const val COMPACT_COMPOSER_SPACE_DP = 360
+        const val COMPOSER_LINES = 4
+        const val COMPACT_COMPOSER_LINES = 2
         val SETTING_CHOICES = mapOf(
             "protocol" to arrayOf("openai", "anthropic"),
         )

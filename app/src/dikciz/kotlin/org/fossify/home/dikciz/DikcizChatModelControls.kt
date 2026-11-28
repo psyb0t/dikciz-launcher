@@ -58,7 +58,6 @@ internal class DikcizChatModelControls(
     private var selectedConversation: String? = null
     private var selectedProvider: String? = null
     private var requestGeneration = 0L
-    private var requested = false
 
     init {
         view.addView(picker, LinearLayout.LayoutParams(0, dp(48), 1f))
@@ -85,11 +84,14 @@ internal class DikcizChatModelControls(
     }
 
     fun invalidate() {
-        requestGeneration++
-        requested = false
-        dropdown.dismiss()
+        dismissPicker()
         modelNames = emptyList()
         modelRows = emptyMap()
+    }
+
+    fun dismissPicker() {
+        requestGeneration++
+        dropdown.dismiss()
     }
 
     fun update(id: String?, provider: String?, settings: JSONObject?) {
@@ -103,7 +105,6 @@ internal class DikcizChatModelControls(
         }
         val model = settings?.optString("model").orEmpty()
         picker.text = model.ifBlank { "Choose a model" } + " ▾"
-        if (id != null && provider != null && !requested) loadModels()
     }
 
     private fun openModels() {
@@ -119,7 +120,6 @@ internal class DikcizChatModelControls(
         val id = conversation() ?: return
         val provider = selectedProvider ?: return
         val generation = ++requestGeneration
-        requested = true
         command(JSONObject().put("action", "models").put("profileId", provider)) { result ->
             if (generation != requestGeneration || conversation() != id || selectedProvider != provider) return@command
             val models = result.getJSONArray("models")
