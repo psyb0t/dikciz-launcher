@@ -130,6 +130,8 @@ Touch a native app shortcut or app group to see it highlight. Hold still until i
 
 While moving, the item follows your finger continuously. Small grid dots and a landing outline show where it will settle when you release it. Placement and resizing snap to whole cells. A collision keeps the last valid placement. Page changes slide horizontally or vertically in the direction selected on the page rail.
 
+Moving a shortcut keeps the other widgets running. Moving or resizing an HTML widget keeps its live document too, so an unfinished input or an unsaved change inside it survives. Returning to a cached page resumes its existing widgets. Editing a widget source replaces that widget; removing a page from the cache or closing the launcher releases its live documents.
+
 ![Move grid](images/user-guide/12-move-grid.png)
 
 ![Resize grid](images/user-guide/13-resize-grid.png)

@@ -37,6 +37,9 @@ internal class DikcizHtmlWidgetView(
     private val webView = WebView(context)
     private var commandBridge: DikcizWebCommandBridge? = null
     private var currentState = JSONObject(widget.state.toString())
+    private var deliveredState = widget.serializedState
+    private var deliveredItemStates = widget.serializedItemStates
+    private var isBridgeReady = false
     private var messagePort: WebMessagePort? = null
     private var generation = INITIAL_GENERATION
     private var isReleased = false
@@ -190,6 +193,10 @@ internal class DikcizHtmlWidgetView(
 
     private fun loadWidget() {
         generation++
+        isBridgeReady = false
+        deliveredState = currentState.toString()
+        deliveredItemStates = widgetContext.optJSONObject(DikcizHtmlWidgetStateStore.ITEM_STATES_FIELD)?.toString()
+            ?: widget.serializedItemStates
         publishedVisibility = null
         releaseCommandBridge()
         val document = DikcizHtmlWidgetDocument.create(widget, widgetContext, currentState)
@@ -230,6 +237,9 @@ internal class DikcizHtmlWidgetView(
         val api = context.assets.open(API_ASSET).bufferedReader().use { reader -> reader.readText() }
         view.evaluateJavascript(api) {
             if (documentGeneration == generation) {
+                isBridgeReady = true
+                deliverState(currentState)
+                widgetContext.optJSONObject(DikcizHtmlWidgetStateStore.ITEM_STATES_FIELD)?.let(::deliverItemStates)
                 view.postWebMessage(WebMessage(BRIDGE_MESSAGE, arrayOf(channel[1])), Uri.parse(ORIGIN))
                 publishedVisibility = null
                 publishVisibility()
@@ -262,9 +272,10 @@ internal class DikcizHtmlWidgetView(
 
     fun deliverState(state: JSONObject): Boolean {
         currentState = JSONObject(state.toString())
-        if (isReleased || messagePort == null) {
-            return false
-        }
+        if (isReleased || !isBridgeReady || messagePort == null) return false
+        val serializedState = currentState.toString()
+        if (deliveredState == serializedState) return true
+        deliveredState = serializedState
         webView.evaluateJavascript(
             STATE_DELIVERY_JAVASCRIPT_PREFIX + JSONObject.quote(currentState.toString()) +
                 STATE_DELIVERY_JAVASCRIPT_SUFFIX,
@@ -275,7 +286,10 @@ internal class DikcizHtmlWidgetView(
 
     fun deliverItemStates(states: JSONObject): Boolean {
         widgetContext.put(DikcizHtmlWidgetStateStore.ITEM_STATES_FIELD, JSONObject(states.toString()))
-        if (isReleased || messagePort == null) return false
+        if (isReleased || !isBridgeReady || messagePort == null) return false
+        val serializedStates = states.toString()
+        if (deliveredItemStates == serializedStates) return true
+        deliveredItemStates = serializedStates
         webView.evaluateJavascript(
             "window.dikciz?.receiveItemStates(" + JSONObject.quote(states.toString()) + ")",
             null,

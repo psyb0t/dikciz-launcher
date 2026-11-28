@@ -7,6 +7,12 @@ nav_order: 10
 
 # Changelog
 
+## [0.37.2] - 2026-11-28
+
+- Keep HTML widgets running when you drop a shortcut, move or resize a widget, or return to a cached Home page. Unfinished input and changes made inside the widget survive.
+- Start page transitions without waiting for disk writes. Load watched configuration in the background and prepare neighboring pages after the animation.
+- Reload only the affected widget when its source changes. Skip repeated delivery of unchanged widget state and clear resize controls when editing ends.
+
 ## [0.37.1] - 2026-11-27
 
 - Follow the finger continuously while dragging a Home item. Show grid dots and a landing outline, then animate the item into its final cell.

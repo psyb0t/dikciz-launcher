@@ -142,6 +142,13 @@ class DikcizHomeActivity : Activity() {
     private val automationViews = mutableMapOf<String, View>()
     private val cachedPageAutomationViews = mutableMapOf<String, Map<String, View>>()
     private val cachedPageCanvases = mutableMapOf<String, DikcizPageGridLayout>()
+    private val cachedPageModels = mutableMapOf<String, HomePage>()
+    private var renderedHomeConfiguration: HomeConfiguration? = null
+    private var isConfigurationReloadPending = false
+    private var hasDeferredConfigurationReload = false
+    private var pendingPageSelectionSaves = 0
+    @Volatile
+    private var pageSelectionSaveRevision = 0L
     private val widgetEditorAutomationSemanticIDs = mutableSetOf<String>()
     private val providerAutomationViews = mutableMapOf<String, ProviderAutomationView>()
     private val pendingHtmlContentFits = mutableSetOf<String>()
@@ -189,6 +196,7 @@ class DikcizHomeActivity : Activity() {
     private var startupMessageIndex = 0
     private val reloadConfigurationRunnable = Runnable { reloadConfiguration(false) }
     private val pollConfigurationTreeRunnable = Runnable(::pollConfigurationTree)
+    private val cacheNeighborPageRunnable = Runnable(::cacheNextNeighborPage)
     private var configurationTreeFingerprints: Map<String, String>? = null
     // Stat work for the poll never runs on the main thread. onStartCommand for
     // the automation service runs there too, and Android kills the process when
@@ -437,6 +445,7 @@ class DikcizHomeActivity : Activity() {
 
     override fun onStop() {
         isActivityStarted = false
+        mainHandler.removeCallbacks(cacheNeighborPageRunnable)
         dismissStartupBrand()
         DikcizClipboardMonitor.stop()
         appWidgetHost.stopListening()
@@ -1046,86 +1055,155 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun reloadConfiguration(showFatalError: Boolean) {
-        if (isWidgetDropPending) {
+        if (isDestroyed || isFinishing) return
+        if (isWidgetDropPending || pendingPageSelectionSaves > 0 || activeWidgetMove != null) {
             mainHandler.removeCallbacks(reloadConfigurationRunnable)
             mainHandler.postDelayed(reloadConfigurationRunnable, CONFIGURATION_RELOAD_DEBOUNCE_MS)
             return
         }
-        dikcizLogger.debug(
-            EVENT_CONFIGURATION_RELOAD_STARTED,
-            mapOf(FIELD_FATAL_ON_FAILURE to showFatalError),
-        )
-        try {
-            val shouldRefreshRenderingAssets = hasPendingRenderingAssetChange
-            hasPendingRenderingAssetChange = false
-            val configuration = configurationForCurrentMode()
-            isConfigurationErrorVisible = false
-            val previousConfiguration = homeConfiguration
-            val hasSameConfiguration = previousConfiguration != null &&
-                homeConfigStore.hasSameSerializedConfiguration(configuration, previousConfiguration)
-            if (hasSameConfiguration) {
-                if (shouldRefreshRenderingAssets) {
-                    refreshRenderingAssets()
-                    return
-                }
-                dikcizLogger.debug(EVENT_CONFIGURATION_RELOAD_UNCHANGED)
-                refreshRenderedScriptDashboardStatuses(configuration)
-                return
-            }
-            val hasSameStaticConfiguration = previousConfiguration != null &&
-                homeConfigStore.hasSameStaticConfiguration(configuration, previousConfiguration)
-            dikcizLogger.configure(configuration.logging)
-            if (hasSameStaticConfiguration) {
-                val previous = checkNotNull(previousConfiguration)
-                homeConfiguration = configuration
-                deliverHtmlWidgetStateUpdates(previous, configuration)
-                replaceConfigurationObservers(configuration)
-                refreshRenderedScriptDashboardStatuses(configuration)
-                if (shouldRefreshRenderingAssets) {
-                    refreshRenderingAssets()
-                    return
-                }
-                dikcizLogger.debug(EVENT_CONFIGURATION_RUNTIME_STATE_APPLIED)
-                return
-            }
-            previousConfiguration?.let { previous ->
-                cleanupRemovedProviderWidgets(previous, configuration)
-            }
-            homeConfiguration = configuration
-            syncAutomationService(configuration)
-            if (configurationFileObservers.isNotEmpty()) {
-                replaceConfigurationObservers(configuration)
-            }
-            dikcizLogger.info(
-                EVENT_CONFIGURATION_RELOAD_COMPLETED,
-                mapOf(
-                    FIELD_PAGE_COUNT to configuration.pages.size,
-                    FIELD_SELECTED_PAGE_INDEX to configuration.pages.indexOfFirst {
-                        it.id == configuration.selectedPageID
-                    },
-                ),
-            )
-            renderConfiguration()
-        } catch (exception: HomeConfigException) {
-            dikcizLogger.warn(
-                EVENT_CONFIGURATION_RELOAD_REJECTED,
-                mapOf(
-                    FIELD_ERROR_CLASS to exception::class.java.simpleName,
-                    FIELD_ERROR_SUMMARY to exception.message.orEmpty(),
-                    FIELD_FATAL_ON_FAILURE to showFatalError,
-                ),
-            )
-            if (homeConfiguration == null || showFatalError) {
-                showConfigurationError(exception)
-                return
-            }
-            Toast.makeText(this, exception.message, Toast.LENGTH_LONG).show()
+        if (isConfigurationReloadPending) {
+            hasDeferredConfigurationReload = true
+            return
         }
+        val previous = homeConfiguration
+        val refreshAssets = hasPendingRenderingAssetChange
+        hasPendingRenderingAssetChange = false
+        val selectHome = hasPendingDefaultHomePageSelection
+        hasPendingDefaultHomePageSelection = false
+        dikcizLogger.debug(EVENT_CONFIGURATION_RELOAD_STARTED, mapOf(FIELD_FATAL_ON_FAILURE to showFatalError))
+        if (previous == null) {
+            try {
+                applyReloadedConfiguration(
+                    configuration = configurationForCurrentMode(selectHome),
+                    previousConfiguration = null,
+                    shouldRefreshRenderingAssets = refreshAssets,
+                    hasSameConfiguration = false,
+                    hasSameStaticConfiguration = false,
+                )
+            } catch (exception: HomeConfigException) {
+                rejectConfigurationReload(exception, showFatalError)
+            }
+            return
+        }
+        isConfigurationReloadPending = true
+        configurationPollExecutor.execute {
+            val result = runCatching {
+                val configuration = configurationForCurrentMode(selectHome)
+                Triple(
+                    configuration,
+                    homeConfigStore.hasSameSerializedConfiguration(configuration, previous),
+                    homeConfigStore.hasSameStaticConfiguration(configuration, previous),
+                )
+            }
+            mainHandler.post {
+                isConfigurationReloadPending = false
+                if (isDestroyed || isFinishing) return@post
+                if (homeConfiguration !== previous || isWidgetDropPending ||
+                    pendingPageSelectionSaves > 0 || activeWidgetMove != null
+                ) {
+                    hasPendingRenderingAssetChange = hasPendingRenderingAssetChange || refreshAssets
+                    hasDeferredConfigurationReload = false
+                    scheduleConfigurationReload()
+                    return@post
+                }
+                result.fold(
+                    onSuccess = { (configuration, same, sameStatic) ->
+                        try {
+                            applyReloadedConfiguration(
+                                configuration = configuration,
+                                previousConfiguration = previous,
+                                shouldRefreshRenderingAssets = refreshAssets,
+                                hasSameConfiguration = same,
+                                hasSameStaticConfiguration = sameStatic,
+                            )
+                        } catch (exception: HomeConfigException) {
+                            rejectConfigurationReload(exception, showFatalError)
+                        }
+                    },
+                    onFailure = { exception ->
+                        rejectConfigurationReload(exception, showFatalError)
+                    },
+                )
+                if (hasDeferredConfigurationReload) {
+                    hasDeferredConfigurationReload = false
+                    scheduleConfigurationReload()
+                }
+                if (isActivityStarted) startLauncherServicesIfReady()
+            }
+        }
+    }
+
+    private fun applyReloadedConfiguration(
+        configuration: HomeConfiguration,
+        previousConfiguration: HomeConfiguration?,
+        shouldRefreshRenderingAssets: Boolean,
+        hasSameConfiguration: Boolean,
+        hasSameStaticConfiguration: Boolean,
+    ) {
+        val needsHomeSurface = renderedHomeConfiguration == null
+        isConfigurationErrorVisible = false
+        if (hasSameConfiguration && !needsHomeSurface) {
+            if (shouldRefreshRenderingAssets) {
+                refreshRenderingAssets()
+                return
+            }
+            dikcizLogger.debug(EVENT_CONFIGURATION_RELOAD_UNCHANGED)
+            refreshRenderedScriptDashboardStatuses(configuration)
+            return
+        }
+        dikcizLogger.configure(configuration.logging)
+        if (hasSameStaticConfiguration && !needsHomeSurface) {
+            val previous = checkNotNull(previousConfiguration)
+            homeConfiguration = configuration
+            deliverHtmlWidgetStateUpdates(previous, configuration)
+            replaceConfigurationObservers(configuration)
+            refreshRenderedScriptDashboardStatuses(configuration)
+            if (shouldRefreshRenderingAssets) {
+                refreshRenderingAssets()
+                return
+            }
+            dikcizLogger.debug(EVENT_CONFIGURATION_RUNTIME_STATE_APPLIED)
+            return
+        }
+        previousConfiguration?.let { previous ->
+            cleanupRemovedProviderWidgets(previous, configuration)
+        }
+        homeConfiguration = configuration
+        syncAutomationService(configuration)
+        if (configurationFileObservers.isNotEmpty()) {
+            replaceConfigurationObservers(configuration)
+        }
+        dikcizLogger.info(
+            EVENT_CONFIGURATION_RELOAD_COMPLETED,
+            mapOf(
+                FIELD_PAGE_COUNT to configuration.pages.size,
+                FIELD_SELECTED_PAGE_INDEX to configuration.pages.indexOfFirst {
+                    it.id == configuration.selectedPageID
+                },
+            ),
+        )
+        renderConfiguration(refreshAssets = shouldRefreshRenderingAssets)
+    }
+
+    private fun rejectConfigurationReload(exception: Throwable, showFatalError: Boolean) {
+        dikcizLogger.warn(
+            EVENT_CONFIGURATION_RELOAD_REJECTED,
+            mapOf(
+                FIELD_ERROR_CLASS to exception::class.java.simpleName,
+                FIELD_ERROR_SUMMARY to exception.message.orEmpty(),
+                FIELD_FATAL_ON_FAILURE to showFatalError,
+            ),
+        )
+        if (homeConfiguration == null || showFatalError) {
+            showConfigurationError(exception as? HomeConfigException ?: HomeConfigException("Configuration reload failed"))
+            return
+        }
+        Toast.makeText(this, exception.message, Toast.LENGTH_LONG).show()
     }
 
     private fun refreshRenderingAssets() {
         val configuration = homeConfiguration ?: return
-        renderConfiguration()
+        renderConfiguration(refreshAssets = true)
         dikcizLogger.info(
             EVENT_CONFIGURATION_ASSETS_RELOADED,
             mapOf(
@@ -1135,7 +1213,7 @@ class DikcizHomeActivity : Activity() {
         )
     }
 
-    private fun configurationForCurrentMode(): HomeConfiguration {
+    private fun configurationForCurrentMode(selectHome: Boolean): HomeConfiguration {
         try {
             DikcizBackups.recover(applicationContext)
         } catch (exception: Exception) {
@@ -1147,10 +1225,9 @@ class DikcizHomeActivity : Activity() {
         } else {
             homeConfigStore.loadOrCreate()
         }
-        if (!hasPendingDefaultHomePageSelection) {
+        if (!selectHome) {
             return configuration
         }
-        hasPendingDefaultHomePageSelection = false
         if (configuration.selectedPageID == configuration.homePageID) {
             return configuration
         }
@@ -1190,23 +1267,30 @@ class DikcizHomeActivity : Activity() {
         return configuration.copy(selectedPageID = homePage.id, pages = listOf(homePage))
     }
 
-    private fun renderConfiguration() {
+    private fun renderConfiguration(refreshAssets: Boolean = false) {
         val configuration = homeConfiguration ?: return
         val selectedPage = configuration.selectedPage() ?: return
-        dikcizStyleRenderer.clearTypefaceCache()
-        activeTheme = resolveActiveTheme(configuration)
+        val previous = renderedHomeConfiguration
+        val replaceSurfaces = refreshAssets || previous == null ||
+            previous.nativeGrid != configuration.nativeGrid ||
+            previous.styleDefaults != configuration.styleDefaults ||
+            previous.selectedThemeID != configuration.selectedThemeID
+        if (replaceSurfaces) {
+            dikcizStyleRenderer.clearTypefaceCache()
+            activeTheme = resolveActiveTheme(configuration)
+        }
         activeDialog?.dismiss()
         activeDialog = null
         dismissWidgetEditActions()
         pendingHtmlContentFits.clear()
-        activeWidgetResize = null
-        activeWidgetResizeGesture = null
+        clearWidgetResizeState()
         activeWidgetMove?.let(::cancelWidgetMove)
         activeWidgetMove = null
         widgetContainer.dropPreviewCell = null
         widgetContainer.isGridGuideVisible = false
         clearPendingWidgetMove()
-        clearCachedPageCanvases()
+        if (replaceSurfaces) clearCachedPageCanvases() else reconcileCachedPageCanvases(configuration)
+        renderedHomeConfiguration = configuration
         val selectedPageIndex = configuration.pages.indexOf(selectedPage)
         dikcizLogger.debug(
             EVENT_HOME_RENDERED,
@@ -1220,17 +1304,19 @@ class DikcizHomeActivity : Activity() {
         providerAutomationViews.clear()
         configureSafeModeControls()
         configurePageIndicators(configuration, selectedPage)
-        applyLauncherBackground(
-            configuration.launcherBackground
-                ?: activeTheme?.launcherBackground
-                ?: DikcizLauncherBackground(),
-        )
+        if (replaceSurfaces || previous?.launcherBackground != configuration.launcherBackground) {
+            applyLauncherBackground(
+                configuration.launcherBackground
+                    ?: activeTheme?.launcherBackground
+                    ?: DikcizLauncherBackground(),
+            )
+        }
         registerAutomationView(SEMANTIC_ID_HORIZONTAL_PAGE_INDICATOR, horizontalPageIndicator)
         registerAutomationView(SEMANTIC_ID_VERTICAL_PAGE_INDICATOR, verticalPageIndicator)
         registerAutomationView(SEMANTIC_ID_PAGE_SCROLL, pageScrollView)
         registerStartupDismissIfVisible()
         showCachedPage(configuration, selectedPage)
-        scheduleNeighborPageCache(configuration, selectedPage)
+        scheduleNeighborPageCache()
     }
 
     private fun showCachedPage(
@@ -1241,8 +1327,7 @@ class DikcizHomeActivity : Activity() {
         activeDialog = null
         dismissWidgetEditActions()
         pendingHtmlContentFits.clear()
-        activeWidgetResize = null
-        activeWidgetResizeGesture = null
+        clearWidgetResizeState()
         activeWidgetMove?.let(::cancelWidgetMove)
         activeWidgetMove = null
         widgetContainer.dropPreviewCell = null
@@ -1259,14 +1344,19 @@ class DikcizHomeActivity : Activity() {
         val destinationWasVisible = pageCanvas.visibility == View.VISIBLE
         val destinationTranslationX = pageCanvas.translationX
         val destinationTranslationY = pageCanvas.translationY
+        val animateTransition = previousCanvas !== pageCanvas && previousPage != null && previousCanvas.width > 0
         cachedPageCanvases.values.forEach { canvas ->
             canvas.animate().cancel()
             canvas.translationX = 0f
             canvas.translationY = 0f
-            canvas.visibility = if (canvas === pageCanvas) View.VISIBLE else View.INVISIBLE
+            canvas.visibility = if (canvas === pageCanvas || (animateTransition && canvas === previousCanvas)) {
+                View.VISIBLE
+            } else {
+                View.INVISIBLE
+            }
         }
         widgetContainer = pageCanvas
-        if (previousCanvas !== pageCanvas && previousPage != null && previousCanvas.width > 0) {
+        if (animateTransition && previousPage != null) {
             val horizontal = previousPage.position.column != selectedPage.position.column
             val direction = if (horizontal) {
                 (selectedPage.position.column - previousPage.position.column).compareTo(0)
@@ -1353,6 +1443,7 @@ class DikcizHomeActivity : Activity() {
         pageCanvasHost.addView(pageCanvas)
         cachedPageCanvases[page.id] = pageCanvas
         cachedPageAutomationViews[page.id] = pageViews
+        cachedPageModels[page.id] = page
         return pageCanvas
     }
 
@@ -1360,27 +1451,101 @@ class DikcizHomeActivity : Activity() {
         pageCanvasHost.removeAllViews()
         cachedPageCanvases.clear()
         cachedPageAutomationViews.clear()
+        cachedPageModels.clear()
     }
 
-    private fun scheduleNeighborPageCache(
-        configuration: HomeConfiguration,
-        selectedPage: HomePage,
-    ) {
-        mainHandler.post {
-            val currentConfiguration = homeConfiguration ?: return@post
-            if (currentConfiguration.selectedPageID != selectedPage.id) {
-                return@post
+    private fun reconcileCachedPageCanvases(configuration: HomeConfiguration) {
+        cachedPageCanvases.keys.toList().forEach { pageID ->
+            val previous = cachedPageModels[pageID] ?: return@forEach
+            val page = configuration.pages.firstOrNull { it.id == pageID }
+            if (page == null || page.position != previous.position || page.locked != previous.locked ||
+                page.widgets.isEmpty() != previous.widgets.isEmpty()
+            ) {
+                cachedPageAutomationViews.remove(pageID)
+                cachedPageModels.remove(pageID)
+                cachedPageCanvases.remove(pageID)?.let(pageCanvasHost::removeView)
+                return@forEach
             }
-            val neighbors = pageSelectionNeighbors(currentConfiguration, selectedPage)
-            val protectedPageIDs = (neighbors.map(HomePage::id) + selectedPage.id).toSet()
-            neighbors.forEach { page ->
-                if (cachedPageCanvases.containsKey(page.id)) {
-                    return@forEach
+            val canvas = cachedPageCanvases.getValue(pageID)
+            val views = cachedPageAutomationViews.getValue(pageID).toMutableMap()
+            previous.widgets.forEach widgetLoop@ { oldWidget ->
+                val current = page.findWidget(oldWidget.id)
+                val frame = views[widgetSemanticID(oldWidget.id)] ?: return@widgetLoop
+                if (current != null && canReuseWidgetSurface(oldWidget, current)) {
+                    if (oldWidget.cell != current.cell) {
+                        (frame.layoutParams as DikcizPageGridLayout.LayoutParams).cell = current.cell
+                        frame.translationX = NO_TRANSLATION_X
+                        frame.translationY = NO_TRANSLATION_Y
+                        frame.requestLayout()
+                    }
+                } else {
+                    views.entries.removeAll { (_, view) -> viewBelongsToWidget(view, frame) }
+                    canvas.removeView(frame)
                 }
-                trimCachedPageCanvases(protectedPageIDs)
-                createCachedPageCanvas(currentConfiguration, page)
             }
+            pageBeingBuilt = page
+            pageAutomationViewCapture = views
+            try {
+                page.widgetsInPageOrder().forEach { widget ->
+                    if (!views.containsKey(widgetSemanticID(widget.id))) {
+                        canvas.addView(createWidgetView(widget, page.locked))
+                    }
+                }
+                canvas.setOnLongClickListener {
+                    if (page.locked || isSafeMode) false else {
+                        showPageMenu(page)
+                        true
+                    }
+                }
+            } finally {
+                pageBeingBuilt = null
+                pageAutomationViewCapture = null
+            }
+            cachedPageAutomationViews[pageID] = views
+            cachedPageModels[pageID] = page
+            refreshCachedHtmlWidgets(page, canvas)
         }
+    }
+
+    private fun canReuseWidgetSurface(previous: HomeWidget, current: HomeWidget): Boolean {
+        val comparable = if (previous is HtmlHomeWidget && current is HtmlHomeWidget) {
+            current.copy(cell = previous.cell, state = previous.state, itemStates = previous.itemStates)
+        } else {
+            current.withCell(previous.cell)
+        }
+        return previous == comparable
+    }
+
+    private fun viewBelongsToWidget(view: View, frame: View): Boolean {
+        var ancestor: View? = view
+        while (ancestor != null) {
+            if (ancestor === frame) return true
+            ancestor = ancestor.parent as? View
+        }
+        return false
+    }
+
+    private fun scheduleNeighborPageCache() {
+        mainHandler.removeCallbacks(cacheNeighborPageRunnable)
+        mainHandler.postDelayed(cacheNeighborPageRunnable, PAGE_TRANSITION_DURATION_MILLISECONDS)
+    }
+
+    private fun cacheNextNeighborPage() {
+        if (!isActivityStarted || isFinishing || isDestroyed) return
+        val configuration = homeConfiguration ?: return
+        val selectedPage = configuration.selectedPage() ?: return
+        if (activeWidgetMove != null || pendingWidgetMove != null || activeWidgetResize != null ||
+            activeWidgetEdit != null || isWidgetDropPending
+        ) {
+            scheduleNeighborPageCache()
+            return
+        }
+        val neighbors = pageSelectionNeighbors(configuration, selectedPage)
+        val page = neighbors.firstOrNull { !cachedPageCanvases.containsKey(it.id) } ?: return
+        val protectedPageIDs = (neighbors.map(HomePage::id) + selectedPage.id).toSet()
+        trimCachedPageCanvases(protectedPageIDs)
+        createCachedPageCanvas(configuration, page)
+        scheduleNeighborPageCache()
     }
 
     private fun trimCachedPageCanvases(protectedPageIDs: Set<String>) {
@@ -1389,6 +1554,7 @@ class DikcizHomeActivity : Activity() {
                 pageID !in protectedPageIDs
             } ?: return
             cachedPageAutomationViews.remove(pageID)
+            cachedPageModels.remove(pageID)
             cachedPageCanvases.remove(pageID)?.let(pageCanvasHost::removeView)
         }
     }
@@ -1811,7 +1977,8 @@ class DikcizHomeActivity : Activity() {
         return DikcizPageGridLayout.LayoutParams(widget.cell)
     }
 
-    private fun showWidgetEditActions(widget: HomeWidget, widgetView: View) {
+    private fun showWidgetEditActions(requestedWidget: HomeWidget, widgetView: View) {
+        val widget = homeConfiguration?.selectedPage()?.findWidget(requestedWidget.id) ?: return
         if (selectedPageOrWidgetIsLocked(widget.id)) {
             return
         }
@@ -2073,6 +2240,7 @@ class DikcizHomeActivity : Activity() {
         activeWidgetResize = ActiveWidgetResize(
             widgetID = widget.id,
             widgetView = widgetView,
+            initialBackground = widgetView.background,
             isWidgetEnabled = widget.enabled,
             resizeHandles = resizeHandles,
             initialCell = widget.cell,
@@ -2550,10 +2718,8 @@ class DikcizHomeActivity : Activity() {
             event.rawY >= bounds.top && event.rawY < bounds.bottom
     }
 
-    private fun finishWidgetResize(activeResize: ActiveWidgetResize) {
-        if (activeWidgetResize?.widgetID != activeResize.widgetID) {
-            return
-        }
+    private fun clearWidgetResizeState() {
+        val activeResize = activeWidgetResize ?: return
         setWidgetTouchInterceptionBlocked(activeResize.widgetView, false)
         activeResize.widgetView.elevation = NO_ELEVATION
         (activeResize.widgetView as? DikcizWidgetFrameLayout)?.resizeOverlay = null
@@ -2562,11 +2728,21 @@ class DikcizHomeActivity : Activity() {
         widgetContainer.isGridGuideVisible = false
         setWidgetMoveGestureZoneInteractive(activeResize.widgetID, true)
         setWidgetResizeFillControlsVisible(activeResize.widgetID, activeResize.widgetView, false)
+        activeResize.widgetView.background = activeResize.initialBackground
+        val widget = homeConfiguration?.pages?.asSequence()
+            ?.flatMap { it.widgets.asSequence() }?.firstOrNull { it.id == activeResize.widgetID }
+        if (widget != null) {
+            (activeResize.widgetView.layoutParams as DikcizPageGridLayout.LayoutParams).cell = widget.cell
+            activeResize.widgetView.requestLayout()
+        }
+    }
+
+    private fun finishWidgetResize(activeResize: ActiveWidgetResize) {
+        if (activeWidgetResize?.widgetID != activeResize.widgetID) {
+            return
+        }
+        clearWidgetResizeState()
         if (!activeResize.hasChanged) {
-            activeResize.widgetView.background = createWidgetBackground(
-                isEnabled = activeResize.isWidgetEnabled,
-                style = selectedWidgetStyleByID(activeResize.widgetID),
-            )
             dikcizLogger.debug(
                 EVENT_WIDGET_RESIZE_CANCELLED,
                 mapOf(FIELD_WIDGET_ID to activeResize.widgetID),
@@ -2581,10 +2757,6 @@ class DikcizHomeActivity : Activity() {
                 }
             }
         ) {
-            activeResize.widgetView.background = createWidgetBackground(
-                isEnabled = activeResize.isWidgetEnabled,
-                style = selectedWidgetStyleByID(activeResize.widgetID),
-            )
             dikcizLogger.warn(
                 EVENT_WIDGET_RESIZE_SAVE_REJECTED,
                 mapOf(FIELD_WIDGET_ID to activeResize.widgetID),
@@ -2926,10 +3098,11 @@ class DikcizHomeActivity : Activity() {
      */
     private fun onHtmlWidgetContentHeightChanged(
         pageID: String,
-        widget: HtmlHomeWidget,
+        requestedWidget: HtmlHomeWidget,
         widgetView: View,
         contentHeightPixels: Int,
     ) {
+        val widget = homeConfiguration?.selectedPage()?.findWidget(requestedWidget.id) as? HtmlHomeWidget ?: return
         if (homeConfiguration?.selectedPageID != pageID) {
             return
         }
@@ -5779,24 +5952,32 @@ class DikcizHomeActivity : Activity() {
             EVENT_CONFIGURATION_SAVE_STARTED,
             mapOf(FIELD_PAGE_COUNT to updatedConfiguration.pages.size),
         )
-        try {
-            homeConfigStore.saveSelectedPage(updatedConfiguration)
-        } catch (exception: HomeConfigException) {
-            dikcizLogger.error(
-                EVENT_CONFIGURATION_SAVE_FAILED,
-                mapOf(
-                    FIELD_ERROR_CLASS to exception::class.java.simpleName,
-                    FIELD_ERROR_SUMMARY to exception.message.orEmpty(),
-                ),
-            )
-            Toast.makeText(this, exception.message, Toast.LENGTH_LONG).show()
-            return false
-        }
         homeConfiguration = updatedConfiguration
-        dikcizLogger.debug(EVENT_CONFIGURATION_SAVE_COMPLETED)
         val selectedPage = updatedConfiguration.selectedPage() ?: return false
         showCachedPage(updatedConfiguration, selectedPage)
-        scheduleNeighborPageCache(updatedConfiguration, selectedPage)
+        scheduleNeighborPageCache()
+        val revision = ++pageSelectionSaveRevision
+        pendingPageSelectionSaves++
+        configurationPollExecutor.execute {
+            val result = runCatching {
+                if (revision == pageSelectionSaveRevision) homeConfigStore.saveSelectedPage(updatedConfiguration)
+            }
+            mainHandler.post {
+                pendingPageSelectionSaves--
+                if (isDestroyed || isFinishing) return@post
+                result.fold(
+                    onSuccess = { dikcizLogger.debug(EVENT_CONFIGURATION_SAVE_COMPLETED) },
+                    onFailure = { exception ->
+                        dikcizLogger.error(EVENT_CONFIGURATION_SAVE_FAILED, mapOf(
+                            FIELD_ERROR_CLASS to exception::class.java.simpleName,
+                            FIELD_ERROR_SUMMARY to exception.message.orEmpty(),
+                        ))
+                        Toast.makeText(this, exception.message, Toast.LENGTH_LONG).show()
+                        scheduleConfigurationReload()
+                    },
+                )
+            }
+        }
         return true
     }
 
@@ -10856,19 +11037,20 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun startWidgetMove(
-        widget: HomeWidget,
+        requestedWidget: HomeWidget,
         view: View,
         initialRawX: Float,
         initialRawY: Float,
     ): Boolean {
         if (isWidgetDropPending) return false
         val page = homeConfiguration?.selectedPage() ?: return false
-        if (page.widgets.none { it.id == widget.id }) {
+        val widget = page.findWidget(requestedWidget.id)
+        if (widget == null) {
             dikcizLogger.warn(
                 EVENT_WIDGET_MOVE_REJECTED,
                 mapOf(
                     FIELD_REASON to REASON_WIDGET_NOT_TOP_LEVEL,
-                    FIELD_WIDGET_ID to widget.id,
+                    FIELD_WIDGET_ID to requestedWidget.id,
                 ),
             )
             return false
@@ -11499,6 +11681,7 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun showStorageAccessRequirement() {
+        renderedHomeConfiguration = null
         stopConfigurationObserver()
         setEditingControlsEnabled(false)
         isConfigurationErrorVisible = false
@@ -11563,6 +11746,7 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun showConfigurationError(exception: HomeConfigException) {
+        renderedHomeConfiguration = null
         setEditingControlsEnabled(false)
         isConfigurationErrorVisible = true
         automationViews.clear()

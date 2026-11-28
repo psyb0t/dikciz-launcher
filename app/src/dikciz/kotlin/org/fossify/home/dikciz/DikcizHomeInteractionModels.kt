@@ -56,6 +56,7 @@ internal data class PageInsertionTarget(
 internal data class ActiveWidgetResize(
     val widgetID: String,
     val widgetView: View,
+    val initialBackground: Drawable?,
     val isWidgetEnabled: Boolean,
     val resizeHandles: Set<WidgetResizeHandle>,
     val initialCell: DikcizGridRectangle,
