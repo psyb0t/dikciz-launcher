@@ -17,7 +17,7 @@ import org.json.JSONObject
 
 internal class DikcizChatAgent(
     private val store: DikcizChatStore,
-    private val binding: (String, JSONObject, Boolean) -> JSONObject,
+    private val binding: suspend (String, JSONObject, Boolean) -> JSONObject,
     private val changed: () -> Unit,
     private val logger: DikcizLogger,
     private val captureTaskScreen: suspend () -> JSONObject,
@@ -32,7 +32,7 @@ internal class DikcizChatAgent(
 
     private fun permitted(name: String): Boolean = name !in deniedTools && (allowedTools == null || name in allowedTools)
 
-    private fun mcp(method: String, params: JSONObject): JSONObject {
+    private suspend fun mcp(method: String, params: JSONObject): JSONObject {
         val publicDiscovery = params.optString("name") == "dikciz_search_query" &&
             params.optJSONObject("arguments")?.optString("collection", DikcizSearch.COLLECTION_DOCS) in
             setOf(DikcizSearch.COLLECTION_DOCS, DikcizSearch.COLLECTION_TOOLS)
@@ -41,6 +41,9 @@ internal class DikcizChatAgent(
         }
         if (currentConversationID.isNotEmpty()) forceReadOnly = forceReadOnly || store.effectiveProfile(currentConversationID).getBoolean(DikcizChatSettings.KEY_READ_ONLY)
         val result = binding(method, params, forceReadOnly)
+        if (method == "tools/call" && params.optString("name") == WIDGET_GET_TOOL && !permitted(CONFIG_GET_TOOL)) {
+            result.optJSONObject("structuredContent")?.remove(HomeConfigStore.WIDGET_SOURCE_KEY)
+        }
         if (method == "tools/list" && result.has("tools")) {
             val tools = result.getJSONArray("tools")
             result.put("tools", JSONArray((0 until tools.length()).map(tools::getJSONObject).filter { permitted(it.getString("name")) }))
@@ -186,7 +189,7 @@ internal class DikcizChatAgent(
                                 if (call.tool == "phone_agent") {
                                     delegate(DikcizChatToolArguments.forExecution(call))
                                 } else {
-                                    DikcizOperations.withActor("chat:" + conversationID) { invoke(call) }
+                                    DikcizOperations.withActorContext("chat:" + conversationID) { invoke(call) }
                                 }
                             }
                         }
@@ -250,7 +253,7 @@ internal class DikcizChatAgent(
             .put("writeAccessResumesNextTurn", (screenTask || startedReadOnly) && !savedReadOnly)
     }
 
-    private fun withToolContract(call: MessagePart.Tool.Call, result: JSONObject): JSONObject {
+    private suspend fun withToolContract(call: MessagePart.Tool.Call, result: JSONObject): JSONObject {
         if (call.tool != "phone_call" || !result.optBoolean("isError")) return result
         val arguments = try {
             DikcizChatToolArguments.parse(call.args)
@@ -279,7 +282,7 @@ internal class DikcizChatAgent(
         else -> "Discover a supported phone tool first."
     }
 
-    private fun invoke(call: MessagePart.Tool.Call): JSONObject {
+    private suspend fun invoke(call: MessagePart.Tool.Call): JSONObject {
         val arguments = DikcizChatToolArguments.forExecution(call)
         progress(when (call.tool) {
             "phone_tools" -> "Finding phone tools"
@@ -334,7 +337,7 @@ internal class DikcizChatAgent(
         }
     }
 
-    private fun callPhone(name: String, arguments: JSONObject): JSONObject {
+    private suspend fun callPhone(name: String, arguments: JSONObject): JSONObject {
         val currentReadOnly = store.effectiveProfile(currentConversationID).getBoolean(DikcizChatSettings.KEY_READ_ONLY)
         if (name == "dikciz_config_replace" && !forceReadOnly && !currentReadOnly && permitted(name)) {
             validateLuaEdits(arguments)?.let { return it }
@@ -345,7 +348,7 @@ internal class DikcizChatAgent(
         return mcp("tools/call", JSONObject().put("name", name).put("arguments", arguments))
     }
 
-    private fun validateLuaEdits(arguments: JSONObject): JSONObject? {
+    private suspend fun validateLuaEdits(arguments: JSONObject): JSONObject? {
         val drafts = arguments.optJSONObject("config")?.optJSONArray("scripts") ?: return null
         if (drafts.length() == 0) return null
         val request = JSONObject().put("name", "dikciz_config_get").put("arguments", JSONObject())
@@ -424,7 +427,7 @@ internal class DikcizChatAgent(
 
     private var currentConversationID = ""
 
-    private fun search(query: String, collection: String, offset: Int, limit: Int): JSONObject {
+    private suspend fun search(query: String, collection: String, offset: Int, limit: Int): JSONObject {
         val result = mcp("tools/call", JSONObject().put("name", "dikciz_search_query").put("arguments",
             JSONObject().put("collection", collection).put("query", query).put("offset", offset).put("limit", limit)))
         return if (result.optBoolean("isError")) result else result.getJSONObject("structuredContent")
@@ -631,6 +634,8 @@ internal class DikcizChatAgent(
         const val UNCERTAIN_TOOL_MESSAGE = "Execution was interrupted before its result was recorded. The action may have completed. Inspect actual state before retrying; never automatically repeat a side effect."
         const val STREAM_FLUSH_MILLISECONDS = 100L
         const val TOOL_PAGE_SIZE = 12
+        private const val WIDGET_GET_TOOL = "dikciz_widget_get"
+        private const val CONFIG_GET_TOOL = "dikciz_config_get"
         const val TOOL_RESULT_BUDGET_DIVISOR = 2
         val LIBRARY_WRAPPERS = setOf(DikcizChatProvider.TOOL_LIBRARY, DikcizChatProvider.TOOL_SKILL)
         const val TOOL_SCHEMA_RESERVE = 4096

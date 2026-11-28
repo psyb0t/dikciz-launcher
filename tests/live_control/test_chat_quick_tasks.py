@@ -208,6 +208,37 @@ def test_chat_quick_tasks_cancelled_screen_stays_hidden(websocket_control, provi
         agent.emulator_dikciz_accessibility_set(False)
 
 
+def test_chat_home_group_count_in_one_read(websocket_control, provider_endpoint):
+    original = native_call("http", "configGet")["config"]
+    configured = agent.fixture_document()
+    page_id = "chat-app-group"
+    append_empty_page(configured, page_id, "Chat group fixture", 7, 7)
+    components = ["com.android.settings/.Settings", "com.android.deskclock/.DeskClock"]
+    address = "8H8V-fixture-group"
+    configured["launcher"]["home"]["pages"][-1]["widgets"].append({
+        "id": "fixture-group", "type": "appGroup", "title": "Fixture apps",
+        "enabled": True, "components": components,
+        "cell": {"column": 0, "row": 0, "columnSpan": 1, "rowSpan": 1},
+    })
+    endpoint, script, records = provider_endpoint
+    _, identifier = agent.conversation(endpoint, "anthropic")
+    script.update(wrapper_calls=[("dikciz_home_get", {})], text="There are two apps.")
+    try:
+        native_call("http", "configReplace", {"config": configured})
+        native_call("http", "selectPage", {"pageId": page_id})
+        agent.send(identifier, "How many apps are in Fixture apps?")
+        rows = agent.wait_turn(identifier)
+        results = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
+        assert len(records) == 2
+        assert len(results) == 1
+        group = results[0]["structuredContent"]["pages"][page_id]["widgets"]["fixture-group"]
+        assert group["memberCount"] == len(components)
+        assert native_call("mcp", "widgetGet", {"widgetAddress": address})["components"] == components
+    finally:
+        agent.cleanup(identifier)
+        native_call("http", "configReplace", {"config": original})
+
+
 def test_chat_authoring_typed_widget_from_builtin_skill(websocket_control, provider_endpoint):
     original = native_call("http", "configGet")["config"]
     configured = agent.fixture_document()
@@ -243,6 +274,8 @@ def test_chat_authoring_typed_widget_from_builtin_skill(websocket_control, provi
         ("dikciz_widget_get", widget_args),
     ], text="Fixture checked its saved widget.")
     try:
+        agent.chat("show", conversationId=identifier)
+        wait_for_physical_description_bounds("Chats")
         agent.send(identifier, "Use $dikciz-write-widget to create one counter on " + page_id)
         rows = agent.wait_turn(identifier)
         assert len(records) == 5
@@ -256,7 +289,10 @@ def test_chat_authoring_typed_widget_from_builtin_skill(websocket_control, provi
         assert dispatch["type"] == "array" and dispatch["items"]["type"] == "object"
         pending = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
         assert len(pending) == 4 and all(not row.get("isError") for row in pending)
-        assert pending[-1]["structuredContent"]["title"] == values["title"]
+        widget_result = pending[-1]["structuredContent"]
+        assert widget_result["title"] == values["title"]
+        assert widget_result["source"] == {key: values[key] for key in ("html", "css", "javascript")}
+        agent.chat("hide")
         deadline = time.monotonic() + agent.TURN_TIMEOUT
         while time.monotonic() < deadline:
             saved = native_call("http", "configGet")["config"]

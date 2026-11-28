@@ -17,10 +17,15 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.TimeoutCancellationException
 import org.json.JSONArray
 import org.json.JSONObject
@@ -35,7 +40,7 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
     private val lastEvents = mutableMapOf<String, Long>()
     private val queueLock = Any()
     @Volatile private var configuredRules = emptyList<JSONObject>()
-    @Volatile private var ownerMcp: ((String, JSONObject, Boolean) -> JSONObject)? = null
+    private val ownerMcp = MutableStateFlow<OwnerMcpEndpoint?>(null)
     @Volatile private var active: Job? = null
     @Volatile private var activeConversation: String? = null
     @Volatile private var activeTurnID: String? = null
@@ -70,7 +75,26 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
         }
     }
 
-    fun attachMcp(call: ((String, JSONObject, Boolean) -> JSONObject)?) { ownerMcp = call }
+    fun attachMcp(ownerID: String, call: (String, JSONObject, Boolean) -> JSONObject) {
+        ownerMcp.value = OwnerMcpEndpoint(ownerID, call)
+    }
+
+    fun detachMcp(ownerID: String) {
+        ownerMcp.update { endpoint -> endpoint?.takeUnless { it.ownerID == ownerID } }
+    }
+
+    private suspend fun awaitOwnerMcp(): OwnerMcpEndpoint {
+        ownerMcp.value?.let { return it }
+        return withTimeoutOrNull(HOME_TOOL_RECONNECT_TIMEOUT_MILLISECONDS) {
+            ownerMcp.filterNotNull().first()
+        } ?: DikcizNativeCommands.failure("chat_mcp_unavailable", "Open Dikciz Home to reconnect its local MCP tools")
+    }
+
+    private data class OwnerMcpEndpoint(
+        val ownerID: String,
+        val call: (String, JSONObject, Boolean) -> JSONObject,
+    )
+
     fun observe(observer: () -> Unit) { observers.add(observer) }
     fun unobserve(observer: () -> Unit) { observers.remove(observer) }
     fun changed() { handler.post { observers.forEach { it() } } }
@@ -357,8 +381,9 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
             val readOnly = screenTask || profile.getBoolean(DikcizChatSettings.KEY_READ_ONLY)
             withTimeout(profile.getLong("timeoutMilliseconds")) {
                 DikcizChatAgent(store, { method, params, requestedReadOnly ->
+                    val endpoint = awaitOwnerMcp()
                     val currentReadOnly = readOnly || requestedReadOnly || store.effectiveProfile(id).getBoolean(DikcizChatSettings.KEY_READ_ONLY)
-                    ownerMcp?.invoke(method, params, currentReadOnly) ?: DikcizNativeCommands.failure("chat_mcp_unavailable", "Open Dikciz Home to reconnect its local MCP tools")
+                    endpoint.call(method, params, currentReadOnly)
                 }, ::changed, logger, ::captureTaskScreen, ::reportActivity, library,
                     agentInstructions = agent?.body.orEmpty(), allowedTools = allowedTools, deniedTools = deniedTools).run(queued, profile)
             }
@@ -405,7 +430,7 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
             while (activity.get() != null) delay(SCREEN_HIDE_POLL_MILLISECONDS)
         }
         delay(SCREEN_TRANSITION_MILLISECONDS)
-        val call = ownerMcp ?: DikcizNativeCommands.failure("chat_mcp_unavailable", "Open Dikciz Home to reconnect its local MCP tools")
+        val call = awaitOwnerMcp().call
         val screenshot = call("tools/call", JSONObject().put("name", "dikciz_display_screenshot").put("arguments", JSONObject()), true)
         if (screenshot.optBoolean("isError")) {
             DikcizNativeCommands.failure("screen_capture_failed", "Screen capture failed. Enable Dikciz cross-app automation in Android Accessibility settings and retry. Secure windows and Android screenshot limits still apply.")
@@ -417,6 +442,7 @@ internal class DikcizChatRuntime private constructor(private val context: Applic
     }
 
     companion object {
+        private const val HOME_TOOL_RECONNECT_TIMEOUT_MILLISECONDS = 5000L
         private const val SCREEN_HIDE_TIMEOUT_MILLISECONDS = 3000L
         private const val SCREEN_HIDE_POLL_MILLISECONDS = 50L
         private const val SCREEN_TRANSITION_MILLISECONDS = 350L

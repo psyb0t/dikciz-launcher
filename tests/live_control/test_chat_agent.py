@@ -294,12 +294,17 @@ def cleanup(identifier):
     chat("delete", conversationId=identifier)
 
 
-def wait_chat_ready():
+def wait_chat_ready(previous_instance=None):
     deadline = time.monotonic() + TURN_TIMEOUT
     consecutive = 0
     while time.monotonic() < deadline:
         try:
             chat("status")
+            if previous_instance is not None:
+                current = native_call("http", "deviceInfo")["application"]
+                if current["instanceId"] == previous_instance:
+                    time.sleep(0.2)
+                    continue
             consecutive += 1
             if consecutive == 3:
                 return
@@ -611,14 +616,22 @@ def test_chat_agent_provider_change_clears_retained_credential(websocket_control
 def test_chat_agent_tool_restart_runs_after_result_is_recorded(websocket_control, provider_endpoint):
     endpoint, script, _ = provider_endpoint
     _, identifier = conversation(endpoint)
-    previous = native_call("http", "deviceInfo")["application"]["instanceId"]
+    previous = native_call("http", "deviceInfo")["application"]
     script["tools"] = [("dikciz_restart", {})]
     try:
         send(identifier, "Restart the fixture launcher and continue")
+        wait_chat_ready(previous["instanceId"])
         rows = wait_turn(identifier)
         assert [row["role"] for row in rows] == ["user", "assistant", "tool", "assistant"]
-        wait_chat_ready()
-        assert native_call("http", "deviceInfo")["application"]["instanceId"] != previous
+        current = native_call("http", "deviceInfo")["application"]
+        assert current["instanceId"] != previous["instanceId"]
+        assert current["processId"] == previous["processId"]
+        script["tools"].append(("dikciz_home_get", {}))
+        continuation = send(identifier, "Read the fixture Home after restart")
+        rows = [row for row in wait_turn(identifier) if row["turn_id"] == continuation["turn_id"]]
+        assert [row["role"] for row in rows] == ["user", "assistant", "tool", "assistant"]
+        result = json.loads(json.loads(rows[2]["blocks"])[0]["text"])
+        assert result["structuredContent"]["pages"]["home"]["widgets"]
     finally:
         cleanup(identifier)
 
@@ -1213,6 +1226,7 @@ def test_chat_authoring_budget_and_access(websocket_control, provider_endpoint, 
         rows = wait_turn(identifier)
         tools = {entry["name"]: entry["input_schema"] for entry in records[0]["body"]["tools"]}
         assert "dikciz_home_get" in tools
+        assert "dikciz_app_catalogue" in tools
         assert ("dikciz_add_widget" in tools) is not read_only
         assert len(records) == 2
         assert not records[-1]["body"].get("tools")

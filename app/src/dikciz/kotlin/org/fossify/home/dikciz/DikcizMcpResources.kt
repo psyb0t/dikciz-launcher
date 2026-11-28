@@ -1,6 +1,7 @@
 package org.fossify.home.dikciz
 
 import android.content.res.AssetManager
+import java.io.IOException
 import java.nio.charset.StandardCharsets
 import org.json.JSONArray
 import org.json.JSONObject
@@ -13,14 +14,25 @@ import org.fossify.home.dikciz.DikcizMcpControlPlane.Companion.KEY_TEXT
 import org.fossify.home.dikciz.DikcizMcpControlPlane.Companion.KEY_TITLE
 import org.fossify.home.dikciz.DikcizMcpControlPlane.Companion.RESULT_TYPE_COMPLETE
 
-internal class DikcizMcpResources(private val assets: AssetManager) {
+internal class DikcizMcpResources(
+    private val assets: AssetManager,
+    private val logger: DikcizLogger,
+) {
     private val sections by lazy {
-        DEFINITIONS.map { definition ->
-            val text = assets.open(ASSET_PREFIX + definition.first + MARKDOWN_EXTENSION)
-                .bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+        DEFINITIONS.mapNotNull { (slug, title) ->
+            val text = try {
+                assets.open(ASSET_PREFIX + slug + MARKDOWN_EXTENSION)
+                    .bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+            } catch (exception: IOException) {
+                logger.warn(EVENT_RESOURCE_UNAVAILABLE, mapOf("slug" to slug, "error_type" to exception.javaClass.simpleName))
+                return@mapNotNull null
+            }
             val bytes = text.toByteArray(StandardCharsets.UTF_8).size
-            check(bytes in 1..MAXIMUM_SECTION_BYTES) { MESSAGE_INVALID_ASSET }
-            Section(definition.first, definition.second, text, bytes)
+            if (bytes !in 1..MAXIMUM_SECTION_BYTES) {
+                logger.warn(EVENT_RESOURCE_UNAVAILABLE, mapOf("slug" to slug, "byte_count" to bytes))
+                return@mapNotNull null
+            }
+            Section(slug, title, text, bytes)
         }
     }
 
@@ -51,9 +63,13 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
         if (uri !is String || uri.isBlank() || uri.length > MAXIMUM_URI_CHARACTERS) {
             throw DikcizMcpResourceException(MESSAGE_INVALID_URI)
         }
-        val text = sections.firstOrNull { it.uri == uri }?.text
-            ?: library[uri]?.getString(KEY_TEXT)
-            ?: throw DikcizMcpResourceException(MESSAGE_NOT_FOUND, uri)
+        val section = sections.firstOrNull { it.uri == uri }
+        val text = section?.text ?: run {
+            if (DEFINITIONS.any { (slug, _) -> URI_PREFIX + slug == uri }) {
+                throw DikcizMcpResourceException(MESSAGE_INVALID_ASSET, uri)
+            }
+            library[uri]?.getString(KEY_TEXT) ?: throw DikcizMcpResourceException(MESSAGE_NOT_FOUND, uri)
+        }
         return complete().put(KEY_CONTENTS, JSONArray().put(JSONObject()
             .put(KEY_URI, uri)
             .put(KEY_MIME_TYPE, MIME_TYPE_MARKDOWN)
@@ -114,7 +130,8 @@ internal class DikcizMcpResources(private val assets: AssetManager) {
         private const val MAXIMUM_CURSOR_CHARACTERS = 64
         private const val CURSOR_PREFIX = "docs1:"
         private const val MESSAGE_INVALID_CURSOR = "Invalid documentation cursor"
-        private const val MESSAGE_INVALID_ASSET = "Invalid packaged documentation size"
+        private const val MESSAGE_INVALID_ASSET = "This packaged documentation section is unavailable"
+        private const val EVENT_RESOURCE_UNAVAILABLE = "mcp_resource_asset_unavailable"
         private const val MESSAGE_INVALID_URI = "uri must be a non-empty string of at most 256 characters"
         private const val MESSAGE_NOT_FOUND = "Resource not found"
         private const val MESSAGE_UNEXPECTED_FIELD = "Resource parameters contain an unsupported field"

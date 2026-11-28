@@ -9,6 +9,7 @@ import org.json.JSONObject
 internal object DikcizChatCoreTools {
     val names = setOf(
         "dikciz_home_get",
+        "dikciz_app_catalogue",
         "dikciz_select_page",
         "dikciz_widget_get",
         "dikciz_add_widget",

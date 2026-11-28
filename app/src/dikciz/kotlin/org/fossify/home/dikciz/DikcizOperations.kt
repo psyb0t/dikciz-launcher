@@ -10,6 +10,8 @@ import android.os.Process
 import android.os.SystemClock
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.asContextElement
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -41,6 +43,9 @@ internal object DikcizOperations {
     }
 
     fun currentActor(): String? = actor.get()
+
+    suspend fun <T> withActorContext(value: String, action: suspend () -> T): T =
+        withContext(actor.asContextElement(value.take(MAXIMUM_ACTOR))) { action() }
 
     fun <T> withDefaultActor(value: String, action: () -> T): T =
         if (actor.get() == null) withActor(value, action) else action()

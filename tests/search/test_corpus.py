@@ -6,6 +6,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/generate-dikciz-search.py"
 spec = importlib.util.spec_from_file_location("search_corpus", SCRIPT)
@@ -73,3 +75,20 @@ def test_gallery_filter_preserves_code_examples():
     assert "picture.png" not in cleaned
     assert '<a href="example">Link</a>' in cleaned
     assert '<img src="example.png">' in cleaned
+
+
+
+def test_packaged_guide_size_uses_utf8_bytes(tmp_path):
+    assets = tmp_path / "app/src/dikciz/assets"
+    search = assets / "search"
+    search.mkdir(parents=True)
+    (search / "aliases.json").write_text("{}")
+    guides = assets / "mcp/guides"
+    guides.mkdir(parents=True)
+    guide = guides / "example.md"
+    exact_fit = "é" * (corpus.MAXIMUM_PACKAGED_GUIDE_BYTES // 2)
+    guide.write_text(exact_fit, encoding="utf-8")
+    assert corpus.build(tmp_path)[0]["text"] == exact_fit
+    guide.write_text(exact_fit + "x", encoding="utf-8")
+    with pytest.raises(ValueError, match="Packaged MCP guide guides/example"):
+        corpus.build(tmp_path)

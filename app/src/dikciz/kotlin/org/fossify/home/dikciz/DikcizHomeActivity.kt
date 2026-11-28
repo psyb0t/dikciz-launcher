@@ -357,9 +357,9 @@ class DikcizHomeActivity : Activity() {
             dikcizLogger,
             remoteAccessAuth,
             { request, authorization, readOnly, remote -> automationControlPlane.executeLocalCommand(request, authorization, readOnly, remote) },
-            DikcizMcpResources(assets),
+            DikcizMcpResources(assets, dikcizLogger),
         )
-        DikcizChatRuntime.get(applicationContext).attachMcp(mcpControlPlane::executeOwnerRequest)
+        DikcizChatRuntime.get(applicationContext).attachMcp(automationInstanceID, mcpControlPlane::executeOwnerRequest)
         DikcizChatRuntime.get(applicationContext).observe(chatBadgeObserver)
         DikcizAutomationEventBus.setHtmlDomPatchListener(applicationContext, ::patchRenderedHtmlDom)
         DikcizDeviceAccessActivity.attachHost(automationInstanceID, ::publishAutomationUIRendered)
@@ -458,7 +458,7 @@ class DikcizHomeActivity : Activity() {
 
     override fun onDestroy() {
         DikcizChatRuntime.get(applicationContext).unobserve(chatBadgeObserver)
-        DikcizChatRuntime.get(applicationContext).attachMcp(null)
+        DikcizChatRuntime.get(applicationContext).detachMcp(automationInstanceID)
         DikcizDeviceAccessActivity.detachHost(automationInstanceID)
         DikcizLocalCommands.detach(automationInstanceID)
         dismissStartupBrand()
@@ -4627,17 +4627,28 @@ class DikcizHomeActivity : Activity() {
     }
 
     private fun automationWidget(command: DikcizAutomationCommand): JSONObject {
-        val configuration = homeConfiguration ?: throw automationFailure(MESSAGE_CONFIGURATION_UNAVAILABLE)
+        val configuration = loadAutomationConfiguration()
         val address = command.request.getString(DikcizAutomationControlPlane.KEY_WIDGET_ADDRESS)
         val target = configuration.scriptWidgetTarget(address) ?: throw automationFailure(MESSAGE_WIDGET_NOT_FOUND)
         val page = configuration.pages.first { candidate -> candidate.id == target.pageID }
         val widget = page.widgets.first { candidate -> candidate.id == target.widgetID }
         return DikcizWebWidgetContext.widgetDocument(page, widget).also { document ->
-            if (widget is HtmlHomeWidget) {
-                document.put(
-                    HomeConfigStore.HTML_EVENT_SUBSCRIPTIONS_KEY,
-                    homeConfigStore.htmlEventSubscriptionsDocument(widget),
-                )
+            when (widget) {
+                is HtmlHomeWidget -> {
+                    document.put(
+                        HomeConfigStore.HTML_EVENT_SUBSCRIPTIONS_KEY,
+                        homeConfigStore.htmlEventSubscriptionsDocument(widget),
+                    )
+                    val configRead = DikcizAutomationControlPlane.TYPE_CONFIG_GET
+                    val access = command.access
+                    if (access == null || (DikcizRemotePolicy.permits(access, configRead, null) &&
+                            access.rules.permits(configRead, null))
+                    ) {
+                        document.put(HomeConfigStore.WIDGET_SOURCE_KEY, homeConfigStore.htmlSourceDocument(widget))
+                    }
+                }
+                is AppGroupHomeWidget -> document.put(KEY_GROUP_COMPONENTS, org.json.JSONArray(widget.components))
+                else -> Unit
             }
         }
     }
@@ -5140,8 +5151,11 @@ class DikcizHomeActivity : Activity() {
             .put(KEY_TEXT, boundedAutomationText(text))
     }
 
-    private fun automationConfigurationDocument(): JSONObject {
-        val configuration = try {
+    private fun automationConfigurationDocument(): JSONObject =
+        JSONObject().put(KEY_CONFIG, homeConfigStore.configurationDocument(loadAutomationConfiguration()))
+
+    private fun loadAutomationConfiguration(): HomeConfiguration {
+        return try {
             homeConfigStore.loadOrCreate()
         } catch (exception: HomeConfigException) {
             val fallbackConfiguration = DikcizAutomationEventBus.lastAcceptedConfiguration(applicationContext)
@@ -5156,7 +5170,6 @@ class DikcizHomeActivity : Activity() {
                 throw automationFailure(exception.message.orEmpty())
             }
         }
-        return JSONObject().put(KEY_CONFIG, homeConfigStore.configurationDocument(configuration))
     }
 
     private fun replaceAutomationConfiguration(command: DikcizAutomationCommand): JSONObject {
@@ -12535,6 +12548,7 @@ class DikcizHomeActivity : Activity() {
         const val KEY_HTML_WIDGET_MAX_DOCUMENT_BYTES = "maxDocumentBytes"
         const val KEY_HTML_WIDGET_MAX_RENDERERS_PER_PAGE = "maxRenderersPerPage"
         const val KEY_HTML_WIDGET_RESOURCES = "htmlWidgetResources"
+        const val KEY_GROUP_COMPONENTS = "components"
         const val KEY_AUTOMATION_SERVICE_SYNCED = "automationServiceSynced"
         const val KEY_ACTION_TYPE = "type"
         const val KEY_CONFIG = "config"
@@ -12853,6 +12867,7 @@ class DikcizHomeActivity : Activity() {
             DikcizAutomationControlPlane.TYPE_AUTOMATION_DISPATCH,
             DikcizAutomationControlPlane.TYPE_SHELL,
             DikcizAutomationControlPlane.TYPE_SCRIPT_LOGS,
+            DikcizAutomationControlPlane.TYPE_WIDGET_GET,
         ) + DikcizFileCommands.FIELDS.keys + DikcizNativeCommands.BACKGROUND_TYPES
         val STORAGE_ACCESS_COMMAND_TYPES = setOf(
             DikcizPermissionRequests.TYPE_REQUEST,

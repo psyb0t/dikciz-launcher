@@ -13,6 +13,7 @@ OUTPUT = ROOT / "app/src/dikciz/assets/search/documentation.json"
 ALIASES = OUTPUT.with_name("aliases.json")
 GUIDES = ROOT / "app/src/dikciz/assets/mcp"
 MAXIMUM_SECTION = 12000
+MAXIMUM_PACKAGED_GUIDE_BYTES = 4096
 EXCLUDED = {"changelog.md", "404.md"}
 LOGGER = logging.getLogger(__name__)
 HEADING = re.compile(r"^#{1,6}\s+(.+)$")
@@ -66,7 +67,13 @@ def build(root=ROOT):
     guides = root / GUIDES.relative_to(ROOT)
     for path in sorted(guides.rglob("*.md")):
         slug = path.relative_to(guides).with_suffix("").as_posix()
-        text = path.read_text()
+        raw = path.read_bytes()
+        if not 1 <= len(raw) <= MAXIMUM_PACKAGED_GUIDE_BYTES:
+            raise ValueError(
+                f"Packaged MCP guide {slug} has {len(raw)} UTF-8 bytes. "
+                f"Keep it between 1 and {MAXIMUM_PACKAGED_GUIDE_BYTES} bytes."
+            )
+        text = raw.decode("utf-8")
         text = re.sub(r"\A---\n.*?\n---\n", "", text, count=1, flags=re.DOTALL)
         text = text.replace("<!-- {% raw %} -->\n", "").replace(
             "<!-- {% endraw %} -->", ""

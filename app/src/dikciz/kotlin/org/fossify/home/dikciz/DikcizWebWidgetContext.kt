@@ -42,8 +42,8 @@ internal object DikcizWebWidgetContext {
                         .put(FIELD_STATE, JSONObject(widget.state.toString()))
                         .put(FIELD_ITEM_STATES, JSONObject(widget.itemStates.toString()))
                         .put(FIELD_STORAGE_PATH, "/sdcard/Dikciz/pages/${page.id}/widgets/${widget.id}")
+                    is AppGroupHomeWidget -> document.put(FIELD_MEMBER_COUNT, widget.components.size)
                     is AppHomeWidget,
-                    is AppGroupHomeWidget,
                     is ProviderHomeWidget,
                     is ScriptDashboardHomeWidget,
                     -> Unit
@@ -101,6 +101,7 @@ internal object DikcizWebWidgetContext {
     private const val FIELD_ROW = "row"
     private const val FIELD_ROW_SPAN = "rowSpan"
     private const val FIELD_STATE = "state"
+    private const val FIELD_MEMBER_COUNT = "memberCount"
     private const val FIELD_ITEM_STATES = DikcizHtmlWidgetStateStore.ITEM_STATES_FIELD
     private const val FIELD_STORAGE_PATH = "storagePath"
     private const val FIELD_TITLE = "title"

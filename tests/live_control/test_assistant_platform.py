@@ -557,6 +557,31 @@ def test_assistant_platform_library_long_backup_path(websocket_control):
         remove_path(ASSISTANT_ROOT)
 
 
+def test_chat_widget_source_respects_tool_allowlist(websocket_control, provider_endpoint):
+    config = native_call("http", "configGet")["config"]
+    page = next(page for page in config["launcher"]["home"]["pages"]
+                if any(widget["type"] == "html" for widget in page["widgets"]))
+    widget = next(widget for widget in page["widgets"] if widget["type"] == "html")
+    position = page["position"]
+    address = f'{position["column"] + 1}H{position["row"] + 1}V-{widget["id"]}'
+    endpoint, script, records = provider_endpoint
+    _, identifier = conversation(endpoint, toolAllowlist=["dikciz_widget_get"])
+    script.update(wrapper_calls=[("dikciz_widget_get", {"widgetAddress": address})],
+                  text="Fixture metadata checked.")
+    try:
+        send(identifier)
+        rows = wait_turn(identifier)
+        results = [json.loads(json.loads(row["blocks"])[0]["text"]) for row in rows if row["role"] == "tool"]
+        assert len(records) == 2
+        assert len(results) == 1
+        item = results[0]["structuredContent"]
+        assert item["title"] == widget["title"]
+        assert "source" not in item
+        assert widget["html"] not in json.dumps(records[-1]["body"], ensure_ascii=False)
+    finally:
+        cleanup(identifier)
+
+
 def test_assistant_platform_library_search_restrictions(websocket_control, provider_endpoint):
     endpoint, script, records = provider_endpoint
     _, identifier = conversation(endpoint, toolAllowlist=["dikciz_device_info"])

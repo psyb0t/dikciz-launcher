@@ -7,6 +7,13 @@ nav_order: 10
 
 # Changelog
 
+## [0.37.4] - 2026-11-28
+
+- Keep chat connected to its tools when Android recreates Home. Wait for the new connection before continuing an active turn.
+- Give chat direct access to the installed app catalogue and include app-group counts in Home reads.
+- Give the widget recipe the saved HTML, CSS and JavaScript immediately after a patch, even while chat covers Home. Configuration-read access is required to read source.
+- Keep valid help sections available if a bundled guide is damaged. Check guide size during the build.
+
 ## [0.37.3] - 2026-11-28
 
 - Open **Chats** to search and resume saved conversations, start a new chat, or rename and delete a specific conversation. Returning from history keeps the draft and panel height. Unread replies clear when their transcript opens.

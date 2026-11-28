@@ -431,6 +431,32 @@ def test_remote_tokens_granted_operations_and_combined_scopes(token_owner, proto
     assert call(token, "remoteAccessInfo", protocol=protocol)["id"] == identifier
 
 
+@pytest.mark.parametrize("protocol", PROTOCOLS)
+def test_widget_source_requires_configuration_read(token_owner, protocol):
+    config = call(token_owner, "configGet")["config"]
+    page = next(page for page in config["launcher"]["home"]["pages"]
+                if any(widget["type"] == "html" for widget in page["widgets"]))
+    widget = next(widget for widget in page["widgets"] if widget["type"] == "html")
+    position = page["position"]
+    address = f'{position["column"] + 1}H{position["row"] + 1}V-{widget["id"]}'
+    fields = {"widgetAddress": address}
+    metadata, metadata_id = create(token_owner, ["command.widgetGet"])
+    source, source_id = create(token_owner, ["command.widgetGet", "command.configGet"])
+    try:
+        item = call(metadata, "widgetGet", fields, protocol)
+        assert item["title"] == widget["title"]
+        assert "source" not in item
+        call(metadata, "configGet", protocol=protocol, error=DENIED)
+        item_with_source = call(source, "widgetGet", fields, protocol)
+        assert item_with_source.pop("source") == {
+            key: widget[key] for key in ("html", "css", "javascript")
+        }
+        assert item_with_source.keys() == item.keys()
+    finally:
+        for token_id in (metadata_id, source_id):
+            admin(token_owner, "revoke", id=token_id)
+
+
 def test_remote_tokens_permission_catalogue(token_owner):
     grants = admin(token_owner, "catalog")["permissions"]
     (ARTIFACT_DIRECTORY / "remote-grant-discovery.json").write_text(json.dumps({"permissions": grants}))

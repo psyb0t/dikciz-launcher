@@ -140,6 +140,11 @@ internal class HomeConfigStore(
     ): List<DikcizAutomationSubscription> =
         document.parseHtmlWidgetEventSubscriptions("HTML widget patch", limits)
 
+    fun htmlSourceDocument(widget: HtmlHomeWidget): JSONObject = JSONObject()
+        .put(HTML_KEY, widget.html)
+        .put(CSS_KEY, widget.css)
+        .put(JAVASCRIPT_KEY, widget.javascript)
+
     fun htmlEventSubscriptionsDocument(widget: HtmlHomeWidget): JSONArray = JSONArray().apply {
         widget.eventSubscriptions.forEach { subscription -> put(subscription.toJson()) }
     }
@@ -3250,6 +3255,7 @@ internal class HomeConfigStore(
         private const val ENABLED_KEY = "enabled"
         private const val HTML_HEIGHT_MODE_KEY = "heightMode"
         const val HTML_EVENT_SUBSCRIPTIONS_KEY = "eventSubscriptions"
+        const val WIDGET_SOURCE_KEY = "source"
         private const val HTML_KEY = "html"
         private const val HTML_WIDGET_TYPE = "html"
         private const val HARD_MAXIMUM_COMPONENT_CHARACTERS = 8_192
