@@ -9,11 +9,11 @@ seo:
 
 # Dikciz Launcher documentation
 
-Use the [automation debugger](automation-debugger.md) to inspect retained traces and simulate handlers, and the [instruction manager](assistant-library.md#manage-instructions-on-the-phone) to author skills, agents and rules.
+Dikciz (say it out loud: *dick cheese*) is an Android launcher you can program. Want a [todo list that checks itself off when you reach a city](todo-app-tutorial.md)? You can build one on the phone. Want the torch and speaker to make a scene? Open the Goblin page on the [starter home](starter-home.md).
 
-Give the built-in assistant [SD-card skills, named agents and rules](assistant-library.md), and preserve their files together with complete app state through [encrypted backups](backups.md).
+Teach the assistant your own tricks with [skills, named agents and rules](assistant-library.md). [Encrypted backups](backups.md) keep those files along with your apps and their state.
 
-Your phone is programmable. Start with an editable Android home, build complete HTML/CSS/JavaScript apps, run Lua or JavaScript in the background, and connect your own AI to the same phone tools.
+When a script does something weird, open the [automation debugger](automation-debugger.md) to see which event fired and what the handler did.
 
 <div class="docs-routes">
 <div><h2>Use your phone</h2><p>Install the APK, choose your home, grant Android access and set up chat.</p><p><a href="tutorial.md">Follow the illustrated tutorial</a></p></div>

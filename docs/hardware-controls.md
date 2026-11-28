@@ -51,10 +51,21 @@ Bluetooth, USB, Wi-Fi and audio inventories accept `limit` (1 through 200, defau
 
 ## Examples
 
+Send each example as its own request.
+
 ```json
 {"type":"torchControl","action":"status"}
+```
+
+```json
 {"type":"vibrationControl","action":"vibrate","durationMilliseconds":250}
+```
+
+```json
 {"type":"systemSetting","action":"get","setting":"brightness"}
+```
+
+```json
 {"type":"audioDevices","limit":5,"offset":0}
 ```
 

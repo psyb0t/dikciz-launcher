@@ -8,7 +8,7 @@ has_children: true
 
 # Activity, resources and automation rules
 
-Open **Dikciz settings**, **Activity & resources** to inspect command outcomes and measured resource use. The activity view shows caller identity, command, request ID, duration and status. It records metadata without command arguments, SMS bodies, screenshots, shell text, provider responses or credentials.
+Something's still running and you want to know who started it? Open **Dikciz settings > Activity & resources**. The activity view shows caller identity, command, request ID, duration and status. It records metadata without command arguments, SMS bodies, screenshots, shell text, provider responses or credentials.
 
 ## Automation debugger
 

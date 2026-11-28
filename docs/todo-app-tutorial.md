@@ -8,7 +8,7 @@ parent: "Developer manual"
 
 # Build a todo app that reacts to GPS
 
-Build one complete Dikciz app with a checklist, a JavaScript backend and saved state. Its **Go to New York** item checks itself when an accurate location fix enters an example destination circle. The backend keeps listening after you close its interface.
+Let's give the phone the most literal todo list imaginable. The task says **Go to New York**. Once you enable the watch, an accurate GPS fix inside the destination circle checks it off. You'll write the checklist, save its state and run the JavaScript handler even after you close the UI.
 
 The working reference ships as **Dikciz > Dikciz apps > Travel todo**. Its [five source files](https://github.com/psyb0t/dikciz-launcher/tree/main/app/src/dikciz/assets/apps/travel-todo/) are also in this repository. It starts with location monitoring off. No API key, model, messages or calendar writes are involved.
 

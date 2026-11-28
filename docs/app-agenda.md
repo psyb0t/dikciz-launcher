@@ -10,7 +10,7 @@ nav_order: 4
 
 # Android calendar agenda and next alarm
 
-Agenda and alarms shows upcoming Android calendar entries and the next alarm Android reports. It gives you a quick way to open the system calendar or alarm app to make changes there.
+What have you got on today, and when is that damn alarm going off? Agenda shows upcoming calendar entries and the next alarm Android reports. Tap through to the system calendar or alarm app to change either.
 
 Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), complete [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Dikciz apps > Agenda and alarms**.
 

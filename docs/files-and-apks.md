@@ -153,4 +153,4 @@ Use shellSessionStart/Read/Stop/Forget and shellSessionsList when output must be
 
 ## Companion workflows
 
-See [the focused companion guide](package-installation.md) for the new shared commands, native screens, required access and actual outcome states.
+[Install an APK and check the outcome](package-installation.md).

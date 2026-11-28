@@ -10,7 +10,7 @@ parent: "Developer manual"
 
 The [JavaScript API reference](javascript-api.md) defines both WebView helpers and this interpreter's complete context. The [developer manual](developer-manual.md) maps every phone API and token scope.
 
-JavaScript is a second background script language alongside Lua. It runs in an embedded interpreter on the automation worker, without a WebView, DOM or selected home page. Both languages share event subscriptions, repeating alarms, typed actions, state persistence, Android access and run-status logs.
+Close the page. Your JavaScript can still wake up for an event. Background scripts run on the automation worker in their own interpreter, without a WebView or DOM. Like Lua, they can subscribe to events, schedule repeating alarms, return typed actions, save state and log what happened. Android permissions still apply.
 
 The [Travel todo tutorial](todo-app-tutorial.md) shows a complete JavaScript app reacting to a native GPS event and a custom event, including its full source.
 

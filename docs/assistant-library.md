@@ -8,7 +8,7 @@ parent: Developer manual
 
 # Assistant skills, agents and rules
 
-Keep assistant instructions in `/sdcard/Dikciz/assistant/`. Open **Dikciz > Skills, agents & rules** to manage them, or edit them with a file manager and the shared file commands. No APK rebuild or remote token is needed for the built-in assistant. Chat reads the current library between model rounds; named agent instructions and restrictions are selected when an agent starts a turn.
+If you keep telling the cheese how to do the same job, give it a skill. Its instruction files live in `/sdcard/Dikciz/assistant/`. Open **Dikciz > Skills, agents & rules** to manage them, or edit them with a file manager and the shared file commands. No APK rebuild or remote token is needed for the built-in assistant. Chat reads the current library between model rounds; named agent instructions and restrictions are selected when an agent starts a turn.
 
 ```text
 assistant/

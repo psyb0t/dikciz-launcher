@@ -9,7 +9,7 @@ Use this catalog to choose the right feature. Use the running build's `controlSt
 - Use a two-axis grid of native pages. Create, rename, reorder, select, remove, search and lock pages; select the Android Home destination. Each page has a fixed viewport and cell grid.
 - Configure rows, columns, gaps and padding. Grid dimension changes shrink and reposition widgets, evict overflow items in saved order and report evicted identities. Removing a shortcut leaves its app installed. Explicit add, move and resize operations still refuse invalid placement.
 - Search installed launchable apps by label or package. Launch them, add shortcuts, open Android app info, request uninstall, or force stop with device-granted root.
-- Create native app groups by dropping one shortcut onto another; manage group members.
+- Drop one shortcut onto another to make a native app folder. For remote creation, read installed component IDs from `appCatalogue`, then call `addWidget` with `widgetType: "appGroup"`, `components`, `title` and the target `pageId`. For main Home use `homeGet.pages.home.id`. Check the returned address and member count.
 - Host real third-party Android AppWidgets, including their Android configuration flow.
 - Create HTML widgets, install library packages, save complete documents as library templates, edit HTML/CSS/JavaScript/state, fit content within assigned cells, and change native widget appearance.
 - Select themes, custom or system fonts, wallpapers and widget-style overrides. Locks prevent edits without blocking normal interaction.

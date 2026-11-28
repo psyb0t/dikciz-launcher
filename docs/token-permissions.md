@@ -339,7 +339,7 @@ MCP: [`dikciz_activity_read`](command-reference.md#dikciz_activity_read). The li
 
 ## addWidget
 
-Place one new top-level item in the first fitting free cells of the named page, or the selected page when pageId is absent. Returns the saved address. Rejects locked or full pages without writing. Use dikciz_widget_move and dikciz_widget_resize for placement afterwards.
+Place one new item in the first fitting free cells of pageId, or the selected page when omitted. For appGroup, pass components from dikciz_app_catalogue and an optional title. Returns the saved address and cell. Rejects locked or full pages without writing.
 
 MCP: [`dikciz_add_widget`](command-reference.md#dikciz_add_widget). The linked reference contains required and optional parameters, full nested schemas and language invocation patterns.
 

@@ -7,6 +7,12 @@ nav_order: 10
 
 # Changelog
 
+## [0.38.1] - 2026-11-28
+
+- The home and scripting guides walk through building apps, grouping shortcuts and tracing events. Each bundled app has setup instructions, including Impact Response.
+- Chat guides explain unread counts, what leaves the phone during a screen explanation and how compaction preserves the local transcript.
+- The token manual describes how to create a populated app folder. The APK includes the updated chat guide and offline documentation index.
+
 ## [0.38.0] - 2026-11-28
 
 - Chat model settings include Supports vision. Explain this screen reads the accessibility tree for text-only models and adds a screenshot for vision models.

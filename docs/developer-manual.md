@@ -8,7 +8,7 @@ has_children: true
 
 # Developer manual
 
-Build interfaces, background automations and complete apps using documented Dikciz APIs. The platform shares one command executor across JavaScript, Lua, HTTP, WebSocket and MCP. Android permissions and hardware availability still govern each operation.
+Want a button on Home? Write a widget. Want the phone to do something while the screen is off? Start with a background handler. Need both a screen and a handler? Build a Dikciz app. JavaScript, Lua, HTTP, WebSocket and MCP share the same phone commands. What actually runs depends on the hardware and the Android permissions you've granted.
 
 ## Pick a runtime
 

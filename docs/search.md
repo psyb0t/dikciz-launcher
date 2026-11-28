@@ -8,7 +8,7 @@ parent: "Remote control"
 
 # Offline search
 
-Dikciz has one persistent SQLite search service shared by HTTP, WebSocket, MCP, HTML, Lua and embedded chat. It runs on the phone without embeddings, a network connection, API keys or model downloads.
+Forgot the name of a tool? Search for what you're trying to do. Chat, HTTP, WebSocket, MCP, HTML and Lua all search the same SQLite index on the phone. It works offline, even if you've never downloaded a model or set an API key.
 
 ## Collections
 

@@ -10,7 +10,7 @@ nav_order: 1
 
 # Impact Response for Android
 
-Impact Response watches for a possible hard impact using your phone's linear acceleration sensor. After the emergency countdown it can text one contact you chose. It can also listen for hard braking with precise GPS and phone motion if you turn that option on.
+Arm Impact Response to watch for a hard hit. It measures the phone's linear acceleration. If the emergency countdown expires, it can text the contact you picked. You can also enable hard-braking detection, which uses precise GPS and phone motion.
 
 Impact Response ships inside Dikciz Launcher and opens disarmed. Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), follow [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Dikciz apps > Impact response**.
 

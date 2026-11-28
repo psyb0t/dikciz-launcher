@@ -8,7 +8,7 @@ parent: "Tutorial"
 
 # Dikciz user guide
 
-This guide starts after you have downloaded and installed a Dikciz APK on your Android phone. It covers using the launcher on the phone. Each screenshot follows the step beside it.
+Once Dikciz is installed, your home screen is yours to mess with. Start here to move an icon, crack open an HTML widget or put a page back together when an edit goes sideways.
 
 For a complete editable app, follow [Travel todo](todo-app-tutorial.md). For events, HTML widgets, Lua/JavaScript scripts, and typed actions, start with the [scripting tutorial](scripting-tutorial.md). Read [Dikciz configuration](dikciz-configuration.md) for the editable-file layout and [automation control](automation-control.md) for WebSocket, MCP, and remote-control commands.
 
@@ -138,6 +138,8 @@ Moving a shortcut keeps the other widgets running. Moving or resizing an HTML wi
 
 Hold one app shortcut over another until the target grows and you feel a vibration, then release to make an app group. Passing across an icon briefly keeps the shortcuts separate. Tap a group to open a panel anchored to its tile. Tap an app to launch it. Tap outside the panel or press Back to close it. Use **Edit** to change its name or apps. Hold a member and drag it beyond the group onto an empty home cell. The group clears out of the way as you drag. Once the group clears, keep dragging to an empty home cell. Dropping onto an occupied cell leaves everything in place. Hold and release a member for **Move to page** or **Remove**. A group with one member becomes a normal shortcut again.
 
+Prefer to let chat sort the apps? In a writable conversation, ask it to put your installed travel apps in a folder on main Home. It can look up Android components and [create the populated folder in one call](automation-control.md#placement-commands). Open the folder to check which apps it picked.
+
 ![App group](images/user-guide/10-app-group.png)
 
 **Delete** removes the widget and its Dikciz-owned public file. Use it only when you want to remove that widget.
@@ -256,4 +258,4 @@ Settings offers Getting started for permission, widget, assistant and remote-con
 
 ## Companion workflows
 
-See [the focused companion guide](companion.md) for the new shared commands, native screens, required access and actual outcome states.
+[Set up safety, journeys and connected devices](companion.md).

@@ -10,7 +10,7 @@ nav_order: 3
 
 # Local voice notes for Android
 
-Voice notes records microphone audio and keeps it in the app's local files. Open it from the launcher when you want a quick recording you can play back later.
+Got an idea you'll forget by the time you've typed it? Hit record. Voice notes keeps the audio in the app's local files so you can play it back later.
 
 Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), complete [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Dikciz apps > Voice notes**.
 

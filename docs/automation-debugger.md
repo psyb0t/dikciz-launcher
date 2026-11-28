@@ -8,7 +8,7 @@ nav_order: 1
 
 # Automation debugger
 
-Open **Dikciz > Automation debugger** to follow a dispatched event through its handlers and phone commands. **Dikciz > Skills, agents & rules** opens the companion instruction manager. Both screens use the shared phone tools.
+Your script was supposed to do something. Did the event even fire? Open **Dikciz > Automation debugger**, find the event and follow it through the handler to the phone command. To edit the assistant's instructions, open **Dikciz > Skills, agents & rules**.
 
 ## Browse what happened
 

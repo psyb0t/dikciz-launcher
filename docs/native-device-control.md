@@ -192,4 +192,4 @@ See [USSD requests](ussd-control.md), [camera capture/video](camera-control.md),
 
 ## Companion workflows
 
-See [the focused companion guide](companion.md) for the new shared commands, native screens, required access and actual outcome states.
+[Set up safety, journeys and connected devices](companion.md).

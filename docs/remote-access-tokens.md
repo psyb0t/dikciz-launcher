@@ -8,7 +8,7 @@ parent: "Remote control"
 
 # Remote access tokens
 
-Create separate bearer credentials for clients that need different phone access. HTTP, WebSocket and MCP enforce the same grants in the shared executor, including direct calls to hidden tools. Android permissions remain a separate requirement.
+If a client only reads SMS, give it a token that only reads SMS. Give each client its own token so you can cut one off independently. HTTP, WebSocket and MCP check its grants even when the client calls a hidden tool by name. The phone still needs the underlying Android permission.
 
 ## Set up a client
 

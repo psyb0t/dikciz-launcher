@@ -32,4 +32,4 @@ All ordinary entrypoints and local script/widget bindings share these commands. 
 
 ## Companion workflows
 
-See [the focused companion guide](safety-and-journeys.md) for the new shared commands, native screens, required access and actual outcome states.
+[Set up SOS, places and trips](safety-and-journeys.md).

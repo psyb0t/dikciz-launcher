@@ -10,7 +10,7 @@ nav_order: 5
 
 # Android battery, CPU and memory dashboard
 
-Device status puts battery, storage, memory and CPU measurements on one screen. Use it to see how much space is free or to follow Dikciz's CPU use while working in the launcher.
+Running out of space? Wondering how much CPU the launcher itself is eating? Device status puts those numbers next to battery and memory so you can watch them while you use Dikciz.
 
 Install the [signed Dikciz APK](https://github.com/psyb0t/dikciz-launcher/releases/latest), complete [first-run setup](user-guide.md#install-dikciz-and-make-it-your-home-screen), then open **Dikciz > Dikciz apps > Device status**.
 

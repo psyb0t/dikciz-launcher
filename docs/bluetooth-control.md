@@ -47,4 +47,4 @@ Discovery can return no devices. Successful GATT/RFCOMM exchange needs a compati
 
 ## Companion workflows
 
-See [the focused companion guide](device-connections.md) for the new shared commands, native screens, required access and actual outcome states.
+[Open, read and close a peripheral connection](device-connections.md).

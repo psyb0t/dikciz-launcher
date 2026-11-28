@@ -8,7 +8,7 @@ parent: "Companion"
 
 # Safety, places and journeys
 
-Open **Settings**, **Safety, journeys and devices** for the SOS app and native Places/Trips screens. SOS is also under **Dikciz**, **Apps**. Its complete HTML/CSS/JavaScript interface, JavaScript backend and state live in `/sdcard/Dikciz/apps/sos/`; its decisions use the same [custom-app platform](custom-apps.md) available to owner-created apps. The same operations are available through HTTP, WebSocket, MCP, HTML and Lua. Discover the installed schemas before sending commands.
+Open **Settings**, **Safety, journeys and devices** for the SOS app and native Places/Trips screens. SOS is also under **Dikciz > Dikciz apps**. Its complete HTML/CSS/JavaScript interface, JavaScript backend and state live in `/sdcard/Dikciz/apps/sos/`; its decisions use the same [custom-app platform](custom-apps.md) available to owner-created apps. The same operations are available through HTTP, WebSocket, MCP, HTML and Lua. Discover the installed schemas before sending commands.
 
 ## On the phone
 

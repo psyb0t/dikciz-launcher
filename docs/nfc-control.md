@@ -48,4 +48,4 @@ No tag is emulated by this API. RF transactions need a compatible physical tag. 
 
 ## Companion workflows
 
-See [the focused companion guide](device-connections.md) for the new shared commands, native screens, required access and actual outcome states.
+[Open, read and close a peripheral connection](device-connections.md).

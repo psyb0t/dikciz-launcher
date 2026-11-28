@@ -8,13 +8,13 @@ parent: "Developer manual"
 
 # Dikciz scripting tutorial
 
-For definitions of every bridge member, context field, result and runtime distinction, read the [JavaScript API](javascript-api.md), [Lua API](lua-api.md) and [developer manual](developer-manual.md). The [typed action table](typed-actions.md) owns action fields and policy names.
+You're going to push a button on Home, run some Lua, and see the widget change. Keep the [JavaScript API](javascript-api.md), [Lua API](lua-api.md) and [typed action table](typed-actions.md) handy for method names, fields and policies. The [developer manual](developer-manual.md) explains which runtime to use.
 
 For installation, the starter home, AI chat, remote connections and Android hardware, start with the [complete Dikciz tutorial](tutorial.md). This guide is the hands-on HTML and Lua companion. For a smaller complete app with JavaScript UI/backend, start with [the GPS todo tutorial](todo-app-tutorial.md).
 
 Dikciz has two ways to make the home react to the phone. HTML widgets draw and handle visible interaction. Lua and background JavaScript scripts run when an event arrives. Both use the same event bus, page and widget addresses, action executor, Android access state, and logs.
 
-This tutorial builds one small pipeline that you can copy and extend:
+Here's the whole trip from tap to screen update:
 
 ```text
 HTML button -> custom event -> Lua script -> saved widget state + custom result event -> HTML update
@@ -22,7 +22,7 @@ HTML button -> custom event -> Lua script -> saved widget state + custom result 
 
 The same shape works for battery, location, notifications, calendar changes, sensors, media sessions, Android accessibility events, and the other native event sources listed below.
 
-The [configuration guide](dikciz-configuration.md) owns the public file schema. [Automation control](automation-control.md) owns the exact WebSocket and MCP protocol. This guide explains how to combine them into working automations.
+Look up file fields in the [configuration guide](dikciz-configuration.md) and wire formats in [automation control](automation-control.md).
 
 ## Start with the right pieces
 

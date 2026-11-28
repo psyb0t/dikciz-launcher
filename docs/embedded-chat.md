@@ -8,7 +8,7 @@ parent: "Tutorial"
 
 # On-device Dikciz assistant
 
-Tap the cheese beside the launcher controls to open chat. When the cheese shows an unread count, tapping it opens Conversations with unread chats first. Each has a bold title and a count badge. Opening a chat clears its count. With no unread replies, chat starts at half height. Drag the top handle up to expand chat and down to return to half height. Tap the handle to switch heights. Closing the panel leaves a running turn active. Hidden replies and subscribed events add an unread badge; reply notifications reopen the conversation. Android notification access controls whether those notifications appear.
+The cheese on Home is your chat button. Tap it to talk to the assistant. When the cheese shows an unread count, tapping it opens Conversations with unread chats first. Each has a bold title and a count badge. Opening a chat clears its count. With no unread replies, chat starts at half height. Drag the top handle up to expand chat and down to return to half height. Tap the handle to switch heights. Closing the panel leaves a running turn active. Hidden replies and subscribed events add an unread badge; reply notifications reopen the conversation. Android notification access controls whether those notifications appear.
 
 The native panel renders streamed Markdown, including headings, lists, code fences, tables and strikethrough. Tap a reasoning or tool record to expand it. Scrolling up stops automatic scrolling. **Latest** resumes it. The panel uses the space above the keyboard while you type and returns to its previous height when the keyboard closes. When a turn runs, its progress and **Stop** appear above the composer.
 
@@ -20,7 +20,7 @@ Open **Chat options** (the ellipsis) for model controls, quick tasks, routines, 
 
 Open the notification shade in any app and tap **Open chat** on **Dikciz chat**. This quiet ongoing shortcut opens the normal half-screen conversation over that app, including while the assistant is idle. It does not keep an extra service running and does not require overlay access for a user-initiated tap. Opening it does not send a message. With no configured conversation, it opens the first-run chat instead.
 
-Open **Chat options** and tap **Explain this screen** to dismiss chat and capture the app underneath. Notification permission and the **Chat shortcut** channel must be enabled. Android channel settings can hide the shortcut. Reopening Home refreshes it after permission changes or dismissal. Android force-stop and device restart still follow normal app and notification lifecycle rules.
+Open **Chat options** and tap **Explain this screen** to dismiss chat and read the app underneath. Notification permission and the **Chat shortcut** channel must be enabled. Android channel settings can hide the shortcut. Reopening Home refreshes it after permission changes or dismissal. Android force-stop and device restart still follow normal app and notification lifecycle rules.
 
 While a turn runs, the **Dikciz is working** notification shows its current phase: thinking, writing a reply, finding tools, reading the screen or running a phone tool. It updates quietly in place and contains no prompt, tool arguments, screen contents or reply text. Tap it to reopen that exact conversation, including when another conversation was previously selected.
 
@@ -34,7 +34,7 @@ After work ends, the active notification disappears when no event rules remain, 
 
 **Explain this screen** uses an optional question from the composer. It hides chat, waits for dismissal, reads the accessibility tree and, when **Supports vision** is enabled in **Chat options > Tune**, captures the visible Android display before contacting the provider. Vision defaults to off. Text-only models receive the accessibility tree and omit image attachments from earlier turns and tool results. With vision enabled, the screenshot becomes an image attachment in the private chat transcript. This turn exposes and executes only read-only tools even if the conversation normally permits writes. It does not change that conversation's saved access setting. Chat requests reopening when the turn finishes; Android background-activity restrictions still apply. A new screen task is rejected while other assistant work is active, so it cannot silently capture a much later screen. If vision is enabled and Android denies the screenshot, the task reports the capture error before contacting the provider. Secure windows, lock screens and Android capture limits still apply.
 
-These shortcuts use the configured model and can incur API usage. Screen explanation requires a model that accepts image input. Captured screen data goes to that provider and remains in the private conversation history. Opening chat from Home explains Home; to inspect another app, open that app and request the task through the remote API or show chat over it through the shared visibility command.
+These shortcuts use the configured model and can incur API usage. Captured screen data goes to that provider and remains in the private conversation history. Opening chat from Home explains Home; to inspect another app, open that app and request the task through the remote API or show chat over it through the shared visibility command.
 
 All ordinary entrypoints accept the same task request:
 
@@ -62,6 +62,7 @@ The native model settings show the known context/output ceilings. Selecting a mo
 | API base URL | Owner-selected HTTP or HTTPS host, optionally ending in `/v1`. Use HTTPS for public providers. HTTP supports private local/VPN endpoints. Credentials in the URL, query strings and fragments are rejected; redirects are disabled. |
 | API key | Stored separately from public profile data, encrypted with Android Keystore AES-GCM. Reads omit it. Blank in an existing profile's UI retains the key. An explicit empty `apiKey` in the API clears it. Changing host or protocol without explicitly supplying a replacement clears the old key. |
 | Read-only phone access | Boolean `readOnly`, default `false`. Filters tool discovery and enforces access in the executor for this conversation. |
+| Supports vision | Boolean `supportsVision`, default `false`. Enable it for a model that accepts image input. Screen explanations always request accessibility text and add the display screenshot when enabled. |
 | Model ID | Per-conversation model selected in the API-backed dropdown or entered manually. Selecting a known model fills its context window and clamps the current reply reserve to its output ceiling and available input space. Explicit context/output values in the same request win. Unknown models retain the current budgets. |
 | Total context tokens | Combined input and output allowance, filled from known model limits when selecting a model. Unknown models start at `131072`; manual values remain editable. |
 | Maximum output | Actual provider output cap and reserved reply allowance, default `4096`. |
@@ -176,7 +177,7 @@ See the [source architecture](https://github.com/psyb0t/dikciz-launcher/blob/mai
 
 ## Companion workflows
 
-See [the focused companion guide](assistant-routines.md) for the new shared commands, native screens, required access and actual outcome states.
+[Run a read-only assistant routine](assistant-routines.md).
 
 
 Open **Dikciz > Skills, agents & rules** to edit and validate assistant instructions. The bundled guides teach self-authoring through revision-checked tools. Use **Dikciz > Automation debugger** for paged event, handler and command traces, retained payloads and effect-free Lua/JavaScript simulation. Read [instruction management](assistant-library.md#manage-instructions-on-the-phone) and [the debugger guide](automation-debugger.md).

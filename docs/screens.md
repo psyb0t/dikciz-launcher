@@ -111,7 +111,7 @@ Open the Dikciz mark, then **Dikciz apps**. Tap an app row to open it. Home leav
 
 ## Assistant and conversations
 
-Tap the cheese beside the Home controls. Drag or tap the top handle to switch heights. The composer stays above the keyboard and saves a draft for each conversation. **Chats** opens searchable history. Tap a row to resume it, use its menu to rename or delete it, or choose **New chat**. **Chat options** opens model controls, quick tasks, event rules and provider profiles. Scroll up to read earlier messages. **Latest** resumes following the stream. The working notification reopens its conversation or stops remaining work. See [embedded chat](embedded-chat.md) for tool execution and cancellation.
+Tap the cheese beside the Home controls. If it has a badge, it opens Conversations with unread chats first. Opening a transcript clears that chat's count. Drag or tap the top handle to switch heights. The composer stays above the keyboard and saves a draft for each conversation. **Chats** opens searchable history. Tap a row to resume it, use its menu to rename or delete it, or choose **New chat**. **Chat options** opens model controls, quick tasks, event rules and provider profiles. Scroll up to read earlier messages. **Latest** resumes following the stream. The working notification reopens its conversation or stops remaining work. See [embedded chat](embedded-chat.md) for tool execution and cancellation.
 
 <details>
 <summary>View the screens</summary>
@@ -158,7 +158,7 @@ Tap the cheese beside the Home controls. Drag or tap the top handle to switch he
 
 ## Providers, models and access
 
-Choose **Add provider** from the empty chat, or open **Chat options** and **Provider profiles**. OpenAI and Anthropic templates fill the protocol and base URL. **Custom** accepts your compatible host. Enter your own API key and save the connection. Open **Chat options** to select a model. **Tune** opens that conversation's context, output, compaction and reasoning settings. See [provider setup](embedded-chat.md#connect-a-provider).
+Choose **Add provider** from the empty chat, or open **Chat options** and **Provider profiles**. OpenAI and Anthropic templates fill the protocol and base URL. **Custom** accepts your compatible host. Enter your own API key and save the connection. Open **Chat options** to select a model. **Tune** opens that conversation's context, output, compaction, reasoning, access and **Supports vision** settings. Leave vision off for text-only models. See [provider setup](embedded-chat.md#connect-a-provider).
 
 <details>
 <summary>View the screens</summary>
@@ -179,7 +179,7 @@ Choose **Add provider** from the empty chat, or open **Chat options** and **Prov
 
 <p><a href="images/screens/chat-model-lower.png"><img src="images/screens/chat-model-lower.png" alt="Tool rounds, timeout, safety margin and system instructions" width="280"></a><br>Scroll the model form for tool rounds, turn timeout, context safety margin and additional system instructions.</p>
 
-<p><a href="images/screens/chat-compaction.png"><img src="images/screens/chat-compaction.png" alt="Context compaction policies" width="280"></a><br>Choose drop-oldest to discard earlier messages or summarize to retain a summary within the configured budget.</p>
+<p><a href="images/screens/chat-compaction.png"><img src="images/screens/chat-compaction.png" alt="Context compaction policies" width="280"></a><br>Choose drop-oldest to leave earlier exchanges out of the next model request, or summarize to send a shorter account of them. Both keep the full transcript on the phone.</p>
 
 </details>
 

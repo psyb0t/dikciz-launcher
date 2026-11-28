@@ -34,4 +34,4 @@ See [hardware inventories](hardware-controls.md), [permissions](automation-contr
 
 ## Companion workflows
 
-See [the focused companion guide](wifi-networks.md) for the new shared commands, native screens, required access and actual outcome states.
+[Add a Wi-Fi network and handle Android approval](wifi-networks.md).

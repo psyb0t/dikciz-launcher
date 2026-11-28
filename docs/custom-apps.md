@@ -9,7 +9,7 @@ has_children: true
 
 # Custom apps
 
-Open **Dikciz**, **Apps** to open, create, edit, enable, disable, export or remove a complete app. Each app combines its own HTML/CSS/JavaScript interface with a Lua or headless JavaScript backend and persistent state. Closing its WebView leaves subscribed events and scheduled backend work available through the native host.
+Open **Dikciz > Dikciz apps**, pick an app and look inside. The screen is HTML, CSS and JavaScript. The bit that wakes up for an event or a timer is Lua or JavaScript. Close the screen and the backend can still handle those events. The same menu lets you create, edit, enable, disable, export and remove apps.
 
 Each app opens in its own Android task, with its title in Recents and its full interface below the system bars. There is no permanent Apps/Close toolbar around the app. Home leaves it available in Recents; Back exits its interface. Reopening the same app reuses its task. Return to **Dikciz > Dikciz apps** to manage bundles.
 
@@ -56,7 +56,7 @@ Bundled source installs when absent. The [Impact Response bundle upgrade](app-im
 
 Optional `eventSubscriptions` uses the existing [automation subscription format](dikciz-configuration.md#lua-scripts-and-automation), including native source filters and intervals. `events` is shorthand for exact event names with no interval. Optional `locationMonitoring: true` requests a visible location foreground service while timers are pending; it grants no location permission.
 
-State belongs to the exact app ID, independent of page/widget state. Duplicate the bundle with a new manifest ID to get independent state and files. Removing an app deletes its entire public directory. Replacing its bundle preserves state, data and its running or stopped state. Export includes only manifest and source, excluding state, recordings and native execution records. Complete encrypted backups include source, state, recordings/files and installation/timer/run metadata. Restore leaves apps disabled by default and marks imported pending/claimed timers for review. Source-only exports remain useful for sharing an app without private data. See [backup and recovery](backups.md).
+Want to take the bundled app apart without touching your own data? Duplicate its bundle and give the copy a new ID in the manifest. Each ID gets its own state and files, separate from anything a Home widget saves. Removing an app deletes its entire public directory. Replacing its bundle preserves state, data and its running or stopped state. Export includes only manifest and source, excluding state, recordings and native execution records. Complete encrypted backups include source, state, recordings/files and installation/timer/run metadata. Restore leaves apps disabled by default and marks imported pending/claimed timers for review. Source-only exports remain useful for sharing an app without private data. See [backup and recovery](backups.md).
 
 Source and manifest edits require no permission approval. UI source changes reload the visible app; state-file writes update its live state. Background source loads fresh for the next invocation. Invalid files and subscriptions report validation errors. Stop and Start control background execution, not permissions.
 

@@ -8,7 +8,7 @@ has_children: true
 
 # Dikciz tutorial
 
-Build a home you can edit, connect an AI that can use the phone, and make HTML widgets, Lua or headless JavaScript scripts and complete custom apps react to events. This walkthrough starts with the signed APK and ends with direct Android SDK discovery. Follow it in order for a new installation, or jump to the part you need.
+Start with the APK and a home screen you can take apart. You'll edit a widget, wire a phone event to a script, and give the assistant a turn at the controls. Already got the thing running? Jump straight to whatever you want to build.
 
 The examples inspect state and use a local custom-event pipeline. Messaging, calls, recordings and device changes have separate opt-in exercises. Exact accepted fields belong to the installed tool schemas and the [command reference](command-reference.md).
 
@@ -114,7 +114,7 @@ Add native app shortcuts or Android provider widgets through the same page contr
 
 <p><a href="images/user-guide/09-app-actions.png"><img src="images/user-guide/09-app-actions.png" alt="App actions include launching and adding a native shortcut." width="280"></a><br>App actions include launching and adding a native shortcut.</p>
 
-<p><a href="images/user-guide/10-app-group.png"><img src="images/user-guide/10-app-group.png" alt="A real app group after holding an icon before dragging it onto another." width="280"></a><br>A real app group after holding an icon before dragging it onto another.</p>
+<p><a href="images/user-guide/10-app-group.png"><img src="images/user-guide/10-app-group.png" alt="A real app group after holding an icon before dragging it onto another." width="280"></a><br>Drop one shortcut onto another to make a folder. Tap the folder to open it at its tile. Tap outside or press Back to close it.</p>
 
 <p><a href="images/user-guide/21-widget-picker.png"><img src="images/user-guide/21-widget-picker.png" alt="Choose the Dikciz library or an Android app widget provider." width="280"></a><br>Choose the Dikciz library or an Android app widget provider.</p>
 
@@ -147,7 +147,7 @@ Tap the cheese beside the launcher controls. The chat opens as a half-screen pan
 1. Tap **Add provider**, or find it under **Chat options** and **Provider profiles**.
 2. Choose **OpenAI**, **Anthropic** or **Custom**. The first two fill the standard host and protocol. Custom accepts your own compatible base URL.
 3. Enter the API key and save. Keys are stored separately with Android Keystore encryption and omitted from reads.
-4. Create a conversation using that provider. Open **Chat options** and choose **Chat model** from the API-backed list. If discovery cannot list a private model, enter its exact ID under **Tune**. Tap **Chats** to search and resume older conversations.
+4. Create a conversation using that provider. Open **Chat options** and choose **Chat model** from the API-backed list. If discovery cannot list a private model, enter its exact ID under **Tune**. Tap **Chats** to search and resume older conversations. When the cheese on Home shows a count, tap it to see unread chats first. Opening a transcript clears its count.
 5. Review the context size, maximum output, reasoning and access setting for this conversation. Several conversations can share one provider connection while using different models and budgets.
 
 The current OpenAI-compatible protocol is streaming Chat Completions; Anthropic-compatible uses streaming Messages. A provider template does not make every model or API feature compatible. Read [provider settings](embedded-chat.md#connect-a-provider) before choosing an endpoint that only supports another protocol.
@@ -156,7 +156,7 @@ Known model metadata can fill token limits. Unknown models need manual values. M
 
 Start with **Read-only phone access** enabled in model settings. Ask the assistant to inspect battery state and explain the result. Read-only mode hides write tools and independently blocks direct write calls in the executor. A model cannot bypass it with an argument. Permission prompts, app launches, shell commands and messaging are writes, so arrange needed grants yourself before this exercise.
 
-For a separate writable exercise, disable read-only while idle and use **Make me a widget** on the spare page. Describe a small note or status widget. Inspect the resulting document and tool results; generation can fail or leave a partial result. **Explain this screen** hides chat, reads the accessibility tree and includes a screenshot when **Supports vision** is enabled, and sends them to an image-capable model. That turn is read-only even in a writable conversation, without changing its saved access setting.
+For a separate writable exercise, disable read-only while idle and use **Make me a widget** on the spare page. Describe a small note or status widget. Inspect the resulting document and tool results; generation can fail or leave a partial result. **Explain this screen** hides chat, sends the accessibility tree to your configured model, and adds a screenshot only if you enable **Supports vision** under **Chat options > Tune**. Leave that switch off for a text-only model. That turn is read-only even in a writable conversation, without changing its saved access setting.
 
 Chat streams Markdown. Scroll up to inspect earlier messages; use **Latest** to resume following output. Hidden work appears in a progress notification. Tap it to return to the exact conversation, or use **Stop** to cancel active and queued work. Completed phone actions remain completed. The quiet **Open chat** notification opens the panel over another app when Android access and notification settings permit it.
 
@@ -472,7 +472,7 @@ Use Settings, Activity & resources to inspect callers, failures and resource mea
 
 ## Companion workflows
 
-See [the focused companion guide](companion.md) for safety, geofences, routes, peripherals, health and Wi-Fi, including grants and actual outcome states. SOS is an editable custom app. [Custom apps](custom-apps.md) explains complete UI/backend bundles, durable timers, dimmed urgent modals and source-only exports. [Travel todo](todo-app-tutorial.md) is the small working reference for that platform.
+For safety, geofences, routes, peripherals, health and Wi-Fi, see [what access each feature needs and how to check the result](companion.md). SOS is an editable custom app. [Custom apps](custom-apps.md) explains complete UI/backend bundles, durable timers, dimmed urgent modals and source-only exports. [Travel todo](todo-app-tutorial.md) is the small working reference for that platform.
 
 
 Open **Dikciz > Skills, agents & rules** to edit and validate assistant instructions. The bundled guides teach self-authoring through revision-checked tools. Use **Dikciz > Automation debugger** for paged event, handler and command traces, retained payloads and effect-free Lua/JavaScript simulation. Read [instruction management](assistant-library.md#manage-instructions-on-the-phone) and [the debugger guide](automation-debugger.md).

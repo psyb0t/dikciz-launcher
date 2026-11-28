@@ -8,13 +8,13 @@
 
 *yes, it's dick cheese*
 
-Dikciz is a programmable Android launcher based on [Fossify Launcher](https://github.com/FossifyOrg/Launcher). Its Home pages combine native shortcuts, app folders, Android widgets and editable HTML widgets. Lua and JavaScript automate phone events. The optional assistant and remote clients use the same phone tools over [MCP](https://modelcontextprotocol.io/), HTTP or WebSocket.
+Dikciz is a programmable Android launcher built on [Fossify Launcher](https://github.com/FossifyOrg/Launcher). Put a clock on your home screen, hold it down, and edit the damn clock. It's HTML, CSS and JavaScript. It lives alongside your normal Android widgets, shortcuts and app folders.
 
-Home layout, widget source and scripts live in editable files under `/sdcard/Dikciz/`. The signed APK includes the programmable features. Android permissions control access to other apps and hardware.
+Your layout, widget source and scripts live under `/sdcard/Dikciz/`. Write Lua or JavaScript to react to phone events, or ask the built-in assistant to make something for you. Want to drive the phone from your laptop? The same tools are available over [MCP](https://modelcontextprotocol.io/), HTTP and WebSocket. All of that ships in the signed APK and uses the Android permissions you grant.
 
 ## Who this is for
 
-For Android users who want to build their own home screen, write small apps and automations, or give an assistant access to specific phone tools. Also for goblins who want their phone to say "peen goes in vageen", flash the torch like Christmas and play alien noises.
+For anyone who's ever thought "why the fuck do I need an app for that?" Build a todo list that checks off "go to New York" when you get there. Or make your phone say "peen goes in vageen", flash the torch like Christmas and play alien noises. The goblin stuff comes in the box.
 
 [Install the APK](#install-it) to use it. [Build from source](#run-it) to work on the launcher.
 
@@ -61,19 +61,19 @@ Release packages use `eu.psyb0t.dikciz.launcher`; debug packages use `eu.psyb0t.
 
 Add a widget from the picker, then edit its HTML, CSS, JavaScript and state. The [bundled catalog](https://psyb0t.github.io/dikciz-launcher/starter-home/#complete-bundled-widget-catalog) lists all 19 templates, including weather, an app launcher, live sensors, BTC/USD and a vehicle console.
 
-Six example Lua scripts ship disabled. They cover battery reminders, locking the screen, announcing arrival in London, reacting to hot weather and warning about GPS speed. [See setup and triggers](https://psyb0t.github.io/dikciz-launcher/starter-home/#optional-lua-utilities).
+Want your phone to yell when you reach London? That's one of six Lua scripts you can switch on. The others cover battery reminders, screen locking, hot weather and GPS speed. They all start disabled. [See setup and triggers](https://psyb0t.github.io/dikciz-launcher/starter-home/#optional-lua-utilities).
 
 ## Navigate and manage the home
 
-Tap **All Android apps** or swipe up from the lower part of Home to open the app drawer. The Dikciz mark opens widgets, page management and Settings. Tap the magnifier to find a page by name or address. A full page refuses another widget.
+Tap **All Android apps** or swipe up from the lower part of Home to open the app drawer. The Dikciz mark opens widgets, page management and Settings. Tap the magnifier to find a page by name or address. Hold one shortcut over another until the target grows, then drop it to make a folder. Tap the folder to open it right at the tile. You can also ask a writable chat to put your installed travel apps in a folder on main Home. If the page is full, make room or pick another page.
 
 The [illustrated user guide](https://psyb0t.github.io/dikciz-launcher/user-guide/) walks through pages, apps, groups, provider widgets, moving and resizing items, appearance, scripts and recovery.
 
 ## Chat with your phone
 
-Tap the cheese beside the launcher controls. Use **Chats** to resume a conversation and **Chat options** to connect an OpenAI-compatible or Anthropic-compatible provider. Each conversation chooses its own model, reasoning level and token budget.
+Tap the cheese beside the launcher controls. A count on the cheese takes you straight to the unread chats. Use **Chats** to resume a conversation and **Chat options** to connect an OpenAI-compatible or Anthropic-compatible provider. Each conversation chooses its own model, reasoning level and token budget.
 
-The assistant can make widgets, explain the screen or react to saved event rules. Read-only mode blocks writes. When chat is in the background, its notification shows progress and offers **Stop**. [Set up chat and its tools](https://psyb0t.github.io/dikciz-launcher/embedded-chat/) or add [skills, named agents and rules](https://psyb0t.github.io/dikciz-launcher/assistant-library/) under `/sdcard/Dikciz/assistant/`.
+Ask the cheese to make you a widget or explain the app on screen. Give it an event rule if you want it to react on its own. Read-only mode blocks writes. When chat is in the background, its notification shows progress and offers **Stop**. [Set up chat and its tools](https://psyb0t.github.io/dikciz-launcher/embedded-chat/) or add [skills, named agents and rules](https://psyb0t.github.io/dikciz-launcher/assistant-library/) under `/sdcard/Dikciz/assistant/`.
 
 ## Safety, journeys and devices
 
@@ -81,7 +81,7 @@ Open **Settings**, **Safety, journeys and devices** for inactive contact plans, 
 
 ## Bundled apps
 
-**Dikciz**, **Apps** opens complete editable apps. [Impact response](https://psyb0t.github.io/dikciz-launcher/apps/impact-response/), [SOS and check-ins](https://psyb0t.github.io/dikciz-launcher/apps/sos-check-ins/), [Voice notes](https://psyb0t.github.io/dikciz-launcher/apps/voice-notes/), [Agenda and alarms](https://psyb0t.github.io/dikciz-launcher/apps/agenda-and-alarms/), [Device status](https://psyb0t.github.io/dikciz-launcher/apps/device-status/) and [Travel todo](https://psyb0t.github.io/dikciz-launcher/apps/travel-todo/) ship with Dikciz. Impact Response opens disarmed. It can warn on phone motion and text one chosen contact after a cancellation countdown. Each app has its own Android task and Recents entry, without a manager toolbar. Create or import your own. Apps share the Android access granted to Dikciz. [The app guide](https://psyb0t.github.io/dikciz-launcher/custom-apps/) covers source, state, events, timers, dimmed alerts and reusable archives.
+**Dikciz > Dikciz apps** opens complete editable apps. [Impact response](https://psyb0t.github.io/dikciz-launcher/apps/impact-response/), [SOS and check-ins](https://psyb0t.github.io/dikciz-launcher/apps/sos-check-ins/), [Voice notes](https://psyb0t.github.io/dikciz-launcher/apps/voice-notes/), [Agenda and alarms](https://psyb0t.github.io/dikciz-launcher/apps/agenda-and-alarms/), [Device status](https://psyb0t.github.io/dikciz-launcher/apps/device-status/) and [Travel todo](https://psyb0t.github.io/dikciz-launcher/apps/travel-todo/) ship with Dikciz. Impact Response opens disarmed. It can warn on phone motion and text one chosen contact after a cancellation countdown. Each app has its own Android task and Recents entry, without a manager toolbar. Create or import your own. Apps share the Android access granted to Dikciz. [The app guide](https://psyb0t.github.io/dikciz-launcher/custom-apps/) covers source, state, events, timers, dimmed alerts and reusable archives.
 
 <p align="center">
 <a href="https://psyb0t.github.io/dikciz-launcher/apps/impact-response/"><img src="docs/images/screens/custom-app-impact-response.png" alt="Impact Response disarmed, with contact and motion threshold settings" width="190"></a>
@@ -97,7 +97,7 @@ Open **Settings**, **Safety, journeys and devices** for inactive contact plans, 
 
 ## Build your first app
 
-Open **Dikciz > Apps > Travel todo** for a complete editable app. Add tasks, then opt into **Watch New York**. An accurate GPS entry checks off **Go to New York**, even while its UI is closed. A custom event can check off another task. The [step-by-step tutorial](https://psyb0t.github.io/dikciz-launcher/todo-app-tutorial/) explains every source file, permission, event and saved-state change; the [complete reference source](app/src/dikciz/assets/apps/travel-todo/) ships in the APK.
+Open **Dikciz > Dikciz apps > Travel todo** for a complete editable app. Add tasks, then opt into **Watch New York**. An accurate GPS entry checks off **Go to New York**, even while its UI is closed. A custom event can check off another task. The [step-by-step tutorial](https://psyb0t.github.io/dikciz-launcher/todo-app-tutorial/) explains every source file, permission, event and saved-state change; the [complete reference source](app/src/dikciz/assets/apps/travel-todo/) ships in the APK.
 
 <p align="center">
 <img src="docs/images/custom-apps/todo-watching.png" alt="Travel todo waiting for a GPS entry near New York" width="280">
@@ -142,7 +142,7 @@ Browse events and test rules in **Dikciz > Automation debugger**. Open **Setting
 
 ## Logs and failure reporting
 
-Dikciz writes daily UTC JSON Lines files under `/sdcard/Dikciz/logs/`. **Settings**, **Configure logging** selects DEBUG, INFO, WARN or ERROR and retention from 1 to 90 days. Defaults are INFO and seven days; changes apply immediately. Successful app launches stay in the logs without a popup. Read script results and failures in the dashboard, Settings log viewer, WebSocket `scriptLogs` or MCP `dikciz_script_logs`. A queued event does not prove an action succeeded. The [logging reference](https://psyb0t.github.io/dikciz-launcher/dikciz-configuration/#logs) covers redaction, limits and failure notifications.
+Dikciz writes daily UTC JSON Lines files under `/sdcard/Dikciz/logs/`. **Settings**, **Configure logging** selects DEBUG, INFO, WARN or ERROR and retention from 1 to 90 days. Defaults are INFO and seven days; changes apply immediately. Successful app launches stay in the logs without a popup. Read script results and failures in the dashboard, Settings log viewer, WebSocket `scriptLogs` or MCP `dikciz_script_logs`. If a script says it queued an event and nothing bloody happened, check the action result next. The [logging reference](https://psyb0t.github.io/dikciz-launcher/dikciz-configuration/#logs) covers redaction, limits and failure notifications.
 
 ## Run it
 
